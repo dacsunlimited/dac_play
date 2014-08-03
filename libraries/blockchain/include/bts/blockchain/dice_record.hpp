@@ -8,7 +8,7 @@ namespace bts { namespace blockchain {
     struct dice_record
     {
         dice_record()
-        :id(0),account_id(0), ammount(0){}
+        :id(0),account_id(0), amount(0), odds(1){}
         
         bool is_null()const;
         
@@ -16,12 +16,13 @@ namespace bts { namespace blockchain {
         
         dice_id_type        id;
         account_id_type     account_id;
-        share_type          ammount;
+        share_type          amount;
+        uint32_t            odds;
     };
     typedef fc::optional<dice_record> odice_record;
     
 } } // bts::blockchain
 
 FC_REFLECT( bts::blockchain::dice_record,
-           (id)(account_id)(ammount)
+           (id)(account_id)(amount)(odds)
            )

@@ -25,6 +25,7 @@ namespace bts { namespace blockchain {
     /*
      * TODO: to replace with withdraw_pay_operation
      */
+    /*
     struct jackpot_operation
     {
         static const operation_type_enum type;
@@ -39,8 +40,9 @@ namespace bts { namespace blockchain {
         
         void evaluate( transaction_evaluation_state& eval_state );
     };
+     */
 } } // bts::blockchain 
 
 FC_REFLECT( bts::blockchain::dice_operation, (amount)(odds)(dice_account_id) )
-FC_REFLECT( bts::blockchain::jackpot_operation, (amount)(account_id) )
+//FC_REFLECT( bts::blockchain::jackpot_operation, (amount)(account_id) )
 

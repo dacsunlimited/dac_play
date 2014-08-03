@@ -545,6 +545,7 @@ namespace bts { namespace blockchain {
             void                                        execute_markets(const fc::time_point_sec& timestamp, const pending_chain_state_ptr& pending_state );
             void                                        update_random_seed( secret_hash_type new_secret,
                                                                            const pending_chain_state_ptr& pending_state );
+            void                                        execute_dice_jackpot( uint32_t block_num, const pending_chain_state_ptr& pending_state );
             void                                        update_active_delegate_list(const full_block& block_data,
                                                                                     const pending_chain_state_ptr& pending_state );
 
@@ -1164,7 +1165,77 @@ namespace bts { namespace blockchain {
                                       fc::variant(fc::ripemd160::hash( enc.result() )) );
       }
        
-      void chain_database_impl::update_active_delegate_list( const full_block& block_data, 
+      void chain_database_impl::execute_dice_jackpot( uint32_t block_num, const pending_chain_state_ptr& pending_state )
+      {
+         // do not need to claim for the first BTS_BLOCKCHAIN_NUM_DELEGATES + 1 blocks, no dice action in genesis
+         if (block_num <= BTS_BLOCKCHAIN_NUM_DELEGATES)
+             return;
+          
+          auto current_random_seed = self->get_current_random_seed();
+          uint32_t block_random_num = current_random_seed._hash[0];
+          
+          uint32_t range = 100000000;
+          
+          uint32_t block_num_of_dice = block_num - BTS_BLOCKCHAIN_NUM_DELEGATES;
+          auto block_of_dice = self->get_block(block_num_of_dice);
+          
+          share_type shares_destroyed = 0;
+          share_type shares_created = 0;
+          for( const auto& trx : block_of_dice.user_transactions )
+          {
+              auto id = trx.id();
+              auto dice_record = self->get_dice_record(id);
+              if ( !!dice_record ) {
+                  uint32_t dice_random_num = id._hash[0];
+                  
+                  // win condition
+                  uint32_t result = ( ( ( block_random_num % range ) + ( dice_random_num % range ) ) % range );
+                  if ((result * (dice_record->odds) ) < range)
+                  {
+                      share_type jackpot = dice_record->amount * (dice_record->odds) * 99 / 100;
+                      
+                      // add the jackpot to the accout's balance, give the jackpot from virtul pool to winner
+                      
+                      auto dice_account_record = pending_state->get_account_record( dice_record->account_id );
+                      if( NOT dice_account_record )
+                          FC_CAPTURE_AND_THROW( unknown_account_id, (dice_record->account_id) );
+                      
+                      // TODO: Dice, what should be the slate_id for the withdraw_with_signature, if need, we can set to the jackpot owner?
+                      auto jackpot_balance_address = withdraw_condition( withdraw_with_signature(dice_account_record->active_address()), 0 ).get_address();
+                      auto jackpot_payout = pending_state->get_balance_record( jackpot_balance_address );
+                      if( !jackpot_payout )
+                          jackpot_payout = balance_record( dice_account_record->active_address(), asset(0,0), 0 );
+                      jackpot_payout->balance += jackpot;
+                      jackpot_payout->last_update = pending_state->now();
+                      
+                      pending_state->store_balance_record( *jackpot_payout );
+                      
+                      // TODO: Dice, add the virtual transactions just like market transactions
+                      
+                      // record destroy and create
+                      shares_destroyed += dice_record->amount;
+                      shares_created += jackpot;
+                  }
+                  
+                  // remove the dice_record from pending state after execute the jackpot
+                  pending_state->store_dice_record(dice_record->make_null());
+              }
+          }
+          
+          // TODO: Dice what if the accumulated_fees become negetive which is possible in theory
+          // const auto prev_accumulated_fees = pending_state->get_accumulated_fees();
+          //pending_state->set_accumulated_fees( prev_accumulated_fees - jackpot );
+          
+          // update the current share supply
+          // TODO: we can also add this(or part of this) house edge to the accumulated fees too, which means pay house edge to the delegates, instead of destroy it(pay dividends to all share holders)
+          // TODO: Dice The destoy part is not only the delegate now, but also the house edge, so should reflect it on ui.
+          auto base_asset_record = pending_state->get_asset_record( asset_id_type(0) );
+          FC_ASSERT( base_asset_record.valid() );
+          base_asset_record->current_share_supply += (shares_created - shares_destroyed);
+          pending_state->store_asset_record( *base_asset_record );
+      }
+       
+      void chain_database_impl::update_active_delegate_list( const full_block& block_data,
                                                              const pending_chain_state_ptr& pending_state )
       {
           if( block_data.block_num % BTS_BLOCKCHAIN_NUM_DELEGATES == 0 )
@@ -1237,7 +1308,10 @@ namespace bts { namespace blockchain {
             execute_markets( block_data.timestamp, pending_state );
 
             update_active_delegate_list( block_data, pending_state );
-
+             
+            // TODO: review that wether the jackpot should before update random seed or after that
+            execute_dice_jackpot( block_data.block_num, pending_state );
+            
             update_random_seed( block_data.previous_secret, pending_state );
 
             // update fee rate
