@@ -1316,6 +1316,30 @@
             }
          ],
          "prerequisites" : ["wallet_unlocked"]
+      },
+      {
+          "method_name" : "wallet_play_dice",
+          "description" : "Play dice",
+          "return_type" : "signed_transaction",
+          "parameters"  : [
+          {
+              "name" : "account_name",
+              "type" : "string",
+              "description" : "the name of the player account"
+          },
+          {
+              "name" : "amount_to_play",
+              "type" : "real_amount",
+              "description" : "the amount of shares to play"
+          },
+          {
+              "name" : "odds",
+              "type" : "uint32_t",
+              "description" : "the betting odds of the dice game",
+              "default_value": 1
+          }
+          ],
+          "prerequisites" : ["wallet_unlocked"]
       }
     ]
 }

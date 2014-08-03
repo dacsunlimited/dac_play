@@ -649,6 +649,8 @@ namespace bts { namespace blockchain {
 
             bts::db::level_map< std::pair<asset_id_type,asset_id_type>, market_status> _market_status_db;
             bts::db::level_map< market_history_key, market_history_record>             _market_history_db;
+          
+            bts::db::level_map< dice_id_type, dice_record>                  _dice_db;
 
             /** used to prevent duplicate processing */
             // bts::db::level_pod_map< transaction_id_type, transaction_location > _processed_transaction_id_db;
@@ -1790,6 +1792,11 @@ namespace bts { namespace blockchain {
       FC_ASSERT( arec.valid() );
       return arec->id;
    } FC_CAPTURE_AND_RETHROW( (symbol) ) }
+    
+   odice_record chain_database::get_dice_record( const dice_id_type& dice_id )const
+   {
+      return my->_dice_db.fetch_optional( dice_id );
+   }
 
    bool chain_database::is_valid_symbol( const string& symbol )const
    { try {
@@ -1825,6 +1832,20 @@ namespace bts { namespace blockchain {
           my->_symbol_index_db.store( asset_to_store.symbol, asset_to_store.id );
        }
    } FC_CAPTURE_AND_RETHROW( (asset_to_store) ) }
+    
+   void chain_database::store_dice_record( const dice_record& r )
+   {
+       try {
+           ilog( "dice record: ${r}", ("r",r) );
+           if( r.is_null() )
+           {
+               my->_dice_db.remove( r.id );
+           }
+           else
+           {
+               my->_dice_db.store( r.id, r );
+           }
+   } FC_RETHROW_EXCEPTIONS( warn, "", ("record", r) ) }
 
    void chain_database::store_balance_record( const balance_record& r )
    { try {

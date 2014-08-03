@@ -3,6 +3,7 @@
 #include <bts/blockchain/balance_operations.hpp>
 #include <bts/blockchain/market_operations.hpp>
 #include <bts/blockchain/proposal_operations.hpp>
+#include <bts/blockchain/dice_operations.hpp>
 #include <bts/blockchain/time.hpp>
 #include <bts/blockchain/transaction.hpp>
 
@@ -199,6 +200,18 @@ namespace bts { namespace blockchain {
       op.precision = precision;
       operations.push_back( op );
    }
+    
+    void transaction::play_dice( account_id_type account_id,
+                                share_type amount,
+                                uint32_t odds )
+    {
+        FC_ASSERT( amount > 0 );
+        dice_operation op;
+        op.dice_account_id = account_id;
+        op.amount = amount;
+        op.odds = odds;
+        operations.push_back( op );
+    }
 
    void transaction::issue( const asset& amount_to_issue )
    {

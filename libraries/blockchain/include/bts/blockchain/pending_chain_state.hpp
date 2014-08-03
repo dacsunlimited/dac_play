@@ -20,6 +20,7 @@ namespace bts { namespace blockchain {
          virtual obalance_record        get_balance_record( const balance_id_type& id )const override;
          virtual oaccount_record        get_account_record( account_id_type id )const override;
          virtual oaccount_record        get_account_record( const address& owner )const override;
+         virtual odice_record           get_dice_record( const dice_id_type& id )const override;
 
          virtual odelegate_slate        get_delegate_slate( slate_id_type id )const override;
          virtual void                   store_delegate_slate( slate_id_type id, const delegate_slate& slate ) override;
@@ -55,6 +56,7 @@ namespace bts { namespace blockchain {
          virtual void                   store_asset_record( const asset_record& r )override;
          virtual void                   store_balance_record( const balance_record& r )override;
          virtual void                   store_account_record( const account_record& r )override;
+         virtual void                   store_dice_record( const dice_record& r )override;
 
          virtual variant                get_property( chain_property_enum property_id )const override;
          virtual void                   set_property( chain_property_enum property_id, const variant& property_value )override;
@@ -111,6 +113,8 @@ namespace bts { namespace blockchain {
          map<time_point_sec, slot_record>                               slots;
          map<market_history_key, market_history_record>                 market_history;
          map< std::pair<asset_id_type,asset_id_type>, market_status>    market_statuses;
+       
+         unordered_map< dice_id_type, dice_record>                      dices;
 
          /**
           * Set of markets that have had changes to their bids/asks and therefore must 

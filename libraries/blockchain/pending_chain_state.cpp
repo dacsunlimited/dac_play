@@ -64,6 +64,8 @@ namespace bts { namespace blockchain {
       for( const auto& item : slots )           prev_state->store_slot_record( item.second );
       for( const auto& item : market_history )  prev_state->store_market_history_record( item.first, item.second );
       for( const auto& item : market_statuses ) prev_state->store_market_status( item.second );
+       
+      for ( const auto& item : dices )          prev_state->store_dice_record(item.second);
       prev_state->set_market_transactions( market_transactions );
    }
 
@@ -188,6 +190,12 @@ namespace bts { namespace blockchain {
             undo_state->store_market_status( market_status() );
          }
       }
+       
+       for ( const auto& item : dices ) {
+           auto prev_value = prev_state->get_dice_record(item.first);
+           if( !! prev_state ) undo_state->store_dice_record( *prev_value );
+           else undo_state->store_dice_record( item.second.make_null() );
+       }
    }
 
    /** load the state from a variant */
@@ -289,10 +297,26 @@ namespace bts { namespace blockchain {
         return prev_state->get_account_record( name );
       return oaccount_record();
    }
+    
+    odice_record pending_chain_state::get_dice_record( const dice_id_type& dice_id )const
+    {
+        chain_interface_ptr prev_state = _prev_state.lock();
+        auto itr = dices.find( dice_id );
+        if( itr != dices.end() )
+            return itr->second;
+        else if( prev_state )
+            return prev_state->get_dice_record( dice_id );
+        return odice_record();
+    }
 
    void pending_chain_state::store_asset_record( const asset_record& r )
    {
       assets[r.id] = r;
+   }
+    
+   void pending_chain_state::store_dice_record( const dice_record& r )
+   {
+      dices[r.id] = r;
    }
 
    void pending_chain_state::store_balance_record( const balance_record& r )

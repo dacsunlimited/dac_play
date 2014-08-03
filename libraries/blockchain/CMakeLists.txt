@@ -39,6 +39,7 @@ add_library( bts_blockchain
              asset_operations.cpp
              market_operations.cpp
              proposal_operations.cpp
+             dice_operations.cpp
 #fire_operation.cpp
              asset.cpp
              transaction.cpp
@@ -48,6 +49,7 @@ add_library( bts_blockchain
              account_record.cpp
              asset_record.cpp
              market_records.cpp
+             dice_record.cpp
              chain_interface.cpp
              pending_chain_state.cpp
              chain_database.cpp

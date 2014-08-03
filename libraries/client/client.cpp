@@ -1706,6 +1706,13 @@ config load_config( const fc::path& datadir )
       network_broadcast_transaction(issue_asset_trx);
       return issue_asset_trx;
     }
+    
+    bts::blockchain::signed_transaction detail::client_impl::wallet_play_dice(const std::string& account_name, double amount_to_play, uint32_t odds)
+    {
+        const auto play_dice_trx = _wallet->play_dice(account_name, amount_to_play, odds, true);
+        network_broadcast_transaction(play_dice_trx);
+        return play_dice_trx;
+    }
 
     vector<string> detail::client_impl::wallet_list() const
     {

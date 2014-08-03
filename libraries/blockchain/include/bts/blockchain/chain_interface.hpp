@@ -7,6 +7,7 @@
 #include <bts/blockchain/delegate_slate.hpp>
 #include <bts/blockchain/market_records.hpp>
 #include <bts/blockchain/proposal_record.hpp>
+#include <bts/blockchain/dice_record.hpp>
 #include <bts/blockchain/types.hpp>
 
 namespace bts { namespace blockchain {
@@ -112,6 +113,7 @@ namespace bts { namespace blockchain {
          virtual obalance_record            get_balance_record( const balance_id_type& id )const    = 0;
          virtual oaccount_record            get_account_record( account_id_type id )const           = 0;
          virtual oaccount_record            get_account_record( const address& owner )const         = 0;
+         virtual odice_record               get_dice_record( const dice_id_type& id )const                  = 0;
 
          virtual bool                       is_known_transaction( const transaction_id_type& trx_id ) = 0;
 
@@ -133,6 +135,7 @@ namespace bts { namespace blockchain {
          virtual void                       store_asset_record( const asset_record& r )             = 0;
          virtual void                       store_balance_record( const balance_record& r )         = 0;
          virtual void                       store_account_record( const account_record& r )         = 0;
+         virtual void                       store_dice_record( const dice_record& r )               = 0;
 
          virtual void                       apply_deterministic_updates(){}
 

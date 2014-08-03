@@ -392,6 +392,11 @@ namespace bts { namespace wallet {
                                            proposal_vote::vote_type vote,
                                            const string& message = string(),
                                            bool sign = true);
+       
+         signed_transaction play_dice( const string& dice_account_name,
+                                             double amount,
+                                             uint32_t odds = 1,
+                                      bool sign = true  );
 
 
          ///@} Transaction Generation Methods

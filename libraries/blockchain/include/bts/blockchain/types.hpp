@@ -33,6 +33,7 @@ namespace bts { namespace blockchain {
    typedef int64_t                            bip_type;
    typedef uint64_t                           slate_id_type;
    typedef fc::optional<fc::ecc::private_key> oprivate_key;
+   typedef transaction_id_type                dice_id_type;
 
    using std::string;
    using std::function;
