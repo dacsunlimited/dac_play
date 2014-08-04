@@ -729,6 +729,8 @@ namespace bts { namespace blockchain {
 
           _market_status_db.open( data_dir / "index/market_status_db" );
           _market_history_db.open( data_dir / "index/market_history_db" );
+          
+          _dice_db.open( data_dir / "index/dice_db");
 
           _pending_trx_state = std::make_shared<pending_chain_state>( self->shared_from_this() );
       } FC_CAPTURE_AND_RETHROW( (data_dir) ) }
@@ -1604,6 +1606,8 @@ namespace bts { namespace blockchain {
 
       my->_market_history_db.close();
       my->_market_status_db.close();
+       
+      my->_dice_db.close();
 
       //my->_processed_transaction_id_db.close();
    } FC_RETHROW_EXCEPTIONS( warn, "" ) }
