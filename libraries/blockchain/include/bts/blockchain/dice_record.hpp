@@ -8,7 +8,7 @@ namespace bts { namespace blockchain {
     struct dice_record
     {
         dice_record()
-        :id(0),account_id(0), amount(0), odds(1){}
+        :id(dice_id_type()),account_id(0), amount(0), odds(1){}
         
         bool is_null()const;
         
