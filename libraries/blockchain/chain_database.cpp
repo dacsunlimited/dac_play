@@ -1214,11 +1214,13 @@ namespace bts { namespace blockchain {
                       
                       // TODO: Dice, add the virtual transactions just like market transactions
                       
-                      // record destroy and create
-                      shares_destroyed += dice_record->amount;
+                      // balance created
+                      
                       shares_created += jackpot;
                   }
                   
+                  // balance destroyed
+                  shares_destroyed += dice_record->amount;
                   // remove the dice_record from pending state after execute the jackpot
                   pending_state->store_dice_record(dice_record->make_null());
               }
