@@ -201,16 +201,14 @@ namespace bts { namespace blockchain {
       operations.push_back( op );
    }
     
-    void transaction::play_dice( account_id_type account_id,
+    void transaction::play_dice( const address&  owner,
                                 share_type amount,
-                                uint32_t odds )
+                                uint32_t odds,
+                                slate_id_type   slate_id
+                                )
     {
         FC_ASSERT( amount > 0 );
-        dice_operation op;
-        op.dice_account_id = account_id;
-        op.amount = amount;
-        op.odds = odds;
-        operations.push_back( op );
+        operations.push_back( dice_operation(owner, amount, odds) );
     }
 
    void transaction::issue( const asset& amount_to_issue )

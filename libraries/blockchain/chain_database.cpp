@@ -602,6 +602,7 @@ namespace bts { namespace blockchain {
             share_type                                                      _priority_fee;
 
             bts::db::level_map<uint32_t, std::vector<market_transaction> >  _market_transactions_db;
+            bts::db::level_map<uint32_t, std::vector<jackpot_transaction> >  _jackpot_transactions_db;
             bts::db::level_map<slate_id_type, delegate_slate >              _slate_db;
             bts::db::level_map<uint32_t, std::vector<block_id_type> >       _fork_number_db;
             bts::db::level_map<block_id_type,block_fork_data>               _fork_db;
@@ -693,6 +694,7 @@ namespace bts { namespace blockchain {
              FC_CAPTURE_AND_THROW( new_database_version, (database_version)(BTS_BLOCKCHAIN_DATABASE_VERSION) ); 
           }
           _market_transactions_db.open( data_dir / "index/market_transactions_db" );
+          _jackpot_transactions_db.open( data_dir / "index/jackpot_transactions_db" );
           _fork_number_db.open( data_dir / "index/fork_number_db" );
           _fork_db.open( data_dir / "index/fork_db" );
           _slate_db.open( data_dir / "index/slate_db" );
@@ -1183,6 +1185,7 @@ namespace bts { namespace blockchain {
           
           share_type shares_destroyed = 0;
           share_type shares_created = 0;
+          vector<jackpot_transaction> jackpot_transactions;
           for( const auto& trx : block_of_dice.user_transactions )
           {
               auto id = trx.id();
@@ -1191,22 +1194,19 @@ namespace bts { namespace blockchain {
                   uint32_t dice_random_num = id._hash[0];
                   
                   // win condition
-                  uint32_t result = ( ( ( block_random_num % range ) + ( dice_random_num % range ) ) % range );
-                  if ((result * (dice_record->odds) ) < range)
+                  uint32_t lucky_number = ( ( ( block_random_num % range ) + ( dice_random_num % range ) ) % range ) * (dice_record->odds);
+                  share_type jackpot = 0;
+                  if ( lucky_number < range )
                   {
-                      share_type jackpot = dice_record->amount * (dice_record->odds) * 99 / 100;
+                      jackpot = dice_record->amount * (dice_record->odds) * 99 / 100;
                       
                       // add the jackpot to the accout's balance, give the jackpot from virtul pool to winner
                       
-                      auto dice_account_record = pending_state->get_account_record( dice_record->account_id );
-                      if( NOT dice_account_record )
-                          FC_CAPTURE_AND_THROW( unknown_account_id, (dice_record->account_id) );
-                      
                       // TODO: Dice, what should be the slate_id for the withdraw_with_signature, if need, we can set to the jackpot owner?
-                      auto jackpot_balance_address = withdraw_condition( withdraw_with_signature(dice_account_record->active_address()), 0 ).get_address();
+                      auto jackpot_balance_address = dice_record->condition.get_address();
                       auto jackpot_payout = pending_state->get_balance_record( jackpot_balance_address );
                       if( !jackpot_payout )
-                          jackpot_payout = balance_record( dice_account_record->active_address(), asset(0,0), 0 );
+                          jackpot_payout = balance_record( dice_record->condition );
                       jackpot_payout->balance += jackpot;
                       jackpot_payout->last_update = pending_state->now();
                       
@@ -1223,6 +1223,17 @@ namespace bts { namespace blockchain {
                   shares_destroyed += dice_record->amount;
                   // remove the dice_record from pending state after execute the jackpot
                   pending_state->store_dice_record(dice_record->make_null());
+                  
+                  jackpot_transaction jackpot_trx;
+                  jackpot_trx.play_owner = dice_record->owner();
+                  jackpot_trx.jackpot_owner = dice_record->owner();
+                  jackpot_trx.play_amount = dice_record->amount;
+                  jackpot_trx.jackpot_received = jackpot;
+                  jackpot_trx.odds = dice_record->odds;
+                  jackpot_trx.lucky_number = lucky_number;
+                  jackpot_transactions.push_back(jackpot_trx);
+
+                  pending_state->set_jackpot_transactions( std::move( jackpot_transactions ) );
               }
           }
           
@@ -1574,6 +1585,7 @@ namespace bts { namespace blockchain {
    void chain_database::close()
    { try {
       my->_market_transactions_db.close();
+      my->_jackpot_transactions_db.close();
       my->_fork_number_db.close();
       my->_fork_db.close();
       my->_slate_db.close();
@@ -3058,7 +3070,25 @@ namespace bts { namespace blockchain {
       if( tmp ) return *tmp;
       return vector<market_transaction>();
    }
-
+    
+    void chain_database::set_jackpot_transactions( vector<jackpot_transaction> trxs )
+    {
+        if( trxs.size() == 0 )
+        {
+            my->_jackpot_transactions_db.remove( get_head_block_num()+1 );
+        }
+        else
+        {
+            my->_jackpot_transactions_db.store( get_head_block_num()+1, trxs );
+        }
+    }
+    
+    vector<jackpot_transaction> chain_database::get_jackpot_transactions( uint32_t block_num  )const
+    {
+        auto tmp = my->_jackpot_transactions_db.fetch_optional(block_num);
+        if( tmp ) return *tmp;
+        return vector<jackpot_transaction>();
+    }
 
 } } // bts::blockchain
 

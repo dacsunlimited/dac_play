@@ -2,15 +2,22 @@
 
 namespace bts { namespace blockchain {
     
+    address dice_record::owner()const
+    {
+        if( condition.type == withdraw_signature_type )
+            return condition.as<withdraw_with_signature>().owner;
+        return address();
+    }
+    
     bool dice_record::is_null()const
     {
-        return account_id == -1;
+        return id == dice_id_type();
     }
     
     dice_record dice_record::make_null()const
     {
         dice_record cpy(*this);
-        cpy.account_id = -1;
+        cpy.id = dice_id_type();
         return cpy;
     }
     

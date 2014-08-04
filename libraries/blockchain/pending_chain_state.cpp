@@ -481,6 +481,11 @@ namespace bts { namespace blockchain {
    {
       market_transactions = std::move(trxs); 
    }
+    
+   void pending_chain_state::set_jackpot_transactions( vector<jackpot_transaction> trxs )
+   {
+      jackpot_transactions = std::move(trxs);
+   }
 
    omarket_status    pending_chain_state::get_market_status( asset_id_type quote_id, asset_id_type base_id ) 
    {

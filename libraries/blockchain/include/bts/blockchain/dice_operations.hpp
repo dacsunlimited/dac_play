@@ -2,21 +2,27 @@
 
 #include <bts/blockchain/operations.hpp>
 #include <bts/blockchain/types.hpp>
+#include <bts/blockchain/withdraw_types.hpp>
 
 namespace bts { namespace blockchain {
     
     struct dice_operation
     {
         static const operation_type_enum type;
-        dice_operation():amount(0){}
+        dice_operation():amount(0), odds(1){}
+        
+        dice_operation( const address& owner, share_type amnt, uint32_t odds = 1 );
+        
+        /** owner is just the hash of the condition */
+        balance_id_type                balance_id()const;
         
         share_type          amount; 
-        uint64_t            odds;
+        uint32_t            odds;
         
-        /**
-         *  Only registered accounts can play dice
+        /** the condition that the funds may be withdrawn,
+         *  this is only necessary if the address is new.
          */
-        account_id_type     dice_account_id;
+        withdraw_condition  condition;
         
         
         void evaluate( transaction_evaluation_state& eval_state );
@@ -43,6 +49,6 @@ namespace bts { namespace blockchain {
      */
 } } // bts::blockchain 
 
-FC_REFLECT( bts::blockchain::dice_operation, (amount)(odds)(dice_account_id) )
+FC_REFLECT( bts::blockchain::dice_operation, (amount)(odds)(condition) )
 //FC_REFLECT( bts::blockchain::jackpot_operation, (amount)(account_id) )
 

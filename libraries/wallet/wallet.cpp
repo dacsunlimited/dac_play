@@ -11,6 +11,7 @@
 #include <bts/blockchain/proposal_operations.hpp>
 #include <bts/blockchain/account_operations.hpp>
 #include <bts/blockchain/asset_operations.hpp>
+#include <bts/blockchain/dice_operations.hpp>
 #include <fc/thread/thread.hpp>
 #include <fc/crypto/base58.hpp>
 #include <fc/filesystem.hpp>
@@ -93,7 +94,12 @@ namespace bts { namespace wallet {
                                          uint32_t block_num,
                                          const time_point_sec& block_time,
                                          const time_point_sec& received_time);
-            
+          
+            void scan_jackpot_transaction(const jackpot_transaction& trx,
+                                       uint32_t block_num,
+                                       const time_point_sec& block_time,
+                                       const time_point_sec& received_time);
+          
 
             secret_hash_type get_secret( uint32_t block_num,
                                          const private_key_type& delegate_key )const;
@@ -115,6 +121,7 @@ namespace bts { namespace wallet {
             bool scan_bid( wallet_transaction_record& trx_rec, const bid_operation& op );
             bool scan_ask( wallet_transaction_record& trx_rec, const ask_operation& op );
             bool scan_short( wallet_transaction_record& trx_rec, const short_operation& op );
+            bool scan_dice( const dice_operation& op, wallet_transaction_record& trx_rec );
 
             void sync_balance_with_blockchain( const balance_id_type& balance_id );
 
@@ -294,6 +301,68 @@ namespace bts { namespace wallet {
               _wallet_db.store_transaction( record );
           }
       } FC_CAPTURE_AND_RETHROW() }
+       
+      void wallet_impl::scan_jackpot_transaction(const jackpot_transaction& trx,
+                                                 uint32_t block_num,
+                                                 const time_point_sec& block_time,
+                                                 const time_point_sec& received_time)
+      { try {
+          const auto win = ( trx.jackpot_received != 0 );
+          const auto play_result = string( win ? "win" : "lose" );
+          
+          // TODO: Dice, play owner might be different with jackpot owner
+          auto okey_jackpot = _wallet_db.lookup_key( trx.jackpot_owner );
+          if( okey_jackpot && okey_jackpot->has_private_key() )
+          {
+              auto jackpot_account_key = _wallet_db.lookup_key( okey_jackpot->account_address );
+              
+              auto bal_rec = _blockchain->get_balance_record( withdraw_condition(
+                                                                                 withdraw_with_signature(trx.jackpot_owner), 0 ).get_address() );
+              if( bal_rec )
+              {
+                  //wlog( "BAL RECORD ${R}", ("R", bal_rec) );
+                  _wallet_db.cache_balance( *bal_rec );
+              }
+              
+              /* What we paid */
+              /*
+              auto out_entry = ledger_entry();
+              out_entry.from_account = jackpot_account_key;
+              out_entry.amount = asset( trx.play_amount );
+              std::stringstream out_memo_ss;
+              out_memo_ss << "play dice with odds: " << trx.odds;
+              out_entry.memo = out_memo_ss.str();
+               */
+              
+              /* What we received */
+              auto in_entry = ledger_entry();
+              in_entry.to_account = jackpot_account_key->public_key;
+              in_entry.amount = asset(trx.jackpot_received);
+              
+              std::stringstream in_memo_ss;
+              in_memo_ss << play_result << "jackpot with lucky number: " << trx.lucky_number;
+              in_entry.memo = in_memo_ss.str();
+              
+              std::stringstream id_ss;
+              id_ss << block_num << self->get_key_label( okey_jackpot->public_key ) << "0";
+              
+              // TODO: Don't blow away memo, etc.
+              auto record = wallet_transaction_record();
+              record.record_id = fc::ripemd160::hash( id_ss.str() );
+              record.block_num = block_num;
+              record.is_virtual = true;
+              record.is_confirmed = true;
+              record.is_market = true;
+              //record.ledger_entries.push_back( out_entry );
+              record.ledger_entries.push_back( in_entry );
+              record.fee = asset(0);    // TODO: Dice, do we need fee for claim jackpot? may be later we'll support part to delegates
+              record.created_time = block_time;
+              record.received_time = received_time;
+              
+              _wallet_db.store_transaction( record );
+          }
+           
+      } FC_CAPTURE_AND_RETHROW() }
 
       vector<wallet_transaction_record> wallet_impl::get_pending_transactions()const
       {
@@ -440,6 +509,10 @@ namespace bts { namespace wallet {
          const auto market_trxs = _blockchain->get_market_transactions( block_num );
          for( const auto& market_trx : market_trxs )
             scan_market_transaction( market_trx, block_num, block.timestamp, received_time );
+          
+         const auto jackpot_trxs = _blockchain->get_jackpot_transactions( block_num );
+         for( const auto& jackpot_trx : jackpot_trxs )
+            scan_jackpot_transaction( jackpot_trx, block_num, block.timestamp, received_time );
       }
 
       void wallet_impl::scan_transaction( const signed_transaction& transaction, uint32_t block_num, const time_point_sec& block_timestamp,
@@ -584,7 +657,7 @@ namespace bts { namespace wallet {
                       break;
                   case dice_op_type:
                       // TODO: Dice
-                      //store_record |= scan_dice( op.as<dice_operation>(), *transaction_record );
+                      store_record |= scan_dice( op.as<dice_operation>(), *transaction_record );
                       break;
 
                   default:
@@ -857,7 +930,70 @@ namespace bts { namespace wallet {
              return true;
           }
           return false;
-      } FC_CAPTURE_AND_RETHROW( (short_op) ) } 
+      } FC_CAPTURE_AND_RETHROW( (short_op) ) }
+       
+       bool wallet_impl::scan_dice( const dice_operation& op, wallet_transaction_record& trx_rec )
+       {
+           switch( (withdraw_condition_types) op.condition.type )
+           {
+               case withdraw_null_type:
+               {
+                   FC_THROW( "withdraw_null_type not implemented!" );
+                   break;
+               }
+               case withdraw_signature_type:
+               {
+                   auto condtion = op.condition.as<withdraw_with_signature>();
+                   // TODO: lookup if cached key and work with it only
+                   // if( _wallet_db.has_private_key( deposit.owner ) )
+                   if( condtion.memo )
+                   {
+                       // TODO: TITAN, FC_THROW( "withdraw_option_type not implemented!" );
+                       break;
+                   } else
+                   {
+                       auto opt_key_rec = _wallet_db.lookup_key( condtion.owner );
+                       if( opt_key_rec.valid() && opt_key_rec->has_private_key() )
+                       {
+                           // TODO: Refactor this
+                           for( auto& entry : trx_rec.ledger_entries )
+                           {
+                               if( !entry.to_account.valid() )
+                               {
+                                   entry.to_account = opt_key_rec->public_key;
+                                   entry.amount = asset( op.amount );
+                                   entry.memo = "play dice";
+                                   return true;
+                               }
+                           }
+                       }
+                   }
+                   break;
+               }
+               case withdraw_multi_sig_type:
+               {
+                   // TODO: FC_THROW( "withdraw_multi_sig_type not implemented!" );
+                   break;
+               }
+               case withdraw_password_type:
+               {
+                   // TODO: FC_THROW( "withdraw_password_type not implemented!" );
+                   break;
+               }
+               case withdraw_option_type:
+               {
+                   // TODO: FC_THROW( "withdraw_option_type not implemented!" );
+                   break;
+               }
+               default:
+               {
+                   FC_THROW( "unknown withdraw condition type!" );
+                   break;
+               }
+           }
+
+           return false;
+       }
 
       // TODO: optimize
       bool wallet_impl::scan_deposit( const deposit_operation& op, const private_keys& keys,
@@ -3141,7 +3277,7 @@ namespace bts { namespace wallet {
       return trx;
    }
     
-    signed_transaction  wallet::play_dice( const string& dice_account_name,
+    signed_transaction  wallet::play_dice( const string& from_account_name,
                                              double amount,
                                              uint32_t odds,
                                              bool sign  )
@@ -3169,11 +3305,9 @@ namespace bts { namespace wallet {
         
         required_fees += asset(amount_to_play, 0);
         
-        if( !is_valid_account_name( dice_account_name ) )
-            FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("dice_account_name",dice_account_name) );
-        auto from_account_address = get_account_public_key( dice_account_name );
-        auto oname_rec = my->_blockchain->get_account_record( dice_account_name );
-        FC_ASSERT( oname_rec.valid() );
+        if( !is_valid_account_name( from_account_name ) )
+            FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("dice_account_name",from_account_name) );
+        auto from_account_address = get_account_public_key( from_account_name );
         
         my->withdraw_to_transaction( required_fees,
                                     from_account_address,
@@ -3182,7 +3316,9 @@ namespace bts { namespace wallet {
         
         //check this way to avoid overflow
         required_signatures.insert( address( from_account_address ) );
-        trx.play_dice( oname_rec->id, amount_to_play, odds );
+        
+        // TODO: Dice, specify to account, the receiver who can claim jackpot
+        trx.play_dice( address( from_account_address ), amount_to_play, odds, 0 );
         
         if( sign )
         {
@@ -3199,7 +3335,7 @@ namespace bts { namespace wallet {
         }
         return trx;
     } FC_RETHROW_EXCEPTIONS( warn, "",
-                            ( "dice_account", dice_account_name)("amount", amount)("odds", odds) ) }
+                            ( "dice_account", from_account_name)("amount", amount)("odds", odds) ) }
 
    void wallet::update_account_private_data( const string& account_to_update,
                                              const variant& private_data )

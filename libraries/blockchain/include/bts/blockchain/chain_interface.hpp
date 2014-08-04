@@ -161,6 +161,7 @@ namespace bts { namespace blockchain {
          virtual void                               set_dirty_markets( const map<asset_id_type,asset_id_type>& );
 
          virtual void                       set_market_transactions( vector<market_transaction> trxs ) = 0;
+         virtual void                       set_jackpot_transactions( vector<jackpot_transaction> trxs ) = 0;
    };
    typedef std::shared_ptr<chain_interface> chain_interface_ptr;
 

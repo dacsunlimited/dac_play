@@ -291,6 +291,8 @@ namespace bts { namespace blockchain {
 
          virtual void                       set_market_transactions( vector<market_transaction> trxs );
          vector<market_transaction>         get_market_transactions( uint32_t block_num  )const;
+         virtual void                       set_jackpot_transactions( vector<jackpot_transaction> trxs );
+         vector<jackpot_transaction>        get_jackpot_transactions( uint32_t block_num  )const;
 
       private:
          unique_ptr<detail::chain_database_impl> my;
