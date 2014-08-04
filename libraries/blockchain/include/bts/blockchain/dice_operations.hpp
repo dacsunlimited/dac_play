@@ -10,13 +10,13 @@ namespace bts { namespace blockchain {
         static const operation_type_enum type;
         dice_operation():amount(0){}
         
-        share_type          amount;
-        uint64_t       odds;
+        share_type          amount; 
+        uint64_t            odds;
         
         /**
          *  Only registered accounts can play dice
          */
-        account_id_type        dice_account_id;
+        account_id_type     dice_account_id;
         
         
         void evaluate( transaction_evaluation_state& eval_state );
