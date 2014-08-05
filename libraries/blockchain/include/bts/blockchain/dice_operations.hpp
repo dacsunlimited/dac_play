@@ -13,6 +13,8 @@ namespace bts { namespace blockchain {
         
         dice_operation( const address& owner, share_type amnt, uint32_t odds = 1 );
         
+        address owner()const;
+        
         /** owner is just the hash of the condition */
         balance_id_type                balance_id()const;
         

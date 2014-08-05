@@ -1203,10 +1203,10 @@ namespace bts { namespace blockchain {
                       // add the jackpot to the accout's balance, give the jackpot from virtul pool to winner
                       
                       // TODO: Dice, what should be the slate_id for the withdraw_with_signature, if need, we can set to the jackpot owner?
-                      auto jackpot_balance_address = dice_record->condition.get_address();
+                      auto jackpot_balance_address = withdraw_condition( withdraw_with_signature(dice_record->owner), 0 ).get_address();
                       auto jackpot_payout = pending_state->get_balance_record( jackpot_balance_address );
                       if( !jackpot_payout )
-                          jackpot_payout = balance_record( dice_record->condition );
+                          jackpot_payout = balance_record( dice_record->owner, asset(0), 0);
                       jackpot_payout->balance += jackpot;
                       jackpot_payout->last_update = pending_state->now();
                       
@@ -1225,8 +1225,8 @@ namespace bts { namespace blockchain {
                   pending_state->store_dice_record(dice_record->make_null());
                   
                   jackpot_transaction jackpot_trx;
-                  jackpot_trx.play_owner = dice_record->owner();
-                  jackpot_trx.jackpot_owner = dice_record->owner();
+                  jackpot_trx.play_owner = dice_record->owner;
+                  jackpot_trx.jackpot_owner = dice_record->owner;
                   jackpot_trx.play_amount = dice_record->amount;
                   jackpot_trx.jackpot_received = jackpot;
                   jackpot_trx.odds = dice_record->odds;

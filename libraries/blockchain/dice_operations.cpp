@@ -8,6 +8,13 @@ namespace bts { namespace blockchain {
     {
         return condition.get_address();
     }
+    
+    address dice_operation::owner()const
+    {
+        if( condition.type == withdraw_signature_type )
+            return condition.as<withdraw_with_signature>().owner;
+        return address();
+    }
 
     dice_operation::dice_operation( const address& owner, share_type amnt, uint32_t o )
     {
@@ -34,7 +41,7 @@ void dice_operation::evaluate( transaction_evaluation_state& eval_state )
     if( cur_record )
         FC_CAPTURE_AND_THROW( duplicate_dice_in_transaction, ( eval_state.trx.id() ) );
     
-    cur_record = dice_record( this->condition );
+    cur_record = dice_record();
     
     // this does not means the balance are now stored in balance record, just over pass the api
     // the dice record are not in any balance record, they are over-fly-on-sky..
@@ -43,6 +50,7 @@ void dice_operation::evaluate( transaction_evaluation_state& eval_state )
     
     cur_record->id               = eval_state.trx.id();
     cur_record->amount           = this->amount;
+    cur_record->owner            = this->owner();
     cur_record->odds             = this->odds;
     
     eval_state._current_state->store_dice_record( *cur_record );

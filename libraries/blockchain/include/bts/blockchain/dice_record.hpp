@@ -9,17 +9,12 @@ namespace bts { namespace blockchain {
     {
         dice_record(){}
         
-        dice_record( const withdraw_condition& c )
-        :condition(c){}
-        
-        address owner()const;
-        
         bool is_null()const;
         
         dice_record make_null()const;
         
         dice_id_type        id = dice_id_type();
-        withdraw_condition  condition;
+        address             owner;
         share_type          amount;
         uint32_t            odds;
     };
@@ -41,7 +36,7 @@ namespace bts { namespace blockchain {
 } } // bts::blockchain
 
 FC_REFLECT( bts::blockchain::dice_record,
-           (id)(condition)(amount)(odds)
+           (id)(owner)(amount)(odds)
            )
 FC_REFLECT_TYPENAME( std::vector<bts::blockchain::jackpot_transaction> )
 FC_REFLECT( bts::blockchain::jackpot_transaction,
