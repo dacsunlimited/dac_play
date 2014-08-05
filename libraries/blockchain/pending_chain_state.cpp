@@ -67,6 +67,7 @@ namespace bts { namespace blockchain {
        
       for ( const auto& item : dices )          prev_state->store_dice_record(item.second);
       prev_state->set_market_transactions( market_transactions );
+      prev_state->set_jackpot_transactions( jackpot_transactions );
    }
 
    otransaction_record pending_chain_state::get_transaction( const transaction_id_type& trx_id, 

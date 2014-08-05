@@ -34,18 +34,18 @@ void dice_operation::evaluate( transaction_evaluation_state& eval_state )
     if( cur_record )
         FC_CAPTURE_AND_THROW( duplicate_dice_in_transaction, ( eval_state.trx.id() ) );
     
+    cur_record = dice_record( this->condition );
+    
     // this does not means the balance are now stored in balance record, just over pass the api
     // the dice record are not in any balance record, they are over-fly-on-sky..
     // TODO: Dice Review
     eval_state.sub_balance(this->balance_id(), asset( this->amount, 0 ));
     
-    dice_record new_record;
-    new_record.id               = eval_state.trx.id();
-    new_record.condition        = this->condition;
-    new_record.amount           = this->amount;
-    new_record.odds             = this->odds;
+    cur_record->id               = eval_state.trx.id();
+    cur_record->amount           = this->amount;
+    cur_record->odds             = this->odds;
     
-    eval_state._current_state->store_dice_record( new_record );
+    eval_state._current_state->store_dice_record( *cur_record );
     
 } FC_CAPTURE_AND_RETHROW( (*this) ) }
 

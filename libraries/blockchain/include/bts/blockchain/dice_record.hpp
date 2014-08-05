@@ -9,6 +9,9 @@ namespace bts { namespace blockchain {
     {
         dice_record(){}
         
+        dice_record( const withdraw_condition& c )
+        :condition(c){}
+        
         address owner()const;
         
         bool is_null()const;
