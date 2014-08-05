@@ -1232,10 +1232,10 @@ namespace bts { namespace blockchain {
                   jackpot_trx.odds = dice_record->odds;
                   jackpot_trx.lucky_number = lucky_number;
                   jackpot_transactions.push_back(jackpot_trx);
-
-                  pending_state->set_jackpot_transactions( std::move( jackpot_transactions ) );
               }
           }
+          
+          pending_state->set_jackpot_transactions( std::move( jackpot_transactions ) );
           
           // TODO: Dice what if the accumulated_fees become negetive which is possible in theory
           // const auto prev_accumulated_fees = pending_state->get_accumulated_fees();
