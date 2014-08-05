@@ -3285,7 +3285,8 @@ namespace bts { namespace wallet {
         
         FC_ASSERT( is_open() );
         FC_ASSERT( is_unlocked() );
-        FC_ASSERT( amount > 0 ); // valid length and characters
+        FC_ASSERT( amount > 0 );
+        FC_ASSERT( odds > 0 );
         
         signed_transaction     trx;
         unordered_set<address> required_signatures;

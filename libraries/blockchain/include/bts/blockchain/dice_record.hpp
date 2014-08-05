@@ -7,8 +7,7 @@ namespace bts { namespace blockchain {
     
     struct dice_record
     {
-        dice_record()
-        :id(dice_id_type()),amount(0), odds(1){}
+        dice_record(){}
         
         address owner()const;
         
@@ -16,7 +15,7 @@ namespace bts { namespace blockchain {
         
         dice_record make_null()const;
         
-        dice_id_type        id;
+        dice_id_type        id = dice_id_type();
         withdraw_condition  condition;
         share_type          amount;
         uint32_t            odds;

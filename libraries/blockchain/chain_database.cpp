@@ -1172,15 +1172,15 @@ namespace bts { namespace blockchain {
       void chain_database_impl::execute_dice_jackpot( uint32_t block_num, const pending_chain_state_ptr& pending_state )
       {
          // do not need to claim for the first BTS_BLOCKCHAIN_NUM_DELEGATES + 1 blocks, no dice action in genesis
-         if (block_num <= BTS_BLOCKCHAIN_NUM_DELEGATES)
+         if (block_num <= BTS_BLOCKCHAIN_NUM_DICE)
              return;
           
           auto current_random_seed = self->get_current_random_seed();
           uint32_t block_random_num = current_random_seed._hash[0];
           
-          uint32_t range = 100000000;
+          uint32_t range = BTS_BLOCKCHAIN_DICE_RANGE;
           
-          uint32_t block_num_of_dice = block_num - BTS_BLOCKCHAIN_NUM_DELEGATES;
+          uint32_t block_num_of_dice = block_num - BTS_BLOCKCHAIN_NUM_DICE;
           auto block_of_dice = self->get_block(block_num_of_dice);
           
           share_type shares_destroyed = 0;
@@ -1198,7 +1198,7 @@ namespace bts { namespace blockchain {
                   share_type jackpot = 0;
                   if ( lucky_number < range )
                   {
-                      jackpot = dice_record->amount * (dice_record->odds) * 99 / 100;
+                      jackpot = dice_record->amount * (dice_record->odds) * (100 - BTS_BLOCKCHAIN_HOUSE_EDGE) / 100;
                       
                       // add the jackpot to the accout's balance, give the jackpot from virtul pool to winner
                       

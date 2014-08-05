@@ -32,6 +32,9 @@
  */
 #define BTS_BLOCKCHAIN_NUM_DELEGATES                        (101)
 #define BTS_BLOCKCHAIN_MAX_SLATE_SIZE                       (BTS_BLOCKCHAIN_NUM_DELEGATES)
+#define BTS_BLOCKCHAIN_NUM_DICE                             (BTS_BLOCKCHAIN_NUM_DELEGATES / 10)
+#define BTS_BLOCKCHAIN_DICE_RANGE                           (100000000)
+#define BTS_BLOCKCHAIN_HOUSE_EDGE                           (1) // 1% house edge
 
 
 /**

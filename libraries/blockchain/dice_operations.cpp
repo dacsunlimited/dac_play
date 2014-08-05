@@ -9,10 +9,11 @@ namespace bts { namespace blockchain {
         return condition.get_address();
     }
 
-    dice_operation::dice_operation( const address& owner, share_type amnt, uint32_t odds )
+    dice_operation::dice_operation( const address& owner, share_type amnt, uint32_t o )
     {
         FC_ASSERT( amnt > 0 );
         amount = amnt;
+        odds = o;
         // TODO: Dice specify the slate_id, if slate_id is added make sure the one in scan_jackpot_transaction is updated too.
         condition = withdraw_condition( withdraw_with_signature( owner ), 0);
     }
