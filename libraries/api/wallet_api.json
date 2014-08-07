@@ -1340,6 +1340,54 @@
           }
           ],
           "prerequisites" : ["wallet_unlocked"]
+      },
+      {
+          "method_name" : "wallet_market_buy_chips",
+          "description" : "Exchange lto for chips",
+          "return_type" : "signed_transaction",
+          "parameters"  : [
+          {
+              "name" : "from_account_name",
+              "type" : "account_name",
+              "description" : "the account that will provide funds for the bid"
+          },
+          {
+              "name" : "quantity",
+              "type" : "real_amount",
+              "description" : "the quantity of items you would like to buy"
+          },
+          {
+              "name" : "quantity_symbol",
+              "type" : "asset_symbol",
+              "description" : "the type of chips you would like to buy"
+          }
+          ],
+          "prerequisites" : ["wallet_unlocked"],
+          "aliases" : [ "buy_chips" ]
+      },
+      {
+          "method_name" : "wallet_market_sell_chips",
+          "description" : "Exchange chips for lto",
+          "return_type" : "signed_transaction",
+          "parameters"  : [
+          {
+              "name" : "from_account_name",
+              "type" : "account_name",
+              "description" : "the account that will provide funds for the bid"
+          },
+          {
+              "name" : "quantity",
+              "type" : "real_amount",
+              "description" : "the quantity of items you would like to sell"
+          },
+          {
+              "name" : "quantity_symbol",
+              "type" : "asset_symbol",
+              "description" : "the type of chips you would like to sell"
+          }
+          ],
+          "prerequisites" : ["wallet_unlocked"],
+          "aliases" : [ "sell_chips" ]
       }
     ]
 }

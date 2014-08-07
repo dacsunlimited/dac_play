@@ -31,6 +31,11 @@ bool asset_record::is_market_issued()const
 {
     return issuer_account_id == market_issued_asset;
 }
+    
+bool asset_record::is_chip_asset() const
+{
+    return current_collateral >= 0;
+}
 
 asset_record asset_record::make_null()const
 {

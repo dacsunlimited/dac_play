@@ -3304,11 +3304,17 @@ namespace bts { namespace wallet {
         
         share_type amount_to_play = amount * asset_rec->get_precision();
         
-        required_fees += asset(amount_to_play, 0);
+        // dice asset is 1
+        asset chips_to_play(amount_to_play, 0);
         
         if( !is_valid_account_name( from_account_name ) )
             FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("dice_account_name",from_account_name) );
         auto from_account_address = get_account_public_key( from_account_name );
+        
+        my->withdraw_to_transaction( chips_to_play,
+                                    from_account_address,
+                                    trx,
+                                    required_signatures );
         
         my->withdraw_to_transaction( required_fees,
                                     from_account_address,
@@ -3337,6 +3343,166 @@ namespace bts { namespace wallet {
         return trx;
     } FC_RETHROW_EXCEPTIONS( warn, "",
                             ( "dice_account", from_account_name)("amount", amount)("odds", odds) ) }
+    
+    signed_transaction wallet::buy_chips(
+                                          const string& from_account_name,
+                                          double real_quantity,
+                                          const string& quantity_symbol,
+                                          bool sign )
+    { try {
+        if( NOT is_open()     ) FC_CAPTURE_AND_THROW( wallet_closed );
+        if( NOT is_unlocked() ) FC_CAPTURE_AND_THROW( login_required );
+        if( NOT is_receive_account(from_account_name) )
+            FC_CAPTURE_AND_THROW( unknown_receive_account, (from_account_name) );
+        if( real_quantity <= 0 )
+            FC_CAPTURE_AND_THROW( negative_bid, (real_quantity) );
+
+        if( quantity_symbol == BTS_BLOCKCHAIN_SYMBOL )
+            FC_CAPTURE_AND_THROW( invalid_price, (quantity_symbol) );
+        
+        auto chip_asset_record  = my->_blockchain->get_asset_record( quantity_symbol );
+        
+        if( NOT chip_asset_record )
+            FC_CAPTURE_AND_THROW( unknown_asset_symbol, (quantity_symbol) );
+        
+        double price = ( chip_asset_record->current_collateral * 1.0 ) / chip_asset_record->current_share_supply;
+        
+        auto from_account_key = get_account_public_key( from_account_name );
+        
+        share_type cost = real_quantity * chip_asset_record->precision * price;
+        
+        asset chips_to_buy( real_quantity * chip_asset_record->precision, chip_asset_record->id );
+        asset cost_shares( cost, 0 );
+        
+        auto order_key = get_new_public_key( from_account_name );
+        auto order_address = order_key;
+        
+        signed_transaction trx;
+        unordered_set<address>     required_signatures;
+        required_signatures.insert(order_address);
+        
+        private_key_type from_private_key  = get_account_private_key( from_account_name );
+        address          from_address( from_private_key.get_public_key() );
+        
+        auto required_fees = get_priority_fee();
+        
+        my->withdraw_to_transaction( cost_shares + required_fees,
+                                    from_address,
+                                    trx,
+                                    required_signatures );
+        
+        trx.buy_chips( chips_to_buy, order_address );
+        
+        if( sign )
+        {
+            std::stringstream memo;
+            // TODO: Dice the price here is not true, it is in satoshi.
+            memo << "buy " << real_quantity << " " << chip_asset_record->symbol << " @ ";
+            memo << price << " " << BTS_BLOCKCHAIN_SYMBOL;
+            
+            auto entry = ledger_entry();
+            entry.from_account = from_account_key;
+            entry.to_account = order_key;
+            entry.amount = cost_shares;
+            entry.memo = memo.str();
+            
+            auto record = wallet_transaction_record();
+            record.is_market = true;
+            record.ledger_entries.push_back( entry );
+            record.fee = required_fees;
+            
+            sign_and_cache_transaction( trx, required_signatures, record );
+            
+            auto key_rec = my->_wallet_db.lookup_key( order_key );
+            FC_ASSERT( key_rec.valid() );
+            key_rec->memo = "ORDER-" + variant( address(order_key) ).as_string().substr(3,8);
+            my->_wallet_db.store_key(*key_rec);
+        }
+        return trx;
+    } FC_CAPTURE_AND_RETHROW( (from_account_name)
+                             (real_quantity)(quantity_symbol)(sign) ) }
+    
+    signed_transaction wallet::sell_chips(
+                                  const string& from_account_name,
+                                  double real_quantity,
+                                  const string& quantity_symbol,
+                                  bool sign )
+    { try {
+            if( NOT is_open()     ) FC_CAPTURE_AND_THROW( wallet_closed );
+            if( NOT is_unlocked() ) FC_CAPTURE_AND_THROW( login_required );
+            if( NOT is_receive_account(from_account_name) )
+                FC_CAPTURE_AND_THROW( unknown_receive_account, (from_account_name) );
+            if( real_quantity <= 0 )
+                FC_CAPTURE_AND_THROW( negative_bid, (real_quantity) );
+            
+            if( quantity_symbol == BTS_BLOCKCHAIN_SYMBOL )
+                FC_CAPTURE_AND_THROW( invalid_price, (quantity_symbol) );
+            
+            auto chip_asset_record  = my->_blockchain->get_asset_record( quantity_symbol );
+            
+            if( NOT chip_asset_record )
+                FC_CAPTURE_AND_THROW( unknown_asset_symbol, (quantity_symbol) );
+        
+            double price = ( chip_asset_record->current_collateral * 1.0 ) / chip_asset_record->current_share_supply;
+            
+            auto from_account_key = get_account_public_key( from_account_name );
+            
+            asset cost_chips( real_quantity *  chip_asset_record->precision, chip_asset_record->id );
+            
+            auto order_key = get_new_public_key( from_account_name );
+            auto order_address = order_key;
+            
+            signed_transaction trx;
+            unordered_set<address>     required_signatures;
+            required_signatures.insert(order_address);
+            
+            private_key_type from_private_key  = get_account_private_key( from_account_name );
+            address          from_address( from_private_key.get_public_key() );
+            
+            auto required_fees = get_priority_fee();
+            
+            /// TODO: determine if we can pay our fees in cost.asset_id
+            ///        quote_asset_record->symbol );
+        
+            my->withdraw_to_transaction( cost_chips,
+                                    from_address,
+                                    trx,
+                                    required_signatures );
+            // pay our fees in XTS
+            my->withdraw_to_transaction( required_fees,
+                                    from_address,
+                                    trx,
+                                    required_signatures );
+        
+            trx.sell_chips( cost_chips, order_address );
+        
+            if( sign )
+            {
+                std::stringstream memo;
+                memo << "sell " << real_quantity << " " << chip_asset_record->symbol << " @ ";
+                memo << price << " " << BTS_BLOCKCHAIN_SYMBOL;
+                
+                auto entry = ledger_entry();
+                entry.from_account = from_account_key;
+                entry.to_account = order_key;
+                entry.amount = cost_chips;
+                entry.memo = memo.str();
+                
+                auto record = wallet_transaction_record();
+                record.is_market = true;
+                record.ledger_entries.push_back( entry );
+                record.fee = required_fees;
+                
+                sign_and_cache_transaction( trx, required_signatures, record );
+                
+                auto key_rec = my->_wallet_db.lookup_key( order_key );
+                FC_ASSERT( key_rec.valid() );
+                key_rec->memo = "ORDER-" + variant( address(order_key) ).as_string().substr(3,8);
+                my->_wallet_db.store_key(*key_rec);
+            }
+            return trx;
+        } FC_CAPTURE_AND_RETHROW( (from_account_name)
+                                 (real_quantity)(quantity_symbol)(sign) ) }
 
    void wallet::update_account_private_data( const string& account_to_update,
                                              const variant& private_data )

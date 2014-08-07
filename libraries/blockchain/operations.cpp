@@ -29,6 +29,8 @@ namespace bts { namespace blockchain {
    const operation_type_enum add_collateral_operation::type    = add_collateral_op_type;
    const operation_type_enum remove_collateral_operation::type = remove_collateral_op_type;
    const operation_type_enum dice_operation::type              = dice_op_type;
+   const operation_type_enum buy_chips_operation::type         = buy_chips_type;
+   const operation_type_enum sell_chips_operation::type        = sell_chips_type;
 
    static bool first_chain = []()->bool{
       bts::blockchain::operation_factory::instance().register_operation<withdraw_operation>();
@@ -50,6 +52,8 @@ namespace bts { namespace blockchain {
       bts::blockchain::operation_factory::instance().register_operation<remove_collateral_operation>();
       bts::blockchain::operation_factory::instance().register_operation<define_delegate_slate_operation>();
       bts::blockchain::operation_factory::instance().register_operation<dice_operation>();
+      bts::blockchain::operation_factory::instance().register_operation<buy_chips_operation>();
+      bts::blockchain::operation_factory::instance().register_operation<sell_chips_operation>();
       return true;
    }();
 

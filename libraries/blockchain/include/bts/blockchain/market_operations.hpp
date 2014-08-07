@@ -78,6 +78,28 @@ namespace bts { namespace blockchain {
 
         void evaluate( transaction_evaluation_state& eval_state );
    };
+    
+    struct buy_chips_operation
+    {
+        static const operation_type_enum type;
+        buy_chips_operation(){}
+        
+        asset           amount;
+        address         owner;
+        
+        void evaluate( transaction_evaluation_state& eval_state );
+    };
+    
+    struct sell_chips_operation
+    {
+        static const operation_type_enum type;
+        sell_chips_operation(){}
+        
+        asset           amount;
+        address         owner;
+        
+        void evaluate( transaction_evaluation_state& eval_state );
+    };
 
 } } // bts::blockchain
 
@@ -87,3 +109,5 @@ FC_REFLECT( bts::blockchain::short_operation, (amount)(short_index))
 FC_REFLECT( bts::blockchain::cover_operation, (amount)(cover_index))
 FC_REFLECT( bts::blockchain::add_collateral_operation, (amount)(cover_index))
 FC_REFLECT( bts::blockchain::remove_collateral_operation, (amount)(owner))
+FC_REFLECT( bts::blockchain::buy_chips_operation, (amount)(owner))
+FC_REFLECT( bts::blockchain::sell_chips_operation, (amount)(owner))

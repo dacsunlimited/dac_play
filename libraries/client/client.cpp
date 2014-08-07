@@ -1713,6 +1713,22 @@ config load_config( const fc::path& datadir )
         network_broadcast_transaction(play_dice_trx);
         return play_dice_trx;
     }
+    
+    bts::blockchain::signed_transaction detail::client_impl::wallet_market_buy_chips(const string& from_account,
+                                                                                     double quantity, const string& quantity_symbol)
+    {
+        const auto buy_chips_trx = _wallet->buy_chips(from_account, quantity, quantity_symbol, true);
+        network_broadcast_transaction(buy_chips_trx);
+        return buy_chips_trx;
+    }
+    
+    bts::blockchain::signed_transaction detail::client_impl::wallet_market_sell_chips(const string& from_account,
+                                                                                      double quantity, const string& quantity_symbol)
+    {
+        const auto sell_chips_trx = _wallet->sell_chips(from_account, quantity, quantity_symbol, true);
+        network_broadcast_transaction(sell_chips_trx);
+        return sell_chips_trx;
+    }
 
     vector<string> detail::client_impl::wallet_list() const
     {

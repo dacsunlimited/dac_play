@@ -23,6 +23,7 @@ namespace bts { namespace blockchain {
       bool is_null()const;
       /** the asset is issued by the market and not by any user */
       bool is_market_issued()const;
+       bool is_chip_asset() const;
       asset_record make_null()const;
 
       uint64_t get_precision()const;
@@ -36,6 +37,7 @@ namespace bts { namespace blockchain {
       uint64_t            precision;
       fc::time_point_sec  registration_date;
       fc::time_point_sec  last_update;
+      share_type          current_collateral;
       share_type          current_share_supply;
       share_type          maximum_share_supply;
       share_type          collected_fees;

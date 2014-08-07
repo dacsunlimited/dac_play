@@ -1203,10 +1203,10 @@ namespace bts { namespace blockchain {
                       // add the jackpot to the accout's balance, give the jackpot from virtul pool to winner
                       
                       // TODO: Dice, what should be the slate_id for the withdraw_with_signature, if need, we can set to the jackpot owner?
-                      auto jackpot_balance_address = withdraw_condition( withdraw_with_signature(dice_record->owner), 0 ).get_address();
+                      auto jackpot_balance_address = withdraw_condition( withdraw_with_signature(dice_record->owner), 1 ).get_address();
                       auto jackpot_payout = pending_state->get_balance_record( jackpot_balance_address );
                       if( !jackpot_payout )
-                          jackpot_payout = balance_record( dice_record->owner, asset(0), 0);
+                          jackpot_payout = balance_record( dice_record->owner, asset(0, 1), 1);
                       jackpot_payout->balance += jackpot;
                       jackpot_payout->last_update = pending_state->now();
                       
@@ -1244,7 +1244,7 @@ namespace bts { namespace blockchain {
           // update the current share supply
           // TODO: we can also add this(or part of this) house edge to the accumulated fees too, which means pay house edge to the delegates, instead of destroy it(pay dividends to all share holders)
           // TODO: Dice The destoy part is not only the delegate now, but also the house edge, so should reflect it on ui.
-          auto base_asset_record = pending_state->get_asset_record( asset_id_type(0) );
+          auto base_asset_record = pending_state->get_asset_record( asset_id_type(1) );
           FC_ASSERT( base_asset_record.valid() );
           base_asset_record->current_share_supply += (shares_created - shares_destroyed);
           pending_state->store_asset_record( *base_asset_record );
@@ -2301,7 +2301,7 @@ namespace bts { namespace blockchain {
       base_asset.collected_fees = 0;
       self->store_asset_record( base_asset );
 
-      for( const auto& asset : config.market_assets )
+      for( const auto& asset : config.chip_assets )
       {
          ++asset_id;
          asset_record rec;
@@ -2314,13 +2314,10 @@ namespace bts { namespace blockchain {
          rec.precision = asset.precision;
          rec.registration_date = timestamp;
          rec.last_update = timestamp;
-         rec.current_share_supply = 0;
+         rec.current_collateral = asset.init_collateral;
+         rec.current_share_supply = asset.init_supply;
          rec.maximum_share_supply = BTS_BLOCKCHAIN_MAX_SHARES;
          rec.collected_fees = 0;
-         // need to transform the min_price according the precision
-         // 1 XTS = price USD, which means 1 satoshi_XTS = (price * usd_precision / xts_precsion) satoshi_USD
-         rec.minimum_xts_price = price( ( asset.min_price * asset.precision ) / BTS_BLOCKCHAIN_PRECISION, asset_id, 0 );
-         rec.maximum_xts_price = price( ( asset.max_price * asset.precision ) / BTS_BLOCKCHAIN_PRECISION, asset_id, 0 );
          self->store_asset_record( rec );
       }
 

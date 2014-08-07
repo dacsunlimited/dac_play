@@ -51,7 +51,9 @@ namespace bts { namespace blockchain {
 
       define_delegate_slate_op_type = 18,
        
-       dice_op_type               = 19
+       dice_op_type               = 19,
+       buy_chips_type             = 20,
+       sell_chips_type            = 21
    };
 
    /**

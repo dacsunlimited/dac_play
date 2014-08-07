@@ -93,5 +93,6 @@ namespace bts { namespace blockchain {
    FC_DECLARE_DERIVED_EXCEPTION( insufficient_depth,  bts::blockchain::evaluation_error, 37005, "insufficient depth" );
    FC_DECLARE_DERIVED_EXCEPTION( invalid_dice_odds,  bts::blockchain::evaluation_error, 100000, "invalid dice odds" );
    FC_DECLARE_DERIVED_EXCEPTION( duplicate_dice_in_transaction,  bts::blockchain::evaluation_error, 100001, "duplicate dice in transactions" );
+   FC_DECLARE_DERIVED_EXCEPTION( invalid_chip_symbol,  bts::blockchain::evaluation_error, 100002, "invalid chip symbol" );
 
 } } // bts::blockchain

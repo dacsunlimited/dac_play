@@ -96,6 +96,12 @@ namespace bts { namespace blockchain {
                        share_type amount,
                        uint32_t odds,
                        slate_id_type   slate_id );
+       
+       void buy_chips( const asset& quantity,
+                const address& owner );
+       
+       void sell_chips( const asset& quantity,
+                      const address& owner );
 
       void bid( const asset& quantity,
                 const price& price_per_unit, 

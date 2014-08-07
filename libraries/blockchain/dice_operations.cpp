@@ -22,7 +22,7 @@ namespace bts { namespace blockchain {
         amount = amnt;
         odds = o;
         // TODO: Dice specify the slate_id, if slate_id is added make sure the one in scan_jackpot_transaction is updated too.
-        condition = withdraw_condition( withdraw_with_signature( owner ), 0);
+        condition = withdraw_condition( withdraw_with_signature( owner ), 1);
     }
     
 /**
@@ -46,7 +46,7 @@ void dice_operation::evaluate( transaction_evaluation_state& eval_state )
     // this does not means the balance are now stored in balance record, just over pass the api
     // the dice record are not in any balance record, they are over-fly-on-sky..
     // TODO: Dice Review
-    eval_state.sub_balance(this->balance_id(), asset( this->amount, 0 ));
+    eval_state.sub_balance(this->balance_id(), asset( this->amount, 1 ));
     
     cur_record->id               = eval_state.trx.id();
     cur_record->amount           = this->amount;

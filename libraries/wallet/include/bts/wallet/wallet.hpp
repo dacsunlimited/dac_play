@@ -397,6 +397,18 @@ namespace bts { namespace wallet {
                                              double amount,
                                              uint32_t odds = 1,
                                       bool sign = true  );
+       
+       signed_transaction buy_chips(
+                                            const string& from_account_name,
+                                            double real_quantity,
+                                            const string& quantity_symbol,
+                                            bool sign = true );
+       
+       signed_transaction sell_chips(
+                                    const string& from_account_name,
+                                    double real_quantity,
+                                    const string& quantity_symbol,
+                                    bool sign = true );
 
 
          ///@} Transaction Generation Methods
