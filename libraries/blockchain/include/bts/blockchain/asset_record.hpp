@@ -58,7 +58,7 @@ namespace bts { namespace blockchain {
 } } // bts::blockchain 
 
 FC_REFLECT( bts::blockchain::asset_record,
-            (id)(symbol)(name)(description)(public_data)(issuer_account_id)(precision)(current_share_supply)
+            (id)(symbol)(name)(description)(public_data)(issuer_account_id)(precision)(current_collateral)(current_share_supply)
             (maximum_share_supply)(collected_fees)(registration_date)(minimum_xts_price)(maximum_xts_price) 
           )
 
