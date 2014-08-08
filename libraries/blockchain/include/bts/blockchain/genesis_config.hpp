@@ -20,8 +20,8 @@ namespace bts { namespace blockchain {
      std::string       name;
      std::string       description;
      uint64_t          precision;
-     int64_t           init_supply;
-     int64_t           init_collateral;
+     uint64_t          init_supply;
+     uint64_t          init_collateral;
   };
   
   struct genesis_block_config
