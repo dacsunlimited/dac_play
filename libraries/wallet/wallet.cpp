@@ -316,13 +316,19 @@ namespace bts { namespace wallet {
           {
               auto jackpot_account_key = _wallet_db.lookup_key( okey_jackpot->account_address );
               
-              auto bal_rec = _blockchain->get_balance_record( withdraw_condition(
-                                                                                 withdraw_with_signature(trx.jackpot_owner), 1 ).get_address() );
+              
+              auto bal_id = withdraw_condition(withdraw_with_signature(trx.jackpot_owner), 1 ).get_address();
+              auto bal_rec = _blockchain->get_balance_record( bal_id );
+              
               if( bal_rec )
               {
                   //wlog( "BAL RECORD ${R}", ("R", bal_rec) );
                   _wallet_db.cache_balance( *bal_rec );
               }
+              
+              
+              // TODO: Dice, what's the pending state?
+              sync_balance_with_blockchain( bal_id );
               
               /* What we paid */
               /*

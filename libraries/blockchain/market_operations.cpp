@@ -328,7 +328,7 @@ namespace bts { namespace blockchain {
     
     balance_id_type  sell_chips_operation::balance_id()const
     {
-        withdraw_condition condition(withdraw_with_signature( this->owner ), this->amount.asset_id);
+        withdraw_condition condition(withdraw_with_signature( this->owner ), 0);
         return condition.get_address();
     }
     
