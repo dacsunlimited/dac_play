@@ -317,7 +317,7 @@ namespace bts { namespace wallet {
               auto jackpot_account_key = _wallet_db.lookup_key( okey_jackpot->account_address );
               
               auto bal_rec = _blockchain->get_balance_record( withdraw_condition(
-                                                                                 withdraw_with_signature(trx.jackpot_owner), 0 ).get_address() );
+                                                                                 withdraw_with_signature(trx.jackpot_owner), 1 ).get_address() );
               if( bal_rec )
               {
                   //wlog( "BAL RECORD ${R}", ("R", bal_rec) );
@@ -337,7 +337,7 @@ namespace bts { namespace wallet {
               /* What we received */
               auto in_entry = ledger_entry();
               in_entry.to_account = jackpot_account_key->public_key;
-              in_entry.amount = asset(trx.jackpot_received);
+              in_entry.amount = asset(trx.jackpot_received, 1);
               
               std::stringstream in_memo_ss;
               in_memo_ss << play_result << "jackpot with lucky number: " << trx.lucky_number;
@@ -968,7 +968,7 @@ namespace bts { namespace wallet {
                                if( !entry.to_account.valid() )
                                {
                                    entry.to_account = opt_key_rec->public_key;
-                                   entry.amount = asset( op.amount );
+                                   entry.amount = asset( op.amount, 1 );
                                    entry.memo = "play dice";
                                    return true;
                                }
@@ -3306,13 +3306,13 @@ namespace bts { namespace wallet {
         //auto size_fee = fc::raw::pack_size( data );
         //required_fees += asset( my->_blockchain->calculate_data_fee(size_fee) );
         
-        const auto asset_rec = my->_blockchain->get_asset_record( asset_id_type(0) );
+        const auto asset_rec = my->_blockchain->get_asset_record( "DICE" );
         FC_ASSERT( asset_rec.valid() );
         
         share_type amount_to_play = amount * asset_rec->get_precision();
         
         // dice asset is 1
-        asset chips_to_play(amount_to_play, 1);
+        asset chips_to_play(amount_to_play, asset_rec->id);
         
         if( !is_valid_account_name( from_account_name ) )
             FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("dice_account_name",from_account_name) );

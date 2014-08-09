@@ -34,6 +34,10 @@ void dice_operation::evaluate( transaction_evaluation_state& eval_state )
     if( this->odds < 1 )
         FC_CAPTURE_AND_THROW( invalid_dice_odds, (odds) );
     
+    auto dice_asset_record = eval_state._current_state->get_asset_record( "DICE" );
+    if( !dice_asset_record )
+        FC_CAPTURE_AND_THROW( unknown_asset_symbol, ( eval_state.trx.id() ) );
+    
     /*
      * For each transaction, there must be only one dice operatiion exist
      */
@@ -46,7 +50,7 @@ void dice_operation::evaluate( transaction_evaluation_state& eval_state )
     // this does not means the balance are now stored in balance record, just over pass the api
     // the dice record are not in any balance record, they are over-fly-on-sky..
     // TODO: Dice Review
-    eval_state.sub_balance(this->balance_id(), asset( this->amount, 1 ));
+    eval_state.sub_balance(this->balance_id(), asset( this->amount, dice_asset_record->id ));
     
     cur_record->id               = eval_state.trx.id();
     cur_record->amount           = this->amount;
