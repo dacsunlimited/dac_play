@@ -659,7 +659,12 @@ namespace bts { namespace wallet {
                       // TODO: Dice
                       store_record |= scan_dice( op.as<dice_operation>(), *transaction_record );
                       break;
-
+                  case buy_chips_type:
+                      // TODO: do nothing.
+                      break;
+                  case sell_chips_type:
+                      // TODO: do nothing.
+                      break;
                   default:
                       FC_THROW_EXCEPTION( invalid_operation, "Unknown operation type!", ("op",op) );
                       break;
