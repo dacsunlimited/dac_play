@@ -275,6 +275,12 @@ namespace bts { namespace blockchain {
       // Should this even be allowed?
    }
     
+    balance_id_type  buy_chips_operation::balance_id()const
+    {
+        withdraw_condition condition(withdraw_with_signature( this->owner ), this->amount.asset_id);
+        return condition.get_address();
+    }
+    
     void buy_chips_operation::evaluate( transaction_evaluation_state& eval_state )
     { try {
         if ( this->amount.amount == 0) {
@@ -319,6 +325,12 @@ namespace bts { namespace blockchain {
         
         eval_state._current_state->store_asset_record( *asset_to_buy );
     } FC_CAPTURE_AND_RETHROW( (*this) ) }
+    
+    balance_id_type  sell_chips_operation::balance_id()const
+    {
+        withdraw_condition condition(withdraw_with_signature( this->owner ), this->amount.asset_id);
+        return condition.get_address();
+    }
     
     void sell_chips_operation::evaluate( transaction_evaluation_state& eval_state )
     { try {

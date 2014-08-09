@@ -660,10 +660,12 @@ namespace bts { namespace wallet {
                       store_record |= scan_dice( op.as<dice_operation>(), *transaction_record );
                       break;
                   case buy_chips_type:
-                      // TODO: do nothing.
+                      // sync the buy back chips, TODO: Dice, update the transaction ledger
+                      sync_balance_with_blockchain( op.as<buy_chips_operation>().balance_id() );
                       break;
                   case sell_chips_type:
-                      // TODO: do nothing.
+                      // sync the sell back shares, TODO: Dice, update the transaction ledger
+                      sync_balance_with_blockchain( op.as<sell_chips_operation>().balance_id() );
                       break;
                   default:
                       FC_THROW_EXCEPTION( invalid_operation, "Unknown operation type!", ("op",op) );
@@ -3310,7 +3312,7 @@ namespace bts { namespace wallet {
         share_type amount_to_play = amount * asset_rec->get_precision();
         
         // dice asset is 1
-        asset chips_to_play(amount_to_play, 0);
+        asset chips_to_play(amount_to_play, 1);
         
         if( !is_valid_account_name( from_account_name ) )
             FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("dice_account_name",from_account_name) );

@@ -2314,8 +2314,8 @@ namespace bts { namespace blockchain {
          rec.precision = asset.precision;
          rec.registration_date = timestamp;
          rec.last_update = timestamp;
-         rec.current_collateral = asset.init_collateral;
-         rec.current_share_supply = asset.init_supply;
+         rec.current_collateral = asset.init_collateral * BTS_BLOCKCHAIN_PRECISION;
+         rec.current_share_supply = asset.init_supply * asset.precision;
          rec.maximum_share_supply = BTS_BLOCKCHAIN_MAX_SHARES;
          rec.collected_fees = 0;
          self->store_asset_record( rec );

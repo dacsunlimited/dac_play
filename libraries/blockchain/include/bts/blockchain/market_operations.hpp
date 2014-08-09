@@ -84,6 +84,8 @@ namespace bts { namespace blockchain {
         static const operation_type_enum type;
         buy_chips_operation(){}
         
+        balance_id_type  balance_id()const;
+        
         asset           amount;
         address         owner;
         
@@ -94,6 +96,8 @@ namespace bts { namespace blockchain {
     {
         static const operation_type_enum type;
         sell_chips_operation(){}
+        
+        balance_id_type  balance_id()const;
         
         asset           amount;
         address         owner;
