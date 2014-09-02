@@ -4,6 +4,7 @@
 #include <bts/rpc/exceptions.hpp>
 #include <bts/wallet/pretty.hpp>
 #include <bts/wallet/wallet.hpp>
+#include <bts/wallet/url.hpp>
 
 #include <fc/io/buffered_iostream.hpp>
 #include <fc/io/console.hpp>
@@ -27,7 +28,7 @@
 # include <readline/readline.h>
 # include <readline/history.h>
 // I don't know exactly what version of readline we need.  I know the 4.2 version that ships on some macs is
-// missing some functions we require.  We're developing against 6.3, but probably anything in the 6.x 
+// missing some functions we require.  We're developing against 6.3, but probably anything in the 6.x
 // series is fine
 # if RL_VERSION_MAJOR < 6
 #  ifdef _MSC_VER
@@ -42,7 +43,11 @@
 #endif
 
 namespace bts { namespace cli {
-  
+
+  FC_DECLARE_EXCEPTION( cli_exception, 11000, "CLI Error" )
+  FC_DECLARE_DERIVED_EXCEPTION( abort_cli_command, bts::cli::cli_exception, 11001, "command aborted by user" );
+  FC_DECLARE_DERIVED_EXCEPTION( exit_cli_command, bts::cli::cli_exception, 11002, "exit CLI client requested by user" );
+
   namespace detail
   {
       class cli_impl
@@ -52,13 +57,13 @@ namespace bts { namespace cli {
             rpc_server_ptr                                  _rpc_server;
             bts::cli::cli*                                  _self;
             fc::thread                                      _cin_thread;
-                                                            
+
             bool                                            _quit;
             bool                                            show_raw_output;
             bool                                            _daemon_mode;
 
             boost::iostreams::stream< boost::iostreams::null_sink > nullstream;
-            
+
             std::ostream*                  _saved_out;
             std::ostream*                  _out;   //cout | log_stream | tee(cout,log_stream) | null_stream
             std::istream*                  _command_script;
@@ -112,9 +117,9 @@ namespace bts { namespace cli {
               return prompt;
             }
 
-            void parse_and_execute_interactive_command(string command, 
+            void parse_and_execute_interactive_command(string command,
                                                        fc::istream_ptr argument_stream )
-            { 
+            {
               if( command.size() == 0 )
                  return;
               if (command == "enable_raw")
@@ -136,7 +141,7 @@ namespace bts { namespace cli {
               {
                 arguments = _self->parse_interactive_command(buffered_argument_stream, command);
                 // NOTE: arguments here have not been filtered for private keys or passwords
-                // ilog( "command: ${c} ${a}", ("c",command)("a",arguments) ); 
+                // ilog( "command: ${c} ${a}", ("c",command)("a",arguments) );
                 command_is_valid = true;
               }
               catch( const rpc::unknown_method& )
@@ -144,9 +149,9 @@ namespace bts { namespace cli {
                  if( command.size() )
                    *_out << "Error: invalid command \"" << command << "\"\n";
               }
-              catch( const fc::canceled_exception&)
+              catch( const bts::cli::abort_cli_command&)
               {
-                *_out << "Command aborted.\n";
+                throw;
               }
               catch( const fc::exception& e)
               {
@@ -166,7 +171,11 @@ namespace bts { namespace cli {
                   fc::variant result = _self->execute_interactive_command(command, arguments);
                   _self->format_and_print_result(command, arguments, result);
                 }
-                catch( const fc::canceled_exception&)
+                catch( const bts::cli::abort_cli_command&)
+                {
+                  throw;
+                }
+                catch( const bts::cli::exit_cli_command&)
                 {
                   throw;
                 }
@@ -183,11 +192,11 @@ namespace bts { namespace cli {
             bool execute_command_line(const string& line)
             { try {
               string trimmed_line_to_parse(boost::algorithm::trim_copy(line));
-              /** 
+              /**
                *  On some OS X systems, std::stringstream gets corrupted and does not throw eof
                *  when expected while parsing the command.  Adding EOF (0x04) characater at the
                *  end of the string casues the JSON parser to recognize the EOF rather than relying
-               *  on stringstream.  
+               *  on stringstream.
                *
                *  @todo figure out how to fix things on these OS X systems.
                */
@@ -213,10 +222,12 @@ namespace bts { namespace cli {
                 {
                   parse_and_execute_interactive_command(command,argument_stream);
                 }
-                catch( const fc::canceled_exception& )
+                catch (const bts::cli::exit_cli_command&)
                 {
-                  if( command == "quit" ) 
-                    return false;
+                  return false;
+                }
+                catch( const bts::cli::abort_cli_command& )
+                {
                   *_out << "Command aborted\n";
                 }
               } //end if command line not empty
@@ -228,7 +239,7 @@ namespace bts { namespace cli {
             {
                   if( _quit ) return std::string();
                   if( _input_stream == nullptr )
-                     FC_CAPTURE_AND_THROW( fc::canceled_exception ); //_input_stream != nullptr );
+                     FC_CAPTURE_AND_THROW( bts::cli::exit_cli_command ); //_input_stream != nullptr );
 
                   //FC_ASSERT( _self->is_interactive() );
                   string line;
@@ -243,7 +254,7 @@ namespace bts { namespace cli {
                   }
                   else
                   {
-                  #ifdef HAVE_READLINE 
+                  #ifdef HAVE_READLINE
                     if (_input_stream == &std::cin)
                     {
                       char* line_read = nullptr;
@@ -437,86 +448,13 @@ namespace bts { namespace cli {
 
             fc::variant execute_interactive_command(const string& command, const fc::variants& arguments)
             {
-              if(command == "wallet_rescan_blockchain")
-              {
-                  if ( ! _client->get_wallet()->is_open() )
-                      interactive_open_wallet();
-                  if( ! _client->get_wallet()->is_unlocked() )
-                  {
-                    // unlock wallet for 5 minutes
-                    fc::istream_ptr argument_stream = std::make_shared<fc::stringstream>("300");
-                    try
-                    {
-                      parse_and_execute_interactive_command( "wallet_unlock", argument_stream );
-                    }
-                    catch( const fc::canceled_exception& )
-                    {
-                    }
-                  } 
-
-                  *_out << "Rescanning blockchain...\n";
-                  uint32_t start;
-                  if (arguments.size() == 0)
-                      start = 0;
-                  else
-                      start = arguments[0].as<uint32_t>();
-                  while(true)
-                  {
-                      try {
-                        if (!FILTER_OUTPUT_FOR_TESTS)
-                        {
-                          *_out << "|";
-                          for(int i = 0; i < 100; i++)
-                              *_out << "-";
-                          *_out << "|\n|=";
-                          uint32_t next_step = 0;
-                          //TODO: improve documentation for how this works
-                          auto cb = [=](uint32_t cur, uint32_t last) mutable
-                          {
-                              if (start > last || cur >= last) // if WTF
-                                  return;
-                              if (((100*(1 + cur - start)) / (1 + last - start)) > next_step)
-                              {
-                                  *_out << "=";
-                                  next_step++;
-                              }
-                          };
-                          _client->get_wallet()->scan_chain(start, -1, cb);
-                          *_out << "|\n";
-                        }
-                        else
-                        {
-                          _client->get_wallet()->scan_chain(start, -1);
-                        }
-                        *_out << "Scan complete.\n";
-                        return fc::variant("Scan complete.");
-                      }
-                      catch( const rpc_wallet_open_needed_exception& )
-                      {
-                          interactive_open_wallet();
-                      }                
-                      catch( const rpc_wallet_unlock_needed_exception& )
-                      {
-                        // unlock wallet for 5 minutes
-                        fc::istream_ptr argument_stream = std::make_shared<fc::stringstream>("300");
-                        try
-                        {
-                          parse_and_execute_interactive_command( "wallet_unlock", argument_stream );
-                        }
-                        catch( const fc::canceled_exception& )
-                        {
-                        }
-                      }
- 
-                  }
-              }
-              else if(command == "quit" || command == "stop" || command == "exit")
+              if( command == "quit" || command == "stop" || command == "exit" )
               {
                 _quit = true;
-                FC_THROW_EXCEPTION(fc::canceled_exception, "quit command issued");
+                FC_THROW_EXCEPTION( bts::cli::exit_cli_command, "quit command issued" );
               }
-              
-              return execute_command(command, arguments);
+
+              return execute_command( command, arguments );
             }
 
             fc::variant execute_command(const string& command, const fc::variants& arguments)
@@ -548,7 +486,8 @@ namespace bts { namespace cli {
                 while( true )
                 {
                     input = get_line( prompt + ": ", no_echo );
-                    if( input.empty() ) FC_THROW_EXCEPTION(fc::canceled_exception, "input aborted");
+                    if( input.empty() )
+                      FC_THROW_EXCEPTION(bts::cli::abort_cli_command, "input aborted");
 
                     if( verify )
                     {
@@ -565,7 +504,7 @@ namespace bts { namespace cli {
 
             void interactive_open_wallet()
             {
-              if( _client->get_wallet()->is_open() ) 
+              if( _client->get_wallet()->is_open() )
                 return;
 
               *_out << "A wallet must be open to execute this command. You can:\n";
@@ -582,7 +521,7 @@ namespace bts { namespace cli {
                 {
                   parse_and_execute_interactive_command( "wallet_create", argument_stream );
                 }
-                catch( const fc::canceled_exception& )
+                catch( const bts::cli::abort_cli_command& )
                 {
                 }
               }
@@ -593,13 +532,13 @@ namespace bts { namespace cli {
                 {
                   parse_and_execute_interactive_command( "wallet_open", argument_stream );
                 }
-                catch( const fc::canceled_exception& )
+                catch( const bts::cli::abort_cli_command& )
                 {
                 }
               }
               else if (choice == "q")
               {
-                FC_THROW_EXCEPTION(fc::canceled_exception, "");
+                FC_THROW_EXCEPTION(bts::cli::abort_cli_command, "");
               }
               else
               {
@@ -663,6 +602,18 @@ namespace bts { namespace cli {
                   const auto& votes = result.as<account_vote_summary_type>();
                   *_out << pretty_vote_summary( votes, _client );
               }
+              else if (method_name == "wallet_account_create")
+              {
+                  auto account_key = result.as_string();
+                  auto account = _client->get_wallet()->get_account_for_address(public_key_type(account_key));
+
+                  if (account)
+                      *_out << "\n\nAccount created successfully. You may give the following link to others"
+                               " to allow them to add you as a contact and send you funds:\n" CUSTOM_URL_SCHEME ":"
+                            << account->name << ':' << account_key << '\n';
+                  else
+                      *_out << "Sorry, something went wrong when adding your account.\n";
+              }
               else if (method_name == "debug_list_errors")
               {
                   auto error_map = result.as<map<fc::time_point,fc::exception> >();
@@ -723,12 +674,11 @@ namespace bts { namespace cli {
                   const auto& balances = result.as<account_balance_summary_type>();
                   *_out << pretty_balances( balances, _client );
               }
-              else if (method_name == "wallet_transfer")
+              else if( method_name == "wallet_transfer"
+                       || method_name == "wallet_get_transaction" )
               {
-                  const auto& transaction = result.as<signed_transaction>();
-                  const auto& transaction_record = _client->get_wallet()->lookup_transaction( transaction.id() );
-                  FC_ASSERT( transaction_record.valid() );
-                  const auto& pretty = _client->get_wallet()->to_pretty_trx( *transaction_record );
+                  const auto& record = result.as<wallet_transaction_record>();
+                  const auto& pretty = _client->get_wallet()->to_pretty_trx( record );
                   const std::vector<pretty_transaction> transactions = { pretty };
                   *_out << pretty_transaction_list( transactions, _client );
               }
@@ -883,7 +833,7 @@ namespace bts { namespace cli {
                       }
                   }
               }
-              else if (method_name == "blockchain_get_pending_transactions")
+              else if (method_name == "blockchain_list_pending_transactions")
               {
                   auto transactions = result.as<vector<signed_transaction>>();
 
@@ -940,17 +890,22 @@ namespace bts { namespace cli {
                       *_out << std::setw(20) << pretty_shorten(fc::json::to_pretty_string(prop.data), 19);
                       *_out << std::setw(10) << (prop.ratified ? "YES" : "NO");
                   }
-                  *_out << "\n"; 
+                  *_out << "\n";
               }
               else if (method_name == "blockchain_market_order_book")
               {
                   auto bids_asks = result.as<std::pair<vector<market_order>,vector<market_order>>>();
-                  *_out << std::string(18, ' ') << "BIDS (* Short Order)" 
-                        << std::string(38, ' ') << " | " 
-                        << std::string(34, ' ') << "ASKS" 
+                  if( bids_asks.first.size() == 0 && bids_asks.second.size() == 0 )
+                  {
+                     *_out << "No Orders\n";
+                     return;
+                  }
+                  *_out << std::string(18, ' ') << "BIDS (* Short Order)"
+                        << std::string(38, ' ') << " | "
+                        << std::string(34, ' ') << "ASKS"
                         << std::string(34, ' ') << "\n"
-                        << std::left << std::setw(26) << "TOTAL" 
-                        << std::setw(20) << "QUANTITY" 
+                        << std::left << std::setw(26) << "TOTAL"
+                        << std::setw(20) << "QUANTITY"
                         << std::right << std::setw(30) << "PRICE"
                         << " | " << std::left << std::setw(30) << "PRICE" << std::right << std::setw(23) << "QUANTITY" << std::setw(26) << "TOTAL" <<"   COLLATERAL" << "\n"
                         << std::string(175, '-') << "\n";
@@ -961,19 +916,66 @@ namespace bts { namespace cli {
                   asset_id_type quote_id;
                   asset_id_type base_id;
 
-                  while( bid_itr != bids_asks.first.end() || ask_itr != bids_asks.second.end() )
+                  if( bid_itr != bids_asks.first.end() )
                   {
-                    if( bid_itr != bids_asks.first.end() )
-                    {
                      quote_id = bid_itr->get_price().quote_asset_id;
                      base_id = bid_itr->get_price().base_asset_id;
+                  }
+                  if( ask_itr != bids_asks.second.end() )
+                  {
+                     quote_id = ask_itr->get_price().quote_asset_id;
+                     base_id = ask_itr->get_price().base_asset_id;
+                  }
+
+                  auto quote_asset_record = _client->get_chain()->get_asset_record( quote_id );
+                  // fee order is the market order to convert fees from other asset classes to XTS
+                  bool show_fee_order_record = base_id == 0
+                                               && !quote_asset_record->is_market_issued()
+                                               && quote_asset_record->collected_fees > 0;
+
+                  oprice  median_price =  _client->get_chain()->get_median_delegate_price( quote_id );
+                  auto status = _client->get_chain()->get_market_status( quote_id, base_id );
+                  auto max_short_price = median_price ? *median_price : ( status ? status->avg_price_1h : price(0, quote_id, base_id) );
+                  
+
+                  while( bid_itr != bids_asks.first.end() || ask_itr != bids_asks.second.end() )
+                  {
+                     if( median_price )
+                     {
+                        while( bid_itr != bids_asks.first.end() )
+                        {
+                           if( bid_itr->type == bts::blockchain::short_order )
+                           {
+                              if( bid_itr->get_price() > *median_price )
+                                  ++bid_itr;
+                              else 
+                                 break;
+                           }
+                           else 
+                              break;
+                        }
+                     }
+                     if( bid_itr == bids_asks.first.end() )
+                        break;
+
+                    if( show_fee_order_record )
+                    {
+                       *_out << std::left << std::setw(26) << _client->get_chain()->to_pretty_asset( asset(quote_asset_record->collected_fees, quote_id) )
+                             << std::setw(20) << " "
+                             << std::right << std::setw(30) << "MARKET PRICE";
+
+                       *_out << ' ';
+                       show_fee_order_record = false;
+                    }
+                    else if( bid_itr != bids_asks.first.end() )
+                    {
                       *_out << std::left << std::setw(26) << (bid_itr->type == bts::blockchain::bid_order?
                                  _client->get_chain()->to_pretty_asset(bid_itr->get_balance())
                                : _client->get_chain()->to_pretty_asset(bid_itr->get_quote_quantity()))
                             << std::setw(20) << (bid_itr->type == bts::blockchain::bid_order?
                                  _client->get_chain()->to_pretty_asset(bid_itr->get_quantity())
                                : _client->get_chain()->to_pretty_asset(bid_itr->get_balance()))
-                            << std::right << std::setw(30) << _client->get_chain()->to_pretty_price(bid_itr->get_price());
+                            << std::right << std::setw(30) << (fc::to_string(_client->get_chain()->to_pretty_price_double(bid_itr->get_price()) )+ " " + quote_asset_record->symbol);
 
                       if( bid_itr->type == bts::blockchain::short_order )
                           *_out << '*';
@@ -989,11 +991,9 @@ namespace bts { namespace cli {
 
                     while( ask_itr != bids_asks.second.end() )
                     {
-                      quote_id = ask_itr->get_price().quote_asset_id;
-                      base_id = ask_itr->get_price().base_asset_id;
                       if( !ask_itr->collateral )
                       {
-                         *_out << std::left << std::setw(30) << _client->get_chain()->to_pretty_price(ask_itr->get_price())
+                         *_out << std::left << std::setw(30) << (fc::to_string(_client->get_chain()->to_pretty_price_double(ask_itr->get_price())) + " " + quote_asset_record->symbol)
                                << std::right << std::setw(23) << _client->get_chain()->to_pretty_asset(ask_itr->get_quantity())
                                << std::right << std::setw(26) << _client->get_chain()->to_pretty_asset(ask_itr->get_quote_quantity());
                           ++ask_itr;
@@ -1004,56 +1004,86 @@ namespace bts { namespace cli {
                     *_out << "\n";
                   }
 
-                  *_out << std::string(175, '-') << "\n";
-                  *_out << std::string(38, ' ') << " " 
-                        << std::string(38, ' ') << "| " 
-                        << std::string(34, ' ') << "MARGIN" 
-                        << std::string(34, ' ') << "\n"
-                        << std::left << std::setw(26) << " " 
-                        << std::setw(20) << " " 
-                        << std::right << std::setw(30) << " "
-                        << " | " << std::left << std::setw(30) << "CALL PRICE" << std::right << std::setw(23) << "QUANTITY" << std::setw(26) << "TOTAL" <<"   COLLATERAL" << "\n"
-                        << std::string(175, '-') << "\n";
-
+                  if( quote_asset_record->is_market_issued() && base_id == 0 )
                   {
-                     auto ask_itr = bids_asks.second.rbegin();
-                     while(  ask_itr != bids_asks.second.rend() )
-                     {
-                         if( ask_itr->collateral )
-                         {
-                             *_out << std::string(77, ' ');
-                             *_out << "| ";
-                             *_out << std::left << std::setw(30) << _client->get_chain()->to_pretty_price(ask_itr->get_price())
-                                  << std::right << std::setw(23) << _client->get_chain()->to_pretty_asset(ask_itr->get_quantity())
-                                  << std::right << std::setw(26) << _client->get_chain()->to_pretty_asset(ask_itr->get_quote_quantity());
-                                *_out << "   " << _client->get_chain()->to_pretty_asset(asset(*ask_itr->collateral));
-                                *_out << "\n";
-                         }
-                        ++ask_itr;
-                     }
-                  }
+                     *_out << std::string(175, '-') << "\n";
+                     *_out << std::string(38, ' ') << " "
+                           << std::string(38, ' ') << "| "
+                           << std::string(34, ' ') << "MARGIN"
+                           << std::string(34, ' ') << "\n"
+                           << std::left << std::setw(26) << " "
+                           << std::setw(20) << " "
+                           << std::right << std::setw(30) << " "
+                           << " | " << std::left << std::setw(30) << "CALL PRICE" << std::right << std::setw(23) << "QUANTITY" << std::setw(26) << "TOTAL" <<"   COLLATERAL" << "\n"
+                           << std::string(175, '-') << "\n";
 
-                 auto status = _client->get_chain()->get_market_status( quote_id, base_id );
-                 if( status )
-                 {
-                    *_out << "Bid Depth: " << _client->get_chain()->to_pretty_asset( asset(status->bid_depth, base_id) ) <<"     ";
-                    *_out << "Ask Depth: " << _client->get_chain()->to_pretty_asset( asset(status->ask_depth, base_id) ) <<"\n";
-                    if(  status->last_error )
+                     {
+                        auto ask_itr = bids_asks.second.rbegin();
+                        while(  ask_itr != bids_asks.second.rend() )
+                        {
+                            if( ask_itr->collateral )
+                            {
+                                *_out << std::string(77, ' ');
+                                *_out << "| ";
+                                *_out << std::left << std::setw(30) << std::setprecision(8) << (fc::to_string(_client->get_chain()->to_pretty_price_double(ask_itr->get_price())) + " " + quote_asset_record->symbol)
+                                     << std::right << std::setw(23) << _client->get_chain()->to_pretty_asset(ask_itr->get_quantity())
+                                     << std::right << std::setw(26) << _client->get_chain()->to_pretty_asset(ask_itr->get_quote_quantity());
+                                   *_out << "   " << _client->get_chain()->to_pretty_asset(asset(*ask_itr->collateral));
+                                   *_out << "\n";
+                            }
+                           ++ask_itr;
+                        }
+                     }
+
+                    auto recent_average_price = _client->get_chain()->get_market_status(quote_id, base_id)->avg_price_1h;
+                    *_out << "Average Price in Recent Trades: "
+                          << _client->get_chain()->to_pretty_price(recent_average_price)
+                          << "     ";
+
+                    auto status = _client->get_chain()->get_market_status( quote_id, base_id );
+                    if( status )
                     {
-                       *_out << "Last Error:  ";
-                       *_out << status->last_error->to_string() << "\n";
-                       if( status->last_error->code() != 37005 /* insufficient funds */ )
+                       *_out << "Maximum Short Price: "
+                             << _client->get_chain()->to_pretty_price( max_short_price )
+                             <<"     ";
+
+                       *_out << "Bid Depth: " << _client->get_chain()->to_pretty_asset( asset(status->bid_depth, base_id) ) <<"     ";
+                       *_out << "Ask Depth: " << _client->get_chain()->to_pretty_asset( asset(status->ask_depth, base_id) ) <<"     ";
+                       *_out << "Min Depth: " << _client->get_chain()->to_pretty_asset( asset(BTS_BLOCKCHAIN_MARKET_DEPTH_REQUIREMENT) ) <<"\n";
+                       if(  status->last_error )
                        {
-                          *_out << "Details:\n";
-                          *_out << status->last_error->to_detail_string() << "\n";
+                          *_out << "Last Error:  ";
+                          *_out << status->last_error->to_string() << "\n";
+                          if( true || status->last_error->code() != 37005 /* insufficient funds */ )
+                          {
+                             *_out << "Details:\n";
+                             *_out << status->last_error->to_detail_string() << "\n";
+                          }
                        }
                     }
-                 }
+
+                  // TODO: print insurance fund for market issued assets
+
+                  } // end call section that only applies to market issued assets vs XTS
+                  else
+                  {
+                     auto status = _client->get_chain()->get_market_status( quote_id, base_id );
+                     if(  status->last_error )
+                     {
+                        *_out << "Last Error:  ";
+                        *_out << status->last_error->to_string() << "\n";
+                        if( true || status->last_error->code() != 37005 /* insufficient funds */ )
+                        {
+                           *_out << "Details:\n";
+                           *_out << status->last_error->to_detail_string() << "\n";
+                        }
+                     }
+                  }
 
               }
               else if (method_name == "blockchain_market_order_history")
               {
-                  vector<market_transaction> orders = result.as<vector<market_transaction>>();
+                  vector<order_history_record> orders = result.as<vector<order_history_record>>();
                   if( orders.empty() )
                   {
                     *_out << "No Orders.\n";
@@ -1061,22 +1091,28 @@ namespace bts { namespace cli {
                   }
 
                   *_out << std::setw(7) << "TYPE"
-                        << std::setw(20) << "PRICE"
+                        << std::setw(30) << "PRICE"
                         << std::setw(25) << "PAID"
                         << std::setw(25) << "RECEIVED"
-                        << "\n" << std::string(77,'-') << "\n";
+                        << std::setw(20) << "FEES"
+                        << std::setw(23) << "TIMESTAMP"
+                        << "\n" << std::string(130,'-') << "\n";
 
-                  for( market_transaction order : orders )
+                  for( order_history_record order : orders )
                   {
                     *_out << std::setw(7) << "Buy"
-                          << std::setw(20) << _client->get_chain()->to_pretty_price(order.bid_price)
+                          << std::setw(30) << _client->get_chain()->to_pretty_price(order.bid_price)
                           << std::setw(25) << _client->get_chain()->to_pretty_asset(order.bid_paid)
                           << std::setw(25) << _client->get_chain()->to_pretty_asset(order.bid_received)
+                          << std::setw(20) << _client->get_chain()->to_pretty_asset(order.bid_paid - order.ask_received)
+                          << std::setw(23) << pretty_timestamp(order.timestamp)
                           << "\n"
                           << std::setw(7) << "Sell"
-                          << std::setw(20) << _client->get_chain()->to_pretty_price(order.ask_price)
+                          << std::setw(30) << _client->get_chain()->to_pretty_price(order.ask_price)
                           << std::setw(25) << _client->get_chain()->to_pretty_asset(order.ask_paid)
                           << std::setw(25) << _client->get_chain()->to_pretty_asset(order.ask_received)
+                          << std::setw(20) << _client->get_chain()->to_pretty_asset(order.ask_paid - order.bid_received)
+                          << std::setw(23) << pretty_timestamp(order.timestamp)
                           << "\n";
                   }
               }
@@ -1093,17 +1129,24 @@ namespace bts { namespace cli {
                           << std::setw(20) << "HIGHEST BID"
                           << std::setw(20) << "LOWEST ASK"
                           << std::setw(20) << "TRADING VOLUME"
-                          << "\n" << std::string(80,'-') << "\n";
+                          << std::setw(20) << "AVERAGE PRICE"
+                          << "\n" << std::string(100,'-') << "\n";
 
                   for( auto point : points )
                   {
                     *_out << std::setw(20) << pretty_timestamp(point.timestamp)
                           << std::setw(20) << point.highest_bid
                           << std::setw(20) << point.lowest_ask
-                          << std::setw(20) << point.volume
-                          << "\n";
+                          << std::setw(20) << _client->get_chain()->to_pretty_asset(asset(point.volume));
+                    if(point.recent_average_price)
+                      *_out << std::setw(20) << *point.recent_average_price;
+                    else
+                      *_out << std::setw(20) << "N/A";
+                    *_out << "\n";
                   }
               }
+              else if (method_name == "blockchain_unclaimed_genesis")
+                  *_out << _client->get_chain()->to_pretty_asset(result.as<asset>()) << "\n";
               else if (method_name == "network_list_potential_peers")
               {
                   auto peers = result.as<std::vector<net::potential_peer_record>>();
@@ -1129,10 +1172,11 @@ namespace bts { namespace cli {
                       *_out << "\n";
                   }
               }
-              else if( method_name == "wallet_set_priority_fee" )
+              else if( method_name == "wallet_set_transaction_fee"
+                       || method_name == "blockchain_calculate_base_supply" )
               {
-                  const auto fee = result.as<asset>();
-                  *_out << _client->get_chain()->to_pretty_asset( fee ) << "\n";
+                  const auto asset_result = result.as<asset>();
+                  *_out << _client->get_chain()->to_pretty_asset( asset_result ) << "\n";
               }
               else
               {
@@ -1195,7 +1239,7 @@ namespace bts { namespace cli {
 
                     if( acct.id == 0 )
                       *_out << std::setw( 22 ) << "NO";
-                    else 
+                    else
                       *_out << std::setw( 22 ) << pretty_timestamp(acct.registration_date);
 
                     if( acct.is_favorite )
@@ -1231,11 +1275,11 @@ namespace bts { namespace cli {
 
                     *_out << std::setw(64) << string( acct.active_key() );
 
-                    if (acct.id == 0 ) 
+                    if (acct.id == 0 )
                     {
                         *_out << std::setw( 22 ) << "NO";
-                    } 
-                    else 
+                    }
+                    else
                     {
                         *_out << std::setw( 22 ) << pretty_timestamp(acct.registration_date);
                     }
@@ -1278,7 +1322,7 @@ namespace bts { namespace cli {
                     {
                         *_out << std::setw(35) << pretty_shorten(acct.name, 34);
                     }
-                    
+
                     *_out << std::setw(64) << string( acct.active_key() );
                     *_out << std::setw( 22 ) << pretty_timestamp(acct.registration_date);
 
@@ -1378,7 +1422,8 @@ namespace bts { namespace cli {
 
     cli_impl::cli_impl(bts::client::client* client, std::istream* command_script, std::ostream* output_stream)
     :_client(client)
-    ,_rpc_server(client->get_rpc_server())
+    ,_rpc_server(client->get_rpc_server()),
+    _cin_thread("stdin_reader")
     ,_quit(false)
     ,show_raw_output(false)
     ,_daemon_mode(false)
@@ -1458,7 +1503,7 @@ namespace bts { namespace cli {
         if (_command_completion_generator_iter->second == _command_completion_generator_iter->first) // suppress completing aliases
           return strdup(_command_completion_generator_iter->second.c_str());
         else
-          ++_command_completion_generator_iter;  
+          ++_command_completion_generator_iter;
       }
 
       rl_attempted_completion_over = 1; // suppress default filename completion
@@ -1475,11 +1520,11 @@ namespace bts { namespace cli {
         return rl_completion_matches(text, &json_command_completion_generator_function);
       else
       {
-        // not the beginning of a line.  figure out what the type of this argument is 
+        // not the beginning of a line.  figure out what the type of this argument is
         // and whether we can complete it.  First, look up the method
         string command_line_to_parse(rl_line_buffer, start);
         string trimmed_command_to_parse(boost::algorithm::trim_copy(command_line_to_parse));
-        
+
         if (!trimmed_command_to_parse.empty())
         {
           auto alias_iter = _method_alias_map.find(trimmed_command_to_parse);
@@ -1503,7 +1548,7 @@ namespace bts { namespace cli {
             // do nothing
           }
         }
-        
+
         return rl_completion_matches(text, &json_argument_completion_generator_function);
       }
     }
@@ -1511,7 +1556,7 @@ namespace bts { namespace cli {
 #endif
     void cli_impl::display_status_message(const std::string& message)
     {
-      if( !_input_stream || !_out || _daemon_mode ) 
+      if( !_input_stream || !_out || _daemon_mode )
         return;
 #ifdef HAVE_READLINE
       if (rl_prompt)
@@ -1570,16 +1615,17 @@ namespace bts { namespace cli {
   void cli::set_input_stream_log(boost::optional<std::ostream&> input_stream_log)
   {
     my->_input_stream_log = input_stream_log;
-  } 
+  }
 
   //disable reading from std::cin
   void cli::set_daemon_mode(bool daemon_mode) { my->_daemon_mode = daemon_mode; }
- 
+
   void cli::display_status_message(const std::string& message)
   {
-    my->display_status_message(message);
+    if (my)
+      my->display_status_message(message);
   }
- 
+
   void cli::process_commands(std::istream* input_stream)
   {
     ilog( "starting to process interactive commands" );
@@ -1623,7 +1669,7 @@ namespace bts { namespace cli {
         my->_saved_out = nullptr;
       }
     }
-    
+
   }
 
   void cli::filter_output_for_tests(bool enable_flag)

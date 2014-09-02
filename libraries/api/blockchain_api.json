@@ -12,6 +12,15 @@
         "aliases" : ["getconfig","get_config", "config", "blockchain_get_config"]
       },
       {
+        "method_name": "blockchain_calculate_base_supply",
+        "description": "Calculate the total base supply from the current blockchain database state",
+        "return_type": "asset",
+        "parameters" : [],
+        "is_const" : true,
+        "prerequisites" : ["json_authenticated"],
+        "aliases" : ["supply", "calculate_supply"]
+      },
+      {
         "method_name": "blockchain_is_synced",
         "description": "Returns true if the local blockchain is synced with the network; false otherwise",
         "return_type": "bool",
@@ -24,11 +33,11 @@
         "method_name": "blockchain_get_block_hash",
         "description": "Returns hash of block in best-block-chain at index provided",
         "return_type": "block_id_type",
-        "parameters" : 
+        "parameters" :
           [
-            { 
-              "name" : "block_number", 
-              "type" : "uint32_t", 
+            {
+              "name" : "block_number",
+              "type" : "uint32_t",
               "description" : "index of the block",
               "example" : "42"
             }
@@ -61,18 +70,26 @@
         "return_type": "account_record_array",
         "parameters" : [
             {
-              "name" : "first_account_name", 
-              "type" : "account_name", 
+              "name" : "first_account_name",
+              "type" : "account_name",
               "description" : "the first account name to include. May be either a name or an index",
               "default_value" : ""
             },
             {
-              "name" : "limit", 
-              "type" : "int32_t", 
+              "name" : "limit",
+              "type" : "int32_t",
               "description" : "the maximum number of items to list",
               "default_value" : -1
             }
         ],
+        "is_const" : true,
+        "prerequisites" : ["no_prerequisites"]
+      },
+      {
+        "method_name": "blockchain_list_recently_registered_accounts",
+        "description": "Returns a list of recently registered accounts",
+        "return_type": "account_record_array",
+        "parameters" : [],
         "is_const" : true,
         "prerequisites" : ["no_prerequisites"]
       },
@@ -82,14 +99,14 @@
         "return_type": "asset_record_array",
         "parameters" : [
             {
-              "name" : "first_symbol", 
-              "type" : "asset_symbol", 
+              "name" : "first_symbol",
+              "type" : "asset_symbol",
               "description" : "the prefix of the first asset symbol name to include",
               "default_value" : ""
             },
             {
-              "name" : "limit", 
-              "type" : "int32_t", 
+              "name" : "limit",
+              "type" : "int32_t",
               "description" : "the maximum number of items to list",
               "default_value" : -1
             }
@@ -98,12 +115,13 @@
         "prerequisites" : ["no_prerequisites"]
       },
       {
-        "method_name": "blockchain_get_pending_transactions",
+        "method_name": "blockchain_list_pending_transactions",
         "description": "Return a list of transactions that are not yet in a block.",
         "return_type": "signed_transaction_array",
         "parameters" : [],
         "is_const" : true,
-        "prerequisites" : ["no_prerequisites"]
+        "prerequisites" : ["no_prerequisites"],
+        "aliases" : ["blockchain_get_pending_transactions", "list_pending"]
       },
       {
         "method_name": "blockchain_get_transaction",
@@ -111,8 +129,8 @@
         "return_type": "optional_blockchain_transaction_record",
         "parameters" : [
             {
-              "name" : "transaction_id", 
-              "type" : "string", 
+              "name" : "transaction_id",
+              "type" : "string",
               "description" : "the base58 transaction ID to return"
             },
             {
@@ -138,7 +156,7 @@
         ],
         "is_const" : true,
         "prerequisites" : ["json_authenticated"],
-        "aliases" : ["get_block, getblock"]
+        "aliases" : ["get_block", "getblock"]
       },
       {
         "method_name": "blockchain_get_block_transactions",
@@ -170,6 +188,43 @@
         "aliases" : ["get_account"]
       },
       {
+        "method_name": "blockchain_get_balance",
+        "description": "Retrieves the balance record for the given address",
+        "return_type": "balance_record",
+        "parameters" : [
+            {
+              "name" : "balance_id",
+              "type" : "address",
+              "description" : "address of the balance"
+            }
+        ],
+        "is_const" : true,
+        "prerequisites" : ["json_authenticated"],
+        "aliases" : ["get_balance"]
+      },
+      {
+        "method_name": "blockchain_list_balances",
+        "description": "Lists balance records starting at the given balance ID",
+        "return_type": "balance_record_map",
+        "parameters" : [
+            {
+              "name" : "first_balance_id",
+              "type" : "string",
+              "description" : "prefix of the first balance id to start at",
+              "default_value" : ""
+            },
+            {
+              "name" : "limit",
+              "type" : "uint32_t",
+              "description" : "the maximum number of items to list",
+              "default_value" : 4
+            }
+        ],
+        "is_const" : true,
+        "prerequisites" : ["json_authenticated"],
+        "aliases" : ["list_balances"]
+      },
+      {
         "method_name": "blockchain_get_asset",
         "description": "Retrieves the record for the given asset ticker symbol or ID",
         "return_type": "optional_asset_record",
@@ -185,40 +240,31 @@
         "aliases" : ["get_asset"]
       },
       {
-        "method_name": "blockchain_list_proposals",
-        "description": "Returns the list of proposals",
-        "return_type": "proposal_array",
+        "method_name": "blockchain_get_feeds_for_asset",
+        "description": "Retrieves all current feeds for the given asset",
+        "return_type": "feed_entry_list",
         "parameters" : [
             {
-              "name" : "first", 
-              "type" : "uint32_t", 
-              "description" : "",
-              "default_value" : 0
-            },
-            {
-              "name" : "count", 
-              "type" : "uint32_t", 
-              "description" : "",
-              "default_value" : -1
+              "name" : "asset",
+              "type" : "string",
+              "description" : "asset ticker symbol or ID to retrieve"
             }
         ],
         "is_const" : true,
-        "aliases" : ["blockchain_get_proposals"],
         "prerequisites" : ["json_authenticated"]
       },
       {
-        "method_name": "blockchain_get_proposal_votes",
-        "description": "Returns the list votes filed for a given proposal.",
-        "return_type": "proposal_vote_array",
+        "method_name": "blockchain_get_feeds_from_delegate",
+        "description": "Retrieves all current feeds published by the given delegate",
+        "return_type": "feed_entry_list",
         "parameters" : [
             {
-              "name" : "proposal_id", 
-              "type" : "proposal_id", 
-              "description" : "The ID of the proposal that votes will be returned for."
+              "name" : "delegate_name",
+              "type" : "string",
+              "description" : "the name of the delegate to list feeds from"
             }
         ],
         "is_const" : true,
-        "aliases" : ["get_proposal_votes"],
         "prerequisites" : ["json_authenticated"]
       },
       {
@@ -339,7 +385,7 @@
       {
         "method_name": "blockchain_market_order_history",
         "description": "Returns a list of recently filled orders in a given market, in reverse order of execution.",
-        "return_type": "market_transaction_array",
+        "return_type": "order_history_record_array",
         "parameters" : [
            {
               "name" : "quote_symbol",
@@ -463,7 +509,7 @@
                "description" : "the maximum number of blocks to return. A negative value means to start at the head block and work backwards; a positive value means to start at the first block",
                "default_value" : -20
             }
-         ], 
+         ],
          "aliases" : ["list_blocks"],
          "prerequisites" : ["json_authenticated"]
       },
@@ -477,7 +523,7 @@
                "type" : "uint32_t",
                "description" : "The block to examine"
             }
-         ], 
+         ],
          "prerequisites" : ["json_authenticated"]
       },
       {
@@ -575,6 +621,14 @@
               "description" : "base symbol"
             }
         ],
+        "is_const" : true,
+        "prerequisites" : ["json_authenticated"]
+      },
+      {
+        "method_name": "blockchain_unclaimed_genesis",
+        "description": "Returns the total shares in the genesis block which have never been fully or partially claimed.",
+        "return_type": "asset",
+        "parameters" : [],
         "is_const" : true,
         "prerequisites" : ["json_authenticated"]
       }

@@ -34,11 +34,6 @@ namespace bts{ namespace blockchain {
    {
       return (get_delegate_pay_rate() * BTS_BLOCKCHAIN_ASSET_REGISTRATION_FEE);
    }
-   
-   share_type chain_interface::calculate_data_fee(size_t bytes) const
-   {
-      return (get_fee_rate() * bytes)/1000;
-   }
 
    bool chain_interface::is_valid_account_name( const std::string& str )const
    {
@@ -94,6 +89,7 @@ namespace bts{ namespace blockchain {
       return next_id;
    }
 
+#if 0
    proposal_id_type   chain_interface::last_proposal_id()const
    {
        return get_property( chain_property_enum::last_proposal_id ).as<proposal_id_type>();
@@ -105,6 +101,7 @@ namespace bts{ namespace blockchain {
       set_property( chain_property_enum::last_proposal_id, next_id );
       return next_id;
    }
+#endif
 
    vector<account_id_type> chain_interface::get_active_delegates()const
    { try {
@@ -116,11 +113,22 @@ namespace bts{ namespace blockchain {
       set_property( active_delegate_list_id, fc::variant(delegate_ids) );
    }
 
-   bool chain_interface::is_active_delegate( account_id_type delegate_id ) const
+   bool chain_interface::is_active_delegate( const account_id_type& id )const
    { try {
-      auto active = get_active_delegates();
-      return active.end() != std::find( active.begin(), active.end(), delegate_id );
-   } FC_RETHROW_EXCEPTIONS( warn, "", ("delegate_id",delegate_id) ) }
+      const auto active = get_active_delegates();
+      return active.end() != std::find( active.begin(), active.end(), id );
+   } FC_RETHROW_EXCEPTIONS( warn, "", ("id",id) ) }
+
+   double chain_interface::to_pretty_price_double( const price& price_to_pretty_print )const
+   {
+      auto obase_asset = get_asset_record( price_to_pretty_print.base_asset_id );
+      if( !obase_asset ) FC_CAPTURE_AND_THROW( unknown_asset_id, (price_to_pretty_print.base_asset_id) );
+
+      auto oquote_asset = get_asset_record( price_to_pretty_print.quote_asset_id );
+      if( !oquote_asset ) FC_CAPTURE_AND_THROW( unknown_asset_id, (price_to_pretty_print.quote_asset_id) );
+
+      return fc::variant(string(price_to_pretty_print.ratio * obase_asset->get_precision() / oquote_asset->get_precision())).as_double() / (BTS_BLOCKCHAIN_MAX_SHARES*1000);
+   }
 
    string chain_interface::to_pretty_price( const price& price_to_pretty_print )const
    { try {
@@ -159,7 +167,7 @@ namespace bts{ namespace blockchain {
 
    int64_t   chain_interface::get_required_confirmations()const
    {
-      return get_property( confirmation_requirement ).as_int64(); 
+      return get_property( confirmation_requirement ).as_int64();
    }
 
    bool chain_interface::is_valid_symbol_name( const string& name )const
@@ -189,15 +197,6 @@ namespace bts{ namespace blockchain {
    {
       set_property( accumulated_fees, variant(fees) );
    }
-   share_type  chain_interface::get_fee_rate()const
-   {
-      return get_property( current_fee_rate ).as_int64();
-   }
-
-   void  chain_interface::set_fee_rate( share_type fees )
-   {
-      set_property( current_fee_rate, variant(fees) );
-   }
 
    map<asset_id_type, asset_id_type>  chain_interface::get_dirty_markets()const
    {
@@ -208,6 +207,7 @@ namespace bts{ namespace blockchain {
          return map<asset_id_type,asset_id_type>();
       }
    }
+
    void  chain_interface::set_dirty_markets( const map<asset_id_type,asset_id_type>& d )
    {
       set_property( dirty_markets, fc::variant(d) );

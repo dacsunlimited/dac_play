@@ -56,12 +56,14 @@ string pretty_age( const time_point_sec& timestamp, bool from_now, const string&
 
 string pretty_percent( double part, double whole, int precision )
 {
-    FC_ASSERT( part >= 0 );
-    FC_ASSERT( whole >= 0 );
-    FC_ASSERT( precision >= 0 );
-    FC_ASSERT( part <= whole );
-    if( whole <= 0 ) return "N/A";
-    const auto percent = 100 * part / whole;
+    if ( part < 0      ||
+         whole < 0     ||
+         precision < 0 ||
+         part > whole )
+      return "? %";
+    if( whole <= 0 )
+      return "N/A";
+    double percent = 100 * part / whole;
     std::stringstream ss;
     ss << std::setprecision( precision ) << std::fixed << percent << " %";
     return ss.str();
@@ -83,29 +85,49 @@ string pretty_info( fc::mutable_variant_object info, cptr client )
             info["blockchain_head_block_age"] = pretty_age( timestamp, true, "old" );
     }
 
-    const auto participation = info["blockchain_average_delegate_participation"].as<double>();
-    info["blockchain_average_delegate_participation"] = pretty_percent( participation, 100 );
-
-    const auto pay_rate = info["blockchain_delegate_pay_rate"].as<share_type>();
-    info["blockchain_delegate_pay_rate"] = client->get_chain()->to_pretty_asset( asset( pay_rate ) );
+    if( !info["blockchain_average_delegate_participation"].is_null() )
+    {
+        const auto participation = info["blockchain_average_delegate_participation"].as<double>();
+        info["blockchain_average_delegate_participation"] = pretty_percent( participation, 100 );
+    }
 
     const auto fees = info["blockchain_accumulated_fees"].as<share_type>();
     info["blockchain_accumulated_fees"] = client->get_chain()->to_pretty_asset( asset( fees ) );
 
-    const auto share_supply = info["blockchain_share_supply"].as<share_type>();
-    info["blockchain_share_supply"] = client->get_chain()->to_pretty_asset( asset( share_supply ) );
+    const auto pay_rate = info["blockchain_delegate_pay_rate"].as<share_type>();
+    info["blockchain_delegate_pay_rate"] = client->get_chain()->to_pretty_asset( asset( pay_rate ) );
+
+    if( !info["blockchain_share_supply"].is_null() )
+    {
+        const auto share_supply = info["blockchain_share_supply"].as<share_type>();
+        info["blockchain_share_supply"] = client->get_chain()->to_pretty_asset( asset( share_supply ) );
+    }
+
+    optional<time_point_sec> next_round_timestamp;
+    if( !info["blockchain_next_round_timestamp"].is_null() )
+    {
+        next_round_timestamp = info["blockchain_next_round_timestamp"].as<time_point_sec>();
+        info["blockchain_next_round_timestamp"] = pretty_timestamp( *next_round_timestamp );
+
+        if( !info["blockchain_next_round_time"].is_null() )
+            info["blockchain_next_round_time"] = "at least " + pretty_age( *next_round_timestamp, true );
+    }
 
     const auto data_dir = info["client_data_dir"].as<path>();
     info["client_data_dir"] = pretty_path( data_dir );
+
+    if( !info["client_version"].is_null() && FILTER_OUTPUT_FOR_TESTS )
+        info["client_version"] = "[redacted]";
 
     if( !info["ntp_time"].is_null() )
     {
         const auto ntp_time = info["ntp_time"].as<time_point_sec>();
         info["ntp_time"] = pretty_timestamp( ntp_time );
+
+        if( !info["ntp_time_error"].is_null() && FILTER_OUTPUT_FOR_TESTS )
+            info["ntp_time_error"] = "[redacted]";
     }
 
-    if( FILTER_OUTPUT_FOR_TESTS )
-        info["ntp_error"] = "[redacted]";
     if( !info["wallet_unlocked_until_timestamp"].is_null() )
     {
         const auto unlocked_until_timestamp = info["wallet_unlocked_until_timestamp"].as<time_point_sec>();
@@ -113,6 +135,12 @@ string pretty_info( fc::mutable_variant_object info, cptr client )
 
         if( !info["wallet_unlocked_until"].is_null() )
             info["wallet_unlocked_until"] = pretty_age( unlocked_until_timestamp, true );
+    }
+
+    if( !info["wallet_last_scanned_block_timestamp"].is_null() )
+    {
+        const auto last_scanned_block_timestamp = info["wallet_last_scanned_block_timestamp"].as<time_point_sec>();
+        info["wallet_last_scanned_block_timestamp"] = pretty_timestamp( last_scanned_block_timestamp );
     }
 
     if( !info["wallet_scan_progress"].is_null() )
@@ -125,10 +153,15 @@ string pretty_info( fc::mutable_variant_object info, cptr client )
     {
         const auto next_block_timestamp = info["wallet_next_block_production_timestamp"].as<time_point_sec>();
         info["wallet_next_block_production_timestamp"] = pretty_timestamp( next_block_timestamp );
-
-        if( !info["wallet_next_block_production_time"].is_null() )
+        if( !next_round_timestamp.valid() || next_block_timestamp < *next_round_timestamp )
         {
-            info["wallet_next_block_production_time"] = pretty_age( next_block_timestamp, true );
+            if( !info["wallet_next_block_production_time"].is_null() )
+                info["wallet_next_block_production_time"] = pretty_age( next_block_timestamp, true );
+        }
+        else
+        {
+            if( !info["wallet_next_block_production_time"].is_null() )
+                info["wallet_next_block_production_time"] = "at least " + pretty_age( *next_round_timestamp, true );
         }
     }
 
@@ -143,6 +176,9 @@ string pretty_blockchain_info( fc::mutable_variant_object info, cptr client )
     std::stringstream out;
     out << std::left;
 
+    if( !info["db_version"].is_null() && FILTER_OUTPUT_FOR_TESTS )
+        info["db_version"] = "[redacted]";
+
     const auto timestamp = info["genesis_timestamp"].as<time_point_sec>();
     info["genesis_timestamp"] = pretty_timestamp( timestamp );
 
@@ -152,8 +188,8 @@ string pretty_blockchain_info( fc::mutable_variant_object info, cptr client )
     const auto inactivity_fee = info["inactivity_fee_apr"].as<share_type>();
     info["inactivity_fee_apr"] = client->get_chain()->to_pretty_asset( asset( inactivity_fee ) );
 
-    const auto priority_fee = info["priority_fee"].as<share_type>();
-    info["priority_fee"] = client->get_chain()->to_pretty_asset( asset( priority_fee ) );
+    const auto relay_fee = info["relay_fee"].as<share_type>();
+    info["relay_fee"] = client->get_chain()->to_pretty_asset( asset( relay_fee ) );
 
     const auto delegate_reg_fee = info["delegate_reg_fee"].as<share_type>();
     info["delegate_reg_fee"] = client->get_chain()->to_pretty_asset( asset( delegate_reg_fee ) );
@@ -187,28 +223,26 @@ string pretty_wallet_info( fc::mutable_variant_object info, cptr client )
             info["unlocked_until"] = pretty_age( unlocked_until_timestamp, true );
     }
 
+    if( !info["last_scanned_block_timestamp"].is_null() )
+    {
+        const auto last_scanned_block_timestamp = info["last_scanned_block_timestamp"].as<time_point_sec>();
+        info["last_scanned_block_timestamp"] = pretty_timestamp( last_scanned_block_timestamp );
+    }
+
+    if( !info["transaction_fee"].is_null() )
+    {
+        const auto transaction_fee = info["transaction_fee"].as<asset>();
+        info["transaction_fee"] = client->get_chain()->to_pretty_asset( transaction_fee );
+    }
+
     if( !info["scan_progress"].is_null() )
     {
         const auto scan_progress = info["scan_progress"].as<float>();
         info["scan_progress"] = pretty_percent( scan_progress, 1 );
     }
 
-    if( !info["priority_fee"].is_null() )
-    {
-        const auto priority_fee = info["priority_fee"].as<asset>();
-        info["priority_fee"] = client->get_chain()->to_pretty_asset( priority_fee );
-    }
-
-    if( !info["next_block_production_timestamp"].is_null() )
-    {
-        const auto next_block_timestamp = info["next_block_production_timestamp"].as<time_point_sec>();
-        info["next_block_production_timestamp"] = pretty_timestamp( next_block_timestamp );
-
-        if( !info["next_block_production_time"].is_null() )
-        {
-            info["next_block_production_time"] = pretty_age( next_block_timestamp, true );
-        }
-    }
+    if( !info["version"].is_null() && FILTER_OUTPUT_FOR_TESTS )
+        info["version"] = "[redacted]";
 
     out << fc::json::to_pretty_string( info ) << "\n";
     return out.str();
@@ -257,7 +291,7 @@ string pretty_delegate_list( const vector<account_record>& delegate_records, cpt
         else
             out << std::setw( 32 ) << pretty_shorten( delegate_name, 29 ) + " *";
 
-        out << std::setw( 15 ) << pretty_percent( delegate_record.net_votes(), share_supply, 10 );
+        out << std::setw( 15 ) << pretty_percent( delegate_record.net_votes(), share_supply, 8 );
 
         const auto num_produced = delegate_record.delegate_info->blocks_produced;
         const auto num_missed = delegate_record.delegate_info->blocks_missed;
@@ -367,7 +401,7 @@ string pretty_transaction_list( const vector<pretty_transaction>& transactions, 
     if( transactions.empty() ) return "No transactions found.\n";
     FC_ASSERT( client != nullptr );
 
-    const auto is_filtered = !transactions.front().ledger_entries.front().running_balances.empty();
+    const bool account_specified = transactions.front().ledger_entries.front().running_balances.size() == 1;
 
     auto any_group = false;
     for( const auto& transaction : transactions )
@@ -384,15 +418,13 @@ string pretty_transaction_list( const vector<pretty_transaction>& transactions, 
     out << std::setw( 20 ) << "TO";
     out << std::setw( 24 ) << "AMOUNT";
     out << std::setw( 44 ) << "MEMO";
-    if( is_filtered ) out << std::setw( 24 ) << "BALANCE";
+    if( account_specified ) out << std::setw( 24 ) << "BALANCE";
     out << std::setw( 20 ) << "FEE";
     out << std::setw(  8 ) << "ID";
     out << "\n";
 
-    const auto line_size = !is_filtered ? 166 : 190;
+    const auto line_size = !account_specified ? 166 : 190;
     out << pretty_line( !any_group ? line_size : line_size + 2 ) << "\n";
-
-    const auto errors = client->get_wallet()->get_pending_transaction_errors();
 
     auto group = true;
     for( const auto& transaction : transactions )
@@ -419,9 +451,9 @@ string pretty_transaction_list( const vector<pretty_transaction>& transactions, 
                 {
                     out << transaction.block_num;
                 }
-                else if( errors.count( transaction.trx_id ) > 0 )
+                else if( transaction.error.valid() )
                 {
-                    auto name = string( errors.at( transaction.trx_id ).name() );
+                    auto name = string( transaction.error->name() );
                     name = name.substr( 0, name.find( "_" ) );
                     boost::to_upper( name );
                     out << name.substr(0, 9 );
@@ -443,13 +475,18 @@ string pretty_transaction_list( const vector<pretty_transaction>& transactions, 
 
             out << std::setw( 44 ) << pretty_shorten( entry.memo, 43 );
 
-            if( is_filtered )
+            if( account_specified )
             {
                 out << std::setw( 24 );
                 if( !is_pending )
-                    out << client->get_chain()->to_pretty_asset( entry.running_balances.at( entry.amount.asset_id ) );
+                {
+                    const string name = entry.running_balances.begin()->first;
+                    out << client->get_chain()->to_pretty_asset( entry.running_balances.at( name ).at( entry.amount.asset_id ) );
+                }
                 else
+                {
                     out << "N/A";
+                }
             }
 
             if( count == 1 )

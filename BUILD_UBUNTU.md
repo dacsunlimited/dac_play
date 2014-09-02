@@ -1,7 +1,7 @@
 These instructions worked on a fresh Ubuntu 14.04 LTS image.
 
     sudo apt-get update
-    sudo apt-get install cmake git libreadline-dev uuid-dev g++ libdb++-dev libdb-dev zip libssl-dev openssl build-essential python-dev autotools-dev libicu-dev libbz2-dev libboost-dev libboost-all-dev zlib1g-dev
+    sudo apt-get install cmake git libreadline-dev uuid-dev g++ libdb++-dev libdb-dev zip libssl-dev openssl build-essential python-dev autotools-dev libicu-dev libbz2-dev libboost-dev libboost-all-dev
     git clone https://github.com/BitShares/bitshares_toolkit.git
     cd bitshares_toolkit
     git submodule init
@@ -20,6 +20,8 @@ For the Qt Wallet, some extra steps are required:
 	cd -
 	make buildweb
 	make BitSharesXT
+
+By default, the web wallet will not be rebuilt even after pulling new changes. To force the web wallet to rebuild, use `make forcebuildweb`.
 
 The binary will be located at programs/qt_wallet/BitSharesXT
 The wallet can be installed as a local application capable of handling xts: URLs like so:

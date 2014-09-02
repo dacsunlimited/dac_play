@@ -50,6 +50,17 @@ namespace bts { namespace client {
       bool is_valid() const; /* Currently just checks if rpc port is set */
     };
 
+    struct chain_server_config
+    {
+        chain_server_config()
+         : enabled(false),
+           listen_port(0)
+        {}
+
+        bool enabled;
+        uint16_t listen_port;
+    };
+
     struct config
     {
        config( ) : 
@@ -60,14 +71,21 @@ namespace bts { namespace client {
           delegate_server( fc::ip::endpoint::from_string("0.0.0.0:0") ),
           default_delegate_peers( vector<string>({"178.62.30.193:9988"}) )
           {
-             default_peers[0]+=fc::to_string( BTS_NETWORK_DEFAULT_P2P_PORT );
-             default_peers[1]+=fc::to_string( BTS_NETWORK_DEFAULT_P2P_PORT+1 );
-             default_peers[2]+=fc::to_string( BTS_NETWORK_DEFAULT_P2P_PORT+2 );
-             logging = fc::logging_config::default_config();
+#ifdef BTS_TEST_NETWORK
+              uint32_t port = BTS_NET_TEST_P2P_PORT + BTS_TEST_NETWORK_VERSION;
+#else
+              uint32_t port = BTS_NET_DEFAULT_P2P_PORT;
+#endif
+              default_peers[0] += fc::to_string( port );
+              default_peers[1] += fc::to_string( port + 100 );
+              default_peers[2] += fc::to_string( port + 200 );
+              logging = fc::logging_config::default_config();
           }
 
           rpc_server_config   rpc;
           vector<string>      default_peers;
+          vector<string>      chain_servers;
+          chain_server_config chain_server;
           bool                ignore_console;
           bool                use_upnp;
           optional<fc::path>  genesis_config;
@@ -75,6 +93,10 @@ namespace bts { namespace client {
           fc::logging_config  logging;
           fc::ip::endpoint    delegate_server;
           vector<string>      default_delegate_peers;
+
+          fc::optional<std::string> growl_notify_endpoint;
+          fc::optional<std::string> growl_password;
+          fc::optional<std::string> growl_bitshares_client_identifier;
     };
 
 
@@ -83,7 +105,7 @@ namespace bts { namespace client {
      * @brief integrates the network, wallet, and blockchain
      *
      */
-    class client : public bts::rpc_stubs::common_api_client, 
+    class client : public bts::rpc_stubs::common_api_client,
                    public std::enable_shared_from_this<client>
     {
        public:
@@ -94,17 +116,17 @@ namespace bts { namespace client {
 
          virtual ~client();
 
+         void start_networking(std::function<void()> network_started_callback = std::function<void()>());
          void configure_from_command_line(int argc, char** argv);
          fc::future<void> start();
-         void open( const path& data_dir, 
-                    optional<fc::path> genesis_file_path = optional<fc::path>());
+         void open(const path& data_dir,
+                   optional<fc::path> genesis_file_path = optional<fc::path>(),
+                   std::function<void(uint32_t)> reindex_status_callback = std::function<void(uint32_t)>());
 
          void init_cli();
-         void set_daemon_mode(bool daemon_mode); 
+         void set_daemon_mode(bool daemon_mode);
 
          void add_node( const string& ep );
-
-         void start_delegate_loop();
 
          chain_database_ptr         get_chain()const;
          wallet_ptr                 get_wallet()const;
@@ -116,19 +138,18 @@ namespace bts { namespace client {
          bool                is_connected() const;
          bts::net::node_id_t get_node_id() const;
 
-         void configure( const fc::path& configuration_directory );
+         const config& configure(const fc::path& configuration_directory);
 
          // functions for taking command-line parameters and passing them on to the p2p node
          void listen_on_port( uint16_t port_to_listen, bool wait_if_not_available);
+         void accept_incoming_p2p_connections(bool accept);
          void listen_to_p2p_network();
          void connect_to_peer( const string& remote_endpoint );
          void connect_to_p2p_network();
 
          fc::ip::endpoint get_p2p_listening_endpoint() const;
-#ifndef NDEBUG
          bool handle_message(const bts::net::message&, bool sync_mode);
          void sync_status(uint32_t item_type, uint32_t item_count);
-#endif
 
        protected:
          virtual bts::api::common_api* get_impl() const override;
@@ -161,8 +182,12 @@ extern const std::string BTS_MESSAGE_MAGIC;
 
 FC_REFLECT(bts::client::client_notification, (timestamp)(message)(signature) )
 FC_REFLECT( bts::client::rpc_server_config, (enable)(rpc_user)(rpc_password)(rpc_endpoint)(httpd_endpoint)(htdocs) )
-FC_REFLECT( bts::client::config, 
-            (rpc)(default_peers)(ignore_console)(logging)
+FC_REFLECT( bts::client::chain_server_config, (enabled)(listen_port) )
+FC_REFLECT( bts::client::config,
+            (rpc)(default_peers)(chain_servers)(chain_server)(ignore_console)(logging)
             (delegate_server)
-            (default_delegate_peers) )
+            (default_delegate_peers)
+            (growl_notify_endpoint)
+            (growl_password)
+            (growl_bitshares_client_identifier) )
 

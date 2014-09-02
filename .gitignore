@@ -34,6 +34,7 @@ programs/utils/bts_genesis_to_bin
 programs/utils/bts_genesis_to_cpp
 programs/utils/key_to_wif
 programs/utils/map_bts_network
+programs/utils/pack_web
 
 tests/bitcoin/wallet_import_tests
 tests/bitshares_client_tests
@@ -42,5 +43,12 @@ tests/client_node
 tests/client_rpc_tests/client_rpc_tests
 tests/deterministic_signature_test
 tests/dev_tests
+tests/nathan_tests
 tests/server_node
 tests/wallet_tests
+/tests/debug_tests.log
+/tests/failed_tests.log
+/tests/regression_tests/blockchain_export_fork_graph/exported_fork.gv
+/tests/regression_tests/blockchain_export_fork_graph/exported_fork2.gv
+/tests/regression_tests/wallet_backup/wallet_backup.json
+/tests/regression_tests/_newtest

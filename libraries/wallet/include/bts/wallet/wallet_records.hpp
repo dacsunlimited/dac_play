@@ -66,7 +66,8 @@ namespace bts { namespace wallet {
       automatic_backups,
       transaction_scanning,
       last_unlocked_scanned_block_number,
-      default_transaction_priority_fee
+      default_transaction_priority_fee,
+      transaction_expiration_sec
    };
 
    /** Used to store key/value property pairs.
@@ -119,12 +120,10 @@ namespace bts { namespace wallet {
 
    struct key_data
    {
-       key_data():valid_from_signature(false){}
-
        address                  account_address;
        public_key_type          public_key;
        std::vector<char>        encrypted_private_key;
-       bool                     valid_from_signature;
+       bool                     valid_from_signature = false;
        optional<string>         memo;
 
        address                  get_address()const { return address( public_key ); }
@@ -145,9 +144,6 @@ namespace bts { namespace wallet {
 
    struct transaction_data
    {
-       transaction_data()
-       :block_num(0),is_virtual(false),is_confirmed(false),is_market(false){}
-
        /*
         * record_id
         * - non-virtual transactions: trx.id()
@@ -155,10 +151,10 @@ namespace bts { namespace wallet {
         * - virtual market transactions: fc::ripemd160::hash( block_num + get_key_label( owner ) + N )
         */
        transaction_id_type       record_id;
-       uint32_t                  block_num;
-       bool                      is_virtual;
-       bool                      is_confirmed;
-       bool                      is_market;
+       uint32_t                  block_num = 0;
+       bool                      is_virtual = false;
+       bool                      is_confirmed = false;
+       bool                      is_market = false;
        signed_transaction        trx;
        vector<ledger_entry>      ledger_entries;
        asset                     fee;
@@ -169,8 +165,6 @@ namespace bts { namespace wallet {
 
    struct market_order_status
    {
-      market_order_status():proceeds(0){}
-
       order_type_enum get_type()const;
       string          get_id()const;
 
@@ -180,8 +174,8 @@ namespace bts { namespace wallet {
       asset           get_proceeds()const;
 
       bts::blockchain::market_order        order;
-      share_type                           proceeds;
-      unordered_set<transaction_id_type>          transactions;
+      share_type                           proceeds = 0;
+      unordered_set<transaction_id_type>   transactions;
    };
 
    /* Used to store GUI preferences and such */
@@ -225,6 +219,7 @@ FC_REFLECT_ENUM( bts::wallet::property_enum,
         (transaction_scanning)
         (last_unlocked_scanned_block_number)
         (default_transaction_priority_fee)
+        (transaction_expiration_sec)
         )
 
 FC_REFLECT_ENUM( bts::wallet::wallet_record_type_enum, 

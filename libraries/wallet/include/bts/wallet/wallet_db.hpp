@@ -1,14 +1,13 @@
 #pragma once
-#include <bts/db/level_map.hpp>
+
 #include <bts/blockchain/chain_interface.hpp>
 #include <bts/blockchain/extended_address.hpp>
 #include <bts/blockchain/withdraw_types.hpp>
-#include <fc/reflect/variant.hpp>
+#include <bts/wallet/wallet_records.hpp>
+
 #include <fc/io/json.hpp>
 #include <fc/io/raw_variant.hpp>
-#include <fc/log/logger.hpp>
-
-#include <bts/wallet/wallet_records.hpp>
+#include <fc/reflect/variant.hpp>
 
 namespace bts { namespace wallet {
 
@@ -29,6 +28,8 @@ namespace bts { namespace wallet {
 
          int32_t              new_wallet_record_index();
          int32_t              new_key_child_index();
+         fc::ecc::private_key get_private_key( const fc::sha512& password, int index );
+
          fc::ecc::private_key new_private_key( const fc::sha512& password,
                                                const address& parent_account_address = address(),
                                                bool store_key = true );
@@ -137,14 +138,14 @@ namespace bts { namespace wallet {
           *  This is private 
           */
          template<typename T>
-         void store_record( T record_to_store )
+         void store_record( T record_to_store, bool sync = false )
          {
             if( record_to_store.wallet_record_index == 0 ) 
                record_to_store.wallet_record_index = new_wallet_record_index();
-            store_generic_record( generic_wallet_record( record_to_store ) );
+            store_generic_record( generic_wallet_record( record_to_store ), sync );
          }
 
-        void store_generic_record( const generic_wallet_record& record );
+        void store_generic_record( const generic_wallet_record& record, bool sync = false );
 
         friend class detail::wallet_db_impl;
         unique_ptr<detail::wallet_db_impl> my;

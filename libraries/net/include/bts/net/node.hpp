@@ -6,6 +6,8 @@
 #include <bts/blockchain/block.hpp>
 #include <bts/net/peer_database.hpp>
 
+#include <list>
+
 namespace bts { namespace net {
 
   using fc::variant_object;
@@ -174,6 +176,11 @@ namespace bts { namespace net {
         void      listen_on_endpoint( const fc::ip::endpoint& ep );
 
         /**
+         *  Call with true to enable listening for incoming connections
+         */
+        void accept_incoming_connections(bool accept);
+
+        /**
          *  Specifies the port upon which incoming connections should be accepted.
          *  @param port the port to listen on
          *  @param wait_if_not_available if true and the port is not available, enter a 
@@ -240,20 +247,24 @@ namespace bts { namespace net {
 
     class simulated_network : public node
     {
-       public:
-         void      listen_to_p2p_network() override {}
-         void      connect_to_p2p_network() override {}
-         void      connect_to(const fc::ip::endpoint& ep) override {}
+    public:
+      ~simulated_network();
 
-         fc::ip::endpoint get_actual_listening_endpoint() const override { return fc::ip::endpoint(); }
+      void      listen_to_p2p_network() override {}
+      void      connect_to_p2p_network() override {}
+      void      connect_to(const fc::ip::endpoint& ep) override {}
 
-         void      sync_from( const item_id& ) override {}
-         void      broadcast(const message& item_to_broadcast) override;
-         void      add_node_delegate(node_delegate* node_delegate_to_add);
+      fc::ip::endpoint get_actual_listening_endpoint() const override { return fc::ip::endpoint(); }
 
-         virtual uint32_t get_connection_count() const override { return 8; }
-       private:
-         std::vector<bts::net::node_delegate*> network_nodes;
+      void      sync_from( const item_id& ) override {}
+      void      broadcast(const message& item_to_broadcast) override;
+      void      add_node_delegate(node_delegate* node_delegate_to_add);
+
+      virtual uint32_t get_connection_count() const override { return 8; }
+    private:
+      struct node_info;
+      void message_sender(node_info* destination_node);
+      std::list<node_info*> network_nodes;
     };
 
 

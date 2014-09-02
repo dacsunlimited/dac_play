@@ -32,54 +32,8 @@ list( APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/libraries/fc/GitVers
 include( GetGitRevisionDescription )
 get_git_head_revision( GIT_REFSPEC GIT_SHA2 )
 
-if( WIN32 )
-    message( STATUS "Configuring BitShares on WIN32")
-    set( DB_VERSION 60 )
-    set( BDB_STATIC_LIBS 1 )
-
-    set( ZLIB_LIBRARIES "" )
-    set( LEVEL_DB_DIR vendor/leveldb-win )
-
-    SET( DEFAULT_EXECUTABLE_INSTALL_DIR bin/ )
-
-    set(CRYPTO_LIB)
-
-    #looks like this flag can have different default on some machines.
-    SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /SAFESEH:NO")
-    SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
-
-    # Probably cmake has a bug and vcxproj generated for executable in Debug conf. has disabled debug info
-    set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} /DEBUG")
-else( WIN32 )
-    # Apple AND Linux Options Here
-    find_package( ZLIB REQUIRED )
-    set( LEVEL_DB_DIR vendor/leveldb-1.12.0 )
-
-    #find_library(READLINE_LIBRARIES NAMES readline)
-    #find_path(READLINE_INCLUDE_DIR readline/readline.h)
-    #if(NOT READLINE_INCLUDE_DIR OR NOT READLINE_LIBRARIES)
-    #  MESSAGE(FATAL_ERROR "Could not find lib readline.")
-    #endif()
-
-    if( APPLE )
-        # Apple Specific Options Here
-        message( STATUS "Configuring BitShares on OS X" )
-        set( CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -std=c++11 -stdlib=libc++ -Wall" )
-    else( APPLE )
-        # Linux Specific Options Here
-        message( STATUS "Configuring BitShares on Linux" )
-        set( CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -std=c++11 -Wall" )
-        set( rt_library rt )
-        set( pthread_library pthread)
-        set( crypto_library crypto)
-        if ( FULL_STATIC_BUILD )
-          set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libstdc++ -static-libgcc")
-        endif ( FULL_STATIC_BUILD )
-    endif( APPLE )
-	set(Boost_USE_STATIC_LIBS ON)
-endif( WIN32 )
-
-find_package( BerkeleyDB )
+# Warning Boost libraries must be detected before processing leveldb cmake (included below) since
+# Boost_Include_Dir variable is referenced there.
 
 SET(BOOST_COMPONENTS)
 LIST(APPEND BOOST_COMPONENTS thread
@@ -110,10 +64,92 @@ IF(NOT "${Boost_VERSION}" MATCHES "1.53(.*)")
    SET(Boost_LIBRARIES ${BOOST_LIBRARIES_TEMP} ${Boost_LIBRARIES})
 ENDIF()
 
+
+if( WIN32 )
+    message( STATUS "Configuring BitShares on WIN32")
+    set( DB_VERSION 60 )
+    set( BDB_STATIC_LIBS 1 )
+
+    set( ZLIB_LIBRARIES "" )
+    set( LEVEL_DB_DIR vendor/leveldb-win )
+    add_subdirectory( "${LEVEL_DB_DIR}"    )
+
+    SET( DEFAULT_EXECUTABLE_INSTALL_DIR bin/ )
+
+    set(CRYPTO_LIB)
+
+    #looks like this flag can have different default on some machines.
+    SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /SAFESEH:NO")
+    SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
+
+    # Probably cmake has a bug and vcxproj generated for executable in Debug conf. has disabled debug info
+    set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} /DEBUG")
+
+    # On windows tcl should be installed to the directory pointed by setenv.bat script
+    SET(TCL_INCLUDE_PATH $ENV{TCL_ROOT}/include)
+    MESSAGE(STATUS "tcl INCLUDE PATH: ${TCL_INCLUDE_PATH}")
+
+    FIND_PACKAGE(TCL)
+    MESSAGE(STATUS "tcl_library: ${TCL_LIBRARY}")
+
+    SET(TCL_LIBS "optimized;${TCL_LIBRARY};debug;")
+    get_filename_component(TCL_LIB_PATH "${TCL_LIBRARY}" PATH)
+    get_filename_component(TCL_LIB_NAME "${TCL_LIBRARY}" NAME_WE)
+    get_filename_component(TCL_LIB_EXT "${TCL_LIBRARY}" EXT)
+
+    SET(TCL_LIBS "${TCL_LIBS}${TCL_LIB_PATH}/${TCL_LIB_NAME}g${TCL_LIB_EXT}")
+    SET(TCL_LIBRARY ${TCL_LIBS})
+else( WIN32 )
+    # Apple AND Linux Options Here
+    find_package( ZLIB REQUIRED )
+
+    #set( LEVEL_DB_DIR "${CMAKE_SOURCE_DIR}/libraries/leveldb" )
+    #include( ExternalProject )
+    #ExternalProject_Add( LevelDB
+    #PREFIX "${LEVEL_DB_DIR}"
+    #SOURCE_DIR "${LEVEL_DB_DIR}"
+    #BUILD_IN_SOURCE 1
+    #CONFIGURE_COMMAND ""
+    #BUILD_COMMAND "$(MAKE)"
+    #INSTALL_COMMAND ""
+    #)
+    #include_directories( "${LEVEL_DB_DIR}" "${LEVEL_DB_DIR}/include" )
+    #add_library( leveldb STATIC IMPORTED )
+    #add_dependencies( leveldb LevelDB )
+    #set_property(TARGET leveldb PROPERTY IMPORTED_LOCATION "${LEVEL_DB_DIR}/libleveldb.a" )
+
+    set( LEVEL_DB_DIR vendor/leveldb-1.12.0 )
+    add_subdirectory( "${LEVEL_DB_DIR}"    )
+
+    #find_library(READLINE_LIBRARIES NAMES readline)
+    #find_path(READLINE_INCLUDE_DIR readline/readline.h)
+    #if(NOT READLINE_INCLUDE_DIR OR NOT READLINE_LIBRARIES)
+    #  MESSAGE(FATAL_ERROR "Could not find lib readline.")
+    #endif()
+
+    if( APPLE )
+        # Apple Specific Options Here
+        message( STATUS "Configuring BitShares on OS X" )
+        set( CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -std=c++11 -stdlib=libc++ -Wall" )
+    else( APPLE )
+        # Linux Specific Options Here
+        message( STATUS "Configuring BitShares on Linux" )
+        set( CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -std=c++11 -Wall" )
+        set( rt_library rt )
+        set( pthread_library pthread)
+        set( crypto_library crypto)
+        if ( FULL_STATIC_BUILD )
+          set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libstdc++ -static-libgcc")
+        endif ( FULL_STATIC_BUILD )
+    endif( APPLE )
+	set(Boost_USE_STATIC_LIBS ON)
+endif( WIN32 )
+
+find_package( BerkeleyDB )
+
 set( CUSTOM_URL_SCHEME "xts" )
 
 add_subdirectory( libraries )
-add_subdirectory( "${LEVEL_DB_DIR}"    )
 add_subdirectory( vendor/miniupnp/miniupnpc )
 add_subdirectory( programs )
 add_subdirectory( tests )

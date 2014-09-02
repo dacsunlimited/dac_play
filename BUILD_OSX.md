@@ -61,5 +61,12 @@ Building BitShares Toolkit on OS X 10.9
 
     git clone git@github.com:BitShares/web_wallet.git
     git clone git@github.com:BitShares/qt_wallet.git
+    cd programs/web_wallet/
+    sudo npm install lineman-angular
+    sudo npm install lineman-less
+    cd ../..
     export CMAKE_PREFIX_PATH=~/Qt/5.3/
+    make buildweb
     cmake -DINCLUDE_QT_WALLET=TRUE -DCMAKE_PREFIX_PATH=/usr/local/ssl  .
+
+By default, the web wallet will not be rebuilt even after pulling new changes. To force the web wallet to rebuild, use `make forcebuildweb`.
