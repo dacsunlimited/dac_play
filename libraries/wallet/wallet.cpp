@@ -1260,7 +1260,7 @@ namespace bts { namespace wallet {
              return true;
           }
           return false;
-      } FC_CAPTURE_AND_RETHROW( (short_op) ) }
+      } FC_CAPTURE_AND_RETHROW( (op) ) }
        
       bool wallet_impl::scan_dice( const dice_operation& op, wallet_transaction_record& trx_rec )
       {
@@ -4065,7 +4065,7 @@ namespace bts { namespace wallet {
         
         // TODO: adjust fee based upon blockchain price per byte and
         // the size of trx... 'recursively'
-        auto required_fees = get_priority_fee();
+        auto required_fees = get_transaction_fee();
         
         // No longer necessary I believe
         //auto size_fee = fc::raw::pack_size( data );
@@ -4153,10 +4153,10 @@ namespace bts { namespace wallet {
         unordered_set<address>     required_signatures;
         required_signatures.insert(order_address);
         
-        private_key_type from_private_key  = get_account_private_key( from_account_name );
+        private_key_type from_private_key  = get_active_private_key( from_account_name );
         address          from_address( from_private_key.get_public_key() );
         
-        auto required_fees = get_priority_fee();
+        auto required_fees = get_transaction_fee();
         
         my->withdraw_to_transaction( cost_shares + required_fees,
                                     from_address,
@@ -4228,10 +4228,10 @@ namespace bts { namespace wallet {
             unordered_set<address>     required_signatures;
             required_signatures.insert(order_address);
             
-            private_key_type from_private_key  = get_account_private_key( from_account_name );
+            private_key_type from_private_key  = get_active_private_key( from_account_name );
             address          from_address( from_private_key.get_public_key() );
             
-            auto required_fees = get_priority_fee();
+            auto required_fees = get_transaction_fee();
             
             /// TODO: determine if we can pay our fees in cost.asset_id
             ///        quote_asset_record->symbol );

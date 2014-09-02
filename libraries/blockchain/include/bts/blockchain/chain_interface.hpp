@@ -100,6 +100,9 @@ namespace bts { namespace blockchain {
 
          virtual omarket_order              get_lowest_ask_record( const asset_id_type& quote_id,
                                                                    const asset_id_type& base_id )           = 0;
+
+         virtual odice_record               get_dice_record( const dice_id_type& id )const                  = 0;
+
          virtual oorder_record              get_bid_record( const market_index_key& )const                  = 0;
          virtual oorder_record              get_ask_record( const market_index_key& )const                  = 0;
          virtual oorder_record              get_short_record( const market_index_key& )const                = 0;
