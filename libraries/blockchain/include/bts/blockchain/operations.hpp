@@ -53,10 +53,9 @@ namespace bts { namespace blockchain {
        
       update_feed_op_type          = 19,
 
-      dice_op_type               = 19,
-      buy_chips_type             = 20,
-      sell_chips_type            = 21
-
+      dice_op_type               = 20,
+      buy_chips_type             = 21,
+      sell_chips_type            = 22
    };
 
    /**
