@@ -4493,19 +4493,18 @@ namespace bts { namespace wallet {
         // TODO: Dice, specify to account, the receiver who can claim jackpot
         trx.play_dice( address( from_account_address ), amount_to_play, odds, 0 );
         
-        if( sign )
-        {
-            auto entry = ledger_entry();
-            entry.from_account = from_account_address;
-            entry.to_account = from_account_address;
-            entry.memo = "play dice";
+        auto entry = ledger_entry();
+        entry.from_account = from_account_address;
+        entry.to_account = from_account_address;
+        entry.memo = "play dice";
+        
+        auto record = wallet_transaction_record();
+        record.ledger_entries.push_back( entry );
+        record.fee = required_fees;
             
-            auto record = wallet_transaction_record();
-            record.ledger_entries.push_back( entry );
-            record.fee = required_fees;
-            
-            sign_and_cache_transaction( trx, required_signatures, record );
-        }
+        if( sign ) sign_transaction( trx, required_signatures );
+        cache_transaction( trx, record );
+
         return trx;
     } FC_RETHROW_EXCEPTIONS( warn, "",
                             ( "dice_account", from_account_name)("amount", amount)("odds", odds) ) }
@@ -4559,31 +4558,30 @@ namespace bts { namespace wallet {
         
         trx.buy_chips( chips_to_buy, order_address );
         
-        if( sign )
-        {
-            std::stringstream memo;
-            // TODO: Dice the price here is not true, it is in satoshi.
-            memo << "buy " << real_quantity << " " << chip_asset_record->symbol << " @ ";
-            memo << price << " " << BTS_BLOCKCHAIN_SYMBOL;
-            
-            auto entry = ledger_entry();
-            entry.from_account = from_account_key;
-            entry.to_account = order_key;
-            entry.amount = cost_shares;
-            entry.memo = memo.str();
-            
-            auto record = wallet_transaction_record();
-            record.is_market = true;
-            record.ledger_entries.push_back( entry );
-            record.fee = required_fees;
-            
-            sign_and_cache_transaction( trx, required_signatures, record );
-            
-            auto key_rec = my->_wallet_db.lookup_key( order_key );
-            FC_ASSERT( key_rec.valid() );
-            key_rec->memo = "ORDER-" + variant( address(order_key) ).as_string().substr(3,8);
-            my->_wallet_db.store_key(*key_rec);
-        }
+        std::stringstream memo;
+        // TODO: Dice the price here is not true, it is in satoshi.
+        memo << "buy " << real_quantity << " " << chip_asset_record->symbol << " @ ";
+        memo << price << " " << BTS_BLOCKCHAIN_SYMBOL;
+        
+        auto entry = ledger_entry();
+        entry.from_account = from_account_key;
+        entry.to_account = order_key;
+        entry.amount = cost_shares;
+        entry.memo = memo.str();
+        
+        auto record = wallet_transaction_record();
+        record.is_market = true;
+        record.ledger_entries.push_back( entry );
+        record.fee = required_fees;
+        
+        auto key_rec = my->_wallet_db.lookup_key( order_key );
+        FC_ASSERT( key_rec.valid() );
+        key_rec->memo = "ORDER-" + variant( address(order_key) ).as_string().substr(3,8);
+        my->_wallet_db.store_key(*key_rec);
+
+        if( sign ) sign_transaction( trx, required_signatures );
+        cache_transaction( trx, record );
+
         return trx;
     } FC_CAPTURE_AND_RETHROW( (from_account_name)
                              (real_quantity)(quantity_symbol)(sign) ) }
@@ -4642,30 +4640,29 @@ namespace bts { namespace wallet {
         
             trx.sell_chips( cost_chips, order_address );
         
-            if( sign )
-            {
-                std::stringstream memo;
-                memo << "sell " << real_quantity << " " << chip_asset_record->symbol << " @ ";
-                memo << price << " " << BTS_BLOCKCHAIN_SYMBOL;
-                
-                auto entry = ledger_entry();
-                entry.from_account = from_account_key;
-                entry.to_account = order_key;
-                entry.amount = cost_chips;
-                entry.memo = memo.str();
-                
-                auto record = wallet_transaction_record();
-                record.is_market = true;
-                record.ledger_entries.push_back( entry );
-                record.fee = required_fees;
-                
-                sign_and_cache_transaction( trx, required_signatures, record );
-                
-                auto key_rec = my->_wallet_db.lookup_key( order_key );
-                FC_ASSERT( key_rec.valid() );
-                key_rec->memo = "ORDER-" + variant( address(order_key) ).as_string().substr(3,8);
-                my->_wallet_db.store_key(*key_rec);
-            }
+            std::stringstream memo;
+            memo << "sell " << real_quantity << " " << chip_asset_record->symbol << " @ ";
+            memo << price << " " << BTS_BLOCKCHAIN_SYMBOL;
+            
+            auto entry = ledger_entry();
+            entry.from_account = from_account_key;
+            entry.to_account = order_key;
+            entry.amount = cost_chips;
+            entry.memo = memo.str();
+            
+            auto record = wallet_transaction_record();
+            record.is_market = true;
+            record.ledger_entries.push_back( entry );
+            record.fee = required_fees;
+            
+            auto key_rec = my->_wallet_db.lookup_key( order_key );
+            FC_ASSERT( key_rec.valid() );
+            key_rec->memo = "ORDER-" + variant( address(order_key) ).as_string().substr(3,8);
+            my->_wallet_db.store_key(*key_rec);
+
+            if( sign ) sign_transaction( trx, required_signatures );
+            cache_transaction( trx, record );
+
             return trx;
         } FC_CAPTURE_AND_RETHROW( (from_account_name)
                                  (real_quantity)(quantity_symbol)(sign) ) }
