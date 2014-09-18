@@ -341,7 +341,7 @@
         "aliases" : ["history", "listtransactions"]
       },
       {
-        "method_name": "wallet_transaction_remove",
+        "method_name": "wallet_remove_transaction",
         "description": "Removes the specified transaction record from your transaction history. USE WITH CAUTION! Rescan cannot reconstruct all transaction details",
         "return_type": "void",
         "parameters" :
@@ -353,7 +353,7 @@
             }
           ],
         "prerequisites" : ["wallet_unlocked"],
-        "aliases" : ["remove_transaction"]
+        "aliases" : ["remove_transaction", "wallet_transaction_remove"]
       },
       {
         "method_name": "wallet_get_pending_transaction_errors",
@@ -510,6 +510,53 @@
         "prerequisites" : ["wallet_open"]
       },
       {
+        "method_name": "wallet_burn",
+        "description": "Burns given amount to the given account.  This will allow you to post message and +/- sentiment on someones account as a form of reputation.",
+        "return_type": "transaction_record",
+        "parameters" :
+          [
+            {
+              "name" : "amount_to_transfer",
+              "type" : "real_amount",
+              "description" : "the amount of shares to transfer"
+            },
+            {
+              "name" : "asset_symbol",
+              "type" : "asset_symbol",
+              "description" : "the asset to transfer"
+            },
+            {
+              "name" : "from_account_name",
+              "type" : "sending_account_name",
+              "description" : "the source account to draw the shares from"
+            },
+            {
+              "name" : "for_or_against",
+              "type" : "string",
+              "description" : "the value 'for' or 'against'"
+            },
+            {
+              "name" : "to_account_name",
+              "type" : "receive_account_name",
+              "description" : "the account to which the burn should be credited (for or against) and on which the public message will appear"
+            },
+            {
+              "name" : "public_message",
+              "type" : "string",
+              "description" : "a public message to post",
+              "default_value" : ""
+            },
+            {
+              "name" : "anonymous",
+              "type" : "bool",
+              "description" : "true if anonymous, else signed by from_account_name",
+              "default_value" : "false"
+            }
+          ],
+        "prerequisites" : ["wallet_unlocked"],
+        "aliases" : ["burn"]
+      },
+      {
         "method_name": "wallet_transfer",
         "description": "Sends given amount to the given account, with the from field set to the payer.  This transfer will occur in a single transaction and will be cheaper, but may reduce your privacy.",
         "return_type": "transaction_record",
@@ -614,6 +661,12 @@
               "type" : "uint32_t",
               "description" : "the number of blocks to scan",
               "default_value" : -1
+            },
+            {
+              "name" : "fast_scan",
+              "type" : "bool",
+              "description" : "true to scan as fast as possible but freeze the rest of your computer, and false otherwise",
+              "default_value" : false
             }
           ],
         "prerequisites" : ["wallet_unlocked"],
@@ -635,27 +688,28 @@
         "aliases" : ["get_transaction"]
       },
       {
-        "method_name": "wallet_transaction_scan",
+        "method_name": "wallet_scan_transaction",
         "description": "Scans the specified transaction",
-        "return_type": "void",
+        "return_type": "transaction_record",
         "parameters" :
           [
-            {
-              "name" : "block_num",
-              "type" : "uint32_t",
-              "description" : "the block containing the transaction"
-            },
             {
               "name" : "transaction_id",
               "type" : "string",
               "description" : "the id (or id prefix) of the transaction"
+            },
+            {
+              "name" : "overwrite_existing",
+              "type" : "bool",
+              "description" : "true to overwrite existing wallet transaction record and false otherwise",
+              "default_value": false
             }
           ],
         "prerequisites" : ["wallet_unlocked"],
-        "aliases" : ["scan_transaction", "wallet_scan_transaction"]
+        "aliases" : ["scan_transaction", "wallet_transaction_scan"]
       },
       {
-        "method_name": "wallet_transaction_rebroadcast",
+        "method_name": "wallet_rebroadcast_transaction",
         "description": "Rebroadcasts the specified transaction",
         "return_type": "void",
         "parameters" :
@@ -667,12 +721,12 @@
             }
           ],
         "prerequisites" : ["wallet_open"],
-        "aliases" : ["rebroadcast", "wallet_rebroadcast_transaction"]
+        "aliases" : ["rebroadcast", "wallet_transaction_rebroadcast"]
       },
       {
          "method_name" : "wallet_account_register",
          "description" : "Updates the data published about a given account",
-         "return_type" : "signed_transaction",
+         "return_type" : "transaction_record",
          "parameters"  : [
                {
                   "name" : "account_name",
@@ -692,7 +746,7 @@
                },
                {
                   "name" : "delegate_pay_rate",
-                  "type" : "uint32_t",
+                  "type" : "uint8_t",
                   "description" : "A value between 0 and 100 for delegates, 255 for non delegates",
                   "default_value" : 255
                }
@@ -723,7 +777,7 @@
       {
          "method_name" : "wallet_account_update_registration",
          "description" : "Updates the data published about a given account",
-         "return_type" : "signed_transaction",
+         "return_type" : "transaction_record",
          "parameters"  : [
                {
                   "name" : "account_name",
@@ -754,7 +808,7 @@
       {
          "method_name" : "wallet_account_update_active_key",
          "description" : "Updates the specified account's active key and broadcasts the transaction.",
-         "return_type" : "signed_transaction",
+         "return_type" : "transaction_record",
          "parameters"  : [
             {
                 "name" : "account_to_update",
@@ -857,7 +911,7 @@
       {
          "method_name" : "wallet_asset_create",
          "description" : "Creates a new user issued asset",
-         "return_type" : "signed_transaction",
+         "return_type" : "transaction_record",
          "parameters"  : [
                {
                   "name" : "symbol",
@@ -910,7 +964,7 @@
       {
          "method_name" : "wallet_asset_issue",
          "description" : "Issues new shares of a given asset type",
-         "return_type" : "signed_transaction",
+         "return_type" : "transaction_record",
          "parameters"  : [
                {
                   "name" : "amount",
@@ -954,6 +1008,38 @@
          "aliases" : ["balance", "getbalance"]
       },
       {
+         "method_name"    : "wallet_account_balance_ids",
+         "description"    : "Lists the balance record ids for the specified account",
+         "return_type"    : "account_balance_id_summary_type",
+         "parameters"     : [
+         {
+            "name" : "account_name",
+            "type" : "account_name",
+            "description" : "the account to list balance ids for, or leave empty for all accounts",
+            "default_value" : ""
+         }
+         ],
+         "is_const" : true,
+         "prerequisites" : ["wallet_open"],
+         "aliases" : []
+      },
+      {
+         "method_name"    : "wallet_account_yield",
+         "description"    : "Lists the total accumulated yield for asset balances",
+         "return_type"    : "account_balance_summary_type",
+         "parameters"     : [
+         {
+            "name" : "account_name",
+            "type" : "account_name",
+            "description" : "the account to get yield for, or leave empty for all accounts",
+            "default_value" : ""
+         }
+         ],
+         "is_const" : true,
+         "prerequisites" : ["wallet_open"],
+         "aliases" : ["yield", "getyield"]
+      },
+      {
          "method_name" : "wallet_account_list_public_keys",
          "description" : "Lists all public keys in this account",
          "return_type" : "public_key_summary_array",
@@ -970,7 +1056,7 @@
       {
          "method_name"  : "wallet_delegate_withdraw_pay",
          "description"  : "Used to transfer some of the delegate's pay from their balance",
-         "return_type"  : "signed_transaction",
+         "return_type"  : "transaction_record",
          "parameters"   : [
             {
               "name" : "delegate_name",
@@ -986,13 +1072,7 @@
                "name" : "amount_to_withdraw",
                "type" : "real_amount",
                "description" : "the amount to withdraw"
-            },
-            {
-               "name" : "memo",
-               "type" : "string",
-               "description" : "memo to add to transaction",
-               "default_value" : "payday"
-      }
+            }
          ],
          "prerequisites" : ["wallet_unlocked"],
          "aliases" : ["pay_delegate"]
@@ -1012,9 +1092,24 @@
          "aliases" : ["wallet_set_priority_fee", "set_priority_fee", "settrxfee", "setfee", "set_fee"]
       },
       {
+         "method_name"  : "wallet_get_transaction_fee",
+         "description"  : "Returns ",
+         "return_type"  : "asset",
+         "parameters"   : [
+         {
+            "name" : "symbol",
+            "type" : "asset_symbol",
+            "description" : "the wallet transaction if paid in the given asset type",
+            "default_value" : "XTS"
+         }
+         ],
+         "prerequisites" : ["wallet_open"],
+         "aliases" : ["wallet_get_priority_fee", "get_priority_fee", "gettrxfee", "getfee", "get_fee"]
+      },
+      {
          "method_name" : "wallet_market_submit_bid",
          "description" : "Used to place a request to buy a quantity of assets at a price specified in another asset",
-         "return_type" : "signed_transaction",
+         "return_type" : "transaction_record",
          "parameters"  : [
             {
                "name" : "from_account_name",
@@ -1054,7 +1149,7 @@
       {
          "method_name" : "wallet_market_submit_ask",
          "description" : "Used to place a request to sell a quantity of assets at a price specified in another asset",
-         "return_type" : "signed_transaction",
+         "return_type" : "transaction_record",
          "parameters"  : [
             {
                "name" : "from_account_name",
@@ -1094,7 +1189,7 @@
       {
          "method_name" : "wallet_market_submit_short",
          "description" : "Used to place a request to short sell a quantity of assets at a price specified",
-         "return_type" : "signed_transaction",
+         "return_type" : "transaction_record",
          "parameters"  : [
             {
                "name" : "from_account_name",
@@ -1104,12 +1199,7 @@
             {
                "name" : "short_quantity",
                "type" : "real_amount",
-               "description" : "the quantity of items you would like to short sell (borrow into existance and sell)"
-            },
-            {
-               "name" : "short_price",
-               "type" : "real_amount",
-               "description" : "the price (ie: 2.0 USD) per XTS that you would like to short at"
+               "description" : "the quantity of items you would like to short sell (USD you would like to sell)"
             },
             {
                "name" : "short_symbol",
@@ -1117,10 +1207,15 @@
                "description" : "the type of asset you would like to short, ie: USD"
             },
             {
-               "name" : "allow_stupid_short",
-               "type" : "bool",
-               "description" : "Allow user to place short at more than 5% above the current sell price.",
-               "default_value" : "false"
+               "name" : "collateral_ratio",
+               "type" : "real_amount",
+               "description" : "the ratio XTS per USD that your USD will be collateralized at (ie: XTS / USD)"
+            },
+            {
+               "name" : "short_price_limit",
+               "type" : "real_amount",
+               "description" : "maximim price (USD per XTS) that the short will execute at, if 0 then no limit will be applied",
+               "default_value" : 0
             }
          ],
          "prerequisites" : ["wallet_unlocked"],
@@ -1129,7 +1224,7 @@
       {
          "method_name" : "wallet_market_cover",
          "description" : "Used to place a request to cover an existing short position",
-         "return_type" : "signed_transaction",
+         "return_type" : "transaction_record",
          "parameters"  : [
             {
                "name" : "from_account_name",
@@ -1147,18 +1242,18 @@
                "description" : "the type of asset you are covering (ie: USD)"
             },
             {
-               "name" : "order_id",
-               "type" : "address",
+               "name" : "cover_id",
+               "type" : "order_id",
                "description" : "the order ID you would like to cover"
             }
          ],
          "prerequisites" : ["wallet_unlocked"],
-         "aliases" : [ "cover" ]
+         "aliases" : []
       },
       {
          "method_name" : "wallet_market_add_collateral",
          "description" : "Add collateral to a short position",
-         "return_type" : "signed_transaction",
+         "return_type" : "transaction_record",
          "parameters"  : [
             {
                "name" : "from_account_name",
@@ -1167,8 +1262,8 @@
             },
             {
                "name" : "short_id",
-               "type" : "address",
-               "description" : "the address of the order to recollateralize"
+               "type" : "order_id",
+               "description" : "the ID of the order to recollateralize"
             },
             {
                "name" : "collateral_to_add",
@@ -1177,12 +1272,12 @@
             }
           ],
          "prerequisites" : ["wallet_unlocked"],
-         "aliases" : [ "recollateralize" ]
+         "aliases" : []
       },
       {
          "method_name" : "wallet_market_order_list",
          "description" : "List an order list of a specific market",
-         "return_type" : "market_order_array",
+         "return_type" : "market_order_map",
          "parameters"  : [
             {
                "name" : "base_symbol",
@@ -1208,21 +1303,42 @@
             }
          ],
          "prerequisites" : ["wallet_open"],
-         "aliases" : [ "list_orders" ]
+         "aliases" : []
+      },
+      {
+         "method_name" : "wallet_account_order_list",
+         "description" : "List an order list of a specific account",
+         "return_type" : "market_order_map",
+         "parameters"  : [
+            {
+               "name" : "account_name",
+               "type" : "account_name",
+               "description" : "the account for which to get the orders, or 'ALL' to get them all",
+               "default_value" : "ALL"
+            },
+            {
+               "name" : "limit",
+               "type" : "int64_t",
+               "description" : "the maximum number of items to return",
+               "default_value" : -1
+            }
+         ],
+         "prerequisites" : ["wallet_open"],
+         "aliases" : []
       },
       {
          "method_name" : "wallet_market_cancel_order",
          "description" : "Cancel an order",
-         "return_type" : "signed_transaction",
+         "return_type" : "transaction_record",
          "parameters"  : [
             {
                "name" : "order_id",
-               "type" : "address",
-               "description" : "the address of the order to cancel"
+               "type" : "order_id",
+               "description" : "the ID of the order to cancel"
             }
           ],
          "prerequisites" : ["wallet_unlocked"],
-         "aliases" : [ "cancel", "cancel_order" ]
+         "aliases" : []
       },
       {
          "method_name" : "wallet_dump_private_key",
@@ -1253,6 +1369,19 @@
          "is_const" : true,
          "prerequisites" : ["wallet_open"],
          "aliases" : ["votes"]
+      },
+      {
+         "method_name" : "wallet_check_vote_proportion",
+         "description" : "Check how much this account is utilizing its voting power",
+         "return_type" : "vote_summary",
+         "parameters"  : [
+             {
+                "name" : "account",
+                "type" : "account_name",
+                "description" : ""
+             }
+         ],
+         "prerequisites" : ["wallet_unlocked"]
       },
       {
          "method_name" : "wallet_set_setting",
@@ -1373,7 +1502,7 @@
       {
          "method_name" : "wallet_publish_slate",
          "description" : "Publishes the current wallet delegate slate to the public data associated with the account",
-         "return_type" : "signed_transaction",
+         "return_type" : "transaction_record",
          "parameters"  : [
             {
                 "name" : "publishing_account_name",
@@ -1383,7 +1512,26 @@
             {
                 "name" : "paying_account_name",
                 "type" : "account_name",
-                "description" : "The account to pay transaction fees; leave empty to pay with publishing account.",
+                "description" : "The account to pay transaction fees or leave empty to pay with publishing account",
+                "default_value" : ""
+            }
+         ],
+         "prerequisites" : ["wallet_unlocked"]
+      },
+      {
+         "method_name" : "wallet_publish_version",
+         "description" : "Publish your current client version to the specified account's public data record",
+         "return_type" : "transaction_record",
+         "parameters"  : [
+            {
+                "name" : "publishing_account_name",
+                "type" : "account_name",
+                "description" : "The account to publish the client version under"
+            },
+            {
+                "name" : "paying_account_name",
+                "type" : "account_name",
+                "description" : "The account to pay transaction fees with or leave empty to pay with publishing account",
                 "default_value" : ""
             }
          ],
@@ -1529,7 +1677,7 @@
       {
          "method_name" : "wallet_publish_price_feed",
          "description" : "publishes a price feed for BitAssets, only active delegates may do this",
-         "return_type" : "signed_transaction",
+         "return_type" : "transaction_record",
          "parameters"  : [
              {
                 "name" : "delegate_account",
@@ -1550,6 +1698,24 @@
          "prerequisites" : ["wallet_unlocked"]
       },
       {
+         "method_name" : "wallet_publish_feeds",
+         "description" : "publishes a set of feeds for BitAssets, only active delegates may do this",
+         "return_type" : "transaction_record",
+         "parameters"  : [
+             {
+                "name" : "delegate_account",
+                "type" : "account_name",
+                "description" : "the delegate to publish the price under"
+             },
+             {
+                "name" : "symbol_to_price_map",
+                "type" : "price_map",
+                "description" : "maps the BitAsset symbol to the price per BTSX"
+             }
+         ],
+         "prerequisites" : ["wallet_unlocked"]
+      },
+      {
          "method_name" : "wallet_regenerate_keys",
          "description" : "regenerates private keys as part of wallet recovery",
          "return_type" : "int32_t",
@@ -1562,7 +1728,53 @@
              {
                 "name" : "max_key_number",
                 "type" : "uint32_t",
-                "description" : "the last key number to regenrate"
+                "description" : "the last key number to regenerate"
+             }
+         ],
+         "prerequisites" : ["wallet_unlocked"]
+      },
+      {
+         "method_name" : "wallet_mail_create",
+         "description" : "Creates a new mail message and returns the encrypted message.",
+         "return_type" : "message",
+         "parameters"  : [
+             {
+                "name" : "sender",
+                "type" : "string",
+                "description" : "The name of the message's sender."
+             },
+             {
+                "name" : "recipient",
+                "type" : "string",
+                "description" : "The name of the message's recipient."
+             },
+             {
+                "name" : "subject",
+                "type" : "string",
+                "description" : "The subject of the message."
+             },
+             {
+                "name" : "body",
+                "type" : "string",
+                "description" : "The body of the message."
+             }
+         ],
+         "prerequisites" : ["wallet_unlocked"]
+      },
+      {
+         "method_name" : "wallet_mail_open",
+         "description" : "Opens an encrypted mail message.",
+         "return_type" : "message",
+         "parameters"  : [
+             {
+                "name" : "recipient",
+                "type" : "address",
+                "description" : "The address of the message's recipient."
+             },
+             {
+                "name" : "ciphertext",
+                "type" : "message",
+                "description" : "The encrypted message."
              }
          ],
          "prerequisites" : ["wallet_unlocked"]

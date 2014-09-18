@@ -19,10 +19,9 @@ namespace bts { namespace wallet {
       account_record_type        = 1,
       key_record_type            = 2,
       transaction_record_type    = 3,
-      asset_record_type          = 5,
       balance_record_type        = 6,
       property_record_type       = 7,
-      market_order_record_type   = 8,
+      market_order_record_type   = 8, /* No longer used for now */
       setting_record_type        = 9
    };
 
@@ -38,7 +37,7 @@ namespace bts { namespace wallet {
        template<typename RecordType>
        RecordType as()const;
 
-       int32_t get_wallet_record_index()const 
+       int32_t get_wallet_record_index()const
        { try {
           FC_ASSERT( data.is_object() );
           FC_ASSERT( data.get_object().contains( "index" ) );
@@ -50,7 +49,7 @@ namespace bts { namespace wallet {
    };
 
    template<wallet_record_type_enum RecordType>
-   struct base_record 
+   struct base_record
    {
       enum { type  = RecordType };
 
@@ -74,7 +73,7 @@ namespace bts { namespace wallet {
     */
    struct wallet_property
    {
-       wallet_property( property_enum k = next_record_number, 
+       wallet_property( property_enum k = next_record_number,
                         fc::variant v = fc::variant() )
        :key(k),value(v){}
 
@@ -97,6 +96,7 @@ namespace bts { namespace wallet {
        int8_t   approved = 0;
        bool     is_favorite = false;
        bool     block_production_enabled = false;
+       uint32_t last_used_gen_sequence   = 10000;
    };
 
    template<typename RecordTypeName, wallet_record_type_enum RecordTypeNumber>
@@ -114,7 +114,7 @@ namespace bts { namespace wallet {
 
        bool                           validate_password( const fc::sha512& password )const;
        extended_private_key           decrypt_key( const fc::sha512& password )const;
-       void                           encrypt_key( const fc::sha512& password, 
+       void                           encrypt_key( const fc::sha512& password,
                                                    const extended_private_key& k );
    };
 
@@ -125,12 +125,16 @@ namespace bts { namespace wallet {
        std::vector<char>        encrypted_private_key;
        bool                     valid_from_signature = false;
        optional<string>         memo;
+       /** defines the generation number that was used to generate the key
+        * relative to the account address.
+        */
+       uint32_t                 gen_seq_number = 0;
 
        address                  get_address()const { return address( public_key ); }
        bool                     has_private_key()const;
-       void                     encrypt_private_key( const fc::sha512& password, 
-                                                     const fc::ecc::private_key& );
-       fc::ecc::private_key     decrypt_private_key( const fc::sha512& password )const;
+       void                     encrypt_private_key( const fc::sha512& password,
+                                                     const private_key_type& );
+       private_key_type         decrypt_private_key( const fc::sha512& password )const;
    };
 
    struct ledger_entry
@@ -163,10 +167,11 @@ namespace bts { namespace wallet {
        vector<address>           extra_addresses;
    };
 
+#if 0
    struct market_order_status
    {
       order_type_enum get_type()const;
-      string          get_id()const;
+      order_id_type   get_id()const;
 
       asset           get_balance()const; // funds available for this order
       price           get_price()const;
@@ -177,6 +182,7 @@ namespace bts { namespace wallet {
       share_type                           proceeds = 0;
       unordered_set<transaction_id_type>   transactions;
    };
+#endif
 
    /* Used to store GUI preferences and such */
    struct setting
@@ -188,7 +194,6 @@ namespace bts { namespace wallet {
    };
 
    /** cached blockchain data */
-   typedef wallet_record< bts::blockchain::asset_record,   asset_record_type       >  wallet_asset_record;
    typedef wallet_record< bts::blockchain::balance_record, balance_record_type     >  wallet_balance_record;
 
    /** records unique to the wallet */
@@ -197,7 +202,7 @@ namespace bts { namespace wallet {
    typedef wallet_record< key_data,                        key_record_type         >  wallet_key_record;
    typedef wallet_record< account,                         account_record_type     >  wallet_account_record;
    typedef wallet_record< wallet_property,                 property_record_type    >  wallet_property_record;
-   typedef wallet_record< market_order_status,             market_order_record_type>  wallet_market_order_status_record;
+   //typedef wallet_record< market_order_status,             market_order_record_type>  wallet_market_order_status_record;
    typedef wallet_record< setting,                         setting_record_type     >  wallet_setting_record;
 
    typedef optional< wallet_transaction_record >            owallet_transaction_record;
@@ -206,7 +211,7 @@ namespace bts { namespace wallet {
    typedef optional< wallet_account_record >                owallet_account_record;
    typedef optional< wallet_property_record >               owallet_property_record;
    typedef optional< wallet_balance_record >                owallet_balance_record;
-   typedef optional< wallet_market_order_status_record >    owallet_market_order_record;
+   //typedef optional< wallet_market_order_status_record >    owallet_market_order_record;
    typedef optional< wallet_setting_record >                owallet_setting_record;
 
 } } // bts::wallet
@@ -222,13 +227,12 @@ FC_REFLECT_ENUM( bts::wallet::property_enum,
         (transaction_expiration_sec)
         )
 
-FC_REFLECT_ENUM( bts::wallet::wallet_record_type_enum, 
+FC_REFLECT_ENUM( bts::wallet::wallet_record_type_enum,
                    (master_key_record_type)
-                   (key_record_type)
                    (account_record_type)
+                   (key_record_type)
                    (transaction_record_type)
                    (balance_record_type)
-                   (asset_record_type)
                    (property_record_type)
                    (market_order_record_type)
                    (setting_record_type)
@@ -237,10 +241,10 @@ FC_REFLECT_ENUM( bts::wallet::wallet_record_type_enum,
 FC_REFLECT( bts::wallet::wallet_property, (key)(value) )
 FC_REFLECT( bts::wallet::generic_wallet_record, (type)(data) )
 FC_REFLECT( bts::wallet::master_key, (encrypted_key)(checksum) )
-FC_REFLECT( bts::wallet::key_data, (account_address)(public_key)(encrypted_private_key)(memo) )
+FC_REFLECT( bts::wallet::key_data, (account_address)(public_key)(encrypted_private_key)(memo)(gen_seq_number) )
 
 FC_REFLECT( bts::wallet::ledger_entry, (from_account)(to_account)(amount)(memo)(memo_from_account) );
-FC_REFLECT( bts::wallet::transaction_data, 
+FC_REFLECT( bts::wallet::transaction_data,
             (record_id)
             (block_num)
             (is_virtual)
@@ -261,9 +265,10 @@ FC_REFLECT_DERIVED( bts::wallet::account, (bts::blockchain::account_record),
                     (approved)
                     (is_favorite)
                     (block_production_enabled)
-                    )
+                    (last_used_gen_sequence)
+                  )
 
-FC_REFLECT( bts::wallet::market_order_status, (order)(proceeds)(transactions) )
+//FC_REFLECT( bts::wallet::market_order_status, (order)(proceeds)(transactions) )
 FC_REFLECT( bts::wallet::setting, (name)(value) )
 
 /**
@@ -271,35 +276,35 @@ FC_REFLECT( bts::wallet::setting, (name)(value) )
  */
 namespace fc {
 
-   template<typename T, bts::wallet::wallet_record_type_enum N> 
-   struct get_typename< bts::wallet::wallet_record<T,N> > 
-   { 
-      static const char* name() 
-      { 
-         static std::string _name =  get_typename<T>::name() + std::string("_record"); 
+   template<typename T, bts::wallet::wallet_record_type_enum N>
+   struct get_typename< bts::wallet::wallet_record<T,N> >
+   {
+      static const char* name()
+      {
+         static std::string _name =  get_typename<T>::name() + std::string("_record");
          return _name.c_str();
       }
    };
 
-   template<typename Type, bts::wallet::wallet_record_type_enum N> 
-   struct reflector<bts::wallet::wallet_record<Type,N>> 
+   template<typename Type, bts::wallet::wallet_record_type_enum N>
+   struct reflector<bts::wallet::wallet_record<Type,N>>
    {
       typedef bts::wallet::wallet_record<Type,N>  type;
       typedef fc::true_type is_defined;
-      typedef fc::false_type is_enum; 
+      typedef fc::false_type is_enum;
       enum member_count_enum {
          local_member_count = 1,
          total_member_count = local_member_count + reflector<Type>::total_member_count
       };
 
-      template<typename Visitor> 
+      template<typename Visitor>
       static void visit( const Visitor& visitor )
       {
-          { 
-            typedef decltype(((bts::wallet::base_record<N>*)nullptr)->wallet_record_index) member_type;  
-            visitor.TEMPLATE operator()<member_type,bts::wallet::base_record<N>,&bts::wallet::base_record<N>::wallet_record_index>( "index" ); 
+          {
+            typedef decltype(((bts::wallet::base_record<N>*)nullptr)->wallet_record_index) member_type;
+            visitor.TEMPLATE operator()<member_type,bts::wallet::base_record<N>,&bts::wallet::base_record<N>::wallet_record_index>( "index" );
           }
-          
+
           fc::reflector<Type>::visit( visitor );
       }
    };
@@ -309,10 +314,10 @@ namespace bts { namespace wallet {
        template<typename RecordType>
        RecordType generic_wallet_record::as()const
        {
-          FC_ASSERT( (wallet_record_type_enum)type == RecordType::type, "", 
+          FC_ASSERT( (wallet_record_type_enum)type == RecordType::type, "",
                      ("type",type)
                      ("WithdrawType",(wallet_record_type_enum)RecordType::type) );
-       
+
           return data.as<RecordType>();
        }
 } }

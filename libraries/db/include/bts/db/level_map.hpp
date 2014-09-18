@@ -2,6 +2,7 @@
 #include <bts/db/exception.hpp>
 #include <leveldb/db.h>
 #include <leveldb/comparator.h>
+#include <leveldb/cache.h>
 
 #include <fc/filesystem.hpp>
 
@@ -25,11 +26,16 @@ namespace bts { namespace db {
   class level_map
   {
      public:
-        void open( const fc::path& dir, bool create = true )
+        void open( const fc::path& dir, bool create = true, size_t cache_size = 0 )
         { try {
            ldb::Options opts;
            opts.comparator = &_comparer;
            opts.create_if_missing = create;
+
+           if (cache_size) {
+               _cache.reset(leveldb::NewLRUCache(cache_size));
+               opts.block_cache = _cache.get();
+           }
            /*
            if( ldb::kMajorVersion > 1 || ( leveldb::kMajorVersion == 1 && leveldb::kMinorVersion >= 16 ) )
            {
@@ -71,6 +77,7 @@ namespace bts { namespace db {
         void close()
         {
           _db.reset();
+          _cache.reset();
         }
 
         fc::optional<Value> fetch_optional( const Key& k )
@@ -130,10 +137,7 @@ namespace bts { namespace db {
              }
 
              iterator& operator++()    { _it->Next(); return *this; }
-             iterator  operator++(int) { _it->Next(); return *this; }
-
              iterator& operator--()    { _it->Prev(); return *this; }
-             iterator  operator--(int) { _it->Prev(); return *this; }
 
            protected:
              friend class level_map;
@@ -313,6 +317,7 @@ namespace bts { namespace db {
         };
 
         std::unique_ptr<leveldb::DB>    _db;
+        std::unique_ptr<leveldb::Cache> _cache;
         key_compare                     _comparer;
         /*
         ldb::ReadOptions                _read_options;

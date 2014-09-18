@@ -57,6 +57,7 @@ namespace bts { namespace net {
 
       void send_message(const message& message_to_send);
       void close_connection();
+      void destroy_connection();
 
       uint64_t get_total_bytes_sent() const;
       uint64_t get_total_bytes_received() const;
@@ -82,28 +83,7 @@ namespace bts { namespace net {
     message_oriented_connection_impl::~message_oriented_connection_impl()
     {
       VERIFY_CORRECT_THREAD();
-      fc::optional<fc::ip::endpoint> remote_endpoint;
-      if (_sock.get_socket().is_open())
-        remote_endpoint = _sock.get_socket().remote_endpoint();
-      ilog( "in ~message_oriented_connection_impl() for ${endpoint}", ("endpoint", remote_endpoint) );
-
-      if (_send_message_in_progress)
-        elog("Error: message_oriented_connection is being destroyed while a send_message is in progress.  "
-             "The task calling send_message() should have been canceled already");
-      assert(!_send_message_in_progress);
-
-      try
-      {
-        _read_loop_done.cancel_and_wait(__FUNCTION__);
-      }
-      catch ( const fc::exception& e )
-      {
-        wlog( "Exception thrown while canceling message_oriented_connection's read_loop, ignoring: ${e}", ("e",e) );
-      }
-      catch (...)
-      {
-        wlog( "Exception thrown while canceling message_oriented_connection's read_loop, ignoring" );
-      }
+      destroy_connection();
     }
 
     fc::tcp_socket& message_oriented_connection_impl::get_socket()
@@ -143,6 +123,10 @@ namespace bts { namespace net {
       static_assert(BUFFER_SIZE >= sizeof(message_header), "insufficient buffer");
 
       _connected_time = fc::time_point::now();
+
+      fc::oexception exception_to_rethrow;
+      bool call_on_connection_closed = false;
+
       try
       {
         message m;
@@ -186,33 +170,37 @@ namespace bts { namespace net {
       catch ( const fc::canceled_exception& e )
       {
         wlog( "caught a canceled_exception in read_loop.  this should mean we're in the process of deleting this object already, so there's no need to notify the delegate: ${e}", ("e", e.to_detail_string() ) );
-        //_delegate->on_connection_closed(_self);
         throw;
       }
       catch ( const fc::eof_exception& e )
       {
         wlog( "disconnected ${e}", ("e", e.to_detail_string() ) );
-        _delegate->on_connection_closed(_self);
+        call_on_connection_closed = true;
       }
       catch ( const fc::exception& e )
       {
         elog( "disconnected ${er}", ("er", e.to_detail_string() ) );
-        _delegate->on_connection_closed(_self);
-        FC_THROW_EXCEPTION( fc::unhandled_exception, "disconnected, see log" );
+        call_on_connection_closed = true;
+        exception_to_rethrow = fc::unhandled_exception(FC_LOG_MESSAGE(warn, "disconnected: ${e}", ("e", e.to_detail_string())));
       }
       catch ( const std::exception& e )
       {
         elog( "disconnected ${er}", ("er", e.what() ) );
-        _delegate->on_connection_closed(_self);
-
-        FC_THROW_EXCEPTION( fc::unhandled_exception, "disconnected ${e}", ("e", e.what() ) );
+        call_on_connection_closed = true;
+        exception_to_rethrow = fc::unhandled_exception(FC_LOG_MESSAGE(warn, "disconnected: ${e}", ("e", e.what())));
       }
       catch ( ... )
       {
-         elog( "unexpected exception" );
-        _delegate->on_connection_closed(_self);
-        FC_THROW_EXCEPTION( fc::unhandled_exception, "disconnected: {e}", ("e", fc::except_str() ) );
+        elog( "unexpected exception" );
+        call_on_connection_closed = true;
+        exception_to_rethrow = fc::unhandled_exception(FC_LOG_MESSAGE(warn, "disconnected: ${e}", ("e", fc::except_str())));
       }
+
+      if (call_on_connection_closed)
+        _delegate->on_connection_closed(_self);
+
+      if (exception_to_rethrow)
+        throw *exception_to_rethrow;
     }
 
     void message_oriented_connection_impl::send_message(const message& message_to_send)
@@ -259,6 +247,34 @@ namespace bts { namespace net {
     {
       VERIFY_CORRECT_THREAD();
       _sock.close();
+    }
+
+    void message_oriented_connection_impl::destroy_connection()
+    {
+      VERIFY_CORRECT_THREAD();
+
+      fc::optional<fc::ip::endpoint> remote_endpoint;
+      if (_sock.get_socket().is_open())
+        remote_endpoint = _sock.get_socket().remote_endpoint();
+      ilog( "in destroy_connection() for ${endpoint}", ("endpoint", remote_endpoint) );
+
+      if (_send_message_in_progress)
+        elog("Error: message_oriented_connection is being destroyed while a send_message is in progress.  "
+             "The task calling send_message() should have been canceled already");
+      assert(!_send_message_in_progress);
+
+      try
+      {
+        _read_loop_done.cancel_and_wait(__FUNCTION__);
+      }
+      catch ( const fc::exception& e )
+      {
+        wlog( "Exception thrown while canceling message_oriented_connection's read_loop, ignoring: ${e}", ("e",e) );
+      }
+      catch (...)
+      {
+        wlog( "Exception thrown while canceling message_oriented_connection's read_loop, ignoring" );
+      }
     }
 
     uint64_t message_oriented_connection_impl::get_total_bytes_sent() const
@@ -331,6 +347,11 @@ namespace bts { namespace net {
   void message_oriented_connection::close_connection()
   {
     my->close_connection();
+  }
+
+  void message_oriented_connection::destroy_connection()
+  {
+    my->destroy_connection();
   }
 
   uint64_t message_oriented_connection::get_total_bytes_sent() const

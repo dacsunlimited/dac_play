@@ -61,7 +61,10 @@ namespace bts { namespace mail {
 
    struct encrypted_message
    {
+      static const message_type type;
+
       message decrypt( const fc::ecc::private_key& e )const;
+      message decrypt( const fc::sha512& shared_secret )const;
 
       fc::ecc::public_key  onetimekey;
       vector<char>         data;
@@ -69,7 +72,7 @@ namespace bts { namespace mail {
 
    struct message
    {
-      message():nonce(0){}
+      message():nonce(0),timestamp(fc::time_point::now()){}
 
       message_id_type   id()const;
       encrypted_message encrypt( const fc::ecc::private_key& onetimekey,
@@ -79,18 +82,20 @@ namespace bts { namespace mail {
       message( const MessageType& m )
       {
          type = MessageType::type;
+         timestamp = fc::time_point::now();
          data = fc::raw::pack(m);
       }
 
       template<typename MessageType>
       MessageType as()const
       {
-         FC_ASSERT( type == MessageType::type, "", ("type",type)("MessageType",MessageType::type) ) 
+         FC_ASSERT( type == MessageType::type, "", ("type",type)("MessageType",MessageType::type) );
          return fc::raw::unpack<MessageType>(data);
       }
 
       fc::enum_type<int16_t, message_type>  type;
       uint64_t                              nonce;
+      fc::time_point_sec                    timestamp;
       vector<char>                          data;
    };
 
@@ -98,7 +103,7 @@ namespace bts { namespace mail {
 
 FC_REFLECT_ENUM( bts::mail::message_type, (encrypted)(transaction_notice)(market_notice)(email) )
 FC_REFLECT( bts::mail::encrypted_message, (onetimekey)(data) )
-FC_REFLECT( bts::mail::message, (type)(nonce)(data) )
+FC_REFLECT( bts::mail::message, (type)(nonce)(timestamp)(data) )
 FC_REFLECT( bts::mail::attachment, (name)(data) )
 FC_REFLECT( bts::mail::transaction_notice_message, (trx)(extended_memo) )
 FC_REFLECT( bts::mail::email_message, (subject)(body)(attachments) )

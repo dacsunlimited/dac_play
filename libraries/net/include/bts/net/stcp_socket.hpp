@@ -21,9 +21,12 @@ class stcp_socket : public virtual fc::iostream
     void             bind( const fc::ip::endpoint& local_endpoint );
 
     virtual size_t   readsome( char* buffer, size_t max );
+    virtual size_t   readsome( const std::shared_ptr<char>& buf, size_t len, size_t offset );
     virtual bool     eof()const;
 
     virtual size_t   writesome( const char* buffer, size_t len );
+    virtual size_t   writesome( const std::shared_ptr<const char>& buf, size_t len, size_t offset );
+
     virtual void     flush();
     virtual void     close();
 
@@ -39,6 +42,12 @@ class stcp_socket : public virtual fc::iostream
     fc::tcp_socket       _sock;
     fc::aes_encoder      _send_aes;
     fc::aes_decoder      _recv_aes;
+    std::shared_ptr<char> _read_buffer;
+    std::shared_ptr<char> _write_buffer;
+#ifndef NDEBUG
+    bool _read_buffer_in_use;
+    bool _write_buffer_in_use;
+#endif
 };
 
 typedef std::shared_ptr<stcp_socket> stcp_socket_ptr;

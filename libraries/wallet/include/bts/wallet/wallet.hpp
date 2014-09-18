@@ -2,6 +2,7 @@
 
 #include <bts/blockchain/chain_database.hpp>
 #include <bts/blockchain/config.hpp>
+#include <bts/mail/message.hpp>
 #include <bts/wallet/pretty.hpp>
 #include <bts/wallet/wallet_db.hpp>
 #include <fc/signals.hpp>
@@ -11,11 +12,10 @@ namespace bts { namespace wallet {
 
    namespace detail { class wallet_impl; }
 
-   /** args: current_block, last_block */
-   typedef function<void(uint32_t,uint32_t)> scan_progress_callback;
-
+   typedef map<string, vector<balance_record>> account_balance_record_summary_type;
+   typedef map<string, vector<balance_id_type>> account_balance_id_summary_type;
+   typedef map<string, map<asset_id_type, share_type>> account_balance_summary_type;
    typedef map<string, int64_t> account_vote_summary_type;
-   typedef map<string, std::pair<map<string, share_type>, share_type>> account_balance_summary_type;
 
    enum delegate_status_flags
    {
@@ -41,7 +41,7 @@ namespace bts { namespace wallet {
    class wallet
    {
       public:
-         wallet( chain_database_ptr chain );
+         wallet(chain_database_ptr chain, bool enabled = true);
          virtual ~wallet();
 
          //Emitted when wallet is locked or unlocked. Argument is true if wallet is now locked; false otherwise.
@@ -71,6 +71,7 @@ namespace bts { namespace wallet {
 
          void    close();
 
+         bool    is_enabled()const;
          bool    is_open()const;
          string  get_wallet_name()const;
          path    get_wallet_filename()const;
@@ -96,7 +97,7 @@ namespace bts { namespace wallet {
          uint32_t               get_last_scanned_block_number()const;
 
          void                   set_transaction_fee( const asset& fee );
-         asset                  get_transaction_fee()const;
+         asset                  get_transaction_fee( const asset_id_type& desired_fee_asset_id = 0 )const;
 
          void                   set_transaction_expiration( uint32_t secs );
          uint32_t               get_transaction_expiration()const;
@@ -150,11 +151,9 @@ namespace bts { namespace wallet {
          map<transaction_id_type, fc::exception>    get_pending_transaction_errors()const;
 
          void      scan_state();
-         void      scan_chain( uint32_t start = 0, uint32_t end = -1,
-                               const scan_progress_callback& progress_callback = scan_progress_callback() );
+         void      scan_chain( uint32_t start = 0, uint32_t end = -1, bool fast_scan = false );
 
-         void      scan_transaction( uint32_t block_num, const transaction_id_type& transaction_id );
-         void      scan_transactions( uint32_t block_num, const string& transaction_id_prefix );
+         wallet_transaction_record         scan_transaction( const string& transaction_id_prefix, bool overwrite_existing );
 
          vector<wallet_transaction_record> get_transactions( const string& transaction_id_prefix );
 
@@ -162,11 +161,16 @@ namespace bts { namespace wallet {
          public_key_type  create_account( const string& account_name,
                                           const variant& private_data = variant() );
 
+         void update_account_private_data( const string& account_to_update,
+                                           const variant& private_data );
+
          void account_set_favorite ( const string& account_name,
                                      const bool is_favorite );
 
          address          get_new_address( const string& account_name );
          public_key_type  get_new_public_key( const string& account_name );
+
+         wallet_account_record get_account( const string& account_name )const;
 
          /**
           *  A contact is an account for which we do not have the private key.
@@ -196,8 +200,6 @@ namespace bts { namespace wallet {
 
          ///@param delegates_to_retrieve Type is delegate_status_flags. Uses int type to allow ORing multiple flags
          vector<wallet_account_record> get_my_delegates( int delegates_to_retrieve = any_delegate_status )const;
-         ///@param delegates_to_retrieve Type is delegate_status_flags. Uses int type to allow ORing multiple flags
-         vector<private_key_type> get_my_delegate_private_keys( int delegates_to_retrieve = any_delegate_status )const;
 
          optional<time_point_sec> get_next_producible_block_timestamp( const vector<wallet_account_record>& delegate_records )const;
 
@@ -274,147 +276,200 @@ namespace bts { namespace wallet {
           *  and producing a single output. The only different aspect with transfer_asset is that
           *  this will send to a address.
           */
-         signed_transaction  transfer_asset_to_address( double real_amount_to_transfer,
-                                          const string& amount_to_transfer_symbol,
-                                          const string& from_account_name,
-                                          const address& to_address,
-                                          const string& memo_message,
-                                          vote_selection_method selection_method,
-                                          bool sign );
+         wallet_transaction_record transfer_asset_to_address(
+                 double real_amount_to_transfer,
+                 const string& amount_to_transfer_symbol,
+                 const string& from_account_name,
+                 const address& to_address,
+                 const string& memo_message,
+                 vote_selection_method selection_method,
+                 bool sign = true
+                 );
          /**
           * This transfer works like a bitcoin sendmany transaction combining multiple inputs
           * and producing a single output.
           */
-         signed_transaction  transfer_asset_to_many_address( const string& amount_to_transfer_symbol,
-                                                     const string& from_account_name,
-                                                     const unordered_map< address, double >& to_address_amounts,
-                                                     const string& memo_message,
-                                                     bool sign );
+         wallet_transaction_record transfer_asset_to_many_address(
+                 const string& amount_to_transfer_symbol,
+                 const string& from_account_name,
+                 const unordered_map<address, double>& to_address_amounts,
+                 const string& memo_message,
+                 bool sign = true
+                 );
          /**
           *  This transfer works like a bitcoin transaction combining multiple inputs
           *  and producing a single output.
           */
-         wallet_transaction_record transfer_asset(double real_amount_to_transfer,
-                                              const string& amount_to_transfer_symbol,
-                                              const string& paying_account_name,
-                                              const string& from_account_name,
-                                              const string& to_account_name,
-                                              const string& memo_message,
-                                              vote_selection_method m,
-                                              bool sign );
-
-         signed_transaction  withdraw_delegate_pay( const string& delegate_name,
-                                                    double amount_to_withdraw,
-                                                    const string& withdraw_to_account_name,
-                                                    const string& memo_message,
-                                                    bool sign );
-
-         signed_transaction  create_asset( const string& symbol,
-                                           const string& asset_name,
-                                           const string& description,
-                                           const variant& data,
-                                           const string& issuer_name,
-                                           double max_share_supply,
-                                           int64_t  precision,
-                                           bool is_market_issued = false,
-                                           bool sign = true );
-
-         signed_transaction  issue_asset( double amount,
-                                          const string& symbol,
-                                          const string& to_account_name,
-                                          const string& memo_message,
-                                          bool sign = true );
+         wallet_transaction_record transfer_asset(
+                 double real_amount_to_transfer,
+                 const string& amount_to_transfer_symbol,
+                 const string& paying_account_name,
+                 const string& from_account_name,
+                 const string& to_account_name,
+                 const string& memo_message,
+                 vote_selection_method m,
+                 bool sign = true
+                 );
 
          /**
-          *  ie: submit_bid( 10 BTC at 600.34 USD per BTC )
-          *
-          *  Requires the user have 6003.4 USD
+          *  This transfer works like a bitcoin transaction combining multiple inputs
+          *  and producing a single output.
           */
-         signed_transaction  submit_bid( const string& from_account_name,
-                                         double real_quantity,
-                                         const string& quantity_symbol,
-                                         double price_per_unit,
-                                         const string& quote_symbol,
-                                         bool sign = true );
-
-         /**
-          *  ie: submit_ask( 10 BTC at 600.34 USD per BTC )
-          *
-          *  Requires the user have 10 BTC + fees
-          */
-         signed_transaction  submit_ask( const string& from_account_name,
-                                         double real_quantity,
-                                         const string& quantity_symbol,
-                                         double price_per_unit,
-                                         const string& quote_symbol,
-                                         bool sign = true );
-
-         /**
-          *  ie: submit_short( 10 USD at 600.34 USD per XTS )
-          *
-          *  Requires the user have 10 / 600.34 XTS + fees
-          */
-         signed_transaction  submit_short( const string& from_account_name,
-                                         double real_quantity_usd,
-                                         double price_per_unit,
-                                         const string& quote_symbol,
-                                         bool sign = true );
-
-         signed_transaction  cover_short( const string& from_account_name,
-                                          double real_quantity_usd,
-                                          const string& quote_symbol,
-                                          const address& owner_address,
-                                          bool sign = true );
-
-         signed_transaction  add_collateral( const string& from_account_name,
-                                             const address& short_id,
-                                             share_type collateral_to_add,
-                                             bool sign = true );
-
-         signed_transaction  cancel_market_order( const address& owner_address );
-
-         wallet_account_record get_account( const string& account_name )const;
+         wallet_transaction_record burn_asset(
+                 double real_amount_to_transfer,
+                 const string& amount_to_transfer_symbol,
+                 const string& paying_account_name,
+                 const string& for_or_against,
+                 const string& to_account_name,
+                 const string& public_message,
+                 bool anonymous = true,
+                 bool sign = true
+                 );
 
          /**
           * if the active_key is null then the active key will be made the same as the master key.
           * if the name already exists then it will be updated if this wallet controls the active key
           * or master key
           */
-         signed_transaction register_account( const string& account_name,
-                                              const variant& json_data,
-                                              uint8_t delegate_pay_rate,
-                                              const string& pay_with_account_name,
-                                              bool sign = true );
-
-         void update_account_private_data( const string& account_to_update,
-                                           const variant& private_data );
-
-         signed_transaction update_registered_account( const string& account_name,
-                                      const string& pay_from_account,
-                                      optional<variant> public_data,
-                                      uint8_t delegate_pay_rate = 255,
-                                      bool sign = true );
-
-         signed_transaction update_active_key( const std::string& account_to_update,
-                                               const std::string& pay_from_account,
-                                               const std::string& new_active_key,
-                                               bool sign = true );
-
+         wallet_transaction_record register_account(
+                 const string& account_name,
+                 const variant& json_data,
+                 uint8_t delegate_pay_rate,
+                 const string& pay_with_account_name,
+                 bool sign = true
+                 );
+         wallet_transaction_record update_registered_account(
+                 const string& account_name,
+                 const string& pay_from_account,
+                 optional<variant> public_data,
+                 uint8_t delegate_pay_rate = 255,
+                 bool sign = true
+                 );
+         wallet_transaction_record update_active_key(
+                 const std::string& account_to_update,
+                 const std::string& pay_from_account,
+                 const std::string& new_active_key,
+                 bool sign = true
+                 );
+         wallet_transaction_record withdraw_delegate_pay(
+                 const string& delegate_name,
+                 double amount_to_withdraw,
+                 const string& withdraw_to_account_name,
+                 bool sign = true
+                 );
+         wallet_transaction_record publish_feeds(
+                 const string& account,
+                 map<string,double> amount_per_xts,
+                 bool sign = true
+                 );
+         wallet_transaction_record publish_price(
+                 const string& account,
+                 double amount_per_xts,
+                 const string& amount_asset_symbol,
+                 bool sign = true
+                 );
+         wallet_transaction_record publish_slate(
+                 const string& account_to_publish_under,
+                 const string& account_to_pay_with,
+                 bool sign = true
+                 );
+         wallet_transaction_record publish_version(
+                 const string& account_to_publish_under,
+                 const string& account_to_pay_with,
+                 bool sign = true
+                 );
+         wallet_transaction_record create_asset(
+                 const string& symbol,
+                 const string& asset_name,
+                 const string& description,
+                 const variant& data,
+                 const string& issuer_name,
+                 double max_share_supply,
+                 int64_t precision,
+                 bool is_market_issued = false,
+                 bool sign = true
+                 );
+         wallet_transaction_record issue_asset(
+                 double amount,
+                 const string& symbol,
+                 const string& to_account_name,
+                 const string& memo_message,
+                 bool sign = true
+                 );
+         /**
+          *  ie: submit_bid( 10 BTC at 600.34 USD per BTC )
+          *
+          *  Requires the user have 6003.4 USD
+          */
+         wallet_transaction_record submit_bid(
+                 const string& from_account_name,
+                 double real_quantity,
+                 const string& quantity_symbol,
+                 double price_per_unit,
+                 const string& quote_symbol,
+                 bool sign = true
+                 );
+         /**
+          *  ie: submit_ask( 10 BTC at 600.34 USD per BTC )
+          *
+          *  Requires the user have 10 BTC + fees
+          */
+         wallet_transaction_record submit_ask(
+                 const string& from_account_name,
+                 double real_quantity,
+                 const string& quantity_symbol,
+                 double price_per_unit,
+                 const string& quote_symbol,
+                 bool sign = true
+                 );
+         /**
+          *  ie: submit_short( 10 USD at 600.34 USD per XTS )
+          *
+          *  Requires the user have 10 / 600.34 XTS + fees
+          */
+         wallet_transaction_record submit_short(
+                 const string& from_account_name,
+                 double real_quantity_usd,
+                 const string& quote_symbol,
+                 double collateral_per_usd,
+                 double price_limit = 0,
+                 bool sign = true
+                 );
+         wallet_transaction_record cover_short(
+                 const string& from_account_name,
+                 double real_quantity_usd,
+                 const string& quote_symbol,
+                 const order_id_type& short_id,
+                 bool sign = true
+                 );
+         wallet_transaction_record add_collateral(
+                 const string& from_account_name,
+                 const order_id_type& short_id,
+                 share_type collateral_to_add,
+                 bool sign = true
+                 );
+         wallet_transaction_record cancel_market_order(
+                 const order_id_type& order_id,
+                 bool sign = true
+                 );
 #if 0
-         signed_transaction create_proposal( const string& delegate_account_name,
-                                             const string& subject,
-                                             const string& body,
-                                             const string& proposal_type,
-                                             const variant& data,
-                                             bool sign = true );
-
-         signed_transaction vote_proposal( const string& delegate_account_name,
-                                           proposal_id_type proposal_id,
-                                           proposal_vote::vote_type vote,
-                                           const string& message = string(),
-                                           bool sign = true);
-       
+         wallet_transaction_record create_proposal(
+                 const string& delegate_account_name,
+                 const string& subject,
+                 const string& body,
+                 const string& proposal_type,
+                 const variant& data,
+                 bool sign = true
+                 );
+         wallet_transaction_record vote_proposal(
+                 const string& delegate_account_name,
+                 proposal_id_type proposal_id,
+                 proposal_vote::vote_type vote,
+                 const string& message = string(),
+                 bool sign = tru
+                 );
 #endif
+
          signed_transaction play_dice( const string& dice_account_name,
                                              double amount,
                                              uint32_t odds = 1,
@@ -432,34 +487,25 @@ namespace bts { namespace wallet {
                                     const string& quantity_symbol,
                                     bool sign = true );
 
-
          ///@} Transaction Generation Methods
-         string              get_key_label( const public_key_type& key )const;
-         pretty_transaction to_pretty_trx( const wallet_transaction_record& trx_rec ) const;
 
-         void      set_account_approval( const string& account_name, int8_t approval );
-         int8_t    get_account_approval( const string& account_name )const;
+         string                             get_key_label( const public_key_type& key )const;
+         pretty_transaction                 to_pretty_trx( const wallet_transaction_record& trx_rec ) const;
 
-         bool      is_sending_address( const address& addr )const;
-         bool      is_receive_address( const address& addr )const;
+         void                               set_account_approval( const string& account_name, int8_t approval );
+         int8_t                             get_account_approval( const string& account_name )const;
 
-         /**
-          *  Bitcoin compatibility
-          */
-         ///@{
-         //address                                    get_new_address( const string& account_name );
-         //public_key_type                            get_new_public_key( const string& account_name );
+         bool                               is_sending_address( const address& addr )const;
+         bool                               is_receive_address( const address& addr )const;
 
-         /*
-         unordered_map<address,string>    get_receive_addresses()const;
-         unordered_map<address,string>    get_send_addresses()const;
-         */
-
+         account_balance_record_summary_type get_account_balance_records( const string& account_name = "" )const;
+         account_balance_id_summary_type    get_account_balance_ids( const string& account_name = "" )const;
          account_balance_summary_type       get_account_balances( const string& account_name = "" )const;
-
+         account_balance_summary_type       get_account_yield( const string& account_name = "" )const;
          account_vote_summary_type          get_account_vote_summary( const string& account_name = "" )const;
 
-         vector<market_order>               get_market_orders( const string& quote, const string& base,
+         map<order_id_type, market_order>   get_market_orders( const string& account_name, int32_t limit)const;
+         map<order_id_type, market_order>   get_market_orders( const string& quote, const string& base,
                                                                int32_t limit, const string& account_name )const;
 
          vector<wallet_transaction_record>  get_transaction_history( const string& account_name = string(),
@@ -472,10 +518,6 @@ namespace bts { namespace wallet {
                                                                             const string& asset_symbol = "" )const;
 
          void                               remove_transaction_record( const string& record_id );
-         signed_transaction                 publish_slate(const string& account, string account_to_pay_with, bool sign = true );
-         signed_transaction                 publish_price( const string& account,
-                                                           double amount_per_xts,
-                                                           const string& amount_asset_symbol, bool sign = true );
 
          uint32_t                           regenerate_keys( const string& account_name, uint32_t max_number_of_attempts );
          int32_t                            recover_accounts(int32_t number_of_accounts , int32_t max_number_of_attempts);
@@ -497,20 +539,26 @@ namespace bts { namespace wallet {
          */
 
          /** signs transaction with the specified keys for the specified addresses */
-         void sign_transaction( signed_transaction& trx, const unordered_set<address>& req_sigs );
-         void sign_and_cache_transaction(
-                 signed_transaction& transaction,
-                 const std::unordered_set<address>& required_signatures,
-                 wallet_transaction_record& record );
+         void sign_transaction( signed_transaction& transaction, const unordered_set<address>& required_signatures )const;
+         void cache_transaction( const signed_transaction& transaction, wallet_transaction_record& record );
 
+         vote_summary get_vote_proportion( const string& account_name );
          slate_id_type select_slate( signed_transaction& transaction, const asset_id_type& deposit_asset_id = asset_id_type( 0 ), vote_selection_method = vote_random );
 
          private_key_type get_private_key( const address& addr )const;
 
          std::string login_start( const std::string& account_name );
-         fc::variant login_finish(const public_key_type& server_key,
-                                  const public_key_type& client_key,
-                                  const fc::ecc::compact_signature& client_signature);
+         fc::variant login_finish( const public_key_type& server_key,
+                                   const public_key_type& client_key,
+                                   const fc::ecc::compact_signature& client_signature );
+
+         mail::message mail_create( const string& sender,
+                                    const public_key_type& recipient,
+                                    const string& subject,
+                                    const string& body );
+         mail::message mail_open( const address& recipient, const mail::message& ciphertext );
+         mail::message mail_decrypt( const address& recipient, const mail::message& ciphertext );
+
      private:
          unique_ptr<detail::wallet_impl> my;
    };

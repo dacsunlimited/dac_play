@@ -41,8 +41,14 @@ namespace bts { namespace blockchain {
 
    void transaction::define_delegate_slate( delegate_slate s )
    {
-      FC_ASSERT( s.supported_delegates.size() > 0 )
+      FC_ASSERT( s.supported_delegates.size() > 0 );
       operations.emplace_back( define_delegate_slate_operation( std::move(s) ) );
+   }
+
+   void transaction::burn( const asset& quantity, account_id_type for_or_against, const string& message, const optional<signature_type>& sig )
+   {
+      if( message.size() ) FC_ASSERT( quantity.asset_id == 0 );
+      operations.emplace_back( burn_operation( quantity, for_or_against, message, sig) );
    }
 
    void transaction::bid( const asset& quantity,
@@ -71,12 +77,14 @@ namespace bts { namespace blockchain {
 
    void transaction::short_sell( const asset& quantity,
                           const price& price_per_unit,
-                          const address& owner )
+                          const address& owner,
+                          const optional<price>& limit_price )
    {
       short_operation op;
       op.amount = quantity.amount;
       op.short_index.order_price = price_per_unit;
       op.short_index.owner = owner;
+      op.short_price_limit = limit_price;
 
       operations.emplace_back(op);
    }

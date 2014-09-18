@@ -105,12 +105,12 @@ BOOST_AUTO_TEST_CASE( master_test )
 
    auto sim_network = std::make_shared<bts::net::simulated_network>();
 
-   auto clienta = std::make_shared<client>(sim_network);
+   auto clienta = std::make_shared<bts::client::client>(sim_network);
    clienta->open( clienta_dir.path(), clienta_dir.path() / "genesis.json" );
    clienta->configure_from_command_line( 0, nullptr );
    clienta->start().wait();
 
-   auto clientb = std::make_shared<client>(sim_network);
+   auto clientb = std::make_shared<bts::client::client>(sim_network);
    clientb->open( clientb_dir.path(), clientb_dir.path() / "genesis.json" );
    clientb->configure_from_command_line( 0, nullptr );
    clientb->start().wait();
@@ -180,7 +180,7 @@ BOOST_AUTO_TEST_CASE( master_test )
    std::cerr << clienta->execute_command_line( "wallet_account_transaction_history b-account" ) << "\n";
    wlog( "------------------  CLIENT B  -----------------------------------" );
    std::cerr << clientb->execute_command_line( "wallet_account_transaction_history b-account" ) << "\n";
-   std::cerr << clientb->execute_command_line( "wallet_create_account c-account" ) << "\n";
+   std::cerr << clientb->execute_command_line( "wallet_account_create c-account" ) << "\n";
    std::cerr << clientb->execute_command_line( "wallet_transfer 10 XTS b-account c-account to-me" ) << "\n";
    std::cerr << clientb->execute_command_line( "wallet_account_transaction_history b-account" ) << "\n";
    std::cerr << clientb->execute_command_line( "wallet_account_transaction_history c-account" ) << "\n";
@@ -232,14 +232,14 @@ BOOST_AUTO_TEST_CASE( master_test )
    std::cerr << clientb->execute_command_line( "blockchain_market_list_bids USD XTS" ) << "\n";
    std::cerr << clientb->execute_command_line( "wallet_market_order_list USD XTS" ) << "\n";
    auto result = clientb->wallet_market_order_list( "USD", "XTS" );
-   std::cerr << clientb->execute_command_line( "wallet_market_cancel_order " + string( result[0].market_index.owner ) ) << "\n";
+   std::cerr << clientb->execute_command_line( "wallet_market_cancel_order " + string( result.begin()->first ) ) << "\n";
    produce_block( clientb );
    std::cerr << clientb->execute_command_line( "wallet_market_order_list USD XTS" ) << "\n";
    std::cerr << clientb->execute_command_line( "blockchain_market_list_bids USD XTS" ) << "\n";
    std::cerr << clientb->execute_command_line( "wallet_account_transaction_history" ) << "\n";
    std::cerr << clientb->execute_command_line( "balance" ) << "\n";
    result = clientb->wallet_market_order_list( "USD", "XTS" );
-   std::cerr << clientb->execute_command_line( "wallet_market_cancel_order " + string( result[0].market_index.owner ) ) << "\n";
+   std::cerr << clientb->execute_command_line( "wallet_market_cancel_order " + string( result.begin()->first ) ) << "\n";
    produce_block( clientb );
    std::cerr << clientb->execute_command_line( "wallet_market_order_list USD XTS" ) << "\n";
    std::cerr << clientb->execute_command_line( "blockchain_market_list_bids USD XTS" ) << "\n";
@@ -486,6 +486,7 @@ void run_regression_test(fc::path test_dir, bool with_network)
     {
       line += " --disable-default-peers ";
       line += " --log-commands ";
+      line += " --ulog=0 ";
       line += " --min-delegate-connection-count=0 ";
       line += " --upnp=false ";
 
@@ -542,7 +543,7 @@ void run_regression_test(fc::path test_dir, bool with_network)
       //run client with cmdline options
       if (with_network)
       {
-        FC_ASSERT(false, "Not implemented yet!")
+        FC_ASSERT(false, "Not implemented yet!");
       }
       else
       {

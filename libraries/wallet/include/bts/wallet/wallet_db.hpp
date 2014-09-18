@@ -11,8 +11,6 @@
 
 namespace bts { namespace wallet {
 
-   typedef vector<fc::ecc::private_key> private_keys;
-
    namespace detail { class wallet_db_impl; }
 
    class wallet_db
@@ -20,19 +18,19 @@ namespace bts { namespace wallet {
       public:
          wallet_db();
          ~wallet_db();
-         
+
          void open( const fc::path& wallet_file );
          void close();
-         
+
          bool is_open()const;
 
          int32_t              new_wallet_record_index();
-         int32_t              new_key_child_index();
-         fc::ecc::private_key get_private_key( const fc::sha512& password, int index );
+         int32_t              new_key_child_index( const address& parent_account_address );
+         private_key_type get_private_key( const fc::sha512& password, int index );
 
-         fc::ecc::private_key new_private_key( const fc::sha512& password,
-                                               const address& parent_account_address = address(),
-                                               bool store_key = true );
+         private_key_type new_private_key( const fc::sha512& password,
+                                           const address& parent_account_address = address(),
+                                           bool store_key = true );
 
          void        set_property( property_enum property_id, const fc::variant& v );
          fc::variant get_property( property_enum property_id )const;
@@ -41,29 +39,25 @@ namespace bts { namespace wallet {
          void store_transaction( wallet_transaction_record& t );
          void cache_balance( const bts::blockchain::balance_record& b );
          void cache_account( const wallet_account_record& );
-         void cache_memo( const memo_status& memo, 
-                          const fc::ecc::private_key& account_key,
+         void cache_memo( const memo_status& memo,
+                          const private_key_type& account_key,
                           const fc::sha512& password );
-         void cache_order( const bts::blockchain::market_order& );
 
          void remove_balance( const balance_id_type& balance_id );
          void remove_transaction( const transaction_id_type& record_id );
 
          vector<wallet_transaction_record> get_pending_transactions()const;
 
-         void update_market_order( const address& owner, 
-                                   const optional<bts::blockchain::market_order>& order,
-                                   const transaction_id_type& trx_id );
-
          owallet_transaction_record lookup_transaction( const transaction_id_type& record_id )const;
 
-         private_keys get_account_private_keys( const fc::sha512& password )const;
-         string       get_account_name( const address& account_address )const;
+         vector<private_key_type>   get_account_private_keys( const fc::sha512& password )const;
+         string                     get_account_name( const address& account_address )const;
 
          owallet_account_record lookup_account( const address& address_of_public_key )const;
          owallet_account_record lookup_account( const string& account_name )const;
          owallet_account_record lookup_account( account_id_type aid )const;
 
+         vector<wallet_balance_record>  get_all_balances( const string& account_name, uint32_t limit );
          owallet_balance_record lookup_balance( const balance_id_type& balance_id )const;
          owallet_key_record     lookup_key( const address& address )const;
 
@@ -73,7 +67,7 @@ namespace bts { namespace wallet {
 
          bool has_private_key( const address& a )const;
 
-         void add_account( const string& new_account_name, 
+         void add_account( const string& new_account_name,
                            const public_key_type& new_account_key,
                            const variant& private_data = variant() );
          void add_account( const account_record& blockchain_account,
@@ -89,7 +83,7 @@ namespace bts { namespace wallet {
 
          bool                           validate_password( const fc::sha512& password )const;
          optional<extended_private_key> get_master_key( const fc::sha512& password    )const;
-         void                           set_master_key( const extended_private_key& key, 
+         void                           set_master_key( const extended_private_key& key,
                                                         const fc::sha512& new_password );
 
          void                           change_password( const fc::sha512& old_password,
@@ -107,11 +101,7 @@ namespace bts { namespace wallet {
          {
             return accounts;
          }
-         const unordered_map<address,wallet_market_order_status_record>& get_market_orders()const
-         {
-            return market_orders;
-         }
-         const unordered_map< address, wallet_key_record >& get_keys()const 
+         const unordered_map< address, wallet_key_record >& get_keys()const
          {
             return keys;
          }
@@ -122,10 +112,8 @@ namespace bts { namespace wallet {
          unordered_map< int32_t,wallet_account_record >                   accounts;
          unordered_map< address, wallet_key_record >                      keys;
          unordered_map< transaction_id_type, wallet_transaction_record >  transactions;
-         map<string,wallet_asset_record>                                  assets;
          unordered_map< balance_id_type,wallet_balance_record >           balances;
          map<property_enum, wallet_property_record>                       properties;
-         unordered_map<address,wallet_market_order_status_record>         market_orders;
          map< string, wallet_setting_record >                             settings;
 
          unordered_map< address, address >                                btc_to_bts_address;
@@ -135,12 +123,12 @@ namespace bts { namespace wallet {
 
          void remove_item( int32_t index );
          /**
-          *  This is private 
+          *  This is private
           */
          template<typename T>
          void store_record( T record_to_store, bool sync = false )
          {
-            if( record_to_store.wallet_record_index == 0 ) 
+            if( record_to_store.wallet_record_index == 0 )
                record_to_store.wallet_record_index = new_wallet_record_index();
             store_generic_record( generic_wallet_record( record_to_store ), sync );
          }

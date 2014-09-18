@@ -91,9 +91,6 @@ string pretty_info( fc::mutable_variant_object info, cptr client )
         info["blockchain_average_delegate_participation"] = pretty_percent( participation, 100 );
     }
 
-    const auto fees = info["blockchain_accumulated_fees"].as<share_type>();
-    info["blockchain_accumulated_fees"] = client->get_chain()->to_pretty_asset( asset( fees ) );
-
     const auto pay_rate = info["blockchain_delegate_pay_rate"].as<share_type>();
     info["blockchain_delegate_pay_rate"] = client->get_chain()->to_pretty_asset( asset( pay_rate ) );
 
@@ -264,10 +261,11 @@ string pretty_delegate_list( const vector<account_record>& delegate_records, cpt
     out << std::setw( 14 ) << "RELIABILITY";
     out << std::setw(  9 ) << "PAY RATE";
     out << std::setw( 20 ) << "PAY BALANCE";
-    out << std::setw( 10 ) << "LAST BLOCK";
+    out << std::setw( 12 ) << "LAST BLOCK";
+    out << std::setw( 12 ) << "VERSION";
     out << "\n";
 
-    out << pretty_line( 124 );
+    out << pretty_line( 138 );
     out << "\n";
 
     const auto current_slot_timestamp = blockchain::get_slot_start_time( blockchain::now() );
@@ -304,7 +302,16 @@ string pretty_delegate_list( const vector<account_record>& delegate_records, cpt
         out << std::setw( 20 ) << client->get_chain()->to_pretty_asset( pay_balance );
 
         const auto last_block = delegate_record.delegate_info->last_block_num_produced;
-        out << std::setw( 10 ) << ( last_block > 0 ? std::to_string( last_block ) : "NONE" );
+        out << std::setw( 12 ) << ( last_block > 0 ? std::to_string( last_block ) : "NONE" );
+
+        string version;
+        if( delegate_record.public_data.is_object()
+            && delegate_record.public_data.get_object().contains( "version" )
+            && delegate_record.public_data.get_object()[ "version" ].is_string() )
+        {
+            version = delegate_record.public_data.get_object()[ "version" ].as_string();
+        }
+        out << std::setw( 12) << version;
 
         out << "\n";
     }
@@ -325,12 +332,11 @@ string pretty_block_list( const vector<block_record>& block_records, cptr client
     out << std::setw( 32 ) << "SIGNING DELEGATE";
     out << std::setw(  8 ) << "# TXS";
     out << std::setw(  8 ) << "SIZE";
-    out << std::setw( 16 ) << "TOTAL FEES";
     out << std::setw(  8 ) << "LATENCY";
     out << std::setw( 15 ) << "PROCESSING TIME";
     out << "\n";
 
-    out << pretty_line( 115 );
+    out << pretty_line( 99 );
     out << "\n";
 
     auto last_block_timestamp = block_records.front().timestamp;
@@ -358,7 +364,6 @@ string pretty_block_list( const vector<block_record>& block_records, cptr client
 
             out << std::setw(  8 ) << "N/A";
             out << std::setw(  8 ) << "N/A";
-            out << std::setw( 16 ) << "N/A";
             out << std::setw(  8 ) << "N/A";
             out << std::setw( 15 ) << "N/A";
             out << '\n';
@@ -369,7 +374,7 @@ string pretty_block_list( const vector<block_record>& block_records, cptr client
         out << std::setw(  8 ) << block_record.block_num;
         out << std::setw( 20 ) << pretty_timestamp( block_record.timestamp );
 
-        const auto& delegate_name = client->blockchain_get_block_signee( block_record.block_num );
+        const auto& delegate_name = client->blockchain_get_block_signee( std::to_string( block_record.block_num ) );
 
         out << std::setw( 32 );
         if( FILTER_OUTPUT_FOR_TESTS ) out << "[redacted]";
@@ -377,7 +382,6 @@ string pretty_block_list( const vector<block_record>& block_records, cptr client
 
         out << std::setw(  8 ) << block_record.user_transaction_ids.size();
         out << std::setw(  8 ) << block_record.block_size;
-        out << std::setw( 16 ) << client->get_chain()->to_pretty_asset( asset( block_record.total_fees ) );
 
         if( FILTER_OUTPUT_FOR_TESTS )
         {
@@ -412,7 +416,7 @@ string pretty_transaction_list( const vector<pretty_transaction>& transactions, 
 
     if( any_group ) out << " ";
 
-    out << std::setw( 20 ) << "RECEIVED";
+    out << std::setw( 20 ) << "TIMESTAMP";
     out << std::setw( 10 ) << "BLOCK";
     out << std::setw( 20 ) << "FROM";
     out << std::setw( 20 ) << "TO";
@@ -444,7 +448,7 @@ string pretty_transaction_list( const vector<pretty_transaction>& transactions, 
             ++count;
             if( count == 1 )
             {
-                out << std::setw( 20 ) << pretty_timestamp( transaction.received_time );
+                out << std::setw( 20 ) << pretty_timestamp( transaction.timestamp );
 
                 out << std::setw( 10 );
                 if( !is_pending )
@@ -626,7 +630,6 @@ string pretty_account( const oaccount_record& record, cptr client )
     return out.str();
 }
 
-// TODO: Print total at the end so that can be compared to (history)
 string pretty_balances( const account_balance_summary_type& balances, cptr client )
 {
     if( balances.empty() ) return "No balances found.\n";
@@ -647,7 +650,7 @@ string pretty_balances( const account_balance_summary_type& balances, cptr clien
         const auto& account_name = item.first;
 
         bool first = true;
-        for( const auto& asset_balance : item.second.first )
+        for( const auto& asset_balance : item.second )
         {
             if( first )
             {
@@ -659,21 +662,10 @@ string pretty_balances( const account_balance_summary_type& balances, cptr clien
                 out << std::setw( 32 ) << "";
             }
 
-            const auto balance = asset( asset_balance.second, client->get_chain()->get_asset_id( asset_balance.first ) );
+            const auto balance = asset( asset_balance.second, asset_balance.first );
             out << std::setw( 28 ) << client->get_chain()->to_pretty_asset( balance );
 
             out << "\n";
-        }
-
-        const auto& pay_balance = item.second.second;
-        if( pay_balance > 0 )
-        {
-            out << "\b";
-            out << std::setw( 32 ) << "";
-
-            std::stringstream ss;
-            ss << client->get_chain()->to_pretty_asset( asset( pay_balance ) ) << " (pay)";
-            out << std::setw( 28 ) << ss.str() << "\n";
         }
     }
 
@@ -710,9 +702,9 @@ string pretty_vote_summary( const account_vote_summary_type& votes, cptr client 
     return out.str();
 }
 
-string pretty_market_orders( const vector<market_order>& market_orders, cptr client )
-{ try {
-    if( market_orders.empty() ) return "No market orders found.\n";
+string pretty_order_list( const map<order_id_type, market_order>& order_items, cptr client )
+{
+    if( order_items.empty() ) return "No market orders found.\n";
     FC_ASSERT( client != nullptr );
 
     std::stringstream out;
@@ -730,8 +722,11 @@ string pretty_market_orders( const vector<market_order>& market_orders, cptr cli
     out << pretty_line( 128 );
     out << "\n";
 
-    for( const auto& order : market_orders )
+    for( const auto& item : order_items )
     {
+        const auto id = item.first;
+        const auto order = item.second;
+
         out << std::setw( 12 ) << variant( order.type ).as_string();
         out << std::setw( 20 ) << client->get_chain()->to_pretty_asset( order.get_quantity() );
         out << std::setw( 30 ) << client->get_chain()->to_pretty_price( order.get_price() );
@@ -741,12 +736,12 @@ string pretty_market_orders( const vector<market_order>& market_orders, cptr cli
            out << std::setw( 20 ) << "N/A";
         else
            out << std::setw( 20 ) << client->get_chain()->to_pretty_asset( asset( *order.collateral ) );
-        out << std::setw( 36 ) << fc::variant( order.market_index.owner ).as_string();
+        out << std::setw( 36 ) << string( id );
 
         out << "\n";
     }
 
     return out.str();
-} FC_CAPTURE_AND_RETHROW(  ) }
+}
 
 } } // bts::cli

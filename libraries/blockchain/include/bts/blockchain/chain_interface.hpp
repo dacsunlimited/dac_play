@@ -36,9 +36,8 @@ namespace bts { namespace blockchain {
        */
       confirmation_requirement = 6,
       database_version         = 7, // database version, to know when we need to upgrade
-      accumulated_fees         = 8,
-      dirty_markets            = 9,
-      last_feed_id             = 10 // used for allocating new data feeds
+      dirty_markets            = 8,
+      last_feed_id             = 9 // used for allocating new data feeds
    };
    typedef uint32_t chain_property_type;
 
@@ -68,6 +67,9 @@ namespace bts { namespace blockchain {
          double                             to_pretty_price_double( const price& a )const;
          string                             to_pretty_price( const price& a )const;
 
+         virtual void                       store_burn_record( const burn_record& br ) = 0;
+         virtual oburn_record               fetch_burn_record( const burn_record_key& key )const = 0;
+
          virtual oprice                     get_median_delegate_price( const asset_id_type& )const          = 0;
          virtual void                       set_feed( const feed_record&  )                                 = 0;
          virtual ofeed_record               get_feed( const feed_index& )const                              = 0;
@@ -77,8 +79,6 @@ namespace bts { namespace blockchain {
          virtual fc::ripemd160              get_current_random_seed()const                                  = 0;
 
          share_type                         get_delegate_pay_rate()const;
-         share_type                         get_accumulated_fees()const;
-         void                               set_accumulated_fees( share_type fees );
 
          virtual odelegate_slate            get_delegate_slate( slate_id_type id )const                     = 0;
          virtual void                       store_delegate_slate( slate_id_type id,
@@ -121,9 +121,9 @@ namespace bts { namespace blockchain {
                                                                      const collateral_record& )             = 0;
 
 
-         virtual oasset_record              get_asset_record( const asset_id_type& id )const                       = 0;
+         virtual oasset_record              get_asset_record( const asset_id_type& id )const                = 0;
          virtual obalance_record            get_balance_record( const balance_id_type& id )const            = 0;
-         virtual oaccount_record            get_account_record( const account_id_type& id )const                   = 0;
+         virtual oaccount_record            get_account_record( const account_id_type& id )const            = 0;
          virtual oaccount_record            get_account_record( const address& owner )const                 = 0;
 
          virtual bool                       is_known_transaction( const transaction_id_type& trx_id )       = 0;
@@ -179,8 +179,6 @@ namespace bts { namespace blockchain {
 
          virtual void                       set_jackpot_transactions( vector<jackpot_transaction> trxs ) = 0;
          virtual void                       set_market_transactions( vector<market_transaction> trxs )      = 0;
-
-         virtual asset                      calculate_base_supply()const                                    = 0;
    };
    typedef std::shared_ptr<chain_interface> chain_interface_ptr;
 
@@ -195,7 +193,6 @@ FC_REFLECT_ENUM( bts::blockchain::chain_property_enum,
                  (chain_id)
                  (confirmation_requirement)
                  (database_version)
-                 (accumulated_fees)
                  (dirty_markets)
                  (last_feed_id)
                  )

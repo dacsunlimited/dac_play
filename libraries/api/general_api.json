@@ -30,7 +30,7 @@
       {
         "method_name": "help",
         "description": "display a list of commands, or detailed help on an individual command",
-        "return_type": "std::string",
+        "return_type": "string",
         "parameters" :
           [
             {
@@ -52,7 +52,7 @@
           [
             {
               "name" : "address",
-              "type" : "std::string",
+              "type" : "string",
               "description" : "the address or public key to validate"
             }
           ],
@@ -63,7 +63,7 @@
       {
         "method_name": "execute_command_line",
         "description": "Execute the given command as if it were typed on the CLI",
-        "return_type": "std::string",
+        "return_type": "string",
         "parameters" :
           [
             {
@@ -73,7 +73,7 @@
             }
           ],
         "is_const"   : true,
-        "prerequisites" : ["no_prerequisites"]
+        "prerequisites" : ["json_authenticated"]
       },
       {
         "method_name": "execute_script",
@@ -89,7 +89,7 @@
             }
           ],
         "is_const"   : true,
-        "prerequisites" : ["no_prerequisites"]
+        "prerequisites" : ["json_authenticated"]
       },
       {
          "method_name": "batch",
@@ -109,7 +109,7 @@
          }
          ],
          "is_const"   : true,
-         "prerequisites" : ["no_prerequisites"]
+         "prerequisites" : ["json_authenticated"]
       },
       {
         "method_name": "meta_help",
@@ -133,7 +133,7 @@
             }
           ],
         "is_const"   : false,
-        "prerequisites" : ["no_prerequisites"]
+        "prerequisites" : ["json_authenticated"]
       },
       {
         "method_name" : "rpc_set_password",
@@ -149,7 +149,7 @@
             }
           ],
         "is_const"   : false,
-        "prerequisites" : ["no_prerequisites"]
+        "prerequisites" : ["json_authenticated"]
       },
       {
         "method_name" : "rpc_start_server",
@@ -165,7 +165,7 @@
             }
           ],
         "is_const"   : false,
-        "prerequisites" : ["no_prerequisites"]
+        "prerequisites" : ["json_authenticated"]
       },
       {
         "method_name" : "http_start_server",
@@ -181,7 +181,7 @@
             }
           ],
         "is_const"   : false,
-        "prerequisites" : ["no_prerequisites"]
+        "prerequisites" : ["json_authenticated"]
       }
     ]
 }

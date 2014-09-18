@@ -17,7 +17,7 @@
         "return_type": "asset",
         "parameters" : [],
         "is_const" : true,
-        "prerequisites" : ["json_authenticated"],
+        "prerequisites" : ["no_prerequisites"],
         "aliases" : ["supply", "calculate_supply"]
       },
       {
@@ -115,6 +115,22 @@
         "prerequisites" : ["no_prerequisites"]
       },
       {
+        "method_name": "blockchain_get_account_wall",
+        "description": "returns all burn records associated with an account",
+        "return_type": "burn_records",
+        "parameters" : [
+            {
+              "name" : "account_name",
+              "type" : "account_name",
+              "description" : "the name of the account to fetch the burn records for",
+              "default_value" : ""
+            }
+           ],
+        "is_const"   : true,
+        "prerequisites" : ["no_prerequisites"],
+        "aliases" : ["wall"]
+      },
+      {
         "method_name": "blockchain_list_pending_transactions",
         "description": "Return a list of transactions that are not yet in a block.",
         "return_type": "signed_transaction_array",
@@ -141,7 +157,7 @@
             }
         ],
         "is_const" : true,
-        "prerequisites" : ["json_authenticated"]
+        "prerequisites" : ["no_prerequisites"]
       },
       {
         "method_name": "blockchain_get_block",
@@ -155,7 +171,7 @@
             }
         ],
         "is_const" : true,
-        "prerequisites" : ["json_authenticated"],
+        "prerequisites" : ["no_prerequisites"],
         "aliases" : ["get_block", "getblock"]
       },
       {
@@ -170,7 +186,7 @@
             }
         ],
         "is_const" : true,
-        "prerequisites" : ["json_authenticated"]
+        "prerequisites" : ["no_prerequisites"]
       },
       {
         "method_name": "blockchain_get_account",
@@ -184,7 +200,7 @@
             }
         ],
         "is_const" : true,
-        "prerequisites" : ["json_authenticated"],
+        "prerequisites" : ["no_prerequisites"],
         "aliases" : ["get_account"]
       },
       {
@@ -193,13 +209,13 @@
         "return_type": "balance_record",
         "parameters" : [
             {
-              "name" : "balance_id",
+              "name" : "owner_address",
               "type" : "address",
-              "description" : "address of the balance"
+              "description" : "address of the balance owner"
             }
         ],
         "is_const" : true,
-        "prerequisites" : ["json_authenticated"],
+        "prerequisites" : ["no_prerequisites"],
         "aliases" : ["get_balance"]
       },
       {
@@ -221,7 +237,7 @@
             }
         ],
         "is_const" : true,
-        "prerequisites" : ["json_authenticated"],
+        "prerequisites" : ["no_prerequisites"],
         "aliases" : ["list_balances"]
       },
       {
@@ -236,7 +252,7 @@
             }
         ],
         "is_const" : true,
-        "prerequisites" : ["json_authenticated"],
+        "prerequisites" : ["no_prerequisites"],
         "aliases" : ["get_asset"]
       },
       {
@@ -251,7 +267,7 @@
             }
         ],
         "is_const" : true,
-        "prerequisites" : ["json_authenticated"]
+        "prerequisites" : ["no_prerequisites"]
       },
       {
         "method_name": "blockchain_get_feeds_from_delegate",
@@ -265,7 +281,7 @@
             }
         ],
         "is_const" : true,
-        "prerequisites" : ["json_authenticated"]
+        "prerequisites" : ["no_prerequisites"]
       },
       {
         "method_name" : "blockchain_market_list_bids",
@@ -289,7 +305,7 @@
               "default_value" : "-1"
            }
         ],
-        "prerequisites" : ["json_authenticated"],
+        "prerequisites" : ["no_prerequisites"],
         "aliases" : ["market_bids"]
       },
       {
@@ -314,7 +330,7 @@
               "default_value" : "-1"
            }
         ],
-        "prerequisites" : ["json_authenticated"],
+        "prerequisites" : ["no_prerequisites"],
         "aliases" : ["market_asks"]
       },
       {
@@ -334,7 +350,7 @@
               "default_value" : "-1"
            }
         ],
-        "prerequisites" : ["json_authenticated"],
+        "prerequisites" : ["no_prerequisites"],
         "aliases" : ["market_shorts"]
       },
       {
@@ -354,8 +370,22 @@
               "default_value" : "-1"
            }
         ],
-        "prerequisites" : ["json_authenticated"],
+        "prerequisites" : ["no_prerequisites"],
         "aliases" : ["market_covers"]
+      },
+      {
+        "method_name" : "blockchain_market_get_asset_collateral",
+        "description" : "Returns the total collateral for an asset of a given type",
+        "return_type" : "share_type",
+        "parameters"  : [
+           {
+              "name" : "symbol",
+              "type" : "asset_symbol",
+              "description" : "the symbol for the asset to count collateral for"
+           }
+        ],
+        "prerequisites" : ["no_prerequisites"],
+        "aliases" : ["collateral"]
       },
       {
         "method_name" : "blockchain_market_order_book",
@@ -379,7 +409,7 @@
               "default_value" : "-1"
            }
         ],
-        "prerequisites" : ["json_authenticated"],
+        "prerequisites" : ["no_prerequisites"],
         "aliases" : ["market_book"]
       },
       {
@@ -408,10 +438,16 @@
               "type" : "uint32_t",
               "description" : "The maximum number of transactions to list",
               "default_value" : "20"
+           },
+           {
+              "name" : "owner",
+              "type" : "string",
+              "description" : "If present, only transactions belonging to this owner key will be returned",
+              "default_value" : ""
            }
         ],
         "is_const" : true,
-        "prerequisites" : ["json_authenticated"]
+        "prerequisites" : ["no_prerequisites"]
       },
       {
         "method_name": "blockchain_market_price_history",
@@ -446,7 +482,7 @@
            }
         ],
         "is_const" : true,
-        "prerequisites" : ["json_authenticated"]
+        "prerequisites" : ["no_prerequisites"]
       },
       {
          "method_name" : "blockchain_list_active_delegates",
@@ -468,7 +504,7 @@
          ],
          "is_const" : true,
          "aliases" : ["blockchain_get_active_delegates"],
-         "prerequisites" : ["json_authenticated"]
+         "prerequisites" : ["no_prerequisites"]
       },
       {
         "method_name": "blockchain_list_delegates",
@@ -490,7 +526,7 @@
         ],
         "is_const" : true,
         "aliases" : ["blockchain_get_delegates"],
-        "prerequisites" : ["json_authenticated"]
+        "prerequisites" : ["no_prerequisites"]
       },
       {
          "method_name" : "blockchain_list_blocks",
@@ -511,7 +547,7 @@
             }
          ],
          "aliases" : ["list_blocks"],
-         "prerequisites" : ["json_authenticated"]
+         "prerequisites" : ["no_prerequisites"]
       },
       {
          "method_name" : "blockchain_list_missing_block_delegates",
@@ -524,12 +560,12 @@
                "description" : "The block to examine"
             }
          ],
-         "prerequisites" : ["json_authenticated"]
+         "prerequisites" : ["no_prerequisites"]
       },
       {
          "method_name" : "blockchain_export_fork_graph",
          "description" : "dumps the fork data to graphviz format",
-         "return_type" : "std::string",
+         "return_type" : "string",
          "parameters"  : [
             {
                "name" : "start_block",
@@ -552,7 +588,7 @@
          ],
          "is_const" : true,
          "aliases" : ["export_forks"],
-         "prerequisites" : ["json_authenticated"]
+         "prerequisites" : ["no_prerequisites"]
       },
       {
          "method_name" : "blockchain_list_forks",
@@ -561,7 +597,7 @@
          "parameters"  : [],
          "is_const" : true,
          "aliases" : ["list_forks"],
-         "prerequisites" : ["json_authenticated"]
+         "prerequisites" : ["no_prerequisites"]
       },
       {
         "method_name": "blockchain_get_delegate_slot_records",
@@ -575,7 +611,7 @@
             }
         ],
         "is_const" : true,
-        "prerequisites" : ["json_authenticated"]
+        "prerequisites" : ["no_prerequisites"]
       },
       {
         "method_name": "blockchain_get_block_signee",
@@ -583,13 +619,13 @@
         "return_type": "string",
         "parameters" : [
             {
-              "name" : "block_number",
-              "type" : "uint32_t",
-              "description" : "Block whose signing delegate to return"
+              "name" : "block",
+              "type" : "string",
+              "description" : "block number or ID to retrieve the signee for"
             }
         ],
         "is_const" : true,
-        "prerequisites" : ["json_authenticated"]
+        "prerequisites" : ["no_prerequisites"]
       },
       {
         "method_name": "blockchain_list_market_transactions",
@@ -603,7 +639,7 @@
             }
         ],
         "is_const" : true,
-        "prerequisites" : ["json_authenticated"]
+        "prerequisites" : ["no_prerequisites"]
       },
       {
         "method_name": "blockchain_market_status",
@@ -622,7 +658,7 @@
             }
         ],
         "is_const" : true,
-        "prerequisites" : ["json_authenticated"]
+        "prerequisites" : ["no_prerequisites"]
       },
       {
         "method_name": "blockchain_unclaimed_genesis",
@@ -630,7 +666,7 @@
         "return_type": "asset",
         "parameters" : [],
         "is_const" : true,
-        "prerequisites" : ["json_authenticated"]
+        "prerequisites" : ["no_prerequisites"]
       }
     ]
 }

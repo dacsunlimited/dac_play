@@ -23,9 +23,11 @@ namespace bts { namespace client {
 
     using namespace bts::blockchain;
     using namespace bts::wallet;
+    using namespace bts::mail;
 
     boost::program_options::variables_map parse_option_variables(int argc, char** argv);
     fc::path get_data_dir(const boost::program_options::variables_map& option_variables);
+    fc::variant_object version_info();
 
     namespace detail { class client_impl; }
 
@@ -65,6 +67,8 @@ namespace bts { namespace client {
     {
        config( ) : 
           default_peers(vector<string>{"178.62.30.193:", "178.62.30.193:", "178.62.30.193:"}),
+          mail_server_enabled(false),
+          wallet_enabled(true),
           ignore_console(false),
           use_upnp(true),
           maximum_number_of_connections(BTS_NET_DEFAULT_MAX_CONNECTIONS) ,
@@ -86,6 +90,8 @@ namespace bts { namespace client {
           vector<string>      default_peers;
           vector<string>      chain_servers;
           chain_server_config chain_server;
+          bool                mail_server_enabled;
+          bool                wallet_enabled;
           bool                ignore_console;
           bool                use_upnp;
           optional<fc::path>  genesis_config;
@@ -121,15 +127,15 @@ namespace bts { namespace client {
          fc::future<void> start();
          void open(const path& data_dir,
                    optional<fc::path> genesis_file_path = optional<fc::path>(),
-                   std::function<void(uint32_t)> reindex_status_callback = std::function<void(uint32_t)>());
+                   std::function<void(float)> reindex_status_callback = std::function<void(float)>());
 
          void init_cli();
          void set_daemon_mode(bool daemon_mode);
 
-         void add_node( const string& ep );
 
          chain_database_ptr         get_chain()const;
          wallet_ptr                 get_wallet()const;
+         mail_server_ptr            get_mail_server()const;
          bts::rpc::rpc_server_ptr   get_rpc_server()const;
          bts::net::node_ptr         get_node()const;
          fc::path                   get_data_dir()const;
@@ -144,6 +150,8 @@ namespace bts { namespace client {
          void listen_on_port( uint16_t port_to_listen, bool wait_if_not_available);
          void accept_incoming_p2p_connections(bool accept);
          void listen_to_p2p_network();
+         static fc::ip::endpoint string_to_endpoint(const std::string& remote_endpoint);
+         void add_node( const string& remote_endpoint );
          void connect_to_peer( const string& remote_endpoint );
          void connect_to_p2p_network();
 
@@ -184,7 +192,8 @@ FC_REFLECT(bts::client::client_notification, (timestamp)(message)(signature) )
 FC_REFLECT( bts::client::rpc_server_config, (enable)(rpc_user)(rpc_password)(rpc_endpoint)(httpd_endpoint)(htdocs) )
 FC_REFLECT( bts::client::chain_server_config, (enabled)(listen_port) )
 FC_REFLECT( bts::client::config,
-            (rpc)(default_peers)(chain_servers)(chain_server)(ignore_console)(logging)
+            (rpc)(default_peers)(chain_servers)(chain_server)(mail_server_enabled)
+            (wallet_enabled)(ignore_console)(logging)
             (delegate_server)
             (default_delegate_peers)
             (growl_notify_endpoint)
