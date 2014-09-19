@@ -1,3 +1,4 @@
+[![Gitter](https://badges.gitter.im/Join Chat.svg)](https://gitter.im/Bitsuperlab/bitshares_play?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 BitShares Development Toolkit [![Build Status](https://travis-ci.org/vikramrajkumar/bitshares_toolkit.png)](https://travis-ci.org/vikramrajkumar/bitshares_toolkit)
 ===============================
 The BitShares development toolkit is a set of libraries used to facilitate
