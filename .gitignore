@@ -8,6 +8,8 @@
 *.DS_Store
 *.pyc
 
+tags/
+
 docs/html
 docs/latex
 
