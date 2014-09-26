@@ -1,15 +1,19 @@
-[![Gitter](https://badges.gitter.im/Join Chat.svg)](https://gitter.im/Bitsuperlab/bitshares_play?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
-BitShares Play [![Build Status](https://travis-ci.org/bitsuperlab/bitshares_play.png)](https://travis-ci.org/bitsuperlab/bitshares_play)
-
-===============================
-BitShares Play White Paper
-http://www.bitsuperlab.com/pdf/BitSharesPlayWhitePaper.pdf
-
+BitShares Play 
 ===============================
 The BitShares development toolkit is a set of libraries used to facilitate
 the development of Decentralized Autonomous Companies (DACs).  It provides
 a framework upon which new DACs can be developed based upon a common 
 architecture.  
+
+Status
+------
+[![Build Status](https://travis-ci.org/bitsuperlab/bitshares_play.png)](https://travis-ci.org/bitsuperlab/bitshares_play) 
+[![Gitter](https://badges.gitter.im/Join Chat.svg)](https://gitter.im/Bitsuperlab/bitshares_play?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+
+
+White Paper
+------------------
+http://www.bitsuperlab.com/pdf/BitSharesPlayWhitePaper.pdf
 
 Build Instructions
 ------------------
