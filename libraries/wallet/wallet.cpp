@@ -4713,28 +4713,29 @@ namespace bts { namespace wallet {
        if( !is_valid_account_name( from_account_name ) )
            FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("dice_account_name",from_account_name) );
 
+
+       auto play_account = my->_blockchain->get_account_record( from_account_name );
        // TODO make sure it is using account active key
-       auto from_account_address = get_account_public_key( from_account_name );
        
        my->withdraw_to_transaction( chips_to_play,
-                                   from_account_address,
+                                   from_account_name,
                                    trx,
                                    required_signatures );
        
        my->withdraw_to_transaction( required_fees,
-                                   from_account_address,
+                                   from_account_name,
                                    trx,
                                    required_signatures );
        
        //check this way to avoid overflow
-       required_signatures.insert( address( from_account_address ) );
+       required_signatures.insert( play_account->active_key() );
        
        // TODO: Dice, specify to account, the receiver who can claim jackpot
-       trx.play_dice( address( from_account_address ), amount_to_play, odds, 0 );
+       trx.play_dice( address( play_account->active_key() ), amount_to_play, odds, 0 );
        
        auto entry = ledger_entry();
-       entry.from_account = from_account_address;
-       entry.to_account = from_account_address;
+       entry.from_account = play_account->active_key();
+       entry.to_account = play_account->active_key();
        entry.memo = "play dice";
        
        auto record = wallet_transaction_record();
@@ -4771,7 +4772,7 @@ namespace bts { namespace wallet {
         
         double price = ( chip_asset_record->current_collateral * 1.0 ) / chip_asset_record->current_share_supply;
         
-        auto from_account_key = get_account_public_key( from_account_name );
+        auto from_account = my->_blockchain->get_account_record( from_account_name );
         
         share_type cost = real_quantity * chip_asset_record->precision * price;
         
@@ -4785,13 +4786,10 @@ namespace bts { namespace wallet {
         unordered_set<address>     required_signatures;
         required_signatures.insert(order_address);
         
-        private_key_type from_private_key  = get_active_private_key( from_account_name );
-        address          from_address( from_private_key.get_public_key() );
-        
         auto required_fees = get_transaction_fee();
         
         my->withdraw_to_transaction( cost_shares + required_fees,
-                                    from_address,
+                                    from_account_name,
                                     trx,
                                     required_signatures );
         
@@ -4803,7 +4801,7 @@ namespace bts { namespace wallet {
         memo << price << " " << BTS_BLOCKCHAIN_SYMBOL;
         
         auto entry = ledger_entry();
-        entry.from_account = from_account_key;
+        entry.from_account = from_account->active_key();
         entry.to_account = order_key;
         entry.amount = cost_shares;
         entry.memo = memo.str();
@@ -4842,13 +4840,12 @@ namespace bts { namespace wallet {
                 FC_CAPTURE_AND_THROW( invalid_price, (quantity_symbol) );
             
             auto chip_asset_record  = my->_blockchain->get_asset_record( quantity_symbol );
+            auto from_account = my->_blockchain->get_account_record( from_account_name );
             
             if( NOT chip_asset_record )
                 FC_CAPTURE_AND_THROW( unknown_asset_symbol, (quantity_symbol) );
         
             double price = ( chip_asset_record->current_collateral * 1.0 ) / chip_asset_record->current_share_supply;
-            
-            auto from_account_key = get_account_public_key( from_account_name );
             
             asset cost_chips( real_quantity *  chip_asset_record->precision, chip_asset_record->id );
             
@@ -4859,21 +4856,18 @@ namespace bts { namespace wallet {
             unordered_set<address>     required_signatures;
             required_signatures.insert(order_address);
             
-            private_key_type from_private_key  = get_active_private_key( from_account_name );
-            address          from_address( from_private_key.get_public_key() );
-            
             auto required_fees = get_transaction_fee();
             
             /// TODO: determine if we can pay our fees in cost.asset_id
             ///        quote_asset_record->symbol );
         
             my->withdraw_to_transaction( cost_chips,
-                                    from_address,
+                                    from_account_name,
                                     trx,
                                     required_signatures );
             // pay our fees in XTS
             my->withdraw_to_transaction( required_fees,
-                                    from_address,
+                                    from_account_name,
                                     trx,
                                     required_signatures );
         
@@ -4884,7 +4878,7 @@ namespace bts { namespace wallet {
             memo << price << " " << BTS_BLOCKCHAIN_SYMBOL;
             
             auto entry = ledger_entry();
-            entry.from_account = from_account_key;
+            entry.from_account = from_account->active_key();
             entry.to_account = order_key;
             entry.amount = cost_chips;
             entry.memo = memo.str();
