@@ -1996,27 +1996,34 @@ config load_config( const fc::path& datadir, bool enable_ulog )
       return record;
     }
     
-    bts::blockchain::signed_transaction detail::client_impl::wallet_play_dice(const std::string& account_name, double amount_to_play, uint32_t odds)
+    wallet_transaction_record detail::client_impl::wallet_play_dice(
+            const std::string& account_name, 
+            double amount_to_play, 
+            uint32_t odds )
     {
-        const auto play_dice_trx = _wallet->play_dice(account_name, amount_to_play, odds, true);
-        network_broadcast_transaction(play_dice_trx);
-        return play_dice_trx;
+        const auto record = _wallet->play_dice(account_name, amount_to_play, odds, true);
+        network_broadcast_transaction(record.trx);
+        return record;
     }
     
-    bts::blockchain::signed_transaction detail::client_impl::wallet_market_buy_chips(const string& from_account,
-                                                                                     double quantity, const string& quantity_symbol)
+    wallet_transaction_record detail::client_impl::wallet_market_buy_chips(
+            const string& from_account,
+            double quantity, 
+            const string& quantity_symbol )
     {
-        const auto buy_chips_trx = _wallet->buy_chips(from_account, quantity, quantity_symbol, true);
-        network_broadcast_transaction(buy_chips_trx);
-        return buy_chips_trx;
+        const auto record = _wallet->buy_chips(from_account, quantity, quantity_symbol, true);
+        network_broadcast_transaction(record.trx);
+        return record;
     }
     
-    bts::blockchain::signed_transaction detail::client_impl::wallet_market_sell_chips(const string& from_account,
-                                                                                      double quantity, const string& quantity_symbol)
+    wallet_transaction_record detail::client_impl::wallet_market_sell_chips(
+            const string& from_account,
+            double quantity, 
+            const string& quantity_symbol)
     {
-        const auto sell_chips_trx = _wallet->sell_chips(from_account, quantity, quantity_symbol, true);
-        network_broadcast_transaction(sell_chips_trx);
-        return sell_chips_trx;
+        const auto record = _wallet->sell_chips(from_account, quantity, quantity_symbol, true);
+        network_broadcast_transaction(record.trx);
+        return record;
     }
 
     vector<string> detail::client_impl::wallet_list() const

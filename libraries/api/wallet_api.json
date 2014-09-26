@@ -1559,7 +1559,7 @@
       {
           "method_name" : "wallet_play_dice",
           "description" : "Play dice",
-          "return_type" : "signed_transaction",
+          "return_type" : "transaction_record",
           "parameters"  : [
           {
               "name" : "account_name",
@@ -1583,7 +1583,7 @@
       {
           "method_name" : "wallet_market_buy_chips",
           "description" : "Exchange lto for chips",
-          "return_type" : "signed_transaction",
+          "return_type" : "transaction_record",
           "parameters"  : [
           {
               "name" : "from_account_name",
@@ -1607,7 +1607,7 @@
       {
           "method_name" : "wallet_market_sell_chips",
           "description" : "Exchange chips for lto",
-          "return_type" : "signed_transaction",
+          "return_type" : "transaction_record",
           "parameters"  : [
           {
               "name" : "from_account_name",

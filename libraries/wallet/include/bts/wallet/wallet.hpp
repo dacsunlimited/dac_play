@@ -470,22 +470,26 @@ namespace bts { namespace wallet {
                  );
 #endif
 
-         signed_transaction play_dice( const string& dice_account_name,
-                                             double amount,
-                                             uint32_t odds = 1,
-                                      bool sign = true  );
+         wallet_transaction_record play_dice(
+                 const string& dice_account_name,
+                 double amount,
+                 uint32_t odds = 1,
+                 bool sign = true
+                 );
        
-         signed_transaction buy_chips(
-                                            const string& from_account_name,
-                                            double real_quantity,
-                                            const string& quantity_symbol,
-                                            bool sign = true );
+         wallet_transaction_record buy_chips(
+                 const string& from_account_name,
+                 double real_quantity,
+                 const string& quantity_symbol,
+                 bool sign = true
+                 );
        
-         signed_transaction sell_chips(
-                                    const string& from_account_name,
-                                    double real_quantity,
-                                    const string& quantity_symbol,
-                                    bool sign = true );
+         wallet_transaction_record sell_chips(
+                 const string& from_account_name,
+                 double real_quantity,
+                 const string& quantity_symbol,
+                 bool sign = true
+                 );
 
          ///@} Transaction Generation Methods
 
