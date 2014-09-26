@@ -90,58 +90,105 @@ public:
     void prompt()
     {
         string cmd;
+        std::cout << ">>> ";
         std::getline(std::cin, cmd);
         while (!cmd.empty()) {
             exec(clienta, cmd);
             exec(clientb, cmd);
+            std::cout << ">>> ";
             std::getline(std::cin, cmd);
         }
     }
 };
 
-BOOST_FIXTURE_TEST_CASE( mail_server, chain_fixture )
+//BOOST_FIXTURE_TEST_CASE( mail_server, chain_fixture )
+//{ try {
+//    config aconfig = clienta->configure(clienta_dir.path());
+//    aconfig.mail_server_enabled = true;
+//    fc::json::save_to_file(aconfig, clienta_dir.path() / "config.json");
+//    clienta->open(clienta_dir.path(), clienta_dir.path() / "genesis.json");
+
+//    bts::mail::signed_email_message sem;
+//    string subject = "A subject line";
+//    string body = "A body\n\nSincerely, Nathan";
+//    attachment attach;
+//    attach.data = fc::raw::pack(map<string,string>({{string("hello"),string("world")}}));
+//    sem.subject = subject;
+//    sem.body = body;
+//    sem.attachments.push_back(attach);
+
+//    fc::ecc::private_key my_key = fc::ecc::private_key::generate();
+//    fc::ecc::private_key one_time_key = fc::ecc::private_key::generate();
+//    fc::ecc::private_key his_key = fc::ecc::private_key::generate();
+
+//    sem.sign(my_key);
+//    BOOST_CHECK_EQUAL(sem.from().to_base58(), my_key.get_public_key().to_base58());
+
+//    fc::time_point before = fc::time_point::now();
+//    message m(message(sem).encrypt(one_time_key, his_key.get_public_key()));
+//    clienta->mail_store_message(his_key.get_public_key(), m);
+//    fc::time_point after = fc::time_point::now();
+//    BOOST_CHECK(after > before);
+
+//    BOOST_CHECK(clienta->mail_fetch_inventory(his_key.get_public_key(), after).size() == 0);
+//    auto inventory = clienta->mail_fetch_inventory(his_key.get_public_key(), before);
+//    BOOST_CHECK(inventory.size() == 1);
+
+//    message received_message = clienta->mail_fetch_message(inventory[0].second);
+//    BOOST_CHECK(received_message.type == encrypted);
+//    signed_email_message rm = received_message.as<encrypted_message>().decrypt(his_key).as<signed_email_message>();
+
+//    BOOST_CHECK_EQUAL(rm.from().to_base58(), my_key.get_public_key().to_base58());
+//    BOOST_CHECK_EQUAL(rm.subject, subject);
+//    BOOST_CHECK_EQUAL(rm.body, body);
+//    BOOST_CHECK_EQUAL(rm.attachments.size(), 1);
+//    BOOST_CHECK_EQUAL(rm.attachments[0].name, attach.name);
+//    BOOST_CHECK(rm.attachments[0].data == attach.data);
+//} FC_LOG_AND_RETHROW() }
+
+//BOOST_FIXTURE_TEST_CASE( short_below_feed, nathan_fixture )
+//{ try {
+//    //This should fail.
+//    exec(clienta, "short delegate21 100 USD 5 .194");
+//    //This should work.
+//    exec(clienta, "short delegate21 100 USD 10 .195");
+//    produce_block(clienta);
+//    produce_block(clientb);
+
+//    exec(clientb, "blockchain_market_order_book USD XTS");
+//    exec(clientb, "blockchain_market_list_shorts USD");
+//    exec(clientb, "ask delegate20 10 XTS .19 USD");
+
+//    produce_block(clientb);
+//    exec(clientb, "blockchain_market_order_book USD XTS");
+//    exec(clientb, "blockchain_market_list_shorts USD");
+//    produce_block(clientb);
+//    exec(clientb, "blockchain_market_order_book USD XTS");
+//    exec(clientb, "blockchain_market_list_shorts USD");
+
+//    prompt();
+//} FC_LOG_AND_RETHROW() }
+
+BOOST_FIXTURE_TEST_CASE( to_ugly_asset, nathan_fixture )
 { try {
-    config aconfig = clienta->configure(clienta_dir.path());
-    aconfig.mail_server_enabled = true;
-    fc::json::save_to_file(aconfig, clienta_dir.path() / "config.json");
-    clienta->open(clienta_dir.path(), clienta_dir.path() / "genesis.json");
+    chain_interface_ptr chain = clienta->get_chain();
 
-    bts::mail::signed_email_message sem;
-    string subject = "A subject line";
-    string body = "A body\n\nSincerely, Nathan";
-    attachment attach;
-    attach.data = fc::raw::pack(map<string,string>({{string("hello"),string("world")}}));
-    sem.subject = subject;
-    sem.body = body;
-    sem.attachments.push_back(attach);
-
-    fc::ecc::private_key my_key = fc::ecc::private_key::generate();
-    fc::ecc::private_key one_time_key = fc::ecc::private_key::generate();
-    fc::ecc::private_key his_key = fc::ecc::private_key::generate();
-
-    sem.sign(my_key);
-    BOOST_CHECK_EQUAL(sem.from().to_base58(), my_key.get_public_key().to_base58());
-
-    fc::time_point before = fc::time_point::now();
-    message m(message(sem).encrypt(one_time_key, his_key.get_public_key()));
-    clienta->mail_store_message(his_key.get_public_key(), m);
-    fc::time_point after = fc::time_point::now();
-    BOOST_CHECK(after > before);
-
-    BOOST_CHECK(clienta->mail_fetch_inventory(his_key.get_public_key(), after).size() == 0);
-    auto inventory = clienta->mail_fetch_inventory(his_key.get_public_key(), before);
-    BOOST_CHECK(inventory.size() == 1);
-
-    message received_message = clienta->mail_fetch_message(inventory[0].second);
-    BOOST_CHECK(received_message.type == encrypted);
-    signed_email_message rm = received_message.as<encrypted_message>().decrypt(his_key).as<signed_email_message>();
-
-    BOOST_CHECK_EQUAL(rm.from().to_base58(), my_key.get_public_key().to_base58());
-    BOOST_CHECK_EQUAL(rm.subject, subject);
-    BOOST_CHECK_EQUAL(rm.body, body);
-    BOOST_CHECK_EQUAL(rm.attachments.size(), 1);
-    BOOST_CHECK_EQUAL(rm.attachments[0].name, attach.name);
-    BOOST_CHECK(rm.attachments[0].data == attach.data);
+    BOOST_CHECK(chain->to_ugly_asset("100.005", "XTS") == asset(10000500));
+    BOOST_CHECK(chain->to_ugly_asset("100", "XTS") == asset(10000000));
+    BOOST_CHECK(chain->to_ugly_asset("100.00500", "XTS") == asset(10000500));
+    BOOST_CHECK(chain->to_ugly_asset("100.0050000", "XTS") == asset(10000500));
+    BOOST_CHECK(chain->to_ugly_asset("100.0050001", "XTS") == asset(10000500));
+    BOOST_CHECK(chain->to_ugly_asset("100.", "XTS") == asset(10000000));
+    BOOST_CHECK(chain->to_ugly_asset("100.123456", "XTS") == asset(10012345));
+    BOOST_CHECK(chain->to_ugly_asset("100.0000001", "XTS") == asset(10000000));
+    BOOST_CHECK(chain->to_ugly_asset("-100.005", "XTS") == asset(-10000500));
+    BOOST_CHECK(chain->to_ugly_asset("-100", "XTS") == asset(-10000000));
+    BOOST_CHECK(chain->to_ugly_asset("-100.00500", "XTS") == asset(-10000500));
+    BOOST_CHECK(chain->to_ugly_asset("-100.0050000", "XTS") == asset(-10000500));
+    BOOST_CHECK(chain->to_ugly_asset("-100.0050001", "XTS") == asset(-10000500));
+    BOOST_CHECK(chain->to_ugly_asset("-100.", "XTS") == asset(-10000000));
+    BOOST_CHECK(chain->to_ugly_asset("-100.123456", "XTS") == asset(-10012345));
+    BOOST_CHECK(chain->to_ugly_asset("-100.0000001", "XTS") == asset(-10000000));
 } FC_LOG_AND_RETHROW() }
 
 /*
@@ -211,7 +258,7 @@ BOOST_FIXTURE_TEST_CASE( rapid_price_change, nathan_fixture )
     }
     produce_block(clienta);
 
-    double avg_price = clienta->blockchain_market_status("USD", "XTS").avg_price_1h;
+    double avg_price = clienta->blockchain_market_status("USD", "XTS").center_price;
     double target_price = avg_price * 2.0 / 3.0;
 
     exec(clienta, "wallet_market_cancel_order XTS5N1fDwFABDNsP37rTZfsfmkq84eneWotk");
@@ -226,13 +273,13 @@ BOOST_FIXTURE_TEST_CASE( rapid_price_change, nathan_fixture )
     exec(clienta, "blockchain_market_order_book USD XTS");
 
     int blocks = 0;
-    while (clienta->blockchain_market_status("USD", "XTS").avg_price_1h > target_price) {
+    while (clienta->blockchain_market_status("USD", "XTS").center_price > target_price) {
         exec(clienta, "ask delegate25 .00001 XTS .00000000001 USD");
 
         produce_block(clienta);
         ++blocks;
     }
-    std::cout << "Moved the price by 1/3 (from " << avg_price << " to " << clienta->blockchain_market_status("USD", "XTS").avg_price_1h << ") in " << blocks << " blocks.\n";
+    std::cout << "Moved the price by 1/3 (from " << avg_price << " to " << clienta->blockchain_market_status("USD", "XTS").center_price << ") in " << blocks << " blocks.\n";
 
     exec(clienta, "blockchain_market_order_book USD XTS");
 

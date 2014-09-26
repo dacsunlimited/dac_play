@@ -62,7 +62,7 @@
 #endif
 #define DEFAULT_LOGGER "p2p"
 
-//#define P2P_IN_DEDICATED_THREAD 1
+#define P2P_IN_DEDICATED_THREAD 1
 
 #define INVOCATION_COUNTER(name) \
     static unsigned total_ ## name ## _counter = 0; \
@@ -240,37 +240,12 @@ namespace bts { namespace net { namespace detail {
       }
     };
 
-    class thread_switching_node_delegate_wrapper : public node_delegate
-    {
-    private:
-      fc::thread* _thread;
-      node_delegate *_node_delegate;
-    public:
-      thread_switching_node_delegate_wrapper(fc::thread* thread, node_delegate* delegate);
-      bool has_item( const net::item_id& id ) override;
-      bool handle_message( const message&, bool sync_mode ) override;
-      std::vector<item_hash_t> get_item_ids(uint32_t item_type,
-                                            const std::vector<item_hash_t>& blockchain_synopsis,
-                                            uint32_t& remaining_item_count,
-                                            uint32_t limit = 2000) override;
-      message get_item( const item_id& id ) override;
-      fc::sha256 get_chain_id() const override;
-      std::vector<item_hash_t> get_blockchain_synopsis(uint32_t item_type,
-                                                       const bts::net::item_hash_t& reference_point = bts::net::item_hash_t(),
-                                                       uint32_t number_of_blocks_after_reference_point = 0) override;
-      void     sync_status( uint32_t item_type, uint32_t item_count ) override;
-      void     connection_count_changed( uint32_t c ) override;
-      uint32_t get_block_number(const item_hash_t& block_id) override;
-      fc::time_point_sec get_block_time(const item_hash_t& block_id) override;
-      fc::time_point_sec get_blockchain_now() override;
-      void error_encountered(const std::string& message, const fc::oexception& error) override;
-    };
-
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
     class statistics_gathering_node_delegate_wrapper : public node_delegate
     {
     private:
       node_delegate *_node_delegate;
+      fc::thread *_thread;
 
       typedef boost::accumulators::accumulator_set<int64_t, boost::accumulators::stats<boost::accumulators::tag::min,
                                                                                        boost::accumulators::tag::rolling_mean,
@@ -291,34 +266,80 @@ namespace bts { namespace net { namespace detail {
                                    (error_encountered)
 
 #define DECLARE_ACCUMULATOR(r, data, method_name) \
-      mutable call_stats_accumulator BOOST_PP_CAT(_, BOOST_PP_CAT(method_name, _accumulator));
+      mutable call_stats_accumulator BOOST_PP_CAT(_, BOOST_PP_CAT(method_name, _execution_accumulator)); \
+      mutable call_stats_accumulator BOOST_PP_CAT(_, BOOST_PP_CAT(method_name, _delay_before_accumulator)); \
+      mutable call_stats_accumulator BOOST_PP_CAT(_, BOOST_PP_CAT(method_name, _delay_after_accumulator));
       BOOST_PP_SEQ_FOR_EACH(DECLARE_ACCUMULATOR, unused, NODE_DELEGATE_METHOD_NAMES)
 #undef DECLARE_ACCUMULATOR
 
       class call_statistics_collector
       {
       private:
-        fc::time_point _start_time;
+        fc::time_point _call_requested_time;
+        fc::time_point _begin_execution_time;
+        fc::time_point _execution_completed_time;
         const char* _method_name;
-        call_stats_accumulator* _accumulator;
+        call_stats_accumulator* _execution_accumulator;
+        call_stats_accumulator* _delay_before_accumulator;
+        call_stats_accumulator* _delay_after_accumulator;
       public:
-        call_statistics_collector(const char* method_name, call_stats_accumulator* accumulator) :
-          _start_time(fc::time_point::now()),
+        class actual_execution_measurement_helper
+        {
+          call_statistics_collector &_collector;
+        public:
+          actual_execution_measurement_helper(call_statistics_collector& collector) :
+            _collector(collector)
+          {
+            _collector.starting_execution();
+          }
+          ~actual_execution_measurement_helper()
+          {
+            _collector.execution_completed();
+          }  
+        };
+        call_statistics_collector(const char* method_name, 
+                                  call_stats_accumulator* execution_accumulator, 
+                                  call_stats_accumulator* delay_before_accumulator, 
+                                  call_stats_accumulator* delay_after_accumulator) :
+          _call_requested_time(fc::time_point::now()),
           _method_name(method_name),
-          _accumulator(accumulator)
+          _execution_accumulator(execution_accumulator),
+          _delay_before_accumulator(delay_before_accumulator),
+          _delay_after_accumulator(delay_after_accumulator)
         {}
         ~call_statistics_collector()
         {
           fc::time_point end_time(fc::time_point::now());
-          fc::microseconds duration(end_time - _start_time);
-          (*_accumulator)(duration.count());
-          if (duration > fc::milliseconds(500))
-            wlog("Call to method node_delegate::${method} took ${duration}us, longer than our target maximum of 500ms",
-                 ("method", _method_name)("duration", duration.count()));
+          fc::microseconds actual_execution_time(_execution_completed_time - _begin_execution_time);
+          fc::microseconds delay_before(_begin_execution_time - _call_requested_time);
+          fc::microseconds delay_after(end_time - _execution_completed_time);
+          fc::microseconds total_duration(actual_execution_time + delay_before + delay_after);
+          (*_execution_accumulator)(actual_execution_time.count());
+          (*_delay_before_accumulator)(delay_before.count());
+          (*_delay_after_accumulator)(delay_after.count());
+          if (total_duration > fc::milliseconds(500))
+          {
+            wlog("Call to method node_delegate::${method} took ${total_duration}us, longer than our target maximum of 500ms",
+                 ("method", _method_name)
+                 ("total_duration", total_duration.count()));
+            wlog("Actual execution took ${execution_duration}us, with a ${delegate_delay}us delay before the delegate thread started "
+                 "executing the method, and a ${p2p_delay}us delay after it finished before the p2p thread started processing the response",
+                 ("execution_duration", actual_execution_time)
+                 ("delegate_delay", delay_before)
+                 ("p2p_delay", delay_after));
+          }
+        }
+        void starting_execution()
+        {
+          _begin_execution_time = fc::time_point::now();
+        }
+        void execution_completed()
+        {
+          _execution_completed_time = fc::time_point::now();
         }
       };
     public:
-      statistics_gathering_node_delegate_wrapper(node_delegate* delegate);
+      statistics_gathering_node_delegate_wrapper(node_delegate* delegate, fc::thread* thread_for_delegate_calls);
 
       fc::variant_object get_call_statistics();
 
@@ -413,7 +434,20 @@ namespace bts { namespace net { namespace detail {
       fc::future<void>     _terminate_inactive_connections_loop_done;
 
       std::string          _user_agent_string;
-      node_id_t            _node_id;
+      /** _node_public_key is a key automatically generated when the client is first run, stored in 
+       * node_config.json.  It doesn't really have much of a purpose yet, there was just some thought
+       * that we might someday have a use for nodes having a private key (sent in hello messages)
+       */
+      node_id_t            _node_public_key;
+      /**
+       * _node_id is a random number generated each time the client is launched, used to prevent us
+       * from connecting to the same client multiple times (sent in hello messages).
+       * Since this was introduced after the hello_message was finalized, this is sent in the 
+       * user_data field.
+       * While this shares the same underlying type as a public key, it is really just a random
+       * number.
+       */
+      node_id_t            _node_id; 
 
       /** if we have less than `_desired_number_of_connections`, we will try to connect with more nodes */
       uint32_t             _desired_number_of_connections;
@@ -452,9 +486,12 @@ namespace bts { namespace net { namespace detail {
 
       fc::future<void> _fetch_updated_peer_lists_loop_done;
 
-      boost::circular_buffer<uint32_t> _average_network_usage_seconds;
-      boost::circular_buffer<uint32_t> _average_network_usage_minutes;
-      boost::circular_buffer<uint32_t> _average_network_usage_hours;
+      boost::circular_buffer<uint32_t> _average_network_read_speed_seconds;
+      boost::circular_buffer<uint32_t> _average_network_write_speed_seconds;
+      boost::circular_buffer<uint32_t> _average_network_read_speed_minutes;
+      boost::circular_buffer<uint32_t> _average_network_write_speed_minutes;
+      boost::circular_buffer<uint32_t> _average_network_read_speed_hours;
+      boost::circular_buffer<uint32_t> _average_network_write_speed_hours;
       unsigned _average_network_usage_second_counter;
       unsigned _average_network_usage_minute_counter;
 
@@ -484,7 +521,7 @@ namespace bts { namespace net { namespace detail {
 
       bool _node_is_shutting_down; // set to true when we begin our destructor, used to prevent us from starting new tasks while we're shutting down
 
-      node_impl();
+      node_impl(const std::string& user_agent);
       virtual ~node_impl();
 
       void save_node_configuration();
@@ -498,6 +535,7 @@ namespace bts { namespace net { namespace detail {
       void fetch_sync_items_loop();
       void trigger_fetch_sync_items_loop();
 
+      bool is_item_in_any_peers_inventory(const item_id& item) const;
       void fetch_items_loop();
       void trigger_fetch_items_loop();
 
@@ -507,7 +545,7 @@ namespace bts { namespace net { namespace detail {
       void terminate_inactive_connections_loop();
 
       void fetch_updated_peer_lists_loop();
-      void update_bandwidth_data(uint32_t usage_this_second);
+      void update_bandwidth_data(uint32_t bytes_read_this_second, uint32_t bytes_written_this_second);
       void bandwidth_monitor_loop();
       void dump_node_status_task();
 
@@ -515,7 +553,7 @@ namespace bts { namespace net { namespace detail {
       bool is_wanting_new_connections();
       uint32_t get_number_of_connections();
 
-      bool is_already_connected_to_id( const node_id_t node_id );
+      bool is_already_connected_to_id(const node_id_t& node_id);
       bool merge_address_info_with_potential_peer_database( const std::vector<address_info> addresses );
       void display_current_connections();
       uint32_t calculate_unsynced_block_count_from_all_peers();
@@ -573,6 +611,12 @@ namespace bts { namespace net { namespace detail {
       void on_check_firewall_reply_message( peer_connection* originating_peer,
                                             const check_firewall_reply_message& check_firewall_reply_message_received );
 
+      void on_get_current_connections_request_message(peer_connection* originating_peer,
+                                                      const get_current_connections_request_message& get_current_connections_request_message_received);
+
+      void on_get_current_connections_reply_message(peer_connection* originating_peer,
+                                                    const get_current_connections_reply_message& get_current_connections_reply_message_received);
+
       void on_connection_closed( peer_connection* originating_peer ) override;
 
       void process_backlog_of_sync_blocks();
@@ -613,7 +657,7 @@ namespace bts { namespace net { namespace detail {
                                const fc::oexception& additional_data = fc::oexception() );
 
       // methods implementing node's public interface
-      void set_node_delegate( node_delegate* del );
+      void set_node_delegate(node_delegate* del, fc::thread* thread_for_delegate_calls);
       void load_configuration( const fc::path& configuration_directory );
       void listen_to_p2p_network();
       void connect_to_p2p_network();
@@ -678,7 +722,7 @@ namespace bts { namespace net { namespace detail {
 # define VERIFY_CORRECT_THREAD() do {} while (0)
 #endif
 
-    node_impl::node_impl() :
+    node_impl::node_impl(const std::string& user_agent) :
 #ifdef P2P_IN_DEDICATED_THREAD
       _thread(std::make_shared<fc::thread>("p2p")),
 #endif // P2P_IN_DEDICATED_THREAD
@@ -688,24 +732,28 @@ namespace bts { namespace net { namespace detail {
       _suspend_fetching_sync_blocks(false),
       _items_to_fetch_updated(false),
       _items_to_fetch_sequence_counter(0),
-      _user_agent_string( "bts::net::node" ),
-      _desired_number_of_connections( BTS_NET_DEFAULT_DESIRED_CONNECTIONS ),
-      _maximum_number_of_connections( BTS_NET_DEFAULT_MAX_CONNECTIONS ),
-      _peer_connection_retry_timeout( BTS_NET_DEFAULT_PEER_CONNECTION_RETRY_TIME ),
-      _peer_inactivity_timeout(  BTS_NET_PEER_HANDSHAKE_INACTIVITY_TIMEOUT ),
-      _most_recent_blocks_accepted( _maximum_number_of_connections ),
-      _total_number_of_unfetched_items( 0 ),
-      _rate_limiter( 0, 0 ),
-      _last_reported_number_of_connections( 0 ),
+      _user_agent_string(user_agent),
+      _desired_number_of_connections(BTS_NET_DEFAULT_DESIRED_CONNECTIONS),
+      _maximum_number_of_connections(BTS_NET_DEFAULT_MAX_CONNECTIONS),
+      _peer_connection_retry_timeout(BTS_NET_DEFAULT_PEER_CONNECTION_RETRY_TIME),
+      _peer_inactivity_timeout(BTS_NET_PEER_HANDSHAKE_INACTIVITY_TIMEOUT),
+      _most_recent_blocks_accepted(_maximum_number_of_connections),
+      _total_number_of_unfetched_items(0),
+      _rate_limiter(0, 0),
+      _last_reported_number_of_connections(0),
       _peer_advertising_disabled(false),
-      _average_network_usage_seconds(60),
-      _average_network_usage_minutes(60),
-      _average_network_usage_hours(72),
+      _average_network_read_speed_seconds(60),
+      _average_network_write_speed_seconds(60),
+      _average_network_read_speed_minutes(60),
+      _average_network_write_speed_minutes(60),
+      _average_network_read_speed_hours(72),
+      _average_network_write_speed_hours(72),
       _average_network_usage_second_counter(0),
       _average_network_usage_minute_counter(0),
       _node_is_shutting_down(false)
     {
       _rate_limiter.set_actual_rate_time_constant(fc::seconds(2));
+      fc::rand_pseudo_bytes(&_node_id.data[0], _node_id.size());
     }
 
     node_impl::~node_impl()
@@ -968,6 +1016,16 @@ namespace bts { namespace net { namespace detail {
       _sync_items_to_fetch_updated = true;
       if( _retrigger_fetch_sync_items_loop_promise )
         _retrigger_fetch_sync_items_loop_promise->set_value();
+    }
+
+    bool node_impl::is_item_in_any_peers_inventory(const item_id& item) const
+    {
+      for( const peer_connection_ptr& peer : _active_connections )
+      {
+        if (peer->inventory_peer_advertised_to_us.find(item) != peer->inventory_peer_advertised_to_us.end() )
+          return true;
+      }
+      return false;
     }
 
     void node_impl::fetch_items_loop()
@@ -1245,7 +1303,8 @@ namespace bts { namespace net { namespace detail {
       peers_to_disconnect_forcibly.clear();
 
       for( const peer_connection_ptr& peer : peers_to_send_keep_alive )
-        peer->send_message(current_time_request_message());
+        peer->send_message(current_time_request_message(), 
+                           offsetof(current_time_request_message, request_sent_time));
       peers_to_send_keep_alive.clear();
 
       for (const peer_connection_ptr& peer : peers_to_terminate )
@@ -1288,22 +1347,27 @@ namespace bts { namespace net { namespace detail {
                                                              fc::time_point::now() + fc::minutes(15),
                                                              "fetch_updated_peer_lists_loop" );
     }
-    void node_impl::update_bandwidth_data(uint32_t usage_this_second)
+    void node_impl::update_bandwidth_data(uint32_t bytes_read_this_second, uint32_t bytes_written_this_second)
     {
       VERIFY_CORRECT_THREAD();
-      _average_network_usage_seconds.push_back(usage_this_second);
+      _average_network_read_speed_seconds.push_back(bytes_read_this_second);
+      _average_network_write_speed_seconds.push_back(bytes_written_this_second);
       ++_average_network_usage_second_counter;
       if (_average_network_usage_second_counter >= 60)
       {
         _average_network_usage_second_counter = 0;
         ++_average_network_usage_minute_counter;
-        uint32_t average_this_minute = (uint32_t)boost::accumulate(_average_network_usage_seconds, UINT64_C(0)) / _average_network_usage_seconds.size();
-        _average_network_usage_minutes.push_back(average_this_minute);
+        uint32_t average_read_this_minute = (uint32_t)boost::accumulate(_average_network_read_speed_seconds, UINT64_C(0)) / (uint32_t)_average_network_read_speed_seconds.size();
+        _average_network_read_speed_minutes.push_back(average_read_this_minute);
+        uint32_t average_written_this_minute = (uint32_t)boost::accumulate(_average_network_write_speed_seconds, UINT64_C(0)) / (uint32_t)_average_network_write_speed_seconds.size();
+        _average_network_write_speed_minutes.push_back(average_written_this_minute);
         if (_average_network_usage_minute_counter >= 60)
         {
           _average_network_usage_minute_counter = 0;
-          uint32_t average_this_hour = (uint32_t)boost::accumulate(_average_network_usage_minutes, UINT64_C(0)) / _average_network_usage_minutes.size();
-          _average_network_usage_hours.push_back(average_this_hour);
+          uint32_t average_read_this_hour = (uint32_t)boost::accumulate(_average_network_read_speed_minutes, UINT64_C(0)) / (uint32_t)_average_network_read_speed_minutes.size();
+          _average_network_read_speed_hours.push_back(average_read_this_hour);
+          uint32_t average_written_this_hour = (uint32_t)boost::accumulate(_average_network_write_speed_minutes, UINT64_C(0)) / (uint32_t)_average_network_write_speed_minutes.size();
+          _average_network_write_speed_hours.push_back(average_written_this_hour);
         }
       }
     }
@@ -1317,10 +1381,11 @@ namespace bts { namespace net { namespace detail {
 
       uint32_t seconds_since_last_update = current_time.sec_since_epoch() - _bandwidth_monitor_last_update_time.sec_since_epoch();
       seconds_since_last_update = std::max(UINT32_C(1), seconds_since_last_update);
-      uint32_t usage_this_second = _rate_limiter.get_actual_download_rate() + _rate_limiter.get_actual_upload_rate();
+      uint32_t bytes_read_this_second = _rate_limiter.get_actual_download_rate();
+      uint32_t bytes_written_this_second = _rate_limiter.get_actual_upload_rate();
       for (uint32_t i = 0; i < seconds_since_last_update - 1; ++i)
-        update_bandwidth_data(0);
-      update_bandwidth_data(usage_this_second);
+        update_bandwidth_data(0, 0);
+      update_bandwidth_data(bytes_read_this_second, bytes_written_this_second);
       _bandwidth_monitor_last_update_time = current_time;
 
       if (!_node_is_shutting_down && !_bandwidth_monitor_loop_done.canceled())
@@ -1416,27 +1481,27 @@ namespace bts { namespace net { namespace detail {
     uint32_t node_impl::get_number_of_connections()
     {
       VERIFY_CORRECT_THREAD();
-      return _handshaking_connections.size() + _active_connections.size();
+      return (uint32_t)(_handshaking_connections.size() + _active_connections.size());
     }
 
-    bool node_impl::is_already_connected_to_id( const node_id_t node_id )
+    bool node_impl::is_already_connected_to_id(const node_id_t& node_id)
     {
       VERIFY_CORRECT_THREAD();
-      if( _node_id == node_id )
+      if (node_id == _node_id)
       {
-        dlog( "is_already_connected_to_id returning true because the peer is us" );
+        dlog("is_already_connected_to_id returning true because the peer is us");
         return true;
       }
-      for( const peer_connection_ptr active_peer : _active_connections )
-        if( active_peer->node_id == node_id )
+      for (const peer_connection_ptr active_peer : _active_connections)
+        if (node_id == active_peer->node_id)
         {
-          dlog( "is_already_connected_to_id returning true because the peer is already in our active list" );
+          dlog("is_already_connected_to_id returning true because the peer is already in our active list");
           return true;
         }
-      for( const peer_connection_ptr handshaking_peer : _handshaking_connections )
-        if( handshaking_peer->node_id == node_id )
+      for (const peer_connection_ptr handshaking_peer : _handshaking_connections)
+        if (node_id == handshaking_peer->node_id)
         {
-          dlog( "is_already_connected_to_id returning true because the peer is already in our handshaking list" );
+          dlog("is_already_connected_to_id returning true because the peer is already in our handshaking list");
           return true;
         }
       return false;
@@ -1464,19 +1529,25 @@ namespace bts { namespace net { namespace detail {
     void node_impl::display_current_connections()
     {
       VERIFY_CORRECT_THREAD();
-      dlog( "Currently have ${current} of [${desired}/${max}] connections",
-            ( "current", get_number_of_connections() )
-            ( "desired", _desired_number_of_connections )
-            ( "max", _maximum_number_of_connections ) );
-      dlog( "   my id is ${id}", ("id", _node_id ) );
+      dlog("Currently have ${current} of [${desired}/${max}] connections",
+           ("current", get_number_of_connections())
+           ("desired", _desired_number_of_connections)
+           ("max", _maximum_number_of_connections));
+      dlog("   my id is ${id}", ("id", _node_id));
 
-      for( const peer_connection_ptr& active_connection : _active_connections )
+      for (const peer_connection_ptr& active_connection : _active_connections)
       {
-        dlog( "        active: ${endpoint} with ${id}   [${direction}]", ("endpoint",active_connection->get_remote_endpoint() )("id",active_connection->node_id )("direction",active_connection->direction ) );
+        dlog("        active: ${endpoint} with ${id}   [${direction}]", 
+             ("endpoint", active_connection->get_remote_endpoint())
+             ("id", active_connection->node_id)
+             ("direction", active_connection->direction));
       }
-      for( const peer_connection_ptr& handshaking_connection : _handshaking_connections )
+      for (const peer_connection_ptr& handshaking_connection : _handshaking_connections)
       {
-        dlog( "   handshaking: ${endpoint} with ${id}  [${direction}]", ("endpoint",handshaking_connection->get_remote_endpoint() )("id",handshaking_connection->node_id )("direction",handshaking_connection->direction ) );
+        dlog("   handshaking: ${endpoint} with ${id}  [${direction}]", 
+             ("endpoint", handshaking_connection->get_remote_endpoint())
+             ("id", handshaking_connection->node_id)
+             ("direction", handshaking_connection->direction));
       }
     }
 
@@ -1536,6 +1607,12 @@ namespace bts { namespace net { namespace detail {
       case core_message_type_enum::check_firewall_reply_message_type:
         on_check_firewall_reply_message( originating_peer, received_message.as<check_firewall_reply_message>() );
         break;
+      case core_message_type_enum::get_current_connections_request_message_type:
+        on_get_current_connections_request_message( originating_peer, received_message.as<get_current_connections_request_message>() );
+        break;
+      case core_message_type_enum::get_current_connections_reply_message_type:
+        on_get_current_connections_reply_message( originating_peer, received_message.as<get_current_connections_reply_message>() );
+        break;
 
       default:
         // ignore any message in between core_message_type_first and _last that we don't handle above
@@ -1569,57 +1646,75 @@ namespace bts { namespace net { namespace detail {
 #else
       user_data["platform"] = "other";
 #endif
+      user_data["bitness"] = sizeof(void*) * 8;
+
+      user_data["node_id"] = _node_id;
+
       return user_data;
     }
-    void node_impl::parse_hello_user_data_for_peer( peer_connection* originating_peer, const fc::variant_object& user_data )
+    void node_impl::parse_hello_user_data_for_peer(peer_connection* originating_peer, const fc::variant_object& user_data)
     {
       VERIFY_CORRECT_THREAD();
       // try to parse data out of the user_agent string
-      if( user_data.contains("bitshares_git_revision_sha" ) )
+      if (user_data.contains("bitshares_git_revision_sha"))
         originating_peer->bitshares_git_revision_sha = user_data["bitshares_git_revision_sha"].as_string();
-      if( user_data.contains("bitshares_git_revision_unix_timestamp" ) )
-        originating_peer->bitshares_git_revision_unix_timestamp = fc::time_point_sec( user_data["bitshares_git_revision_unix_timestamp"].as<uint32_t>() );
-      if( user_data.contains("fc_git_revision_sha" ) )
+      if (user_data.contains("bitshares_git_revision_unix_timestamp"))
+        originating_peer->bitshares_git_revision_unix_timestamp = fc::time_point_sec(user_data["bitshares_git_revision_unix_timestamp"].as<uint32_t>());
+      if (user_data.contains("fc_git_revision_sha"))
         originating_peer->fc_git_revision_sha = user_data["fc_git_revision_sha"].as_string();
-      if( user_data.contains("fc_git_revision_unix_timestamp" ) )
-        originating_peer->fc_git_revision_unix_timestamp = fc::time_point_sec( user_data["fc_git_revision_unix_timestamp"].as<uint32_t>() );
-      if( user_data.contains("platform" ) )
+      if (user_data.contains("fc_git_revision_unix_timestamp"))
+        originating_peer->fc_git_revision_unix_timestamp = fc::time_point_sec(user_data["fc_git_revision_unix_timestamp"].as<uint32_t>());
+      if (user_data.contains("platform"))
         originating_peer->platform = user_data["platform"].as_string();
+      if (user_data.contains("bitness"))
+        originating_peer->bitness = user_data["bitness"].as<uint32_t>();
+      if (user_data.contains("node_id"))
+        originating_peer->node_id = user_data["node_id"].as<node_id_t>();
     }
 
     void node_impl::on_hello_message( peer_connection* originating_peer, const hello_message& hello_message_received )
     {
       VERIFY_CORRECT_THREAD();
-      // this check must come before we fill in peer data below
-      bool already_connected_to_this_peer = is_already_connected_to_id( hello_message_received.node_id );
+      // this already_connected check must come before we fill in peer data below
+      node_id_t peer_node_id = hello_message_received.node_public_key;
+      try
+      {
+        peer_node_id = hello_message_received.user_data["node_id"].as<node_id_t>();
+      }
+      catch (const fc::exception&)
+      {
+        // either it's not there or it's not a valid session id.  either way, ignore.
+      }
+      bool already_connected_to_this_peer = is_already_connected_to_id(peer_node_id);
 
       // validate the node id
       fc::sha256::encoder shared_secret_encoder;
       fc::sha512 shared_secret = originating_peer->get_shared_secret();
       shared_secret_encoder.write(shared_secret.data(), sizeof(shared_secret));
-      fc::ecc::public_key expected_node_id(hello_message_received.signed_shared_secret, shared_secret_encoder.result());
+      fc::ecc::public_key expected_node_public_key(hello_message_received.signed_shared_secret, shared_secret_encoder.result());
 
       // store off the data provided in the hello message
       originating_peer->user_agent = hello_message_received.user_agent;
-      originating_peer->node_id = hello_message_received.node_id;
+      originating_peer->node_public_key = hello_message_received.node_public_key;
+      originating_peer->node_id = hello_message_received.node_public_key; // will probably be overwritten in parse_hello_user_data_for_peer()
       originating_peer->core_protocol_version = hello_message_received.core_protocol_version;
       originating_peer->inbound_address = hello_message_received.inbound_address;
       originating_peer->inbound_port = hello_message_received.inbound_port;
       originating_peer->outbound_port = hello_message_received.outbound_port;
 
-      parse_hello_user_data_for_peer( originating_peer, hello_message_received.user_data );
+      parse_hello_user_data_for_peer(originating_peer, hello_message_received.user_data);
 
       // now decide what to do with it
-      if( originating_peer->their_state == peer_connection::their_connection_state::just_connected )
+      if (originating_peer->their_state == peer_connection::their_connection_state::just_connected)
       {
-        if (hello_message_received.node_id != expected_node_id.serialize())
+        if (hello_message_received.node_public_key != expected_node_public_key.serialize())
         {
           wlog("Invalid signature in hello message from peer ${peer}", ("peer", originating_peer->get_remote_endpoint()));
           std::string rejection_message("Invalid signature in hello message");
-          connection_rejected_message connection_rejected( _user_agent_string, core_protocol_version,
+          connection_rejected_message connection_rejected(_user_agent_string, core_protocol_version,
                                                           originating_peer->get_socket().remote_endpoint(),
                                                           rejection_reason_code::invalid_hello_message,
-                                                          rejection_message );
+                                                          rejection_message);
 
           originating_peer->their_state = peer_connection::their_connection_state::connection_rejected;
           originating_peer->send_message( message(connection_rejected ) );
@@ -1627,7 +1722,7 @@ namespace bts { namespace net { namespace detail {
           disconnect_from_peer( originating_peer, "Invalid signature in hello message" );
           return;
         }
-        if( hello_message_received.chain_id != _chain_id )
+        if (hello_message_received.chain_id != _chain_id)
         {
           wlog( "Received hello message from peer on a different chain: ${message}", ("message", hello_message_received ) );
           std::ostringstream rejection_message;
@@ -1643,32 +1738,32 @@ namespace bts { namespace net { namespace detail {
           // for this type of message, we're immediately disconnecting this peer, instead of trying to
           // allowing her to ask us for peers (any of our peers will be on the same chain as us, so there's no
           // benefit of sharing them)
-          disconnect_from_peer( originating_peer, "You are on a different chain from me" );
+          disconnect_from_peer(originating_peer, "You are on a different chain from me");
           return;
         }
-        if( already_connected_to_this_peer )
+        if (already_connected_to_this_peer)
         {
 
           connection_rejected_message connection_rejected;
-          if( _node_id == hello_message_received.node_id )
-            connection_rejected = connection_rejected_message( _user_agent_string, core_protocol_version,
+          if (_node_id == originating_peer->node_id)
+            connection_rejected = connection_rejected_message(_user_agent_string, core_protocol_version,
                                                               originating_peer->get_socket().remote_endpoint(),
                                                               rejection_reason_code::connected_to_self,
-                                                              "I'm connecting to myself" );
+                                                              "I'm connecting to myself");
           else
-            connection_rejected = connection_rejected_message( _user_agent_string, core_protocol_version,
+            connection_rejected = connection_rejected_message(_user_agent_string, core_protocol_version,
                                                               originating_peer->get_socket().remote_endpoint(),
                                                               rejection_reason_code::already_connected,
-                                                              "I'm already connected to you" );
+                                                              "I'm already connected to you");
           originating_peer->their_state = peer_connection::their_connection_state::connection_rejected;
-          originating_peer->send_message( message(connection_rejected ) );
-          dlog( "Received a hello_message from peer ${peer} that I'm already connected to (with id ${id} ), rejection",
-               ( "peer", originating_peer->get_remote_endpoint() )
-               ( "id", hello_message_received.node_id ) );
+          originating_peer->send_message(message(connection_rejected));
+          dlog("Received a hello_message from peer ${peer} that I'm already connected to (with id ${id}), rejection",
+               ("peer", originating_peer->get_remote_endpoint())
+               ("id", originating_peer->node_id));
         }
 #ifdef ENABLE_P2P_DEBUGGING_API
-        else if( !_allowed_peers.empty() &&
-                 _allowed_peers.find( originating_peer->node_id ) == _allowed_peers.end() )
+        else if(!_allowed_peers.empty() &&
+                _allowed_peers.find(originating_peer->node_id) == _allowed_peers.end())
         {
           connection_rejected_message connection_rejected( _user_agent_string, core_protocol_version,
                                                           originating_peer->get_socket().remote_endpoint(),
@@ -1805,15 +1900,14 @@ namespace bts { namespace net { namespace detail {
         {
           potential_peer_record updated_peer_record = _potential_peer_db.lookup_or_create_entry_for_endpoint( *active_peer->get_remote_endpoint() );
           updated_peer_record.last_seen_time = fc::time_point::now();
-          _potential_peer_db.update_entry( updated_peer_record );
+          _potential_peer_db.update_entry(updated_peer_record);
 
-          address_info info_for_peer( *active_peer->get_remote_endpoint(),
-                                     fc::time_point::now(),
-                                     active_peer->latency,
-                                     active_peer->node_id,
-                                     active_peer->direction,
-                                     active_peer->is_firewalled );
-          reply.addresses.push_back( std::move(info_for_peer ) );
+          reply.addresses.emplace_back(address_info(*active_peer->get_remote_endpoint(),
+                                                    fc::time_point::now(),
+                                                    active_peer->round_trip_delay,
+                                                    active_peer->node_id,
+                                                    active_peer->direction,
+                                                    active_peer->is_firewalled));
         }
       }
       //for( const potential_peer_record& record : _potential_peer_db )
@@ -1857,7 +1951,7 @@ namespace bts { namespace net { namespace detail {
 
           originating_peer->negotiation_status = peer_connection::connection_negotiation_status::negotiation_complete;
           move_peer_to_active_list(originating_peer->shared_from_this());
-          new_peer_just_added( originating_peer->shared_from_this() );
+          new_peer_just_added(originating_peer->shared_from_this());
         }
       }
       // else if this was an active connection, then this was just a reply to our periodic address requests.
@@ -1965,9 +2059,9 @@ namespace bts { namespace net { namespace detail {
       uint32_t max_number_of_unfetched_items = 0;
       for( const peer_connection_ptr& peer : _active_connections )
       {
-        uint32_t this_peer_number_of_unfetched_items = peer->ids_of_items_to_get.size() + peer->number_of_unfetched_item_ids;
-        max_number_of_unfetched_items = std::max( max_number_of_unfetched_items,
-                                                 this_peer_number_of_unfetched_items );
+        uint32_t this_peer_number_of_unfetched_items = (uint32_t)peer->ids_of_items_to_get.size() + peer->number_of_unfetched_item_ids;
+        max_number_of_unfetched_items = std::max(max_number_of_unfetched_items,
+                                                 this_peer_number_of_unfetched_items);
       }
       return max_number_of_unfetched_items;
     }
@@ -1981,7 +2075,7 @@ namespace bts { namespace net { namespace detail {
       VERIFY_CORRECT_THREAD();
       item_hash_t reference_point = peer->last_block_delegate_has_seen;
       uint32_t reference_point_block_num = peer->last_block_number_delegate_has_seen;
-      uint32_t number_of_blocks_after_reference_point = peer->ids_of_items_to_get.size();
+      uint32_t number_of_blocks_after_reference_point = (uint32_t)peer->ids_of_items_to_get.size();
 
       // when we call _delegate->get_blockchain_synopsis(), we may yield and there's a
       // chance this peer's state will change before we get control back.  Save off
@@ -2275,21 +2369,33 @@ namespace bts { namespace net { namespace detail {
     void node_impl::on_item_not_available_message( peer_connection* originating_peer, const item_not_available_message& item_not_available_message_received )
     {
       VERIFY_CORRECT_THREAD();
-      auto regular_item_iter = originating_peer->items_requested_from_peer.find( item_not_available_message_received.requested_item );
+      const item_id& requested_item = item_not_available_message_received.requested_item;
+      auto regular_item_iter = originating_peer->items_requested_from_peer.find( requested_item );
       if( regular_item_iter != originating_peer->items_requested_from_peer.end() )
       {
         originating_peer->items_requested_from_peer.erase( regular_item_iter );
-        dlog( "Peer doesn't have the requested item." );
+        originating_peer->inventory_peer_advertised_to_us.erase( requested_item );
+        if (is_item_in_any_peers_inventory(requested_item))
+        {
+          _items_to_fetch.insert(prioritized_item_id(requested_item, _items_to_fetch_sequence_counter++));
+        }
+        wlog( "Peer doesn't have the requested item." );
         trigger_fetch_items_loop();
         return;
         // TODO: reschedule fetching this item from a different peer
       }
 
-      auto sync_item_iter = originating_peer->sync_items_requested_from_peer.find( item_not_available_message_received.requested_item );
+      auto sync_item_iter = originating_peer->sync_items_requested_from_peer.find( requested_item );
       if( sync_item_iter != originating_peer->sync_items_requested_from_peer.end() )
       {
         originating_peer->sync_items_requested_from_peer.erase( sync_item_iter );
-        dlog( "Peer doesn't have the requested sync item.  This really shouldn't happen" );
+
+        if( originating_peer->peer_needs_sync_items_from_us )
+          originating_peer->inhibit_fetching_sync_blocks = true;
+        else
+          disconnect_from_peer(originating_peer, "You are missing a sync item you claim to have, your database is probably corrupted. Try --rebuild-index.",true,
+                               fc::exception(FC_LOG_MESSAGE(error,"You are missing a sync item you claim to have, your database is probably corrupted. Try --rebuild-index.",("item_id",requested_item))));
+        wlog( "Peer doesn't have the requested sync item.  This really shouldn't happen" );
         trigger_fetch_sync_items_loop();
         return;
       }
@@ -2412,7 +2518,7 @@ namespace bts { namespace net { namespace detail {
 
       if( _active_connections.size() != _last_reported_number_of_connections )
       {
-        _last_reported_number_of_connections = _active_connections.size();
+        _last_reported_number_of_connections = (uint32_t)_active_connections.size();
         _delegate->connection_count_changed( _last_reported_number_of_connections );
       }
 
@@ -2426,8 +2532,8 @@ namespace bts { namespace net { namespace detail {
       {
         for (auto item_and_time : originating_peer->items_requested_from_peer)
         {
-          // TODO: track and re-insert with original priority
-          _items_to_fetch.insert(prioritized_item_id(item_and_time.first, _items_to_fetch_sequence_counter++));
+          if (is_item_in_any_peers_inventory(item_and_time.first))
+            _items_to_fetch.insert(prioritized_item_id(item_and_time.first, _items_to_fetch_sequence_counter++));
         }
         trigger_fetch_items_loop();
       }
@@ -2775,26 +2881,30 @@ namespace bts { namespace net { namespace detail {
       disconnect_from_peer( originating_peer, "You sent me a block that I didn't ask for", true, detailed_error );
     }
 
-    void node_impl::on_current_time_request_message( peer_connection* originating_peer,
-                                                     const current_time_request_message& current_time_request_message_received )
+    void node_impl::on_current_time_request_message(peer_connection* originating_peer,
+                                                    const current_time_request_message& current_time_request_message_received)
     {
       VERIFY_CORRECT_THREAD();
-      fc::time_point request_received_time( fc::time_point::now() );
-      current_time_reply_message reply( current_time_request_message_received.request_sent_time,
-                                       request_received_time,
-                                       fc::time_point::now() );
-      originating_peer->send_message( reply );
+      fc::time_point request_received_time(fc::time_point::now());
+      current_time_reply_message reply(current_time_request_message_received.request_sent_time,
+                                       request_received_time);
+      originating_peer->send_message(reply, offsetof(current_time_reply_message, reply_transmitted_time));
     }
 
-    void node_impl::on_current_time_reply_message( peer_connection* originating_peer,
-                                                   const current_time_reply_message& current_time_reply_message_received )
+    void node_impl::on_current_time_reply_message(peer_connection* originating_peer,
+                                                  const current_time_reply_message& current_time_reply_message_received)
     {
       VERIFY_CORRECT_THREAD();
+      fc::time_point reply_received_time = fc::time_point::now();
+      originating_peer->clock_offset = fc::microseconds(((current_time_reply_message_received.request_received_time - current_time_reply_message_received.request_sent_time) +
+                                                         (current_time_reply_message_received.reply_transmitted_time - reply_received_time)).count() / 2);
+      originating_peer->round_trip_delay = (reply_received_time - current_time_reply_message_received.request_sent_time) -
+                                           (current_time_reply_message_received.reply_transmitted_time - current_time_reply_message_received.request_received_time);
       // TODO
     }
 
-    void node_impl::on_check_firewall_message( peer_connection* originating_peer,
-                                               const check_firewall_message& check_firewall_message_received )
+    void node_impl::on_check_firewall_message(peer_connection* originating_peer,
+                                              const check_firewall_message& check_firewall_message_received)
     {
       VERIFY_CORRECT_THREAD();
       // TODO
@@ -2804,12 +2914,72 @@ namespace bts { namespace net { namespace detail {
       reply.result = firewall_check_result::unable_to_check;
     }
 
-    void node_impl::on_check_firewall_reply_message( peer_connection* originating_peer,
-                                                     const check_firewall_reply_message& check_firewall_reply_message_received )
+    void node_impl::on_check_firewall_reply_message(peer_connection* originating_peer,
+                                                    const check_firewall_reply_message& check_firewall_reply_message_received)
     {
       VERIFY_CORRECT_THREAD();
       // TODO
     }
+
+    void node_impl::on_get_current_connections_request_message(peer_connection* originating_peer,
+                                                               const get_current_connections_request_message& get_current_connections_request_message_received)
+    {
+      VERIFY_CORRECT_THREAD();
+      get_current_connections_reply_message reply;
+
+      if (!_average_network_read_speed_minutes.empty())
+      {
+        reply.upload_rate_one_minute = _average_network_write_speed_minutes.back();
+        reply.download_rate_one_minute = _average_network_read_speed_minutes.back();
+
+        size_t minutes_to_average = std::min(_average_network_write_speed_minutes.size(), (size_t)15);
+        boost::circular_buffer<uint32_t>::iterator start_iter = _average_network_write_speed_minutes.end() - minutes_to_average;
+        reply.upload_rate_fifteen_minutes = std::accumulate(start_iter, _average_network_write_speed_minutes.end(), 0) / (uint32_t)minutes_to_average;
+        start_iter = _average_network_read_speed_minutes.end() - minutes_to_average;
+        reply.download_rate_fifteen_minutes = std::accumulate(start_iter, _average_network_read_speed_minutes.end(), 0) / (uint32_t)minutes_to_average;
+
+        minutes_to_average = std::min(_average_network_write_speed_minutes.size(), (size_t)60);
+        start_iter = _average_network_write_speed_minutes.end() - minutes_to_average;
+        reply.upload_rate_one_hour = std::accumulate(start_iter, _average_network_write_speed_minutes.end(), 0) / (uint32_t)minutes_to_average;
+        start_iter = _average_network_read_speed_minutes.end() - minutes_to_average;
+        reply.download_rate_one_hour = std::accumulate(start_iter, _average_network_read_speed_minutes.end(), 0) / (uint32_t)minutes_to_average;
+      }
+
+      fc::time_point now = fc::time_point::now();
+      for (const peer_connection_ptr& peer : _active_connections)
+      {
+        current_connection_data data_for_this_peer;
+        data_for_this_peer.connection_duration = now.sec_since_epoch() - peer->connection_initiation_time.sec_since_epoch();
+        if (peer->get_remote_endpoint()) // should always be set for anyone we're actively connected to
+          data_for_this_peer.remote_endpoint = *peer->get_remote_endpoint();
+        data_for_this_peer.clock_offset = peer->clock_offset;
+        data_for_this_peer.round_trip_delay = peer->round_trip_delay;
+        data_for_this_peer.node_id = peer->node_id;
+        data_for_this_peer.connection_direction = peer->direction;
+        data_for_this_peer.firewalled = peer->is_firewalled;
+        fc::mutable_variant_object user_data;
+        if (peer->bitshares_git_revision_sha)
+          user_data["bitshares_git_revision_sha"] = *peer->bitshares_git_revision_sha;
+        if (peer->bitshares_git_revision_unix_timestamp)
+          user_data["bitshares_git_revision_unix_timestamp"] = *peer->bitshares_git_revision_unix_timestamp;
+        if (peer->fc_git_revision_sha)
+          user_data["fc_git_revision_sha"] = *peer->fc_git_revision_sha;
+        if (peer->fc_git_revision_unix_timestamp)
+          user_data["fc_git_revision_unix_timestamp"] = *peer->fc_git_revision_unix_timestamp;
+        if (peer->platform)
+          user_data["platform"] = *peer->platform;
+        data_for_this_peer.user_data = user_data;
+        reply.current_connections.emplace_back(data_for_this_peer);
+      }
+      originating_peer->send_message(reply);
+    }
+
+    void node_impl::on_get_current_connections_reply_message(peer_connection* originating_peer,
+                                                             const get_current_connections_reply_message& get_current_connections_reply_message_received)
+    {
+      VERIFY_CORRECT_THREAD();
+    }
+
 
     // this handles any message we get that doesn't require any special processing.
     // currently, this is any message other than block messages and p2p-specific
@@ -2892,10 +3062,12 @@ namespace bts { namespace net { namespace detail {
     void node_impl::new_peer_just_added( const peer_connection_ptr& peer )
     {
       VERIFY_CORRECT_THREAD();
+      peer->send_message(current_time_request_message(), 
+                         offsetof(current_time_request_message, request_sent_time));
       start_synchronizing_with_peer( peer );
       if( _active_connections.size() != _last_reported_number_of_connections )
       {
-        _last_reported_number_of_connections = _active_connections.size();
+        _last_reported_number_of_connections = (uint32_t)_active_connections.size();
         _delegate->connection_count_changed( _last_reported_number_of_connections );
       }
     }
@@ -3205,7 +3377,7 @@ namespace bts { namespace net { namespace detail {
                           local_endpoint.get_address(),
                           listening_port,
                           local_endpoint.port(),
-                          _node_id,
+                          _node_public_key,
                           signature,
                           _chain_id,
                           generate_hello_user_data() );
@@ -3283,12 +3455,12 @@ namespace bts { namespace net { namespace detail {
     }
 
     // methods implementing node's public interface
-    void node_impl::set_node_delegate( node_delegate* del )
+    void node_impl::set_node_delegate(node_delegate* del, fc::thread* thread_for_delegate_calls)
     {
       VERIFY_CORRECT_THREAD();
       _delegate.reset();
       if (del)
-        _delegate.reset(new statistics_gathering_node_delegate_wrapper(del));
+        _delegate.reset(new statistics_gathering_node_delegate_wrapper(del, thread_for_delegate_calls));
       if( _delegate )
         _chain_id = del->get_chain_id();
     }
@@ -3305,6 +3477,10 @@ namespace bts { namespace net { namespace detail {
         {
           _node_configuration = fc::json::from_file( configuration_file_name ).as<detail::node_configuration>();
           ilog( "Loaded configuration from file ${filename}", ("filename", configuration_file_name ) );
+
+          if( _node_configuration.private_key == fc::ecc::private_key() )
+            _node_configuration.private_key = fc::ecc::private_key::generate();
+
           node_configuration_loaded = true;
         }
         catch ( fc::parse_error_exception& parse_error )
@@ -3336,7 +3512,7 @@ namespace bts { namespace net { namespace detail {
         _node_configuration.private_key = fc::ecc::private_key::generate();
       }
 
-      _node_id = _node_configuration.private_key.get_public_key().serialize();
+      _node_public_key = _node_configuration.private_key.get_public_key().serialize();
 
       fc::path potential_peer_database_file_name( _node_configuration_directory / POTENTIAL_PEER_DATABASE_FILENAME );
       try
@@ -3371,7 +3547,7 @@ namespace bts { namespace net { namespace detail {
         return;
       }
 
-      assert( _node_id != fc::ecc::public_key_data() );
+      assert(_node_public_key != fc::ecc::public_key_data());
 
       fc::ip::endpoint listen_endpoint = _node_configuration.listen_endpoint;
       if( listen_endpoint.port() != 0 )
@@ -3459,7 +3635,7 @@ namespace bts { namespace net { namespace detail {
     void node_impl::connect_to_p2p_network()
     {
       VERIFY_CORRECT_THREAD();
-      assert(_node_id != fc::ecc::public_key_data());
+      assert(_node_public_key != fc::ecc::public_key_data());
 
       assert(!_accept_loop_complete.valid() &&
              !_p2p_network_connect_loop_done.valid() &&
@@ -3659,8 +3835,10 @@ namespace bts { namespace net { namespace detail {
         error_message << "I am disconnecting peer " << fc::variant( peer_to_disconnect->get_remote_endpoint() ).as_string() <<
                          " for reason: " << reason_for_disconnect;
         _delegate->error_encountered( error_message.str(), fc::oexception() );
+        dlog(error_message.str());
       }
-
+      else
+        dlog("Disconnecting from ${peer} for ${reason}", ("peer",peer_to_disconnect->get_remote_endpoint()) ("reason",reason_for_disconnect));
       // peer_to_disconnect->close_connection();
     }
 
@@ -3780,7 +3958,7 @@ namespace bts { namespace net { namespace detail {
     uint32_t node_impl::get_connection_count() const
     {
       VERIFY_CORRECT_THREAD();
-      return _active_connections.size();
+      return (uint32_t)_active_connections.size();
     }
 
     void node_impl::broadcast( const message& item_to_broadcast, const message_propagation_data& propagation_data )
@@ -3883,19 +4061,19 @@ namespace bts { namespace net { namespace detail {
       VERIFY_CORRECT_THREAD();
       return _node_id;
     }
-    void node_impl::set_allowed_peers( const std::vector<node_id_t>& allowed_peers )
+    void node_impl::set_allowed_peers(const std::vector<node_id_t>& allowed_peers)
     {
       VERIFY_CORRECT_THREAD();
 #ifdef ENABLE_P2P_DEBUGGING_API
       _allowed_peers.clear();
-      _allowed_peers.insert( allowed_peers.begin(), allowed_peers.end() );
+      _allowed_peers.insert(allowed_peers.begin(), allowed_peers.end());
       std::list<peer_connection_ptr> peers_to_disconnect;
-      if( !_allowed_peers.empty() )
-        for( const peer_connection_ptr& peer : _active_connections )
-          if( _allowed_peers.find(peer->node_id) == _allowed_peers.end() )
-            peers_to_disconnect.push_back( peer );
-      for( const peer_connection_ptr& peer : peers_to_disconnect )
-        disconnect_from_peer( peer.get(), "My allowed_peers list has changed, and you're no longer allowed.  Bye." );
+      if (!_allowed_peers.empty())
+        for (const peer_connection_ptr& peer : _active_connections)
+          if (_allowed_peers.find(peer->node_id) == _allowed_peers.end())
+            peers_to_disconnect.push_back(peer);
+      for (const peer_connection_ptr& peer : peers_to_disconnect)
+        disconnect_from_peer(peer.get(), "My allowed_peers list has changed, and you're no longer allowed.  Bye.");
 #endif // ENABLE_P2P_DEBUGGING_API
     }
     void node_impl::clear_peer_database()
@@ -3928,15 +4106,34 @@ namespace bts { namespace net { namespace detail {
       VERIFY_CORRECT_THREAD();
       fc::mutable_variant_object info;
       info["listening_on"] = _actual_listening_endpoint;
+      info["node_public_key"] = _node_public_key;
       info["node_id"] = _node_id;
       return info;
     }
     fc::variant_object node_impl::network_get_usage_stats() const
     {
       VERIFY_CORRECT_THREAD();
-      std::vector<uint32_t> network_usage_by_second(_average_network_usage_seconds.begin(), _average_network_usage_seconds.end());
-      std::vector<uint32_t> network_usage_by_minute(_average_network_usage_minutes.begin(), _average_network_usage_minutes.end());
-      std::vector<uint32_t> network_usage_by_hour(_average_network_usage_hours.begin(), _average_network_usage_hours.end());
+      std::vector<uint32_t> network_usage_by_second;
+      network_usage_by_second.reserve(_average_network_read_speed_seconds.size());
+      std::transform(_average_network_read_speed_seconds.begin(), _average_network_read_speed_seconds.end(),
+                     _average_network_write_speed_seconds.begin(), 
+                     std::back_inserter(network_usage_by_second),
+                     std::plus<uint32_t>());
+
+      std::vector<uint32_t> network_usage_by_minute;
+      network_usage_by_minute.reserve(_average_network_read_speed_minutes.size());
+      std::transform(_average_network_read_speed_minutes.begin(), _average_network_read_speed_minutes.end(),
+                     _average_network_write_speed_minutes.begin(),
+                     std::back_inserter(network_usage_by_minute),
+                     std::plus<uint32_t>());
+
+      std::vector<uint32_t> network_usage_by_hour;
+      network_usage_by_hour.reserve(_average_network_read_speed_hours.size());
+      std::transform(_average_network_read_speed_hours.begin(), _average_network_read_speed_hours.end(),
+                     _average_network_write_speed_hours.begin(),
+                     std::back_inserter(network_usage_by_hour),
+                     std::plus<uint32_t>());
+
       fc::mutable_variant_object result;
       result["usage_by_second"] = network_usage_by_second;
       result["usage_by_minute"] = network_usage_by_minute;
@@ -3959,8 +4156,8 @@ namespace bts { namespace net { namespace detail {
     return my->method_name(__VA_ARGS__)
 #endif // P2P_IN_DEDICATED_THREAD
 
-  node::node() :
-    my( new detail::node_impl )
+  node::node(const std::string& user_agent) :
+    my(new detail::node_impl(user_agent))
   {
   }
 
@@ -3970,10 +4167,8 @@ namespace bts { namespace net { namespace detail {
 
   void node::set_node_delegate( node_delegate* del )
   {
-#ifdef P2P_IN_DEDICATED_THREAD
-    del = new detail::thread_switching_node_delegate_wrapper(&fc::thread::current(), del);
-#endif
-    INVOKE_IN_IMPL(set_node_delegate, del);
+    fc::thread* delegate_thread = &fc::thread::current();
+    INVOKE_IN_IMPL(set_node_delegate, del, delegate_thread);
   }
 
   void node::load_configuration( const fc::path& configuration_directory )
@@ -4170,86 +4365,16 @@ namespace bts { namespace net { namespace detail {
 
   namespace detail
   {
-#define INVOKE_IN_DELEGATE_THREAD(method_name, ...) \
-    return _thread->async([&](){ return _node_delegate->method_name(__VA_ARGS__); }, "invoke " BOOST_STRINGIZE(method_name)).wait()
-
-    thread_switching_node_delegate_wrapper::thread_switching_node_delegate_wrapper(fc::thread* thread, node_delegate* delegate) :
-      _thread(thread),
-      _node_delegate(delegate)
-    {}
-
-    bool thread_switching_node_delegate_wrapper::has_item( const net::item_id& id )
-    {
-      INVOKE_IN_DELEGATE_THREAD(has_item, id);
-    }
-
-    bool thread_switching_node_delegate_wrapper::handle_message( const message& message_to_handle, bool sync_mode )
-    {
-      INVOKE_IN_DELEGATE_THREAD(handle_message, message_to_handle, sync_mode);
-    }
-
-    std::vector<item_hash_t> thread_switching_node_delegate_wrapper::get_item_ids(uint32_t item_type,
-                                                                                  const std::vector<item_hash_t>& blockchain_synopsis,
-                                                                                  uint32_t& remaining_item_count,
-                                                                                  uint32_t limit /* = 2000 */)
-    {
-      INVOKE_IN_DELEGATE_THREAD(get_item_ids, item_type, blockchain_synopsis, remaining_item_count, limit);
-    }
-
-    message thread_switching_node_delegate_wrapper::get_item( const item_id& id )
-    {
-      INVOKE_IN_DELEGATE_THREAD(get_item, id);
-    }
-
-    fc::sha256 thread_switching_node_delegate_wrapper::get_chain_id() const
-    {
-      INVOKE_IN_DELEGATE_THREAD(get_chain_id);
-    }
-
-    std::vector<item_hash_t> thread_switching_node_delegate_wrapper::get_blockchain_synopsis(uint32_t item_type,
-                                                                                             const bts::net::item_hash_t& reference_point /* = bts::net::item_hash_t() */,
-                                                                                             uint32_t number_of_blocks_after_reference_point /* = 0 */)
-    {
-      INVOKE_IN_DELEGATE_THREAD(get_blockchain_synopsis, item_type, reference_point, number_of_blocks_after_reference_point);
-    }
-
-    void thread_switching_node_delegate_wrapper::sync_status( uint32_t item_type, uint32_t item_count )
-    {
-      INVOKE_IN_DELEGATE_THREAD(sync_status, item_type, item_count);
-    }
-
-    void thread_switching_node_delegate_wrapper::connection_count_changed( uint32_t c )
-    {
-      INVOKE_IN_DELEGATE_THREAD(connection_count_changed, c);
-    }
-
-    uint32_t thread_switching_node_delegate_wrapper::get_block_number(const item_hash_t& block_id)
-    {
-      INVOKE_IN_DELEGATE_THREAD(get_block_number, block_id);
-    }
-    fc::time_point_sec thread_switching_node_delegate_wrapper::get_block_time(const item_hash_t& block_id)
-    {
-      INVOKE_IN_DELEGATE_THREAD(get_block_time, block_id);
-    }
-
-    /** returns bts::blockchain::now() */
-    fc::time_point_sec thread_switching_node_delegate_wrapper::get_blockchain_now()
-    {
-      INVOKE_IN_DELEGATE_THREAD(get_blockchain_now);
-    }
-
-    void thread_switching_node_delegate_wrapper::error_encountered(const std::string& message, const fc::oexception& error)
-    {
-      INVOKE_IN_DELEGATE_THREAD(error_encountered, message, error);
-    }
-#undef INVOKE_IN_DELEGATE_THREAD
-
 #define ROLLING_WINDOW_SIZE 1000
 #define INITIALIZE_ACCUMULATOR(r, data, method_name) \
-      , BOOST_PP_CAT(_, BOOST_PP_CAT(method_name, _accumulator))(boost::accumulators::tag::rolling_window::window_size = ROLLING_WINDOW_SIZE)
+      , BOOST_PP_CAT(_, BOOST_PP_CAT(method_name, _execution_accumulator))(boost::accumulators::tag::rolling_window::window_size = ROLLING_WINDOW_SIZE) \
+      , BOOST_PP_CAT(_, BOOST_PP_CAT(method_name, _delay_before_accumulator))(boost::accumulators::tag::rolling_window::window_size = ROLLING_WINDOW_SIZE) \
+      , BOOST_PP_CAT(_, BOOST_PP_CAT(method_name, _delay_after_accumulator))(boost::accumulators::tag::rolling_window::window_size = ROLLING_WINDOW_SIZE)
 
-    statistics_gathering_node_delegate_wrapper::statistics_gathering_node_delegate_wrapper(node_delegate* delegate) :
-      _node_delegate(delegate)
+
+    statistics_gathering_node_delegate_wrapper::statistics_gathering_node_delegate_wrapper(node_delegate* delegate, fc::thread* thread_for_delegate_calls) :
+      _node_delegate(delegate),
+      _thread(thread_for_delegate_calls)
       BOOST_PP_SEQ_FOR_EACH(INITIALIZE_ACCUMULATOR, unused, NODE_DELEGATE_METHOD_NAMES)
     {}
 #undef INITIALIZE_ACCUMULATOR
@@ -4263,11 +4388,19 @@ namespace bts { namespace net { namespace detail {
 
 #define ADD_STATISTICS_FOR_METHOD(r, data, method_name) \
       fc::mutable_variant_object BOOST_PP_CAT(method_name, _stats); \
-      BOOST_PP_CAT(method_name, _stats)["min"] = boost::accumulators::min(BOOST_PP_CAT(_, BOOST_PP_CAT(method_name, _accumulator))); \
-      BOOST_PP_CAT(method_name, _stats)["mean"] = boost::accumulators::rolling_mean(BOOST_PP_CAT(_, BOOST_PP_CAT(method_name, _accumulator))); \
-      BOOST_PP_CAT(method_name, _stats)["max"] = boost::accumulators::max(BOOST_PP_CAT(_, BOOST_PP_CAT(method_name, _accumulator))); \
-      BOOST_PP_CAT(method_name, _stats)["sum"] = boost::accumulators::sum(BOOST_PP_CAT(_, BOOST_PP_CAT(method_name, _accumulator))); \
-      BOOST_PP_CAT(method_name, _stats)["count"] = boost::accumulators::count(BOOST_PP_CAT(_, BOOST_PP_CAT(method_name, _accumulator))); \
+      BOOST_PP_CAT(method_name, _stats)["min"] = boost::accumulators::min(BOOST_PP_CAT(_, BOOST_PP_CAT(method_name, _execution_accumulator))); \
+      BOOST_PP_CAT(method_name, _stats)["mean"] = boost::accumulators::rolling_mean(BOOST_PP_CAT(_, BOOST_PP_CAT(method_name, _execution_accumulator))); \
+      BOOST_PP_CAT(method_name, _stats)["max"] = boost::accumulators::max(BOOST_PP_CAT(_, BOOST_PP_CAT(method_name, _execution_accumulator))); \
+      BOOST_PP_CAT(method_name, _stats)["sum"] = boost::accumulators::sum(BOOST_PP_CAT(_, BOOST_PP_CAT(method_name, _execution_accumulator))); \
+      BOOST_PP_CAT(method_name, _stats)["delay_before_min"] = boost::accumulators::min(BOOST_PP_CAT(_, BOOST_PP_CAT(method_name, _delay_before_accumulator))); \
+      BOOST_PP_CAT(method_name, _stats)["delay_before_mean"] = boost::accumulators::rolling_mean(BOOST_PP_CAT(_, BOOST_PP_CAT(method_name, _delay_before_accumulator))); \
+      BOOST_PP_CAT(method_name, _stats)["delay_before_max"] = boost::accumulators::max(BOOST_PP_CAT(_, BOOST_PP_CAT(method_name, _delay_before_accumulator))); \
+      BOOST_PP_CAT(method_name, _stats)["delay_before_sum"] = boost::accumulators::sum(BOOST_PP_CAT(_, BOOST_PP_CAT(method_name, _delay_before_accumulator))); \
+      BOOST_PP_CAT(method_name, _stats)["delay_after_min"] = boost::accumulators::min(BOOST_PP_CAT(_, BOOST_PP_CAT(method_name, _delay_after_accumulator))); \
+      BOOST_PP_CAT(method_name, _stats)["delay_after_mean"] = boost::accumulators::rolling_mean(BOOST_PP_CAT(_, BOOST_PP_CAT(method_name, _delay_after_accumulator))); \
+      BOOST_PP_CAT(method_name, _stats)["delay_after_max"] = boost::accumulators::max(BOOST_PP_CAT(_, BOOST_PP_CAT(method_name, _delay_after_accumulator))); \
+      BOOST_PP_CAT(method_name, _stats)["delay_after_sum"] = boost::accumulators::sum(BOOST_PP_CAT(_, BOOST_PP_CAT(method_name, _delay_after_accumulator))); \
+      BOOST_PP_CAT(method_name, _stats)["count"] = boost::accumulators::count(BOOST_PP_CAT(_, BOOST_PP_CAT(method_name, _execution_accumulator))); \
       statistics[BOOST_PP_STRINGIZE(method_name)] = BOOST_PP_CAT(method_name, _stats);
 
       BOOST_PP_SEQ_FOR_EACH(ADD_STATISTICS_FOR_METHOD, unused, NODE_DELEGATE_METHOD_NAMES)
@@ -4277,8 +4410,20 @@ namespace bts { namespace net { namespace detail {
     }
 
 #define INVOKE_AND_COLLECT_STATISTICS(method_name, ...) \
-    call_statistics_collector statistics_collector(#method_name, &_ ## method_name ## _accumulator); \
-    return _node_delegate->method_name(__VA_ARGS__)
+    call_statistics_collector statistics_collector(#method_name, \
+                                                   &_ ## method_name ## _execution_accumulator, \
+                                                   &_ ## method_name ## _delay_before_accumulator, \
+                                                   &_ ## method_name ## _delay_after_accumulator); \
+    if (_thread->is_current()) \
+    { \
+      call_statistics_collector::actual_execution_measurement_helper helper(statistics_collector); \
+      return _node_delegate->method_name(__VA_ARGS__); \
+    } \
+    else \
+      return _thread->async([&](){ \
+        call_statistics_collector::actual_execution_measurement_helper helper(statistics_collector); \
+        return _node_delegate->method_name(__VA_ARGS__); \
+      }, "invoke " BOOST_STRINGIZE(method_name)).wait()
 
     bool statistics_gathering_node_delegate_wrapper::has_item( const net::item_id& id )
     {

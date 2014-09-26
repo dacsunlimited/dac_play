@@ -115,8 +115,9 @@ namespace bts { namespace client {
                    public std::enable_shared_from_this<client>
     {
        public:
-         client();
-         client(bts::net::simulated_network_ptr network_to_connect_to);
+         client(const std::string& user_agent);
+         client(const std::string& user_agent, 
+                bts::net::simulated_network_ptr network_to_connect_to);
 
          void simulate_disconnect( bool state );
 
@@ -135,6 +136,7 @@ namespace bts { namespace client {
 
          chain_database_ptr         get_chain()const;
          wallet_ptr                 get_wallet()const;
+         mail_client_ptr            get_mail_client()const;
          mail_server_ptr            get_mail_server()const;
          bts::rpc::rpc_server_ptr   get_rpc_server()const;
          bts::net::node_ptr         get_node()const;

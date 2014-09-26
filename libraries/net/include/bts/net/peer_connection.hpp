@@ -74,12 +74,16 @@ namespace bts { namespace net
       struct queued_message
       {
         message        message_to_send;
+        size_t         message_send_time_field_offset;
         fc::time_point enqueue_time;
         fc::time_point transmission_start_time;
         fc::time_point transmission_finish_time;
 
-        queued_message(message message_to_send, fc::time_point enqueue_time = fc::time_point::now()) :
+        queued_message(message message_to_send, 
+                       size_t message_send_time_field_offset = (size_t)-1, 
+                       fc::time_point enqueue_time = fc::time_point::now()) :
           message_to_send(std::move(message_to_send)),
+          message_send_time_field_offset(message_send_time_field_offset),
           enqueue_time(enqueue_time)
         {}
       };
@@ -93,7 +97,8 @@ namespace bts { namespace net
       peer_connection_direction direction;
       //connection_state state;
       firewalled_state is_firewalled;
-      fc::microseconds latency;
+      fc::microseconds clock_offset;
+      fc::microseconds round_trip_delay;
 
       our_connection_state our_state;
       bool they_have_requested_close;
@@ -108,7 +113,13 @@ namespace bts { namespace net
 
       /// data about the peer node
       /// @{
-      node_id_t        node_id;
+      /** node_public_key from the hello message, zero-initialized before we get the hello */
+      node_id_t        node_public_key; 
+      /** the unique identifier we'll use to refer to the node with.  zero-initialized before
+       * we receive the hello message, at which time it will be filled with either the "node_id"
+       * from the user_data field of the hello, or if none is present it will be filled with a 
+       * copy of node_public_key */
+      node_id_t        node_id; 
       uint32_t         core_protocol_version;
       std::string      user_agent;
       fc::optional<std::string> bitshares_git_revision_sha;
@@ -116,6 +127,7 @@ namespace bts { namespace net
       fc::optional<std::string> fc_git_revision_sha;
       fc::optional<fc::time_point_sec> fc_git_revision_unix_timestamp;
       fc::optional<std::string> platform;
+      fc::optional<uint32_t> bitness;
 
       // for inbound connections, these fields record what the peer sent us in
       // its hello message.  For outbound, they record what we sent the peer
@@ -190,7 +202,7 @@ namespace bts { namespace net
       void on_message(message_oriented_connection* originating_connection, const message& received_message) override;
       void on_connection_closed(message_oriented_connection* originating_connection) override;
 
-      void send_message(const message& message_to_send);
+      void send_message(const message& message_to_send, size_t message_send_time_field_offset = (size_t)-1);
       void close_connection();
       void destroy_connection();
 

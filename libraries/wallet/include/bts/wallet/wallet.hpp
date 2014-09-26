@@ -452,6 +452,22 @@ namespace bts { namespace wallet {
                  const order_id_type& order_id,
                  bool sign = true
                  );
+
+         /**
+          * @brief Perform arbitrarily many market operations in a single transaction
+          * @param cancel_order_ids List of order IDs to cancel in the transaction
+          * @param new_orders List of new orders to create. Each list element contains an order type and a list of
+          * arguments. The arguments are the same as are taken by the wallet methods to execute that market operation in
+          * its own transaction. If the final sign argument is provided in the arguments list, it will be ignored in
+          * favor of the sign flag passed to batch_market_update.
+          * @param sign Transaction will be signed and broadcast if true.
+          * @return The resulting, potentially monstrously large, transaction
+          */
+         wallet_transaction_record batch_market_update(
+                 const vector<order_id_type>& cancel_order_ids,
+                 const vector<std::pair<order_type_enum,vector<string>>>& new_orders,
+                 bool sign = true
+                 );
 #if 0
          wallet_transaction_record create_proposal(
                  const string& delegate_account_name,
@@ -508,9 +524,9 @@ namespace bts { namespace wallet {
          account_balance_summary_type       get_account_yield( const string& account_name = "" )const;
          account_vote_summary_type          get_account_vote_summary( const string& account_name = "" )const;
 
-         map<order_id_type, market_order>   get_market_orders( const string& account_name, int32_t limit)const;
+         map<order_id_type, market_order>   get_market_orders( const string& account_name, uint32_t limit)const;
          map<order_id_type, market_order>   get_market_orders( const string& quote, const string& base,
-                                                               int32_t limit, const string& account_name )const;
+                                                               uint32_t limit, const string& account_name )const;
 
          vector<wallet_transaction_record>  get_transaction_history( const string& account_name = string(),
                                                                      uint32_t start_block_num = 0,
@@ -557,9 +573,10 @@ namespace bts { namespace wallet {
                                    const fc::ecc::compact_signature& client_signature );
 
          mail::message mail_create( const string& sender,
-                                    const public_key_type& recipient,
                                     const string& subject,
-                                    const string& body );
+                                    const string& body,
+                                    const mail::message_id_type& reply_to = mail::message_id_type());
+         mail::message mail_encrypt( const public_key_type& recipient, const mail::message& plaintext );
          mail::message mail_open( const address& recipient, const mail::message& ciphertext );
          mail::message mail_decrypt( const address& recipient, const mail::message& ciphertext );
 

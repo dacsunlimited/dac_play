@@ -2,6 +2,7 @@
 #include <bts/mail/server.hpp>
 #include <bts/db/level_map.hpp>
 #include <bts/db/cached_level_map.hpp>
+#include <bts/blockchain/time.hpp>
 
 #include <fc/network/tcp_socket.hpp>
 #include <fc/io/buffered_iostream.hpp>
@@ -119,6 +120,7 @@ public:
     client* self;
     wallet_ptr _wallet;
     chain_database_ptr _chain;
+    uint32_t _messages_in;
 
     typedef std::queue<message_id_type> job_queue;
 
@@ -277,7 +279,7 @@ public:
         }
 
         //TODO: Contact mail servers, get their PoW requirements, set target to min() of these
-        email.proof_of_work_target = ripemd160("000000fffdeadbeeffffffffffffffffffffffff");
+        email.proof_of_work_target = BTS_MAIL_PROOF_OF_WORK_TARGET;
         _processing_db.store(message_id, email);
 
         schedule_proof_of_work(message_id);
@@ -323,7 +325,7 @@ public:
             std::unique_ptr<fc::future<void>> slave_handle_uptr(new fc::future<void>());
             fc::future<void>* slave_handle = slave_handle_uptr.get();
             while (email->content.id() > email->proof_of_work_target) {
-                email->content.timestamp = fc::time_point::now();
+                email->content.timestamp = blockchain::now();
                 _processing_db.store(email->id, *email);
 
                 try {
@@ -441,11 +443,12 @@ public:
     }
 
     void finalize_message(message_id_type message_id) {
-        ulog("Email ${id} sent successfully.", ("id", message_id));
         mail_record email = _processing_db.fetch(message_id);
+        ulog("Email ${id} sent successfully, and is now known as ${newid}.", ("id", message_id)("newid", email.content.id()));
+        email.id = email.content.id();
         email.status = client::accepted;
         _mail_index.insert(email_header(email));
-        _archive.store(message_id, std::move(email));
+        _archive.store(email.id, std::move(email));
         _processing_db.remove(message_id);
     }
 
@@ -528,8 +531,10 @@ public:
             _inbox.remove(message_id);
     }
 
-    void check_new_mail() {
+    int check_new_mail() {
         auto accounts = _wallet->list_my_accounts();
+        _messages_in = 0;
+
         for (wallet_account_record account : accounts) {
             auto servers = get_mail_servers_for_recipient(account.name);
             vector<fc::future<void>> fetch_tasks;
@@ -591,7 +596,6 @@ public:
                                 return;
                             }
 
-
                             message ciphertext = response["result"].as<message>();
                             message plaintext = _wallet->mail_open(account.account_address, ciphertext);
                             email_header header;
@@ -603,9 +607,22 @@ public:
                             header.recipient = account.name;
                             header.timestamp = plaintext.timestamp;
                             mail_archive_record record(std::move(ciphertext), header, account.account_address);
+                            bool new_mail = false;
+
+                            if (auto optional_record = _archive.fetch_optional(email.second))
+                                record = *optional_record;
+                            else
+                                new_mail = true;
+
+                            record.mail_servers.insert(server);
+
                             _archive.store(email.second, record);
                             _mail_index.insert(header);
-                            _inbox.store(header.id, header);
+
+                            if (new_mail) {
+                                _inbox.store(header.id, header);
+                                ++_messages_in;
+                            }
                         }
                     }
                 }, "Mail client fetcher"));
@@ -626,6 +643,8 @@ public:
             timeout_future.cancel("Finished fetching");
             _property_db.store("last_fetch/" + account.name, variant(check_time));
         }
+
+        return _messages_in;
     }
 };
 
@@ -671,10 +690,13 @@ void client::archive_message(message_id_type message_id_type)
     my->archive_message(message_id_type);
 }
 
-void client::check_new_messages()
+int client::check_new_messages()
 {
     FC_ASSERT(my->is_open());
-    my->check_new_mail();
+    int new_messages = my->check_new_mail();
+    if (new_messages > 0)
+        new_mail_notifier(new_messages);
+    return new_messages;
 }
 
 std::multimap<client::mail_status, message_id_type> client::get_processing_messages() {
@@ -699,7 +721,7 @@ email_record client::get_message(message_id_type message_id) {
     return my->get_message(message_id);
 }
 
-message_id_type client::send_email(const string &from, const string &to, const string &subject, const string &body) {
+message_id_type client::send_email(const string &from, const string &to, const string &subject, const string &body, const message_id_type& reply_to) {
     FC_ASSERT(my->_wallet->is_open());
     FC_ASSERT(my->_wallet->is_unlocked());
     FC_ASSERT(my->is_open());
@@ -708,11 +730,11 @@ message_id_type client::send_email(const string &from, const string &to, const s
     oaccount_record recipient = my->_chain->get_account_record(to);
     FC_ASSERT(recipient, "Could not find recipient account: ${name}", ("name", to));
 
-    //All mail shall be addressed to the owner key, but it is encrypted with the active key.
+    //All mail shall be addressed to the owner key, but encrypted with the active key.
     detail::mail_record email(from,
                               to,
                               recipient->owner_key,
-                              my->_wallet->mail_create(from, recipient->active_key(), subject, body));
+                              my->_wallet->mail_encrypt(recipient->active_key(), my->_wallet->mail_create(from, subject, body, reply_to)));
     my->process_outgoing_mail(email);
 
     return email.id;
@@ -758,7 +780,10 @@ email_header::email_header(const detail::mail_record &processing_record)
       timestamp(processing_record.content.timestamp)
 {
     if (processing_record.content.type == email)
-        subject = processing_record.content.as<signed_email_message>().subject;
+    {
+        auto sem = processing_record.content.as<signed_email_message>();
+        subject = sem.subject;
+    }
 }
 
 email_header::email_header(const detail::mail_archive_record& archive_record)
@@ -768,7 +793,10 @@ email_header::email_header(const detail::mail_archive_record& archive_record)
       timestamp(archive_record.content.timestamp)
 {
     if (archive_record.content.type == email)
-        subject = archive_record.content.as<signed_email_message>().subject;
+    {
+        auto sem = archive_record.content.as<signed_email_message>();
+        subject = sem.subject;
+    }
 }
 
 email_record::email_record(const detail::mail_record& processing_record)

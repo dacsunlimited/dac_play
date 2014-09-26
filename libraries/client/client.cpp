@@ -238,7 +238,7 @@ void print_banner()
 fc::logging_config create_default_logging_config( const fc::path& data_dir, bool enable_ulog )
 {
     fc::logging_config cfg;
-    fc::path log_dir = data_dir / "logs";
+    fc::path log_dir("logs");
 
     fc::file_appender::config ac;
     ac.filename             = log_dir / "default" / "default.log";
@@ -249,7 +249,7 @@ fc::logging_config create_default_logging_config( const fc::path& data_dir, bool
     ac.rotation_limit       = fc::days( 1 );
     ac.rotation_compression = true;
 
-    std::cout << "Logging to file: " << ac.filename.generic_string() << "\n";
+    std::cout << "Logging to file: " << (data_dir / ac.filename).preferred_string() << "\n";
 
     fc::file_appender::config ac_rpc;
     ac_rpc.filename             = log_dir / "rpc" / "rpc.log";
@@ -260,7 +260,7 @@ fc::logging_config create_default_logging_config( const fc::path& data_dir, bool
     ac_rpc.rotation_limit       = fc::days( 1 );
     ac_rpc.rotation_compression = true;
 
-    std::cout << "Logging RPC to file: " << ac_rpc.filename.generic_string() << "\n";
+    std::cout << "Logging RPC to file: " << (data_dir / ac_rpc.filename).preferred_string() << "\n";
 
     fc::file_appender::config ac_blockchain;
     ac_blockchain.filename             = log_dir / "blockchain" / "blockchain.log";
@@ -271,7 +271,7 @@ fc::logging_config create_default_logging_config( const fc::path& data_dir, bool
     ac_blockchain.rotation_limit       = fc::days( 1 );
     ac_blockchain.rotation_compression = true;
 
-    std::cout << "Logging blockchain to file: " << ac_blockchain.filename.generic_string() << "\n";
+    std::cout << "Logging blockchain to file: " << (data_dir / ac_blockchain.filename).preferred_string() << "\n";
 
     fc::file_appender::config ac_p2p;
     ac_p2p.filename             = log_dir / "p2p" / "p2p.log";
@@ -286,7 +286,7 @@ fc::logging_config create_default_logging_config( const fc::path& data_dir, bool
     ac_p2p.rotation_limit       = fc::days( 1 );
     ac_p2p.rotation_compression = true;
 
-    std::cout << "Logging P2P to file: " << ac_p2p.filename.generic_string() << "\n";
+    std::cout << "Logging P2P to file: " << (data_dir / ac_p2p.filename).preferred_string() << "\n";
 
     fc::variants  c  {
                 fc::mutable_variant_object( "level","debug")("color", "green"),
@@ -407,7 +407,7 @@ void load_and_configure_chain_database( const fc::path& datadir,
 
   if (option_variables.count("resync-blockchain"))
   {
-    std::cout << "Deleting old copy of the blockchain in: " << ( datadir / "chain" ).generic_string() << "\n";
+    std::cout << "Deleting old copy of the blockchain in: " << ( datadir / "chain" ).preferred_string() << "\n";
     try
     {
       fc::remove_all(datadir / "chain");
@@ -432,18 +432,18 @@ void load_and_configure_chain_database( const fc::path& datadir,
   }
   else
   {
-    std::cout << "Loading blockchain from: " << ( datadir / "chain" ).generic_string()  << "\n";
+    std::cout << "Loading blockchain from: " << ( datadir / "chain" ).preferred_string()  << "\n";
   }
 
 } FC_RETHROW_EXCEPTIONS( warn, "unable to open blockchain from ${data_dir}", ("data_dir",datadir/"chain") ) }
 
 config load_config( const fc::path& datadir, bool enable_ulog )
 { try {
-      fc::path config_file = datadir/"config.json";
+      fc::path config_file = datadir / "config.json";
       config cfg;
       if( fc::exists( config_file ) )
       {
-         std::cout << "Loading config from file: " << config_file.generic_string() << "\n";
+         std::cout << "Loading config from file: " << config_file.preferred_string() << "\n";
          const auto default_peers = cfg.default_peers;
          cfg = fc::json::from_file( config_file ).as<config>();
 
@@ -461,10 +461,33 @@ config load_config( const fc::path& datadir, bool enable_ulog )
       }
       else
       {
-         std::cerr << "Creating default config file at: " << config_file.generic_string() << "\n";
+         std::cerr << "Creating default config file at: " << config_file.preferred_string() << "\n";
          cfg.logging = create_default_logging_config( datadir, enable_ulog );
       }
       fc::json::save_to_file( cfg, config_file );
+
+      // the logging_config may contain relative paths.  If it does, expand those to full
+      // paths, relative to the data_dir
+      for (fc::appender_config& appender : cfg.logging.appenders)
+      {
+        if (appender.type == "file")
+        {
+          try
+          {
+            fc::file_appender::config file_appender_config = appender.args.as<fc::file_appender::config>();
+            if (file_appender_config.filename.is_relative())
+            {
+              file_appender_config.filename = fc::canonical(datadir / file_appender_config.filename);
+              appender.args = fc::variant(file_appender_config);
+            }
+          }
+          catch (const fc::exception& e)
+          {
+            wlog("Unexpected exception processing logging config: ${e}", ("e", e));
+          }
+        }
+      }
+
       std::random_shuffle( cfg.default_peers.begin(), cfg.default_peers.end() );
       return cfg;
 } FC_RETHROW_EXCEPTIONS( warn, "unable to load config file ${cfg}", ("cfg",datadir/"config.json")) }
@@ -569,8 +592,9 @@ config load_config( const fc::path& datadir, bool enable_ulog )
               fc::thread*           _thread;
             };
 
-            client_impl(bts::client::client* self) :
+            client_impl(bts::client::client* self, const std::string& user_agent) :
               _self(self),
+              _user_agent(user_agent),
               _last_sync_status_message_indicated_in_sync(true),
               _last_sync_status_head_block(0),
               _remaining_items_to_sync(0),
@@ -668,7 +692,8 @@ config load_config( const fc::path& datadir, bool enable_ulog )
             virtual void error_encountered(const std::string& message, const fc::oexception& error) override;
             /// @}
 
-            bts::client::client*                                    _self = nullptr;
+            bts::client::client*                                    _self;
+            std::string                                             _user_agent;
             bts::cli::cli*                                          _cli = nullptr;
 
 #ifndef DISABLE_DELEGATE_NETWORK
@@ -1617,13 +1642,14 @@ config load_config( const fc::path& datadir, bool enable_ulog )
 
     } // end namespace detail
 
-    client::client()
-    :my( new detail::client_impl(this))
+    client::client(const std::string& user_agent)
+    :my(new detail::client_impl(this, user_agent))
     {
     }
 
-    client::client(bts::net::simulated_network_ptr network_to_connect_to)
-    : my( new detail::client_impl(this) )
+    client::client(const std::string& user_agent,
+                   bts::net::simulated_network_ptr network_to_connect_to)
+    : my( new detail::client_impl(this, user_agent) )
     {
       network_to_connect_to->add_node_delegate(my.get());
       my->_p2p_node = network_to_connect_to;
@@ -1679,26 +1705,33 @@ config load_config( const fc::path& datadir, bool enable_ulog )
             fc::remove_all( data_dir / "exceptions" );
             my->_exception_db.open( data_dir / "exceptions", true );
           }
+          //FIXME: is it really correct to continue here without rethrowing?
         }
 
+        bool attempt_to_recover_database = false;
         try
         {
           my->_chain_db->open( data_dir / "chain", genesis_file_path, reindex_status_callback );
         }
         catch( const db::db_in_use_exception& e )
         {
-          if( e.to_string().find("Corruption") != string::npos )
+          if (e.to_string().find("Corruption") != string::npos)
           {
             elog("Chain database corrupted. Deleting it and attempting to recover.");
-            fc::remove_all( data_dir / "chain" );
-            my->_chain_db->open( data_dir / "chain", genesis_file_path, reindex_status_callback );
+            attempt_to_recover_database = true;
           }
+          //FIXME: is it really correct to continue here without rethrowing?
         }
         catch ( const wrong_chain_id& )
         {
           elog("Wrong chain ID. Deleting database and attempting to recover.");
-          fc::remove_all( data_dir / "chain" );
-          my->_chain_db->open( data_dir / "chain", genesis_file_path );
+          attempt_to_recover_database = true;
+        }
+
+        if (attempt_to_recover_database)
+        {
+          fc::remove_all(data_dir / "chain");
+          my->_chain_db->open(data_dir / "chain", genesis_file_path, reindex_status_callback);
         }
 
         my->_wallet = std::make_shared<bts::wallet::wallet>( my->_chain_db, my->_config.wallet_enabled );
@@ -1714,7 +1747,7 @@ config load_config( const fc::path& datadir, bool enable_ulog )
 
         //if we are using a simulated network, _p2p_node will already be set by client's constructor
         if (!my->_p2p_node)
-          my->_p2p_node = std::make_shared<bts::net::node>();
+          my->_p2p_node = std::make_shared<bts::net::node>(my->_user_agent);
         my->_p2p_node->set_node_delegate(my.get());
 
         my->start_rebroadcast_pending_loop();
@@ -1728,7 +1761,7 @@ config load_config( const fc::path& datadir, bool enable_ulog )
     }
 
     wallet_ptr client::get_wallet()const { return my->_wallet; }
-
+    mail_client_ptr client::get_mail_client()const { return my->_mail_client; }
     mail_server_ptr client::get_mail_server()const { return my->_mail_server; }
     chain_database_ptr client::get_chain()const { return my->_chain_db; }
     bts::rpc::rpc_server_ptr client::get_rpc_server()const { return my->_rpc_server; }
@@ -2135,7 +2168,7 @@ config load_config( const fc::path& datadir, bool enable_ulog )
       try
       {
           ASSERT_TASK_NOT_PREEMPTED(); // make sure no cancel gets swallowed by catch(...)
-          if( !std::all_of( asset.begin(), asset.end(), ::isdigit) )
+          if( !std::all_of( asset.begin(), asset.end(), ::isdigit ) )
               return _chain_db->get_asset_record( asset );
           else
               return _chain_db->get_asset_record( std::stoi( asset ) );
@@ -2344,16 +2377,20 @@ config load_config( const fc::path& datadir, bool enable_ulog )
       return "key not found";
     }
 
-    mail::message detail::client_impl::wallet_mail_create(const std::string& sender,
-                                                          const std::string& recipient,
-                                                          const std::string& subject,
-                                                          const std::string& body)
+    message detail::client_impl::wallet_mail_create(const std::string& sender,
+                                                    const std::string& subject,
+                                                    const std::string& body,
+                                                    const message_id_type& reply_to)
+    {
+        return _wallet->mail_create(sender, subject, body, reply_to);
+    }
+
+    message detail::client_impl::wallet_mail_encrypt(const std::string &recipient, const message &plaintext)
     {
         auto recipient_account = _chain_db->get_account_record(recipient);
-        if (!recipient_account.valid())
-            FC_THROW_EXCEPTION(unknown_account_name, "Could not find recipient account: ${name}", ("name", recipient));
+        FC_ASSERT(recipient_account, "Unknown recipient name.");
 
-        return _wallet->mail_create(sender, recipient_account->active_key(), subject, body);
+        return _wallet->mail_encrypt(recipient_account->active_key(), plaintext);
     }
 
     mail::message detail::client_impl::wallet_mail_open(const address& recipient, const message& ciphertext)
@@ -2489,7 +2526,14 @@ config load_config( const fc::path& datadir, bool enable_ulog )
         std::cout << "Http server was not started, configuration error\n";
     }
 
-    void detail::client_impl::mail_store_message(const address& owner, const mail::message& message) {
+    void detail::client_impl::ntp_update_time()
+    {
+      FC_ASSERT(blockchain::ntp_time());
+      blockchain::update_ntp_time();
+    }
+
+    void detail::client_impl::mail_store_message(const address& owner, const mail::message& message)
+    {
       FC_ASSERT(_mail_server, "Mail server not enabled!");
       _mail_server->store(owner, message);
     }
@@ -2544,10 +2588,10 @@ config load_config( const fc::path& datadir, bool enable_ulog )
       _mail_client->archive_message(message_id);
     }
 
-    void detail::client_impl::mail_check_new_messages()
+    int detail::client_impl::mail_check_new_messages()
     {
       FC_ASSERT(_mail_client);
-      _mail_client->check_new_messages();
+      return _mail_client->check_new_messages();
     }
 
     mail::email_record detail::client_impl::mail_get_message(const mail::message_id_type& message_id) const
@@ -2579,12 +2623,14 @@ config load_config( const fc::path& datadir, bool enable_ulog )
       return forward;
     }
 
-    mail::message_id_type detail::client_impl::mail_send(const std::string &from,
-                                                         const std::string &to,
-                                                         const std::string &subject,
-                                                         const std::string &body)
+    mail::message_id_type detail::client_impl::mail_send(const std::string& from,
+                                                         const std::string& to,
+                                                         const std::string& subject,
+                                                         const std::string& body,
+                                                         const message_id_type& reply_to)
     {
-      return _mail_client->send_email(from, to, subject, body);
+      FC_ASSERT(_mail_client);
+      return _mail_client->send_email(from, to, subject, body, reply_to);
     }
 
     //JSON-RPC Method Implementations END
@@ -3050,6 +3096,8 @@ config load_config( const fc::path& datadir, bool enable_ulog )
     {
       config temp_config = load_config( _data_dir, _enable_ulog );
       fc::configure_logging( temp_config.logging );
+      // re-register the _user_appender which was overwritten by configure_logging()
+      fc::logger::get("user").add_appender(_user_appender);
     }
 
     fc::variant_object client_impl::about() const
@@ -3098,8 +3146,6 @@ config load_config( const fc::path& datadir, bool enable_ulog )
        info["symbol_size_min"]              = BTS_BLOCKCHAIN_MIN_SYMBOL_SIZE;
        info["asset_reg_fee"]                = _chain_db->get_asset_registration_fee();
        info["asset_shares_max"]             = BTS_BLOCKCHAIN_MAX_SHARES;
-
-       info["min_market_depth"]             = BTS_BLOCKCHAIN_MARKET_DEPTH_REQUIREMENT;
 
        info["max_pending_queue_size"]       = BTS_BLOCKCHAIN_MAX_PENDING_QUEUE_SIZE;
        info["max_trx_per_second"]           = BTS_BLOCKCHAIN_MAX_TRX_PER_SECOND;
@@ -3232,9 +3278,26 @@ config load_config( const fc::path& datadir, bool enable_ulog )
       return info;
     }
 
-    asset client_impl::blockchain_calculate_base_supply()const
+    asset client_impl::blockchain_calculate_supply( const string& asset )const
     {
-        return _chain_db->calculate_base_supply();
+       asset_id_type asset_id;
+       if( std::all_of( asset.begin(), asset.end(), ::isdigit ) )
+           asset_id = std::stoi( asset );
+       else
+           asset_id = _chain_db->get_asset_id( asset );
+
+       return _chain_db->calculate_supply( asset_id );
+    }
+
+    asset client_impl::blockchain_calculate_debt( const string& asset )const
+    {
+       asset_id_type asset_id;
+       if( std::all_of( asset.begin(), asset.end(), ::isdigit ) )
+           asset_id = std::stoi( asset );
+       else
+           asset_id = _chain_db->get_asset_id( asset );
+
+       return _chain_db->calculate_debt( asset_id );
     }
 
     void client_impl::wallet_rescan_blockchain( uint32_t start, uint32_t count, bool fast_scan )
@@ -3492,7 +3555,7 @@ config load_config( const fc::path& datadir, bool enable_ulog )
    }
 
    vector<market_order>    client_impl::blockchain_market_list_shorts( const string& quote_symbol,
-                                                                       uint32_t limit  )
+                                                                       uint32_t limit  )const
    {
       return _chain_db->get_market_shorts( quote_symbol, limit );
    }
@@ -3548,24 +3611,24 @@ config load_config( const fc::path& datadir, bool enable_ulog )
    }
 
    wallet_transaction_record client_impl::wallet_market_add_collateral( const std::string &from_account_name,
-                                                                        const order_id_type &short_id,
+                                                                        const order_id_type &cover_id,
                                                                         const share_type &collateral_to_add )
    {
-      const auto record = _wallet->add_collateral( from_account_name, short_id, collateral_to_add );
+      const auto record = _wallet->add_collateral( from_account_name, cover_id, collateral_to_add );
       network_broadcast_transaction( record.trx );
       return record;
    }
 
    map<order_id_type, market_order> client_impl::wallet_account_order_list( const string& account_name,
-                                                                            int64_t limit )
+                                                                            uint32_t limit )
    {
       return _wallet->get_market_orders( account_name, limit );
    }
 
    map<order_id_type, market_order> client_impl::wallet_market_order_list( const string& quote_symbol,
-                                                                            const string& base_symbol,
-                                                                            int64_t limit,
-                                                                            const string& account_name )
+                                                                           const string& base_symbol,
+                                                                           uint32_t limit,
+                                                                           const string& account_name )
    {
       return _wallet->get_market_orders( quote_symbol, base_symbol, limit, account_name );
    }
@@ -3842,13 +3905,13 @@ config load_config( const fc::path& datadir, bool enable_ulog )
       FC_ASSERT( oresult );
 
       api_market_status result(*oresult);
-      if( oresult->avg_price_1h.ratio == fc::uint128() )
+      if( oresult->center_price.ratio == fc::uint128() )
       {
         oprice median_delegate_price = _chain_db->get_median_delegate_price(qrec->id);
-        result.avg_price_1h = _chain_db->to_pretty_price_double(median_delegate_price? *median_delegate_price : price());
+        result.center_price = _chain_db->to_pretty_price_double(median_delegate_price? *median_delegate_price : price());
       }
       else
-        result.avg_price_1h = _chain_db->to_pretty_price_double(oresult->avg_price_1h);
+        result.center_price = _chain_db->to_pretty_price_double(oresult->center_price);
       return result;
    }
 
