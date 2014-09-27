@@ -311,8 +311,6 @@ namespace bts { namespace blockchain {
         
         asset cost_shares( collateral_to_add, 0);
         
-        
-        
         eval_state.sub_balance( this->owner, cost_shares);
         
         // deposit amount of chips to the owner. and update the asset record's current collateral

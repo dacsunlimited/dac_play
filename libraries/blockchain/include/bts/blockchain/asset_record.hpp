@@ -60,6 +60,7 @@ FC_REFLECT( bts::blockchain::asset_record,
             (precision)
             (registration_date)
             (last_update)
+            (current_collateral)
             (current_share_supply)
             (maximum_share_supply)
             (collected_fees)
