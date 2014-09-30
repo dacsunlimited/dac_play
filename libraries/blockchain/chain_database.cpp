@@ -769,8 +769,9 @@ namespace bts { namespace blockchain {
                   
                   // win condition
                   uint32_t lucky_number = ( ( ( block_random_num % range ) + ( dice_random_num % range ) ) % range ) * (dice_record->odds);
+                  uint32_t guess = dice_record->guess;
                   share_type jackpot = 0;
-                  if ( lucky_number < range )
+                  if ( lucky_number >= (guess - 1) * range && lucky_number < guess * range )
                   {
                       jackpot = dice_record->amount * (dice_record->odds) * (100 - BTS_BLOCKCHAIN_HOUSE_EDGE) / 100;
                       
@@ -804,7 +805,7 @@ namespace bts { namespace blockchain {
                   jackpot_trx.play_amount = dice_record->amount;
                   jackpot_trx.jackpot_received = jackpot;
                   jackpot_trx.odds = dice_record->odds;
-                  jackpot_trx.lucky_number = lucky_number;
+                  jackpot_trx.lucky_number = lucky_number / range;
                   jackpot_transactions.push_back(jackpot_trx);
               }
           }

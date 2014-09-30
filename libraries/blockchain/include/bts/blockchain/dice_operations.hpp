@@ -11,7 +11,7 @@ namespace bts { namespace blockchain {
         static const operation_type_enum type;
         dice_operation():amount(0), odds(1){}
         
-        dice_operation( const address& owner, share_type amnt, uint32_t odds = 1 );
+        dice_operation( const address& owner, share_type amnt, uint32_t odds = 2, uint32_t g = 1 );
         
         address owner()const;
         
@@ -20,6 +20,7 @@ namespace bts { namespace blockchain {
         
         share_type          amount; 
         uint32_t            odds;
+        uint32_t            guess;
         
         /** the condition that the funds may be withdrawn,
          *  this is only necessary if the address is new.
@@ -51,6 +52,6 @@ namespace bts { namespace blockchain {
      */
 } } // bts::blockchain 
 
-FC_REFLECT( bts::blockchain::dice_operation, (amount)(odds)(condition) )
+FC_REFLECT( bts::blockchain::dice_operation, (amount)(odds)(condition)(guess) )
 //FC_REFLECT( bts::blockchain::jackpot_operation, (amount)(account_id) )
 

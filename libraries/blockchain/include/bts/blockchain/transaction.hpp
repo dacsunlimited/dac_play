@@ -95,6 +95,7 @@ namespace bts { namespace blockchain {
        void play_dice( const address&  owner,
                        share_type amount,
                        uint32_t odds,
+                       uint32_t guess,
                        slate_id_type   slate_id );
        
        void buy_chips( const asset& quantity,

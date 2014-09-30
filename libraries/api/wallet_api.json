@@ -1574,7 +1574,13 @@
           {
               "name" : "odds",
               "type" : "uint32_t",
-              "description" : "the betting odds of the dice game",
+              "description" : "the betting odds of the dice game, how many sides it have",
+              "default_value": 2
+          },
+          {
+              "name" : "guess",
+              "type" : "uint32_t",
+              "description" : "the winning number player guess will be",
               "default_value": 1
           }
           ],

@@ -17,6 +17,7 @@ namespace bts { namespace blockchain {
         address             owner;
         share_type          amount;
         uint32_t            odds;
+        uint32_t            guess;
     };
     
     struct jackpot_transaction
@@ -36,7 +37,7 @@ namespace bts { namespace blockchain {
 } } // bts::blockchain
 
 FC_REFLECT( bts::blockchain::dice_record,
-           (id)(owner)(amount)(odds)
+           (id)(owner)(amount)(odds)(guess)
            )
 FC_REFLECT_TYPENAME( std::vector<bts::blockchain::jackpot_transaction> )
 FC_REFLECT( bts::blockchain::jackpot_transaction,

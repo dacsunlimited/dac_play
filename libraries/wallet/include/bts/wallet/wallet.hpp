@@ -489,7 +489,8 @@ namespace bts { namespace wallet {
          wallet_transaction_record play_dice(
                  const string& dice_account_name,
                  double amount,
-                 uint32_t odds = 1,
+                 uint32_t odds = 2,
+                 uint32_t guess = 1,
                  bool sign = true
                  );
        

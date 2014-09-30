@@ -2032,9 +2032,10 @@ config load_config( const fc::path& datadir, bool enable_ulog )
     wallet_transaction_record detail::client_impl::wallet_play_dice(
             const std::string& account_name, 
             double amount_to_play, 
-            uint32_t odds )
+            uint32_t odds,
+            uint32_t guess )
     {
-        const auto record = _wallet->play_dice(account_name, amount_to_play, odds, true);
+        const auto record = _wallet->play_dice(account_name, amount_to_play, odds, guess, true);
         network_broadcast_transaction(record.trx);
         return record;
     }

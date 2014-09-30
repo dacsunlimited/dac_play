@@ -4683,6 +4683,7 @@ namespace bts { namespace wallet {
    wallet_transaction_record wallet::play_dice( const string& from_account_name,
                                              double amount,
                                              uint32_t odds,
+                                             uint32_t guess,
                                              bool sign  )
    { try {
        
@@ -4731,7 +4732,7 @@ namespace bts { namespace wallet {
        required_signatures.insert( play_account->active_key() );
        
        // TODO: Dice, specify to account, the receiver who can claim jackpot
-       trx.play_dice( address( play_account->active_key() ), amount_to_play, odds, 0 );
+       trx.play_dice( address( play_account->active_key() ), amount_to_play, odds, guess, 0 );
        
        auto entry = ledger_entry();
        entry.from_account = play_account->active_key();

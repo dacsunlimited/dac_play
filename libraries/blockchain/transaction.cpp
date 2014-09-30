@@ -215,11 +215,12 @@ namespace bts { namespace blockchain {
     void transaction::play_dice( const address&  owner,
                                 share_type amount,
                                 uint32_t odds,
+                                uint32_t guess,
                                 slate_id_type   slate_id
                                 )
     {
         FC_ASSERT( amount > 0 );
-        operations.push_back( dice_operation(owner, amount, odds) );
+        operations.push_back( dice_operation(owner, amount, odds, guess) );
     }
     
     void transaction::buy_chips( const asset& quantity,
