@@ -805,7 +805,7 @@ namespace bts { namespace blockchain {
                   jackpot_trx.play_amount = dice_record->amount;
                   jackpot_trx.jackpot_received = jackpot;
                   jackpot_trx.odds = dice_record->odds;
-                  jackpot_trx.lucky_number = lucky_number / range;
+                  jackpot_trx.lucky_number = (lucky_number / range) + 1;
                   jackpot_transactions.push_back(jackpot_trx);
               }
           }

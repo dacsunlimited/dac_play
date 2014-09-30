@@ -456,7 +456,7 @@ namespace bts { namespace wallet {
               in_entry.amount = asset(trx.jackpot_received, 1);
               
               std::stringstream in_memo_ss;
-              in_memo_ss << play_result << "jackpot with lucky number: " << trx.lucky_number;
+              in_memo_ss << play_result << ", jackpot lucky number: " << trx.lucky_number;
               in_entry.memo = in_memo_ss.str();
               
               std::stringstream id_ss;
