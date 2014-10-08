@@ -7,11 +7,9 @@ namespace bts { namespace blockchain {
 
   struct name_config
   {
-     name_config():delegate_pay_rate(255){}
-
      std::string        name;
      public_key_type    owner;
-     int                delegate_pay_rate;
+     share_type         delegate_pay_rate = -1;
   };
 
   struct asset_config // these are all market-issued assets
@@ -23,7 +21,7 @@ namespace bts { namespace blockchain {
      uint64_t          init_supply;
      uint64_t          init_collateral;
   };
-  
+
   struct genesis_block_config
   {
      fc::time_point_sec                         timestamp;

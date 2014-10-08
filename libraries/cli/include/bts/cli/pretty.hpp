@@ -35,6 +35,7 @@ string pretty_delegate_list( const vector<account_record>& delegate_records, cpt
 string pretty_block_list( const vector<block_record>& block_records, cptr client );
 
 string pretty_transaction_list( const vector<pretty_transaction>& transactions, cptr client );
+string pretty_experimental_transaction_list( const set<pretty_transaction_experimental>& transactions, cptr client );
 
 string pretty_asset_list( const vector<asset_record>& asset_records, cptr client );
 
@@ -44,6 +45,6 @@ string pretty_balances( const account_balance_summary_type& balances, cptr clien
 
 string pretty_vote_summary( const account_vote_summary_type& votes, cptr client );
 
-string pretty_order_list( const map<order_id_type, market_order>& order_items, cptr client );
+string pretty_order_list( const vector<std::pair<order_id_type, market_order>>& order_items, cptr client );
 
 } } // bts::cli

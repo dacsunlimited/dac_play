@@ -68,6 +68,11 @@ namespace bts { namespace blockchain {
          string                             to_pretty_price( const price& a )const;
          /** converts a numeric string + asset symbol to an asset */
          asset                              to_ugly_asset( const string& amount, const string& symbol )const;
+         /** converts a numeric string and two asset symbols to a price */
+         price                              to_ugly_price( const string& price_string,
+                                                           const string& base_symbol,
+                                                           const string& quote_symbol,
+                                                           bool do_precision_dance = true )const;
 
          virtual void                       store_burn_record( const burn_record& br ) = 0;
          virtual oburn_record               fetch_burn_record( const burn_record_key& key )const = 0;
@@ -80,13 +85,11 @@ namespace bts { namespace blockchain {
 
          virtual fc::ripemd160              get_current_random_seed()const                                  = 0;
 
-         share_type                         get_delegate_pay_rate()const;
-
          virtual odelegate_slate            get_delegate_slate( slate_id_type id )const                     = 0;
          virtual void                       store_delegate_slate( slate_id_type id,
                                                                   const delegate_slate& slate )             = 0;
 
-         virtual share_type                 get_delegate_registration_fee()const;
+         virtual share_type                 get_delegate_registration_fee( share_type pay_rate )const;
          virtual share_type                 get_asset_registration_fee()const;
 
          virtual int64_t                    get_required_confirmations()const;
@@ -176,8 +179,8 @@ namespace bts { namespace blockchain {
                                                                          const market_history_record& record ) = 0;
          virtual omarket_history_record     get_market_history_record( const market_history_key& key )const = 0;
 
-         virtual map<asset_id_type, asset_id_type>  get_dirty_markets()const;
-         virtual void                               set_dirty_markets( const map<asset_id_type,asset_id_type>& );
+         virtual void set_dirty_markets( const std::set<std::pair<asset_id_type, asset_id_type>>& );
+         virtual std::set<std::pair<asset_id_type, asset_id_type>> get_dirty_markets()const;
 
          virtual void                       set_jackpot_transactions( vector<jackpot_transaction> trxs ) = 0;
          virtual void                       set_market_transactions( vector<market_transaction> trxs )      = 0;

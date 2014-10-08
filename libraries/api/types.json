@@ -308,6 +308,10 @@
         "default_example" : "TODO"
       },
       {
+        "type_name" : "experimental_transactions",
+        "cpp_return_type" : "std::set<bts::wallet::pretty_transaction_experimental>"
+      },
+      {
          "type_name" : "account_balance_summary_type",
          "cpp_return_type" : "bts::wallet::account_balance_summary_type"
       },
@@ -327,6 +331,21 @@
       {
          "type_name" : "order_id",
          "cpp_return_type" : "bts::blockchain::order_id_type"
+      },
+      {
+         "type_name" : "order_ids",
+         "container_type" : "array",
+         "contained_type" : "order_id"
+      },
+      {
+         "type_name" : "order_description",
+         "cpp_return_type" : "bts::wallet::order_description",
+         "cpp_include_file" : "bts/wallet/wallet.hpp"
+      },
+      {
+         "type_name" : "order_descriptions",
+         "container_type" : "array",
+         "contained_type" : "order_description"
       },
       {
          "type_name" : "market_order_map",

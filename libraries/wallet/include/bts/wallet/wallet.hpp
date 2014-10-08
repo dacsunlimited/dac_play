@@ -1,10 +1,12 @@
 #pragma once
 
+
 #include <bts/blockchain/chain_database.hpp>
 #include <bts/blockchain/config.hpp>
 #include <bts/mail/message.hpp>
 #include <bts/wallet/pretty.hpp>
 #include <bts/wallet/wallet_db.hpp>
+#include <bts/wallet/transaction_builder.hpp>
 #include <fc/signals.hpp>
 
 namespace bts { namespace wallet {
@@ -16,6 +18,7 @@ namespace bts { namespace wallet {
    typedef map<string, vector<balance_id_type>> account_balance_id_summary_type;
    typedef map<string, map<asset_id_type, share_type>> account_balance_summary_type;
    typedef map<string, int64_t> account_vote_summary_type;
+   typedef std::pair<order_type_enum, vector<string>> order_description;
 
    enum delegate_status_flags
    {
@@ -154,6 +157,10 @@ namespace bts { namespace wallet {
          void      scan_chain( uint32_t start = 0, uint32_t end = -1, bool fast_scan = false );
 
          wallet_transaction_record         scan_transaction( const string& transaction_id_prefix, bool overwrite_existing );
+         void                              scan_transaction_experimental( const string& transaction_id_prefix, bool overwrite_existing );
+
+         set<pretty_transaction_experimental> transaction_history_experimental( const string& account_name );
+         pretty_transaction_experimental to_pretty_transaction_experimental( const transaction_ledger_entry& record );
 
          vector<wallet_transaction_record> get_transactions( const string& transaction_id_prefix );
 
@@ -217,6 +224,11 @@ namespace bts { namespace wallet {
          vector<wallet_account_record> list_favorite_accounts()const;
          vector<wallet_account_record> list_unregistered_accounts()const;
          vector<wallet_account_record> list_my_accounts()const;
+
+         std::shared_ptr<transaction_builder> create_transaction_builder()
+         {
+            return std::make_shared<transaction_builder>(my.get());
+         }
 
          uint32_t import_bitcoin_wallet(
                  const path& wallet_dat,
@@ -334,29 +346,34 @@ namespace bts { namespace wallet {
          wallet_transaction_record register_account(
                  const string& account_name,
                  const variant& json_data,
-                 uint8_t delegate_pay_rate,
+                 share_type delegate_pay_rate,
                  const string& pay_with_account_name,
+                 bts::blockchain::account_type new_account_type = titan_account,
                  bool sign = true
                  );
+
          wallet_transaction_record update_registered_account(
                  const string& account_name,
                  const string& pay_from_account,
                  optional<variant> public_data,
-                 uint8_t delegate_pay_rate = 255,
+                 share_type delegate_pay_rate,
                  bool sign = true
                  );
+
          wallet_transaction_record update_active_key(
                  const std::string& account_to_update,
                  const std::string& pay_from_account,
                  const std::string& new_active_key,
                  bool sign = true
                  );
+
          wallet_transaction_record withdraw_delegate_pay(
                  const string& delegate_name,
                  double amount_to_withdraw,
                  const string& withdraw_to_account_name,
                  bool sign = true
                  );
+
          wallet_transaction_record publish_feeds(
                  const string& account,
                  map<string,double> amount_per_xts,
@@ -401,11 +418,10 @@ namespace bts { namespace wallet {
           *
           *  Requires the user have 6003.4 USD
           */
-         wallet_transaction_record submit_bid(
-                 const string& from_account_name,
-                 double real_quantity,
+         wallet_transaction_record submit_bid(const string& from_account_name,
+                 const string& real_quantity,
                  const string& quantity_symbol,
-                 double price_per_unit,
+                 const string& price_per_unit,
                  const string& quote_symbol,
                  bool sign = true
                  );
@@ -414,11 +430,10 @@ namespace bts { namespace wallet {
           *
           *  Requires the user have 10 BTC + fees
           */
-         wallet_transaction_record submit_ask(
-                 const string& from_account_name,
-                 double real_quantity,
+         wallet_transaction_record submit_ask(const string& from_account_name,
+                 const string& real_quantity,
                  const string& quantity_symbol,
-                 double price_per_unit,
+                 const string& price_per_unit,
                  const string& quote_symbol,
                  bool sign = true
                  );
@@ -427,17 +442,16 @@ namespace bts { namespace wallet {
           *
           *  Requires the user have 10 / 600.34 XTS + fees
           */
-         wallet_transaction_record submit_short(
-                 const string& from_account_name,
-                 double real_quantity_usd,
+         wallet_transaction_record submit_short(const string& from_account_name,
+                 const string& real_quantity_usd,
                  const string& quote_symbol,
-                 double collateral_per_usd,
-                 double price_limit = 0,
+                 const string& collateral_per_usd, const string& collateral_symbol,
+                 const string& price_limit = 0,
                  bool sign = true
                  );
          wallet_transaction_record cover_short(
                  const string& from_account_name,
-                 double real_quantity_usd,
+                 const string& real_quantity_usd,
                  const string& quote_symbol,
                  const order_id_type& short_id,
                  bool sign = true
@@ -448,8 +462,8 @@ namespace bts { namespace wallet {
                  share_type collateral_to_add,
                  bool sign = true
                  );
-         wallet_transaction_record cancel_market_order(
-                 const order_id_type& order_id,
+         wallet_transaction_record cancel_market_orders(
+                 const vector<order_id_type>& order_ids,
                  bool sign = true
                  );
 

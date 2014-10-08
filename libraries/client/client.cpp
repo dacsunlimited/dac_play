@@ -66,12 +66,12 @@
 
 #include <openssl/opensslv.h>
 
-#include <iostream>
 #include <algorithm>
 #include <fstream>
 #include <iomanip>
+#include <iostream>
+#include <set>
 
-#include <boost/lexical_cast.hpp>
 using namespace boost;
 using std::string;
 
@@ -477,7 +477,7 @@ config load_config( const fc::path& datadir, bool enable_ulog )
             fc::file_appender::config file_appender_config = appender.args.as<fc::file_appender::config>();
             if (file_appender_config.filename.is_relative())
             {
-              file_appender_config.filename = fc::canonical(datadir / file_appender_config.filename);
+              file_appender_config.filename = fc::absolute(datadir / file_appender_config.filename);
               appender.args = fc::variant(file_appender_config);
             }
           }
@@ -599,6 +599,9 @@ config load_config( const fc::path& datadir, bool enable_ulog )
               _last_sync_status_head_block(0),
               _remaining_items_to_sync(0),
               _sync_speed_accumulator(boost::accumulators::tag::rolling_window::window_size = 5),
+              _connection_count_notification_interval(fc::minutes(5)),
+              _connection_count_always_notify_threshold(5),
+              _connection_count_last_value_displayed(0),
               _blockchain_synopsis_size_limit((unsigned)(log2(BTS_BLOCKCHAIN_BLOCKS_PER_YEAR * 20)))
             {
             try
@@ -689,6 +692,7 @@ config load_config( const fc::path& datadir, bool enable_ulog )
             virtual uint32_t get_block_number(const bts::net::item_hash_t& block_id) override;
             virtual fc::time_point_sec get_block_time(const bts::net::item_hash_t& block_id) override;
             virtual fc::time_point_sec get_blockchain_now() override;
+            virtual bts::net::item_hash_t get_head_block_id() const;
             virtual void error_encountered(const std::string& message, const fc::oexception& error) override;
             /// @}
 
@@ -728,6 +732,13 @@ config load_config( const fc::path& datadir, bool enable_ulog )
             uint32_t                                                _last_sync_status_head_block;
             uint32_t                                                _remaining_items_to_sync;
             boost::accumulators::accumulator_set<double, boost::accumulators::stats<boost::accumulators::tag::rolling_mean> > _sync_speed_accumulator;
+
+            fc::time_point                                          _last_connection_count_message_time;
+            /** display messages about the connection count changing at most once every _connection_count_notification_interval */
+            fc::microseconds                                        _connection_count_notification_interval;
+            /** exception: if you have fewer than _connection_count_always_notify_threshold connections, notify any time the count changes */
+            uint32_t                                                _connection_count_always_notify_threshold;
+            uint32_t                                                _connection_count_last_value_displayed;
 
             config                                                  _config;
             logging_exception_db                                    _exception_db;
@@ -1088,10 +1099,10 @@ config load_config( const fc::path& datadir, bool enable_ulog )
           }
           else
           {
-            wlog( " rebroadcasting..." );
             try
             {
               signed_transactions pending = blockchain_list_pending_transactions();
+              wlog( "rebroadcasting ${trx_count}", ("trx_count",pending.size()) );
               for( auto trx : pending )
               {
                 network_broadcast_transaction( trx );
@@ -1558,9 +1569,17 @@ config load_config( const fc::path& datadir, bool enable_ulog )
 
        void client_impl::connection_count_changed(uint32_t new_connection_count)
        {
-         std::ostringstream message;
-         message << "--- there are now " << new_connection_count << " active connections to the p2p network";
-         ulog( message.str() );
+         fc::time_point now(fc::time_point::now());
+         if (new_connection_count != _connection_count_last_value_displayed &&
+             (new_connection_count < _connection_count_always_notify_threshold ||
+              now > _last_connection_count_message_time + _connection_count_notification_interval))
+         {
+           _last_connection_count_message_time = now;
+           _connection_count_last_value_displayed = new_connection_count;
+           std::ostringstream message;
+           message << "--- there are now " << new_connection_count << " active connections to the p2p network";
+           ulog( message.str() );
+         }
          if (_notifier)
            _notifier->notify_connection_count_changed(new_connection_count);
        }
@@ -1597,9 +1616,18 @@ config load_config( const fc::path& datadir, bool enable_ulog )
            return fc::time_point_sec::min();
          }
        }
+
        fc::time_point_sec client_impl::get_blockchain_now()
        {
-         return bts::blockchain::now();
+         // this function is called by the p2p network code in the p2p thread, since there is no reason to 
+         // proxy this to the 
+         ASSERT_TASK_NOT_PREEMPTED();
+         return bts::blockchain::nonblocking_now();
+       }
+
+       bts::net::item_hash_t client_impl::get_head_block_id() const
+       {
+         return _chain_db->get_head_block_id();
        }
 
       void client_impl::error_encountered(const std::string& message, const fc::oexception& error)
@@ -2430,16 +2458,14 @@ config load_config( const fc::path& datadir, bool enable_ulog )
       return _chain_db->get_assets( first, limit );
     }
 
-    std::vector<fc::variant_object> detail::client_impl::network_get_peer_info( bool not_firewalled )const
+    std::vector<fc::variant_object> detail::client_impl::network_get_peer_info( bool hide_firewalled_nodes )const
     {
       std::vector<fc::variant_object> results;
-      vector<bts::net::peer_status> peer_statuses = _p2p_node->get_connected_peers();
+      std::vector<bts::net::peer_status> peer_statuses = _p2p_node->get_connected_peers();
       for (const bts::net::peer_status& peer_status : peer_statuses)
-      {
-        const auto& info = peer_status.info;
-        if( not_firewalled && ( info["firewall_status"].as_string() != "not_firewalled" ) ) continue;
-        results.push_back( info );
-      }
+        if(!hide_firewalled_nodes ||
+           peer_status.info["firewall_status"].as_string() == "not_firewalled")
+          results.push_back(peer_status.info);
       return results;
     }
 
@@ -2460,9 +2486,10 @@ config load_config( const fc::path& datadir, bool enable_ulog )
 
     void detail::client_impl::network_add_node(const string& node, const string& command)
     {
-      if (_p2p_node)
-        if (command == "add")
-          _self->connect_to_peer(node);
+      if (command == "add")
+        _self->connect_to_peer(node);
+      else
+        FC_THROW_EXCEPTION(fc::invalid_arg_exception, "unsupported command argument \"${command}\", valid commands are: \"add\"", ("command", command));
     }
 
     void detail::client_impl::stop()
@@ -2529,7 +2556,7 @@ config load_config( const fc::path& datadir, bool enable_ulog )
 
     void detail::client_impl::ntp_update_time()
     {
-      FC_ASSERT(blockchain::ntp_time());
+      blockchain::ntp_time(); // this is just called to ensure the NTP time service is running
       blockchain::update_ntp_time();
     }
 
@@ -3137,7 +3164,6 @@ config load_config( const fc::path& datadir, bool enable_ulog )
        info["relay_fee"]                    = _chain_db->get_relay_fee();
 
        info["delegate_num"]                 = BTS_BLOCKCHAIN_NUM_DELEGATES;
-       info["delegate_reg_fee"]             = _chain_db->get_delegate_registration_fee();
 
        info["name_size_max"]                = BTS_BLOCKCHAIN_MAX_NAME_SIZE;
        info["memo_size_max"]                = BTS_BLOCKCHAIN_MAX_MEMO_SIZE;
@@ -3178,8 +3204,6 @@ config load_config( const fc::path& datadir, bool enable_ulog )
           info["blockchain_average_delegate_participation"]     = participation;
 
       info["blockchain_confirmation_requirement"]               = _chain_db->get_required_confirmations();
-
-      info["blockchain_delegate_pay_rate"]                      = _chain_db->get_delegate_pay_rate();
 
       info["blockchain_share_supply"]                           = variant();
       const auto share_record                                   = _chain_db->get_asset_record( BTS_ADDRESS_PREFIX );
@@ -3311,6 +3335,22 @@ config load_config( const fc::path& datadir, bool enable_ulog )
        return _wallet->scan_transaction( transaction_id, overwrite_existing );
     } FC_RETHROW_EXCEPTIONS( warn, "", ("transaction_id",transaction_id)("overwrite_existing",overwrite_existing) ) }
 
+    void client_impl::wallet_scan_transaction_experimental( const string& transaction_id, bool overwrite_existing )
+    { try {
+#ifndef BTS_TEST_NETWORK
+       FC_ASSERT( !"This command is for developer testing only!" );
+#endif
+       _wallet->scan_transaction_experimental( transaction_id, overwrite_existing );
+    } FC_RETHROW_EXCEPTIONS( warn, "", ("transaction_id",transaction_id)("overwrite_existing",overwrite_existing) ) }
+
+    set<pretty_transaction_experimental> client_impl::wallet_transaction_history_experimental( const string& account_name )const
+    { try {
+#ifndef BTS_TEST_NETWORK
+       FC_ASSERT( !"This command is for developer testing only!" );
+#endif
+       return _wallet->transaction_history_experimental( account_name );
+    } FC_RETHROW_EXCEPTIONS( warn, "", ("account_name",account_name) ) }
+
     wallet_transaction_record client_impl::wallet_get_transaction( const string& transaction_id )
     { try {
        return _wallet->get_transaction( transaction_id );
@@ -3350,9 +3390,10 @@ config load_config( const fc::path& datadir, bool enable_ulog )
     wallet_transaction_record client_impl::wallet_account_register( const string& account_name,
                                                                     const string& pay_with_account,
                                                                     const fc::variant& data,
-                                                                    uint8_t delegate_pay_rate )
+                                                                    const share_type& delegate_pay_rate,
+                                                                    const string& new_account_type )
     { try {
-        const auto record = _wallet->register_account( account_name, data, delegate_pay_rate, pay_with_account );
+        const auto record = _wallet->register_account( account_name, data, delegate_pay_rate, pay_with_account, variant(new_account_type).as<account_type>() );
         network_broadcast_transaction( record.trx );
         return record;
     } FC_RETHROW_EXCEPTIONS(warn, "", ("account_name", account_name)("data", data)) }
@@ -3372,7 +3413,7 @@ config load_config( const fc::path& datadir, bool enable_ulog )
             const string& account_to_update,
             const string& pay_from_account,
             const variant& public_data,
-            uint8_t delegate_pay_rate )
+            const share_type& delegate_pay_rate )
     {
        const auto record = _wallet->update_registered_account( account_to_update, pay_from_account, public_data, delegate_pay_rate );
        network_broadcast_transaction( record.trx );
@@ -3452,9 +3493,9 @@ config load_config( const fc::path& datadir, bool enable_ulog )
 
    wallet_transaction_record client_impl::wallet_market_submit_bid(
            const string& from_account,
-           double quantity,
+           const string& quantity,
            const string& quantity_symbol,
-           double quote_price,
+           const string& quote_price,
            const string& quote_symbol,
            bool allow_stupid_bid )
    {
@@ -3473,9 +3514,9 @@ config load_config( const fc::path& datadir, bool enable_ulog )
 
    wallet_transaction_record client_impl::wallet_market_submit_ask(
                const string& from_account,
-               double quantity,
+               const string& quantity,
                const string& quantity_symbol,
-               double quote_price,
+               const string& quote_price,
                const string& quote_symbol,
                bool allow_stupid_ask )
    {
@@ -3494,19 +3535,35 @@ config load_config( const fc::path& datadir, bool enable_ulog )
 
    wallet_transaction_record client_impl::wallet_market_submit_short(
            const string& from_account,
-           double quantity,
+           const string& quantity,
            const string& quote_symbol,
-           double collateral_ratio,
-           double short_price_limit )
+           const string& collateral_ratio,
+           const string& collateral_symbol,
+           const string& short_price_limit )
    {
-      const auto record = _wallet->submit_short( from_account, quantity, quote_symbol, collateral_ratio, short_price_limit );
+      const auto record = _wallet->submit_short( from_account,
+                                                 quantity,
+                                                 quote_symbol,
+                                                 collateral_ratio,
+                                                 collateral_symbol,
+                                                 short_price_limit );
       network_broadcast_transaction( record.trx );
+      return record;
+   }
+
+   wallet_transaction_record client_impl::wallet_market_batch_update(const std::vector<order_id_type> &cancel_order_ids,
+                                                                     const std::vector<order_description> &new_orders,
+                                                                     bool sign)
+   {
+      const auto record = _wallet->batch_market_update(cancel_order_ids, new_orders, sign);
+      if( sign )
+         network_broadcast_transaction( record.trx );
       return record;
    }
 
    wallet_transaction_record client_impl::wallet_market_cover(
            const string& from_account,
-           double quantity,
+           const string& quantity,
            const string& quantity_symbol,
            const order_id_type& cover_id )
    {
@@ -3534,6 +3591,8 @@ config load_config( const fc::path& datadir, bool enable_ulog )
 
    asset client_impl::wallet_get_transaction_fee( const string& fee_symbol )
    {
+      if( fee_symbol.empty() )
+         return _wallet->get_transaction_fee( _chain_db->get_asset_id( BTS_BLOCKCHAIN_SYMBOL ) );
       return _wallet->get_transaction_fee( _chain_db->get_asset_id( fee_symbol ) );
    }
 
@@ -3636,7 +3695,14 @@ config load_config( const fc::path& datadir, bool enable_ulog )
 
    wallet_transaction_record client_impl::wallet_market_cancel_order( const order_id_type& order_id )
    {
-      const auto record = _wallet->cancel_market_order( order_id );
+      const auto record = _wallet->cancel_market_orders( {order_id} );
+      network_broadcast_transaction( record.trx );
+      return record;
+   }
+
+   wallet_transaction_record client_impl::wallet_market_cancel_orders( const vector<order_id_type>& order_ids )
+   {
+      const auto record = _wallet->cancel_market_orders( order_ids );
       network_broadcast_transaction( record.trx );
       return record;
    }
@@ -3787,6 +3853,18 @@ config load_config( const fc::path& datadir, bool enable_ulog )
           return _chain_db->get_block_signee( block_id_type( block ) ).name;
       else
           return _chain_db->get_block_signee( std::stoi( block ) ).name;
+   }
+
+   bool client_impl::blockchain_verify_signature(const string& signing_account, const fc::sha256& hash, const fc::ecc::compact_signature& signature) const
+   {
+      oaccount_record rec = blockchain_get_account(signing_account);
+      if (!rec.valid())
+        return false;
+
+      // logic shamelessly copy-pasted from signed_block_header::validate_signee()
+      // NB LHS of == operator is bts::blockchain::public_key_type and RHS is fc::ecc::public_key,
+      //   the opposite order won't compile (look at operator== prototype in public_key_type class declaration)
+      return rec->active_key() == fc::ecc::public_key(signature, hash);
    }
 
    void client_impl::debug_start_simulated_time(const fc::time_point& starting_time)

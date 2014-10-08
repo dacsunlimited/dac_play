@@ -123,8 +123,6 @@ namespace bts { namespace blockchain {
               FC_CAPTURE_AND_THROW( unknown_asset_id, (fee.first) );
 
             asset_record->collected_fees += fee.second;
-            // collecting fees should not decrease share supply.
-            // asset_record->current_share_supply -= fee.second;
             _current_state->store_asset_record( *asset_record );
          }
       }
@@ -171,9 +169,11 @@ namespace bts { namespace blockchain {
               signed_keys.insert( address(pts_address(key,true,0) )   );
            }
         }
+        _current_op_index = 0;
         for( const auto& op : trx.operations )
         {
            evaluate_operation( op );
+           ++_current_op_index;
         }
         post_evaluate();
         validate_required_fee();
@@ -247,8 +247,10 @@ namespace bts { namespace blockchain {
       }
       else
       {
-          balance[amount.asset_id] =  -amount.amount;
+          balance[amount.asset_id] = -amount.amount;
       }
+
+      deltas[ _current_op_index ] = amount;
    }
 
    void transaction_evaluation_state::add_balance( const asset& amount )
@@ -264,6 +266,8 @@ namespace bts { namespace blockchain {
          balance[amount.asset_id] = amount.amount;
       else
          balance_itr->second += amount.amount;
+
+      deltas[ _current_op_index ] = -amount;
    }
 
    /**

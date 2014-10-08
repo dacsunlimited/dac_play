@@ -4,6 +4,8 @@
 
 namespace bts { namespace blockchain {
 
+    //account_type multisig_meta_info::type = multisig_account;
+
     bool account_record::is_null()const
     {
         return owner_key == public_key_type();
@@ -63,10 +65,10 @@ namespace bts { namespace blockchain {
         return public_key_type();
     }
 
-    uint8_t account_record::delegate_pay_rate()const
+    share_type account_record::delegate_pay_rate()const
     {
         if( is_delegate() ) return delegate_info->pay_rate;
-        return 255;
+        return -1;
     }
 
 }} // bts::blockchain

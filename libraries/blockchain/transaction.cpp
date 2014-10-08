@@ -34,6 +34,17 @@ namespace bts { namespace blockchain {
       return fc::ripemd160::hash( enc.result() );
    }
 
+   transaction_id_type signed_transaction::permanent_id()const
+   {
+      signed_transaction cpy( *this );
+      cpy.signatures.clear();
+      // TODO: get rid of sha512 above
+      //return cpy.id();
+      fc::ripemd160::encoder enc;
+      fc::raw::pack( enc, cpy );
+      return enc.result();
+   }
+
    void signed_transaction::sign( const fc::ecc::private_key& signer, const digest_type& chain_id )
    {
       signatures.push_back( signer.sign_compact( digest(chain_id) ) );
@@ -76,13 +87,13 @@ namespace bts { namespace blockchain {
    }
 
    void transaction::short_sell( const asset& quantity,
-                          const price& price_per_unit,
-                          const address& owner,
-                          const optional<price>& limit_price )
+                                 const price& interest_rate,
+                                 const address& owner,
+                                 const optional<price>& limit_price )
    {
       short_operation op;
       op.amount = quantity.amount;
-      op.short_index.order_price = price_per_unit;
+      op.short_index.order_price = interest_rate;
       op.short_index.owner = owner;
       op.short_price_limit = limit_price;
 
@@ -110,6 +121,17 @@ namespace bts { namespace blockchain {
       FC_ASSERT( amount.amount > 0, "amount: ${amount}", ("amount",amount) );
       operations.push_back( deposit_operation( owner, amount, slate_id ) );
    }
+   void transaction::deposit_multisig( const multisig_meta_info& multsig_info,
+                              const asset&    amount,
+                              slate_id_type   slate_id )
+   {
+      FC_ASSERT( amount.amount > 0, "amount: ${amount}", ("amount",amount) );
+      deposit_operation op;
+      op.amount = amount.amount;
+      op.condition = withdraw_condition( withdraw_with_multi_sig{multsig_info.required,multsig_info.owners}, amount.asset_id, slate_id );
+      operations.push_back( op );
+   }
+
 
    void transaction::deposit_to_account( fc::ecc::public_key receiver_key,
                                          asset amount,
@@ -140,14 +162,16 @@ namespace bts { namespace blockchain {
                                        const fc::variant& public_data,
                                        const public_key_type& master,
                                        const public_key_type& active,
-                                       uint8_t pay_rate )
+                                       share_type pay_rate,
+                                       optional<account_meta_info> info )
    {
-      const auto op = register_account_operation( name, public_data, master, active, pay_rate );
+      register_account_operation op( name, public_data, master, active, pay_rate );
+      op.meta_data = info;
       operations.push_back( op );
    }
 
    void transaction::update_account( account_id_type account_id,
-                                  uint8_t delegate_pay_rate,
+                                  share_type delegate_pay_rate,
                                   const fc::optional<fc::variant>& public_data,
                                   const fc::optional<public_key_type>& active   )
    {
@@ -247,6 +271,7 @@ namespace bts { namespace blockchain {
    {
       operations.push_back( issue_asset_operation( amount_to_issue ) );
    }
+
    void transaction::cover( const asset& cover_amount,
                             const market_index_key& order_idx )
    {

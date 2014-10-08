@@ -25,14 +25,17 @@ namespace bts{ namespace blockchain {
       return address();
    }
 
-   share_type chain_interface::get_delegate_registration_fee()const
+   share_type chain_interface::get_delegate_registration_fee( share_type pay_rate )const
    {
-      return (get_delegate_pay_rate() * BTS_BLOCKCHAIN_DELEGATE_REGISTRATION_FEE)/BTS_BLOCKCHAIN_NUM_DELEGATES;
+      FC_ASSERT( pay_rate >= 0 );
+      return pay_rate * BTS_BLOCKCHAIN_NUM_DELEGATES;
    }
 
+   // TODO: Do not price fix this
    share_type chain_interface::get_asset_registration_fee()const
    {
-      return (get_delegate_pay_rate() * BTS_BLOCKCHAIN_ASSET_REGISTRATION_FEE);
+      //return (get_delegate_pay_rate() * BTS_BLOCKCHAIN_ASSET_REGISTRATION_FEE);
+      return BTS_BLOCKCHAIN_ASSET_REGISTRATION_FEE;
    }
 
    bool chain_interface::is_valid_account_name( const std::string& str )const
@@ -172,7 +175,26 @@ namespace bts{ namespace blockchain {
          fraction_string.erase(0, 1);
       }
       return asset(whole > 0? whole + fraction : whole - fraction, record->id);
-   } FC_CAPTURE_AND_RETHROW( (amount)(symbol) ) }
+       } FC_CAPTURE_AND_RETHROW( (amount)(symbol) ) }
+
+   price chain_interface::to_ugly_price(const std::string& price_string,
+                                        const std::string& base_symbol,
+                                        const std::string& quote_symbol,
+                                        bool do_precision_dance) const
+   { try {
+      auto base_record = get_asset_record(base_symbol);
+      auto quote_record = get_asset_record(quote_symbol);
+      if( !base_record ) FC_CAPTURE_AND_THROW( unknown_asset_symbol, (base_symbol) );
+      if( !quote_record ) FC_CAPTURE_AND_THROW( unknown_asset_symbol, (quote_symbol) );
+
+      price ugly_price(price_string + " " + std::to_string(quote_record->id) + " / " + std::to_string(base_record->id));
+      if( do_precision_dance )
+      {
+         ugly_price.ratio *= quote_record->get_precision();
+         ugly_price.ratio /= base_record->get_precision();
+      }
+      return ugly_price;
+   } FC_CAPTURE_AND_RETHROW( (price_string)(base_symbol)(quote_symbol) ) }
 
    string chain_interface::to_pretty_asset( const asset& a )const
    {
@@ -211,26 +233,21 @@ namespace bts{ namespace blockchain {
       return true;
    }
 
-   share_type chain_interface::get_delegate_pay_rate()const
+   void chain_interface::set_dirty_markets( const std::set<std::pair<asset_id_type, asset_id_type>>& d )
    {
-       const auto base_record = get_asset_record( asset_id_type( 0 ) );
-       FC_ASSERT( base_record.valid() );
-       return base_record->collected_fees / (BTS_BLOCKCHAIN_BLOCKS_PER_DAY * 14);
+       set_property( dirty_markets, fc::variant( d ) );
    }
 
-   map<asset_id_type, asset_id_type> chain_interface::get_dirty_markets()const
+   std::set<std::pair<asset_id_type, asset_id_type>> chain_interface::get_dirty_markets()const
    {
-      try{
-         return get_property( dirty_markets ).as<map<asset_id_type,asset_id_type> >();
-      } catch ( ... )
-      {
-         return map<asset_id_type,asset_id_type>();
-      }
-   }
-
-   void chain_interface::set_dirty_markets( const map<asset_id_type,asset_id_type>& d )
-   {
-      set_property( dirty_markets, fc::variant(d) );
+       try
+       {
+           return get_property( dirty_markets ).as<std::set<std::pair<asset_id_type, asset_id_type>>>();
+       }
+       catch( ... )
+       {
+       }
+       return std::set<std::pair<asset_id_type, asset_id_type>>();
    }
 
 } } // bts::blockchain
