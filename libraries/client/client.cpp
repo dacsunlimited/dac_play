@@ -64,6 +64,8 @@
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/version.hpp>
 
+#include <boost/filesystem/fstream.hpp>
+
 #include <openssl/opensslv.h>
 
 #include <algorithm>
@@ -216,7 +218,7 @@ string extract_commands_from_log_file(fc::path test_file)
     FC_THROW( ("Unable to input-log-file: \"" + test_file.string() + "\" not found!").c_str() );
   else
     ulog("Extracting commands from input log file: ${log}",("log",test_file.string() ) );
-  std::ifstream test_input(test_file.string());
+  boost::filesystem::ifstream test_input(test_file);
   return extract_commands_from_log_stream(test_input);
 }
 
@@ -622,6 +624,8 @@ config load_config( const fc::path& datadir, bool enable_ulog )
             {
               cancel_blocks_too_old_monitor_task();
               cancel_rebroadcast_pending_loop();
+              if( _chain_downloader_future.valid() && !_chain_downloader_future.ready() )
+                 _chain_downloader_future.cancel_and_wait(__FUNCTION__);
               _p2p_node.reset();
               delete _cli;
             }
@@ -692,7 +696,8 @@ config load_config( const fc::path& datadir, bool enable_ulog )
             virtual uint32_t get_block_number(const bts::net::item_hash_t& block_id) override;
             virtual fc::time_point_sec get_block_time(const bts::net::item_hash_t& block_id) override;
             virtual fc::time_point_sec get_blockchain_now() override;
-            virtual bts::net::item_hash_t get_head_block_id() const;
+            virtual bts::net::item_hash_t get_head_block_id() const override;
+            virtual uint32_t estimate_last_known_fork_from_git_revision_timestamp(uint32_t unix_timestamp) const override;
             virtual void error_encountered(const std::string& message, const fc::oexception& error) override;
             /// @}
 
@@ -732,6 +737,10 @@ config load_config( const fc::path& datadir, bool enable_ulog )
             uint32_t                                                _last_sync_status_head_block;
             uint32_t                                                _remaining_items_to_sync;
             boost::accumulators::accumulator_set<double, boost::accumulators::stats<boost::accumulators::tag::rolling_mean> > _sync_speed_accumulator;
+
+            fc::future<void>                                        _chain_downloader_future;
+            bool                                                    _chain_downloader_running = false;
+            uint32_t                                                _chain_downloader_blocks_remaining = 0;
 
             fc::time_point                                          _last_connection_count_message_time;
             /** display messages about the connection count changing at most once every _connection_count_notification_interval */
@@ -1619,16 +1628,21 @@ config load_config( const fc::path& datadir, bool enable_ulog )
 
        fc::time_point_sec client_impl::get_blockchain_now()
        {
-         // this function is called by the p2p network code in the p2p thread, since there is no reason to 
-         // proxy this to the 
+         // this function is called by the p2p network code in the p2p thread, since there is no reason to
+         // proxy this to the
          ASSERT_TASK_NOT_PREEMPTED();
          return bts::blockchain::nonblocking_now();
        }
 
-       bts::net::item_hash_t client_impl::get_head_block_id() const
-       {
-         return _chain_db->get_head_block_id();
-       }
+      bts::net::item_hash_t client_impl::get_head_block_id() const
+      {
+        return _chain_db->get_head_block_id();
+      }
+
+      uint32_t client_impl::estimate_last_known_fork_from_git_revision_timestamp(uint32_t unix_timestamp) const
+      {
+        return 0; // there are no forks in the test net
+      }
 
       void client_impl::error_encountered(const std::string& message, const fc::oexception& error)
       {
@@ -2315,17 +2329,6 @@ config load_config( const fc::path& datadir, bool enable_ulog )
       return count;
     }
 
-    uint32_t detail::client_impl::wallet_import_multibit(
-            const fc::path& filename,
-            const string& passphrase,
-            const string& account_name
-            )
-    {
-      const auto count = _wallet->import_multibit_wallet(filename, passphrase, account_name);
-      _wallet->auto_backup( "multibit_import" );
-      return count;
-    }
-
     uint32_t detail::client_impl::wallet_import_electrum(
             const fc::path& filename,
             const string& passphrase,
@@ -2334,17 +2337,6 @@ config load_config( const fc::path& datadir, bool enable_ulog )
     {
       const auto count = _wallet->import_electrum_wallet(filename, passphrase, account_name);
       _wallet->auto_backup( "electrum_import" );
-      return count;
-    }
-
-    uint32_t detail::client_impl::wallet_import_armory(
-            const fc::path& filename,
-            const string& passphrase,
-            const string& account_name
-            )
-    {
-      const auto count = _wallet->import_armory_wallet(filename, passphrase, account_name);
-      _wallet->auto_backup( "armory_import" );
       return count;
     }
 
@@ -2560,6 +2552,30 @@ config load_config( const fc::path& datadir, bool enable_ulog )
       blockchain::update_ntp_time();
     }
 
+    variant detail::client_impl::get_database_sizes() const
+    {
+      fc::mutable_variant_object sizes;
+      fc::mutable_variant_object scratch;
+
+      scratch["Raw Blockchain"] = fc::directory_size(_data_dir / "chain/raw_chain");
+      scratch["Current DAC State"] = fc::directory_size(_data_dir / "chain/index");
+      sizes["Blockchain"] = scratch;
+
+      scratch = fc::mutable_variant_object();
+      for (string wallet_name : _wallet->list())
+        scratch[wallet_name] = fc::directory_size(_data_dir / "wallets" / wallet_name);
+      if (fc::is_directory(_data_dir / "wallets/.backups"))
+        scratch["Backups"] = fc::directory_size(_data_dir / "wallets/.backups");
+      sizes["Wallets"] = scratch;
+
+      if (fc::is_directory(_data_dir / "mail"))
+         sizes["Mail Server Storage"] = fc::directory_size(_data_dir / "mail");
+
+      sizes["Mail Client Storage"] = fc::directory_size(_data_dir / "mail_client");
+
+      return sizes;
+    }
+
     void detail::client_impl::mail_store_message(const address& owner, const mail::message& message)
     {
       FC_ASSERT(_mail_server, "Mail server not enabled!");
@@ -2671,12 +2687,20 @@ config load_config( const fc::path& datadir, bool enable_ulog )
         bts::net::chain_downloader* chain_downloader = new bts::net::chain_downloader();
         for( const auto& server : my->_config.chain_servers )
           chain_downloader->add_chain_server(fc::ip::endpoint::from_string(server));
-        auto download_future = chain_downloader->get_all_blocks([this](const full_block& new_block) {
+        my->_chain_downloader_running = true;
+        my->_chain_downloader_future = chain_downloader->get_all_blocks([this](const full_block& new_block, uint32_t blocks_left) {
           my->_chain_db->push_block(new_block);
+          my->_chain_downloader_blocks_remaining = blocks_left;
         }, my->_chain_db->get_head_block_num() + 1);
-        download_future.on_complete([this,chain_downloader,network_started_callback](const fc::exception_ptr& e) {
+        my->_chain_downloader_future.on_complete([this,chain_downloader,network_started_callback](const fc::exception_ptr& e) {
+          if( e->code() == fc::canceled_exception::code_value )
+          {
+            delete chain_downloader;
+            return;
+          }
           if( e )
             elog("chain_downloader failed with exception: ${e}", ("e", e->to_detail_string()));
+          my->_chain_downloader_running = false;
           delete chain_downloader;
           connect_to_p2p_network();
           if( network_started_callback ) network_started_callback();
@@ -3050,7 +3074,7 @@ config load_config( const fc::path& datadir, bool enable_ulog )
         head_item_id.item_hash = bts::net::item_hash_t();
       else
         head_item_id.item_hash = my->_chain_db->get_head_block_id();
-      my->_p2p_node->sync_from(head_item_id);
+      my->_p2p_node->sync_from(head_item_id, std::vector<uint32_t>());
       my->_p2p_node->connect_to_p2p_network();
     }
 
@@ -3235,6 +3259,10 @@ config load_config( const fc::path& datadir, bool enable_ulog )
       info["network_num_connections"]                           = network_get_connection_count();
       fc::variant_object advanced_params                        = network_get_advanced_node_parameters();
       info["network_num_connections_max"]                       = advanced_params["maximum_number_of_connections"];
+      info["network_chain_downloader_running"]                  = _chain_downloader_running;
+      info["network_chain_downloader_blocks_remaining"]         = _chain_downloader_running?
+                                                                        _chain_downloader_blocks_remaining :
+                                                                        variant();
 
       /* NTP */
       info["ntp_time"]                                          = variant();
@@ -3342,6 +3370,14 @@ config load_config( const fc::path& datadir, bool enable_ulog )
 #endif
        _wallet->scan_transaction_experimental( transaction_id, overwrite_existing );
     } FC_RETHROW_EXCEPTIONS( warn, "", ("transaction_id",transaction_id)("overwrite_existing",overwrite_existing) ) }
+
+    void client_impl::wallet_add_transaction_note_experimental( const string& transaction_id, const string& note )
+    { try {
+#ifndef BTS_TEST_NETWORK
+       FC_ASSERT( !"This command is for developer testing only!" );
+#endif
+       _wallet->add_transaction_note_experimental( transaction_id, note );
+    } FC_RETHROW_EXCEPTIONS( warn, "", ("transaction_id",transaction_id)("note",note) ) }
 
     set<pretty_transaction_experimental> client_impl::wallet_transaction_history_experimental( const string& account_name )const
     { try {
@@ -3981,7 +4017,7 @@ config load_config( const fc::path& datadir, bool enable_ulog )
       auto brec = _chain_db->get_asset_record(base);
       FC_ASSERT( qrec && brec );
       auto oresult = _chain_db->get_market_status( qrec->id, brec->id );
-      FC_ASSERT( oresult );
+      FC_ASSERT( oresult, "The ${q}/${b} market has not yet been initialized.", ("q", quote)("b", base));
 
       api_market_status result(*oresult);
       if( oresult->center_price.ratio == fc::uint128() )

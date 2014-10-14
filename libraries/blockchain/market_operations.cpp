@@ -104,22 +104,15 @@ namespace bts { namespace blockchain {
 
    void short_operation::evaluate( transaction_evaluation_state& eval_state )
    {
-      if( this->short_index.order_price == price() )
-         FC_CAPTURE_AND_THROW( zero_price, (short_index.order_price) );
-
       auto owner = this->short_index.owner;
+      FC_ASSERT( short_index.order_price.ratio < fc::uint128( 10, 0 ), "Interest rate must be less than 1000% APR" );
 
       asset delta_amount  = this->get_amount();
-      asset delta_quote   = delta_amount * this->short_index.order_price;
-
-      /** if the USD amount of the order is effectively then don't bother */
-      FC_ASSERT( llabs( delta_quote.amount ) > 0, "", ("delta_quote",delta_quote)("order",*this));
 
       eval_state.validate_asset( delta_amount );
       auto  asset_to_short = eval_state._current_state->get_asset_record( short_index.order_price.quote_asset_id );
       FC_ASSERT( asset_to_short.valid() );
       FC_ASSERT( asset_to_short->is_market_issued(), "${symbol} is not a market issued asset", ("symbol",asset_to_short->symbol) );
-      FC_ASSERT( !this->short_price_limit || *(this->short_price_limit) >= this->short_index.order_price, "Insufficient collateral at price limit" );
 
       auto current_short   = eval_state._current_state->get_short_record( this->short_index );
       //if( current_short ) wdump( (current_short) );
@@ -187,17 +180,15 @@ namespace bts { namespace blockchain {
       auto  asset_to_cover = eval_state._current_state->get_asset_record( cover_index.order_price.quote_asset_id );
       FC_ASSERT( asset_to_cover.valid() );
 
-#ifndef WIN32
-#warning [HARDFORK] Change in cover evaluation will hardfork BTSX
-#endif
       // calculate interest due on delta_amount
       asset interest_due = delta_amount * current_cover->interest_rate;
-      auto ellapsed_sec  = BTS_BLOCKCHAIN_MAX_SHORT_PERIOD_SEC - (eval_state._current_state->now() - current_cover->expiration).to_seconds();
+      const auto start_time = current_cover->expiration - fc::seconds( BTS_BLOCKCHAIN_MAX_SHORT_PERIOD_SEC );
+      auto elapsed_sec = ( eval_state._current_state->now() - start_time ).to_seconds();
 
-      if( ellapsed_sec < 0 ) ellapsed_sec = 0;
+      if( elapsed_sec < 0 ) elapsed_sec = 0;
 
       fc::uint128 due = interest_due.amount;
-      due *= ellapsed_sec;
+      due *= elapsed_sec;
       due /= (365 * 24 * 60 * 60); // seconds per year
 
       asset amount_paid = delta_amount;

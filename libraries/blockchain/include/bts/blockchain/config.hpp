@@ -37,7 +37,7 @@
  */
 #define BTS_BLOCKCHAIN_HOUSE_EDGE                           (1) // 1% house edge
 #define BTS_BLOCKCHAIN_NUM_DELEGATES                        uint32_t(101)
-#define BTS_BLOCKCHAIN_MAX_SLATE_SIZE                       BTS_BLOCKCHAIN_NUM_DELEGATES
+#define BTS_BLOCKCHAIN_MAX_SLATE_SIZE                       (BTS_BLOCKCHAIN_NUM_DELEGATES + BTS_BLOCKCHAIN_NUM_DELEGATES/10)
 #define BTS_BLOCKCHAIN_MIN_FEEDS                            ((BTS_BLOCKCHAIN_NUM_DELEGATES/2) + 1)
 #define BTS_BLOCKCHAIN_MAX_UNDO_HISTORY                     (BTS_BLOCKCHAIN_NUM_DELEGATES*4)
 #define BTS_BLOCKCHAIN_NUM_DICE                             (BTS_BLOCKCHAIN_NUM_DELEGATES / 10)
