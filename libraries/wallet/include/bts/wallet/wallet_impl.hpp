@@ -6,6 +6,7 @@
 #include <bts/blockchain/asset_operations.hpp>
 #include <bts/blockchain/balance_operations.hpp>
 #include <bts/blockchain/market_operations.hpp>
+#include <bts/blockchain/dice_operations.hpp>
 
 namespace bts { namespace wallet { namespace detail {
 
@@ -65,6 +66,11 @@ class wallet_impl : public chain_observer
               const time_point_sec& received_time
               );
 
+      void scan_jackpot_transaction(const jackpot_transaction& trx,
+                                       uint32_t block_num,
+                                       const time_point_sec& block_time,
+                                       const time_point_sec& received_time);
+
       secret_hash_type get_secret( uint32_t block_num,
                                    const private_key_type& delegate_key )const;
 
@@ -122,6 +128,8 @@ class wallet_impl : public chain_observer
       bool scan_bid( const bid_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
       bool scan_ask( const ask_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
       bool scan_short( const short_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
+
+      bool scan_dice( const dice_operation& op, wallet_transaction_record& trx_rec );
 
       bool scan_burn( const burn_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
 

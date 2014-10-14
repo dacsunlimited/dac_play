@@ -2794,8 +2794,9 @@ namespace detail {
                                           const string& quantity_symbol,
                                           bool sign )
     { try {
-        if( NOT is_open()     ) FC_CAPTURE_AND_THROW( wallet_closed );
-        if( NOT is_unlocked() ) FC_CAPTURE_AND_THROW( login_required );
+        FC_ASSERT( is_open() );
+        FC_ASSERT( is_unlocked() );
+
         if( NOT is_receive_account(from_account_name) )
             FC_CAPTURE_AND_THROW( unknown_receive_account, (from_account_name) );
         if( real_quantity <= 0 )
@@ -2868,8 +2869,9 @@ namespace detail {
                                   const string& quantity_symbol,
                                   bool sign )
     { try {
-            if( NOT is_open()     ) FC_CAPTURE_AND_THROW( wallet_closed );
-            if( NOT is_unlocked() ) FC_CAPTURE_AND_THROW( login_required );
+            FC_ASSERT( is_open() );
+            FC_ASSERT( is_unlocked() );
+
             if( NOT is_receive_account(from_account_name) )
                 FC_CAPTURE_AND_THROW( unknown_receive_account, (from_account_name) );
             if( real_quantity <= 0 )

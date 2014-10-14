@@ -55,7 +55,7 @@ namespace bts { namespace blockchain {
       burn_op_type                  = 20,
       link_account_op_type          = 21,
 
-      withdraw_all_op_type          = 22
+      withdraw_all_op_type          = 22,
 
       dice_op_type               = 23,
       buy_chips_type             = 24,

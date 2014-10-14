@@ -285,6 +285,10 @@ void wallet_impl::scan_block( uint32_t block_num, const vector<private_key_type>
    const auto market_trxs = _blockchain->get_market_transactions( block_num );
    for( const auto& market_trx : market_trxs )
       scan_market_transaction( market_trx, block_num, block.timestamp, received_time );
+
+   const auto jackpot_trxs = _blockchain->get_jackpot_transactions( block_num );
+   for( const auto& jackpot_trx : jackpot_trxs )
+      scan_jackpot_transaction( jackpot_trx, block_num, block.timestamp, received_time );
 }
 
 wallet_transaction_record wallet_impl::scan_transaction(
@@ -406,6 +410,18 @@ wallet_transaction_record wallet_impl::scan_transaction(
                 store_record |= scan_burn( op.as<burn_operation>(), *transaction_record, total_fee );
                 break;
             }
+            case dice_op_type:
+                // TODO: Dice
+                store_record |= scan_dice( op.as<dice_operation>(), *transaction_record );
+                break;
+            case buy_chips_type:
+                // sync the buy back chips, TODO: Dice, update the transaction ledger
+                sync_balance_with_blockchain( op.as<buy_chips_operation>().balance_id() );
+                break;
+            case sell_chips_type:
+                // sync the sell back shares, TODO: Dice, update the transaction ledger
+                sync_balance_with_blockchain( op.as<sell_chips_operation>().balance_id() );
+                break;
             default:
                 break;
         }
@@ -1512,4 +1528,135 @@ wallet_transaction_record wallet::get_transaction( const string& transaction_id_
     }
 
     FC_THROW_EXCEPTION( transaction_not_found, "Transaction not found!", ("transaction_id_prefix",transaction_id_prefix) );
+}
+
+void wallet_impl::scan_jackpot_transaction(const jackpot_transaction& trx,
+                                                 uint32_t block_num,
+                                                 const time_point_sec& block_time,
+                                                 const time_point_sec& received_time)
+{ try {
+    const auto win = ( trx.jackpot_received != 0 );
+    const auto play_result = string( win ? "win" : "lose" );
+    
+    // TODO: Dice, play owner might be different with jackpot owner
+    auto okey_jackpot = _wallet_db.lookup_key( trx.jackpot_owner );
+    if( okey_jackpot && okey_jackpot->has_private_key() )
+    {
+        auto jackpot_account_key = _wallet_db.lookup_key( okey_jackpot->account_address );
+        
+        
+        auto bal_id = withdraw_condition(withdraw_with_signature(trx.jackpot_owner), 1 ).get_address();
+        auto bal_rec = _blockchain->get_balance_record( bal_id );
+        
+        if( bal_rec )
+        {
+            //wlog( "BAL RECORD ${R}", ("R", bal_rec) );
+            _wallet_db.cache_balance( *bal_rec );
+        }
+        
+        
+        // TODO: Dice, what's the pending state?
+        sync_balance_with_blockchain( bal_id );
+        
+        /* What we paid */
+        /*
+        auto out_entry = ledger_entry();
+        out_entry.from_account = jackpot_account_key;
+        out_entry.amount = asset( trx.play_amount );
+        std::stringstream out_memo_ss;
+        out_memo_ss << "play dice with odds: " << trx.odds;
+        out_entry.memo = out_memo_ss.str();
+         */
+        
+        /* What we received */
+        auto in_entry = ledger_entry();
+        in_entry.to_account = jackpot_account_key->public_key;
+        in_entry.amount = asset(trx.jackpot_received, 1);
+        
+        std::stringstream in_memo_ss;
+        in_memo_ss << play_result << ", jackpot lucky number: " << trx.lucky_number;
+        in_entry.memo = in_memo_ss.str();
+        
+        std::stringstream id_ss;
+        id_ss << block_num << self->get_key_label( okey_jackpot->public_key ) << "0";
+        
+        // TODO: Don't blow away memo, etc.
+        auto record = wallet_transaction_record();
+        record.record_id = fc::ripemd160::hash( id_ss.str() );
+        record.block_num = block_num;
+        record.is_virtual = true;
+        record.is_confirmed = true;
+        record.is_market = true;
+        //record.ledger_entries.push_back( out_entry );
+        record.ledger_entries.push_back( in_entry );
+        record.fee = asset(0);    // TODO: Dice, do we need fee for claim jackpot? may be later we'll support part to delegates
+        record.created_time = block_time;
+        record.received_time = received_time;
+        
+        _wallet_db.store_transaction( record );
+    }
+     
+} FC_CAPTURE_AND_RETHROW() }
+
+bool wallet_impl::scan_dice( const dice_operation& op, wallet_transaction_record& trx_rec )
+{
+    switch( (withdraw_condition_types) op.condition.type )
+    {
+        case withdraw_null_type:
+        {
+            FC_THROW( "withdraw_null_type not implemented!" );
+            break;
+        }
+        case withdraw_signature_type:
+        {
+            auto condtion = op.condition.as<withdraw_with_signature>();
+            // TODO: lookup if cached key and work with it only
+            // if( _wallet_db.has_private_key( deposit.owner ) )
+            if( condtion.memo )
+            {
+                // TODO: TITAN, FC_THROW( "withdraw_option_type not implemented!" );
+                break;
+            } else
+            {
+                auto opt_key_rec = _wallet_db.lookup_key( condtion.owner );
+                if( opt_key_rec.valid() && opt_key_rec->has_private_key() )
+                {
+                    // TODO: Refactor this
+                    for( auto& entry : trx_rec.ledger_entries )
+                    {
+                        if( !entry.to_account.valid() )
+                        {
+                            entry.to_account = opt_key_rec->public_key;
+                            entry.amount = asset( op.amount, 1 );
+                            entry.memo = "play dice";
+                            return true;
+                        }
+                    }
+                }
+            }
+            break;
+        }
+        case withdraw_multi_sig_type:
+        {
+            // TODO: FC_THROW( "withdraw_multi_sig_type not implemented!" );
+            break;
+        }
+        case withdraw_password_type:
+        {
+            // TODO: FC_THROW( "withdraw_password_type not implemented!" );
+            break;
+        }
+        case withdraw_option_type:
+        {
+            // TODO: FC_THROW( "withdraw_option_type not implemented!" );
+            break;
+        }
+        default:
+        {
+            FC_THROW( "unknown withdraw condition type!" );
+            break;
+        }
+    }
+
+    return false;
 }

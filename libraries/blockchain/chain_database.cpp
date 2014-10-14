@@ -299,7 +299,7 @@ namespace bts { namespace blockchain {
          base_asset.collected_fees = 0;
          self->store_asset_record( base_asset );
 
-         for( const auto& asset : config.market_assets )
+         for( const auto& asset : config.chip_assets )
          {
             ++asset_id;
             asset_record rec;
@@ -312,13 +312,15 @@ namespace bts { namespace blockchain {
             rec.precision = asset.precision;
             rec.registration_date = timestamp;
             rec.last_update = timestamp;
-            rec.current_share_supply = 0;
+            rec.current_collateral = asset.init_collateral * BTS_BLOCKCHAIN_PRECISION;
+            rec.current_share_supply = asset.init_supply * asset.precision;
             rec.maximum_share_supply = BTS_BLOCKCHAIN_MAX_SHARES;
             rec.collected_fees = 0;
             // need to transform the min_price according the precision
             // 1 XTS = price USD, which means 1 satoshi_XTS = (price * usd_precision / xts_precsion) satoshi_USD
             //rec.minimum_xts_price = price( ( asset.min_price * asset.precision ) / BTS_BLOCKCHAIN_PRECISION, asset_id, 0 );
             //rec.maximum_xts_price = price( ( asset.max_price * asset.precision ) / BTS_BLOCKCHAIN_PRECISION, asset_id, 0 );
+
             self->store_asset_record( rec );
          }
 
