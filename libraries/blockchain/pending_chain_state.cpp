@@ -236,7 +236,7 @@ namespace bts { namespace blockchain {
 
       for ( const auto& item : dices ) {
           auto prev_value = prev_state->get_dice_record(item.first);
-          if( !! prev_state ) undo_state->store_dice_record( *prev_value );
+          if (prev_value) undo_state->store_dice_record(*prev_value);
           else undo_state->store_dice_record( item.second.make_null() );
       }
    }
