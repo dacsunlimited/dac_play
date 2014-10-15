@@ -1695,7 +1695,7 @@
           ],
           "prerequisites" : ["wallet_unlocked"],
           "aliases" : [ "sell_chips" ]
-      }
+      },
       {
          "method_name" : "wallet_recover_transaction",
          "description" : "Attempts to recover any missing recipient and memo information for the specified transaction",
