@@ -13,7 +13,7 @@ add_library( bts_wallet
              ${HEADERS}
            )
 
-target_link_libraries( bts_wallet fc bts_db bts_utilities bts_blockchain leveldb bitcoin bts_keyhotee bts_mail bts_cli )
+target_link_libraries( bts_wallet fc bts_db bts_utilities bts_blockchain leveldb bitcoin bts_keyhotee bts_mail bts_cli bts_game)
 target_include_directories( bts_wallet
                             PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_BINARY_DIR}/include" )
 

@@ -8,6 +8,7 @@
 #include <bts/cli/pretty.hpp>
 #include <bts/utilities/git_revision.hpp>
 #include <bts/utilities/key_conversion.hpp>
+#include <bts/game/dice_game.hpp>
 
 #include <thread>
 
@@ -2770,7 +2771,10 @@ namespace detail {
        required_signatures.insert( play_account->active_key() );
        
        // TODO: Dice, specify to account, the receiver who can claim jackpot
-       trx.play_dice( address( play_account->active_key() ), amount_to_play, odds, guess, 0 );
+       FC_ASSERT( amount_to_play > 0 );
+       trx.operations.push_back(
+                                game_operation(bts::game::dice_game(address( play_account->active_key() ), amount_to_play, odds, guess /*slate_id 0*/))
+                                );
        
        auto entry = ledger_entry();
        entry.from_account = play_account->active_key();

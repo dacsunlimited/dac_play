@@ -1,0 +1,17 @@
+file(GLOB HEADERS "include/bts/game/*.hpp")
+
+set(SOURCES dice_game.cpp game_config.cpp)
+
+add_library( bts_game ${SOURCES} ${HEADERS} )
+
+target_link_libraries( bts_game
+  PUBLIC fc bts_wallet bts_db bts_utilities leveldb bts_api bts_rpc_stubs upnpc-static)
+target_include_directories( bts_game 
+  PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include"
+# currently depends on client for definitions, remove this
+  PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../client/include"
+# Looks like bts_mail and bts_rpc also have cycle deps
+          "${CMAKE_CURRENT_SOURCE_DIR}/../rpc/include"
+# later, move upnp include into target_include_directories for upnp
+"${CMAKE_CURRENT_SOURCE_DIR}/../../vendor/miniupnp"
+)

@@ -57,7 +57,7 @@ namespace bts { namespace blockchain {
 
       withdraw_all_op_type          = 22,
 
-      dice_op_type               = 23,
+      game_op_type               = 23,
       buy_chips_type             = 24,
       sell_chips_type            = 25
    };
@@ -135,7 +135,7 @@ FC_REFLECT_ENUM( bts::blockchain::operation_type_enum,
                  (burn_op_type)
                  (link_account_op_type)
                  (withdraw_all_op_type)
-                 (dice_op_type)
+                 (game_op_type)
                  (buy_chips_type)
                  (sell_chips_type)
                  )

@@ -48,12 +48,13 @@ add_library( bts_blockchain
              types.cpp
              withdraw_types.cpp
              operations.cpp
+             games.cpp
              balance_operations.cpp
              account_operations.cpp
              delegate_slate.cpp
              asset_operations.cpp
              market_operations.cpp
-             dice_operations.cpp
+             game_operations.cpp
 #proposal_operations.cpp
              feed_operations.cpp
 #fire_operation.cpp

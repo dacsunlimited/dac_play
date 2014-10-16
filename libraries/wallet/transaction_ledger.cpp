@@ -410,9 +410,9 @@ wallet_transaction_record wallet_impl::scan_transaction(
                 store_record |= scan_burn( op.as<burn_operation>(), *transaction_record, total_fee );
                 break;
             }
-            case dice_op_type:
+            case game_op_type:
                 // TODO: Dice
-                store_record |= scan_dice( op.as<dice_operation>(), *transaction_record );
+                store_record |= scan_game( op.as<game_operation>(), *transaction_record );
                 break;
             case buy_chips_type:
                 // sync the buy back chips, TODO: Dice, update the transaction ledger
@@ -1598,8 +1598,9 @@ void wallet_impl::scan_jackpot_transaction(const jackpot_transaction& trx,
      
 } FC_CAPTURE_AND_RETHROW() }
 
-bool wallet_impl::scan_dice( const dice_operation& op, wallet_transaction_record& trx_rec )
+bool wallet_impl::scan_game( const game_operation& op, wallet_transaction_record& trx_rec )
 {
+    /* Move to game operation
     switch( (withdraw_condition_types) op.condition.type )
     {
         case withdraw_null_type:
@@ -1656,7 +1657,7 @@ bool wallet_impl::scan_dice( const dice_operation& op, wallet_transaction_record
             FC_THROW( "unknown withdraw condition type!" );
             break;
         }
-    }
+    }*/
 
     return false;
 }

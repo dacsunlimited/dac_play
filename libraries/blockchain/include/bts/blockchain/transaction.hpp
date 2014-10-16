@@ -98,12 +98,6 @@ namespace bts { namespace blockchain {
                          share_type   max_share_supply,
                          int64_t      precision );
        
-       void play_dice( const address&  owner,
-                       share_type amount,
-                       uint32_t odds,
-                       uint32_t guess,
-                       slate_id_type   slate_id );
-       
        void buy_chips( const asset& quantity,
                 const address& owner );
        
