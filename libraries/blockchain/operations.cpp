@@ -1,6 +1,5 @@
 #include <bts/blockchain/account_operations.hpp>
 #include <bts/blockchain/asset_operations.hpp>
-#include <bts/blockchain/game_operations.hpp>
 #include <bts/blockchain/balance_operations.hpp>
 #include <bts/blockchain/feed_operations.hpp>
 #include <bts/blockchain/market_operations.hpp>
@@ -45,7 +44,7 @@ namespace bts { namespace blockchain {
    const operation_type_enum burn_operation::type                   = burn_op_type;
    const operation_type_enum link_account_operation::type           = link_account_op_type;
 
-   const operation_type_enum game_operation::type              = game_op_type;
+   
    const operation_type_enum buy_chips_operation::type         = buy_chips_type;
    const operation_type_enum sell_chips_operation::type        = sell_chips_type;
 
@@ -75,8 +74,7 @@ namespace bts { namespace blockchain {
       
       bts::blockchain::operation_factory::instance().register_operation<burn_operation>();
       bts::blockchain::operation_factory::instance().register_operation<link_account_operation>();
-
-      bts::blockchain::operation_factory::instance().register_operation<game_operation>();
+       
       bts::blockchain::operation_factory::instance().register_operation<buy_chips_operation>();
       bts::blockchain::operation_factory::instance().register_operation<sell_chips_operation>();
 

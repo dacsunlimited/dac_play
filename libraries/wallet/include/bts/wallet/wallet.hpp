@@ -163,6 +163,15 @@ namespace bts { namespace wallet {
          pretty_transaction_experimental to_pretty_transaction_experimental( const transaction_ledger_entry& record );
 
          vector<wallet_transaction_record> get_transactions( const string& transaction_id_prefix );
+       
+         ///@{ transaction management
+         void withdraw_to_transaction(
+                                                 const asset& amount_to_withdraw,
+                                                 const string& from_account_name,
+                                                 signed_transaction& trx,
+                                                 unordered_set<address>& required_signatures
+                                      );
+         ///@}
 
          ///@{ account management
          public_key_type  create_account( const string& account_name,
@@ -500,13 +509,9 @@ namespace bts { namespace wallet {
                  );
 #endif
 
-         wallet_transaction_record play_dice(
-                 const string& dice_account_name,
-                 double amount,
-                 uint32_t odds = 2,
-                 uint32_t guess = 1,
-                 bool sign = true
-                 );
+        wallet_transaction_record play_game( const string& symbol,
+                 const variant& params,
+                 bool sign = true );
        
          wallet_transaction_record buy_chips(
                  const string& from_account_name,

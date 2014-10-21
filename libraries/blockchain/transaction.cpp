@@ -3,7 +3,6 @@
 #include <bts/blockchain/balance_operations.hpp>
 #include <bts/blockchain/market_operations.hpp>
 #include <bts/blockchain/proposal_operations.hpp>
-#include <bts/blockchain/game_operations.hpp>
 #include <bts/blockchain/feed_operations.hpp>
 #include <bts/blockchain/time.hpp>
 #include <bts/blockchain/transaction.hpp>

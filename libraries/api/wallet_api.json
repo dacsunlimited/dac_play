@@ -1619,31 +1619,18 @@
          "prerequisites" : ["wallet_unlocked"]
       },
       {
-          "method_name" : "wallet_play_dice",
-          "description" : "Play dice",
+          "method_name" : "wallet_play_game",
+          "description" : "Play game with param variant",
           "return_type" : "transaction_record",
           "parameters"  : [
           {
-              "name" : "account_name",
-              "type" : "string",
-              "description" : "the name of the player account"
+              "name" : "asset_symbol",
+              "type" : "asset_symbol",
+              "description" : "the asset of the game asset"
           },
-          {
-              "name" : "amount_to_play",
-              "type" : "real_amount",
-              "description" : "the amount of shares to play"
-          },
-          {
-              "name" : "odds",
-              "type" : "uint32_t",
-              "description" : "the betting odds of the dice game, how many sides it have",
-              "default_value": 2
-          },
-          {
-              "name" : "guess",
-              "type" : "uint32_t",
-              "description" : "the winning number player guess will be",
-              "default_value": 1
+          {   "name" : "param",
+              "type" : "json_variant",
+              "description" : "the param of the game action"
           }
           ],
           "prerequisites" : ["wallet_unlocked"]

@@ -15,7 +15,7 @@
  */
 #define NOT !
 
-namespace bts { namespace blockchain {
+namespace bts { namespace game {
     
     enum game_type_enum
     {
@@ -74,14 +74,14 @@ namespace bts { namespace blockchain {
     
 } } // bts::game
 
-FC_REFLECT_ENUM( bts::blockchain::game_type_enum,
+FC_REFLECT_ENUM( bts::game::game_type_enum,
                 (null_game_type)
                 (dice_game_type)
                 )
 
-FC_REFLECT( bts::blockchain::game, (type)(data) )
+FC_REFLECT( bts::game::game, (type)(data) )
 
 namespace fc {
-    void to_variant( const bts::blockchain::game& var,  variant& vo );
-    void from_variant( const variant& var,  bts::blockchain::game& vo );
+    void to_variant( const bts::game::game& var,  variant& vo );
+    void from_variant( const variant& var,  bts::game::game& vo );
 }

@@ -11,6 +11,7 @@
 
 using namespace bts::wallet;
 using namespace bts::wallet::detail;
+using namespace bts::game;
 
 void wallet_impl::scan_market_transaction(
         const market_transaction& mtrx,
@@ -1381,6 +1382,16 @@ vector<pretty_transaction> wallet::get_pretty_transaction_history( const string&
 
     return pretties;
 } FC_RETHROW_EXCEPTIONS( warn, "" ) }
+
+void wallet::withdraw_to_transaction(
+                             const asset& amount_to_withdraw,
+                             const string& from_account_name,
+                             signed_transaction& trx,
+                             unordered_set<address>& required_signatures
+                             )
+{
+    my->withdraw_to_transaction( amount_to_withdraw, from_account_name, trx, required_signatures );
+}
 
 void wallet::remove_transaction_record( const string& record_id )
 {

@@ -6,7 +6,7 @@
 #include <bts/blockchain/asset_operations.hpp>
 #include <bts/blockchain/balance_operations.hpp>
 #include <bts/blockchain/market_operations.hpp>
-#include <bts/blockchain/game_operations.hpp>
+#include <bts/game/game_operations.hpp>
 
 namespace bts { namespace wallet { namespace detail {
 
@@ -129,7 +129,7 @@ class wallet_impl : public chain_observer
       bool scan_ask( const ask_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
       bool scan_short( const short_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
 
-      bool scan_game( const game_operation& op, wallet_transaction_record& trx_rec );
+    bool scan_game( const bts::game::game_operation& op, wallet_transaction_record& trx_rec );
 
       bool scan_burn( const burn_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
 

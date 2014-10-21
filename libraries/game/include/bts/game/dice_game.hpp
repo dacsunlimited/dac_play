@@ -6,8 +6,12 @@
 #include <bts/blockchain/address.hpp>
 #include <bts/blockchain/types.hpp>
 #include <bts/blockchain/withdraw_types.hpp>
-#include <bts/blockchain/games.hpp>
+#include <bts/game/games.hpp>
 #include <bts/blockchain/transaction_evaluation_state.hpp>
+
+#include <bts/blockchain/chain_database.hpp>
+#include <bts/wallet/wallet.hpp>
+
 
 /**
  *  The C keyword 'not' is NOT friendly on VC++ but we still want to use
@@ -43,6 +47,8 @@ namespace bts { namespace game {
         bts::blockchain::withdraw_condition  condition;
         
         void evaluate( transaction_evaluation_state& eval_state );
+        
+        static void play( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, variant& params  );
     };
     
 } } // bts::game

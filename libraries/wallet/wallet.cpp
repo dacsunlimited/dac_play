@@ -8,7 +8,7 @@
 #include <bts/cli/pretty.hpp>
 #include <bts/utilities/git_revision.hpp>
 #include <bts/utilities/key_conversion.hpp>
-#include <bts/game/dice_game.hpp>
+#include <bts/game/game_factory.hpp>
 
 #include <thread>
 
@@ -2719,78 +2719,29 @@ namespace detail {
       return record;
    } FC_RETHROW_EXCEPTIONS( warn, "" ) }
 
-   wallet_transaction_record wallet::play_dice( const string& from_account_name,
+   /*wallet_transaction_record wallet::play_dice( const string& from_account_name,
                                              double amount,
                                              uint32_t odds,
                                              uint32_t guess,
                                              bool sign  )
+    */
+    
+    wallet_transaction_record wallet::play_game( const string& symbol,
+                                                const variant& params,
+                                                bool sign  )
    { try {
        
        FC_ASSERT( is_open() );
        FC_ASSERT( is_unlocked() );
-       FC_ASSERT( amount > 0 );
-       FC_ASSERT( odds > 0 );
-       
-       signed_transaction     trx;
-       unordered_set<address> required_signatures;
-       
-       // TODO: adjust fee based upon blockchain price per byte and
-       // the size of trx... 'recursively'
-       auto required_fees = get_transaction_fee();
-       
-       // No longer necessary I believe
-       //auto size_fee = fc::raw::pack_size( data );
-       //required_fees += asset( my->_blockchain->calculate_data_fee(size_fee) );
-       
-       const auto asset_rec = my->_blockchain->get_asset_record( "DICE" );
-       FC_ASSERT( asset_rec.valid() );
-       
-       share_type amount_to_play = amount * asset_rec->get_precision();
-       
-       // dice asset is 1
-       asset chips_to_play(amount_to_play, asset_rec->id);
-       
-       if( !is_valid_account_name( from_account_name ) )
-           FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("dice_account_name",from_account_name) );
-
-
-       auto play_account = my->_blockchain->get_account_record( from_account_name );
-       // TODO make sure it is using account active key
-       
-       my->withdraw_to_transaction( chips_to_play,
-                                   from_account_name,
-                                   trx,
-                                   required_signatures );
-       
-       my->withdraw_to_transaction( required_fees,
-                                   from_account_name,
-                                   trx,
-                                   required_signatures );
-       
-       //check this way to avoid overflow
-       required_signatures.insert( play_account->active_key() );
-       
-       // TODO: Dice, specify to account, the receiver who can claim jackpot
-       FC_ASSERT( amount_to_play > 0 );
-       trx.operations.push_back(
-                                game_operation(bts::game::dice_game(address( play_account->active_key() ), amount_to_play, odds, guess /*slate_id 0*/))
-                                );
-       
-       auto entry = ledger_entry();
-       entry.from_account = play_account->active_key();
-       entry.to_account = play_account->active_key();
-       entry.memo = "play dice";
        
        auto record = wallet_transaction_record();
-       record.ledger_entries.push_back( entry );
-       record.fee = required_fees;
-           
-       if( sign ) sign_transaction( trx, required_signatures );
-       cache_transaction( trx, record );
+       
+       // TODO: FIXME
+       //bts::game::game_factory::instance().play(symbol,   params);
 
        return record;
    } FC_RETHROW_EXCEPTIONS( warn, "",
-                            ( "dice_account", from_account_name)("amount", amount)("odds", odds) ) }
+                            ( "prams", params) ) }
     
     wallet_transaction_record wallet::buy_chips(
                                           const string& from_account_name,

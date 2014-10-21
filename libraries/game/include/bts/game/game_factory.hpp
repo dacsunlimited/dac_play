@@ -1,10 +1,13 @@
 #pragma once
 
 #include <bts/blockchain/exceptions.hpp>
-#include <bts/blockchain/games.hpp>
+#include <bts/game/games.hpp>
 #include <bts/blockchain/transaction_evaluation_state.hpp>
+#include <bts/blockchain/chain_interface.hpp>
+#include <bts/wallet/wallet.hpp>
 
-namespace bts { namespace blockchain {
+namespace bts { namespace game {
+    using namespace bts::blockchain;
 
    /**
     * @class game_factory
@@ -20,16 +23,18 @@ namespace bts { namespace blockchain {
           {
              public:
                   virtual ~game_converter_base(){};
-                virtual void to_variant( const bts::blockchain::game& in, fc::variant& out ) = 0;
-                virtual void from_variant( const fc::variant& in, bts::blockchain::game& out ) = 0;
-                  virtual void evaluate( transaction_evaluation_state& eval_state, const game& game ) = 0;
+                virtual void to_variant( const bts::game::game& in, fc::variant& out ) = 0;
+                virtual void from_variant( const fc::variant& in, bts::game::game& out ) = 0;
+                virtual void evaluate( transaction_evaluation_state& eval_state, const game& game ) = 0;
+              
+                virtual void play( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, variant& var ) = 0;
           };
 
           template<typename GameType>
           class game_converter : public game_converter_base
           {
              public:
-              virtual void to_variant( const bts::blockchain::game& in, fc::variant& output )
+              virtual void to_variant( const bts::game::game& in, fc::variant& output )
                   { try {
                      FC_ASSERT( in.type == GameType::type );
                      fc::mutable_variant_object obj( "type", in.type );
@@ -39,7 +44,7 @@ namespace bts { namespace blockchain {
                      output = std::move(obj);
                   } FC_RETHROW_EXCEPTIONS( warn, "" ) }
 
-              virtual void from_variant( const fc::variant& in, bts::blockchain::game& output )
+              virtual void from_variant( const fc::variant& in, bts::game::game& output )
                   { try {
                      auto obj = in.get_object();
 
@@ -51,6 +56,11 @@ namespace bts { namespace blockchain {
                   { try {
                      g.as<GameType>().evaluate( eval_state );
                   } FC_CAPTURE_AND_RETHROW( (g) ) }
+              
+              virtual void play( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, variant& var )
+              { try {
+                  GameType::play(blockchain, w, var);
+              } FC_CAPTURE_AND_RETHROW( (var) ) }
           };
 
           template<typename GameType>
@@ -68,11 +78,20 @@ namespace bts { namespace blockchain {
                 FC_THROW_EXCEPTION( bts::blockchain::unsupported_chain_operation, "", ("game",g) );
              itr->second->evaluate( eval_state, g );
           }
+       
+       void play(const int& game_id, chain_database_ptr blockchain, bts::wallet::wallet_ptr w, variant& var)
+       {
+              auto itr = _converters.find( uint8_t(game_id) );
+              if( itr == _converters.end() )
+                  FC_THROW_EXCEPTION( bts::blockchain::unsupported_chain_operation, "", ("game_id", game_id) );
+              
+              itr->second->play(blockchain, w, var);
+       }
 
           /// defined in games.cpp
-       void to_variant( const bts::blockchain::game& in, fc::variant& output );
+       void to_variant( const bts::game::game& in, fc::variant& output );
           /// defined in games.cpp
-       void from_variant( const fc::variant& in, bts::blockchain::game& output );
+       void from_variant( const fc::variant& in, bts::game::game& output );
 
        private:
           std::unordered_map<int, std::shared_ptr<game_converter_base> > _converters;

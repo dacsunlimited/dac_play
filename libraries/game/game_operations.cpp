@@ -1,9 +1,10 @@
-#include <bts/blockchain/game_operations.hpp>
+#include <bts/game/game_operations.hpp>
 #include <bts/blockchain/chain_interface.hpp>
 #include <bts/blockchain/exceptions.hpp>
-#include <bts/blockchain/game_factory.hpp>
+#include <bts/game/game_factory.hpp>
 
-namespace bts { namespace blockchain {
+namespace bts { namespace game {
+    using namespace bts::blockchain;
 
     /**
      *  @note in this method we are using 'this->' to refer to member variables for
@@ -16,4 +17,4 @@ namespace bts { namespace blockchain {
 
     } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
-} } // bts::blockchain
+} } // bts::game
