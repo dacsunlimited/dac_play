@@ -3,6 +3,7 @@
 #include <fc/io/enum_type.hpp>
 #include <fc/io/raw.hpp>
 #include <fc/reflect/reflect.hpp>
+#include <fc/reflect/variant.hpp>
 #include <bts/blockchain/address.hpp>
 #include <bts/blockchain/types.hpp>
 #include <bts/blockchain/withdraw_types.hpp>
@@ -11,7 +12,7 @@
 
 #include <bts/blockchain/chain_database.hpp>
 #include <bts/wallet/wallet.hpp>
-
+#include <bts/wallet/wallet_records.hpp>
 
 /**
  *  The C keyword 'not' is NOT friendly on VC++ but we still want to use
@@ -23,6 +24,7 @@
 
 namespace bts { namespace game {
     using namespace bts::blockchain;
+    using namespace bts::wallet;
     
     struct dice_game
     {
@@ -48,9 +50,22 @@ namespace bts { namespace game {
         
         void evaluate( transaction_evaluation_state& eval_state );
         
-        static void play( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, variant& params  );
+        static wallet_transaction_record play( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, const variant& params, bool sign);
+    };
+    
+    struct dice_input
+    {
+        dice_input() {}
+        dice_input( std::string name, double a, uint32_t o, uint32_t g )
+        :from_account_name(name), amount(a), odds(o), guess(g) {}
+        
+        std::string     from_account_name;
+        double          amount;
+        uint32_t        odds;
+        uint32_t        guess;
     };
     
 } } // bts::game
 
 FC_REFLECT( bts::game::dice_game, (amount)(odds)(guess)(condition) )
+FC_REFLECT( bts::game::dice_input, (from_account_name)(amount)(odds)(guess) )

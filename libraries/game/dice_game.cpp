@@ -1,11 +1,14 @@
 #include <bts/game/dice_game.hpp>
+#include <bts/game/game_operations.hpp>
 #include <bts/blockchain/chain_interface.hpp>
 #include <bts/blockchain/exceptions.hpp>
+#include <bts/wallet/exceptions.hpp>
 
 
 
 namespace bts { namespace game {
     using namespace bts::blockchain;
+    using namespace bts::wallet;
 
     bts::blockchain::balance_id_type  dice_game::balance_id()const
     {
@@ -61,11 +64,17 @@ namespace bts { namespace game {
         eval_state._current_state->store_dice_record( *cur_record );
     }
     
-    void dice_game::play( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, variant& params )
+    wallet_transaction_record dice_game::play( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, const variant& params, bool sign )
     {
-        /*
-        FC_ASSERT( amount > 0 );
-        FC_ASSERT( odds > 0 );
+        dice_input d_input;
+        
+        fc::from_variant(params, d_input);
+        
+        
+        // TODO: return wallet_record
+        
+        FC_ASSERT( d_input.amount > 0 );
+        FC_ASSERT( d_input.odds > 0 );
         
         // TODO: Now we have the assumption that the asset id equals the game id.
         signed_transaction     trx;
@@ -79,38 +88,40 @@ namespace bts { namespace game {
         const auto asset_rec = blockchain->get_asset_record( "DICE" );
         FC_ASSERT( asset_rec.valid() );
         
-        share_type amount_to_play = amount * asset_rec->get_precision();
+        share_type amount_to_play = d_input.amount * asset_rec->get_precision();
         
         // dice asset is 1
         asset chips_to_play(amount_to_play, asset_rec->id);
         
-        if( !is_valid_account_name( from_account_name ) )
-            FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("dice_account_name",from_account_name) );
+        if( !w->is_valid_account_name( d_input.from_account_name ) )
+            FC_THROW_EXCEPTION( bts::wallet::invalid_name, "Invalid account name!", ("dice_account_name",d_input.from_account_name) );
         
         
-        auto play_account = blockchain->get_account_record( from_account_name );
+        auto play_account = blockchain->get_account_record( d_input.from_account_name );
         // TODO make sure it is using account active key
         
         w->withdraw_to_transaction( chips_to_play,
-                                    from_account_name,
+                                    d_input.from_account_name,
                                     trx,
                                     required_signatures );
         
         w->withdraw_to_transaction( required_fees,
-                                    from_account_name,
+                                    d_input.from_account_name,
                                     trx,
                                     required_signatures );
         
         //check this way to avoid overflow
         required_signatures.insert( play_account->active_key() );
         
+        auto record = wallet_transaction_record();
+        
         // TODO: Dice, specify to account, the receiver who can claim jackpot
         FC_ASSERT( amount_to_play > 0 );
         trx.operations.push_back(
-                                 game_operation(bts::game::dice_game(address( play_account->active_key() ), amount_to_play, odds, guess ))//slate_id 0
+                                 game_operation(bts::game::dice_game(address( play_account->active_key() ), amount_to_play, d_input.odds, d_input.guess ))//slate_id 0
                                  );
         
-        auto entry = ledger_entry();
+        auto entry = bts::wallet::ledger_entry();
         entry.from_account = play_account->active_key();
         entry.to_account = play_account->active_key();
         entry.memo = "play dice";
@@ -119,9 +130,35 @@ namespace bts { namespace game {
         record.ledger_entries.push_back( entry );
         record.fee = required_fees;
         
-        if( sign ) w.sign_transaction( trx, required_signatures );
+        if( sign ) w->sign_transaction( trx, required_signatures );
         w->cache_transaction( trx, record );
-         */
+        
+        return record;
     }
 
 } } // bts::game
+
+namespace fc {
+    void to_variant( const bts::game::dice_input& var,  variant& vo )
+    {
+        mutable_variant_object obj("from_account_name",var.from_account_name);
+        obj("amount", var.amount)
+        ("odds",var.odds)
+        ("guess",var.guess);
+        vo = std::move( obj );
+    }
+    
+    void from_variant( const variant& var,  bts::game::dice_input& vo )
+    { try {
+        const variant_object& obj = var.get_object();
+        if( obj.contains( "from_account_name" ) )
+            vo.from_account_name = obj[ "from_account_name" ].as_string();
+        if( obj.contains( "amount" ) )
+            vo.amount = obj["amount"].as_double();
+        if( obj.contains( "odds" ) )
+            vo.odds = obj["odds"].as_uint64();
+        if( obj.contains( "guess" ) )
+            vo.guess = obj["guess"].as_uint64();
+    } FC_RETHROW_EXCEPTIONS( warn, "unable to convert variant to dice_input", ("variant",var) ) }
+    
+} // fc

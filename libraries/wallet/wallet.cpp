@@ -2718,13 +2718,6 @@ namespace detail {
 
       return record;
    } FC_RETHROW_EXCEPTIONS( warn, "" ) }
-
-   /*wallet_transaction_record wallet::play_dice( const string& from_account_name,
-                                             double amount,
-                                             uint32_t odds,
-                                             uint32_t guess,
-                                             bool sign  )
-    */
     
     wallet_transaction_record wallet::play_game( const string& symbol,
                                                 const variant& params,
@@ -2734,12 +2727,12 @@ namespace detail {
        FC_ASSERT( is_open() );
        FC_ASSERT( is_unlocked() );
        
-       auto record = wallet_transaction_record();
+       auto chip_asset_record  = my->_blockchain->get_asset_record( symbol );
        
-       // TODO: FIXME
-       //bts::game::game_factory::instance().play(symbol,   params);
-
-       return record;
+       if( NOT chip_asset_record )
+           FC_CAPTURE_AND_THROW( unknown_asset_symbol, (symbol) );
+       
+       return bts::game::game_factory::instance().play(chip_asset_record->id, my->_blockchain, shared_from_this(), params, sign);
    } FC_RETHROW_EXCEPTIONS( warn, "",
                             ( "prams", params) ) }
     

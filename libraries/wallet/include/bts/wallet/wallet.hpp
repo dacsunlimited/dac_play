@@ -40,7 +40,7 @@ namespace bts { namespace wallet {
       vote_recommended = 3
    };
 
-   class wallet
+    class wallet : public std::enable_shared_from_this< wallet >
    {
       public:
          wallet( chain_database_ptr chain, bool enabled = true );

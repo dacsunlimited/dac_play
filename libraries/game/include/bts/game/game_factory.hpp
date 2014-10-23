@@ -5,9 +5,11 @@
 #include <bts/blockchain/transaction_evaluation_state.hpp>
 #include <bts/blockchain/chain_interface.hpp>
 #include <bts/wallet/wallet.hpp>
+#include <bts/wallet/wallet_records.hpp>
 
 namespace bts { namespace game {
     using namespace bts::blockchain;
+    using namespace bts::wallet;
 
    /**
     * @class game_factory
@@ -27,7 +29,7 @@ namespace bts { namespace game {
                 virtual void from_variant( const fc::variant& in, bts::game::game& out ) = 0;
                 virtual void evaluate( transaction_evaluation_state& eval_state, const game& game ) = 0;
               
-                virtual void play( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, variant& var ) = 0;
+                virtual wallet_transaction_record play( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, const variant& var, bool sign ) = 0;
           };
 
           template<typename GameType>
@@ -57,9 +59,9 @@ namespace bts { namespace game {
                      g.as<GameType>().evaluate( eval_state );
                   } FC_CAPTURE_AND_RETHROW( (g) ) }
               
-              virtual void play( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, variant& var )
+              virtual wallet_transaction_record play( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, const variant& var, bool sign )
               { try {
-                  GameType::play(blockchain, w, var);
+                  return GameType::play(blockchain, w, var, sign);
               } FC_CAPTURE_AND_RETHROW( (var) ) }
           };
 
@@ -79,13 +81,13 @@ namespace bts { namespace game {
              itr->second->evaluate( eval_state, g );
           }
        
-       void play(const int& game_id, chain_database_ptr blockchain, bts::wallet::wallet_ptr w, variant& var)
+       wallet_transaction_record play(const int& game_id, chain_database_ptr blockchain, bts::wallet::wallet_ptr w, const variant& var, bool sign)
        {
               auto itr = _converters.find( uint8_t(game_id) );
               if( itr == _converters.end() )
                   FC_THROW_EXCEPTION( bts::blockchain::unsupported_chain_operation, "", ("game_id", game_id) );
               
-              itr->second->play(blockchain, w, var);
+              return itr->second->play(blockchain, w, var, sign);
        }
 
           /// defined in games.cpp

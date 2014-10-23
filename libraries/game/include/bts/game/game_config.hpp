@@ -1,4 +1,5 @@
 #pragma once
+
 #include <bts/blockchain/address.hpp>
 #include <bts/mail/message.hpp>
 #include <bts/mail/config.hpp>
