@@ -56,10 +56,11 @@ namespace bts { namespace blockchain {
       link_account_op_type          = 21,
 
       withdraw_all_op_type          = 22,
+      release_escrow_op_type        = 23,
 
-      game_op_type               = 23,
-      buy_chips_type             = 24,
-      sell_chips_type            = 25
+      game_op_type               = 24,
+      buy_chips_type             = 25,
+      sell_chips_type            = 26
    };
 
    /**

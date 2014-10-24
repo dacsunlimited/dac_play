@@ -35,7 +35,7 @@ void wallet_impl::scan_genesis_experimental( const account_balance_record_summar
     record.operation_notes[ 0 ] = "import snapshot keys";
 
     _wallet_db.experimental_transactions[ record.id ] = record;
-} FC_RETHROW_EXCEPTIONS( warn, "" ) }
+} FC_CAPTURE_AND_RETHROW() }
 
 void wallet_impl::scan_block_experimental( uint32_t block_num,
                                            const map<private_key_type, string>& account_keys,
@@ -49,7 +49,7 @@ void wallet_impl::scan_block_experimental( uint32_t block_num,
         scan_transaction_experimental( eval_state, block_num, block_header.timestamp,
                                        account_keys, account_balances, account_names, true );
     }
-} FC_RETHROW_EXCEPTIONS( warn, "" ) }
+} FC_CAPTURE_AND_RETHROW() }
 
 transaction_ledger_entry wallet_impl::scan_transaction_experimental( const transaction_evaluation_state& eval_state,
                                                                      uint32_t block_num,
@@ -74,7 +74,7 @@ transaction_ledger_entry wallet_impl::scan_transaction_experimental( const trans
 
     return scan_transaction_experimental( eval_state, block_num, timestamp, account_keys,
                                           account_balances, account_names, overwrite_existing );
-} FC_RETHROW_EXCEPTIONS( warn, "" ) }
+} FC_CAPTURE_AND_RETHROW() }
 
 transaction_ledger_entry wallet_impl::scan_transaction_experimental( const transaction_evaluation_state& eval_state,
                                                                      uint32_t block_num,
@@ -101,7 +101,7 @@ transaction_ledger_entry wallet_impl::scan_transaction_experimental( const trans
                                    overwrite_existing || !existing_record );
 
     return record;
-} FC_RETHROW_EXCEPTIONS( warn, "" ) }
+} FC_CAPTURE_AND_RETHROW() }
 
 void wallet_impl::scan_transaction_experimental( const transaction_evaluation_state& eval_state,
                                                  const map<private_key_type, string>& account_keys,
@@ -119,6 +119,7 @@ void wallet_impl::scan_transaction_experimental( const transaction_evaluation_st
         if( account_balances.count( balance_id ) > 0 )
         {
             const string& delta_label = account_balances.at( balance_id );
+            // TODO: Need to save balance labels locally before emptying them so they can be deleted from the chain
             record.delta_amounts[ delta_label ][ delta_amount.asset_id ] += delta_amount.amount;
             return true;
         }
@@ -417,6 +418,12 @@ void wallet_impl::scan_transaction_experimental( const transaction_evaluation_st
             case link_account_op_type:
                 // Future feature
                 break;
+            case withdraw_all_op_type:
+                // Future feature
+                break;
+            case release_escrow_op_type:
+                // Future feature
+                break;
             default:
                 break;
         }
@@ -441,9 +448,15 @@ void wallet_impl::scan_transaction_experimental( const transaction_evaluation_st
         if( !memo.has_valid_signature )
             return false;
 
-        // TODO: Also allow unregistered contact accounts
-        const oaccount_record account_record = _blockchain->get_account_record( address( memo.from ) );
-        if( !account_record.valid() )
+        string account_name;
+        const address from_address( memo.from );
+        const oaccount_record chain_account_record = _blockchain->get_account_record( from_address );
+        const owallet_account_record local_account_record = _wallet_db.lookup_account( from_address );
+        if( chain_account_record.valid() )
+            account_name = chain_account_record->name;
+        else if( local_account_record.valid() )
+            account_name = local_account_record->name;
+        else
             return false;
 
         record.delta_amounts.clear();
@@ -451,7 +464,7 @@ void wallet_impl::scan_transaction_experimental( const transaction_evaluation_st
         for( uint16_t i = 0; i < eval_state.trx.operations.size(); ++i )
         {
             if( operation_type_enum( eval_state.trx.operations.at( i ).type ) == withdraw_op_type )
-                record.delta_labels[ i ] = account_record->name;
+                record.delta_labels[ i ] = account_name;
         }
 
         scan_transaction_experimental( eval_state, account_keys, account_balances, account_names, record, store_record );
@@ -472,21 +485,21 @@ void wallet_impl::scan_transaction_experimental( const transaction_evaluation_st
         ulog( "wallet_transaction_record_v2:\n${rec}", ("rec",fc::json::to_pretty_string( record )) );
         _wallet_db.experimental_transactions[ record.id ] = record;
     }
-} FC_RETHROW_EXCEPTIONS( warn, "" ) }
+} FC_CAPTURE_AND_RETHROW() }
 
-transaction_ledger_entry wallet::apply_transaction_experimental( const signed_transaction& transaction )
+transaction_ledger_entry wallet_impl::apply_transaction_experimental( const signed_transaction& transaction )
 { try {
-   const transaction_evaluation_state_ptr eval_state = my->_blockchain->store_pending_transaction( transaction, true );
+   const transaction_evaluation_state_ptr eval_state = _blockchain->store_pending_transaction( transaction, true );
    FC_ASSERT( eval_state != nullptr );
 
    for( const auto& op : transaction.operations )
    {
        if( operation_type_enum( op.type ) == withdraw_op_type )
-           my->sync_balance_with_blockchain( op.as<withdraw_operation>().balance_id );
+           sync_balance_with_blockchain( op.as<withdraw_operation>().balance_id );
    }
 
-   return my->scan_transaction_experimental( *eval_state, -1, blockchain::now(), true );
-} FC_RETHROW_EXCEPTIONS( warn, "" ) }
+   return scan_transaction_experimental( *eval_state, -1, blockchain::now(), true );
+} FC_CAPTURE_AND_RETHROW() }
 
 transaction_ledger_entry wallet::scan_transaction_experimental( const string& transaction_id_prefix, bool overwrite_existing )
 { try {
@@ -506,7 +519,7 @@ transaction_ledger_entry wallet::scan_transaction_experimental( const string& tr
    const auto block = my->_blockchain->get_block_header( block_num );
 
    return my->scan_transaction_experimental( *transaction_record, block_num, block.timestamp, overwrite_existing );
-} FC_RETHROW_EXCEPTIONS( warn, "" ) }
+} FC_CAPTURE_AND_RETHROW() }
 
 void wallet::add_transaction_note_experimental( const string& transaction_id_prefix, const string& note )
 { try {
@@ -534,7 +547,7 @@ void wallet::add_transaction_note_experimental( const string& transaction_id_pre
        record.operation_notes.erase( transaction_record->trx.operations.size() );
    my->_wallet_db.experimental_transactions[ record_id ] = record;
 
-} FC_RETHROW_EXCEPTIONS( warn, "" ) }
+} FC_CAPTURE_AND_RETHROW() }
 
 set<pretty_transaction_experimental> wallet::transaction_history_experimental( const string& account_name )
 { try {
@@ -597,7 +610,7 @@ set<pretty_transaction_experimental> wallet::transaction_history_experimental( c
    }
 
    return history;
-} FC_RETHROW_EXCEPTIONS( warn, "" ) }
+} FC_CAPTURE_AND_RETHROW() }
 
 pretty_transaction_experimental wallet::to_pretty_transaction_experimental( const transaction_ledger_entry& record )
 { try {
@@ -649,4 +662,4 @@ pretty_transaction_experimental wallet::to_pretty_transaction_experimental( cons
    std::sort( result.outputs.begin(), result.outputs.end(), delta_compare );
 
    return result;
-} FC_RETHROW_EXCEPTIONS( warn, "" ) }
+} FC_CAPTURE_AND_RETHROW() }
