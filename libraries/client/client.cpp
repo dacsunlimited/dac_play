@@ -626,8 +626,10 @@ config load_config( const fc::path& datadir, bool enable_ulog )
               cancel_rebroadcast_pending_loop();
               if( _chain_downloader_future.valid() && !_chain_downloader_future.ready() )
                  _chain_downloader_future.cancel_and_wait(__FUNCTION__);
-              _p2p_node.reset();
+              _rpc_server.reset(); // this needs to shut down before the _p2p_node because several RPC requests will try to dereference _p2p_node.  Shutting down _rpc_server kills all active/pending requests
               delete _cli;
+              _cli = nullptr;
+              _p2p_node.reset();
             }
 
             void start()
@@ -1983,34 +1985,30 @@ config load_config( const fc::path& datadir, bool enable_ulog )
 
     int32_t detail::client_impl::wallet_recover_accounts( int32_t accounts_to_recover, int32_t maximum_number_of_attempts )
     {
-      return _wallet->recover_accounts(accounts_to_recover, maximum_number_of_attempts);
+      return _wallet->recover_accounts( accounts_to_recover, maximum_number_of_attempts );
     }
 
-    wallet_transaction_record detail::client_impl::wallet_recover_transaction(
-            const string& transaction_id_prefix, const string& recipient_account )
+    wallet_transaction_record detail::client_impl::wallet_recover_transaction( const string& transaction_id_prefix,
+                                                                               const string& recipient_account )
     {
         return _wallet->recover_transaction( transaction_id_prefix, recipient_account );
     }
 
-    wallet_transaction_record detail::client_impl::wallet_edit_transaction(
-            const string& transaction_id_prefix, const string& recipient_account, const string& memo_message )
+    optional<variant_object> detail::client_impl::wallet_verify_titan_deposit( const string& transaction_id_prefix )
     {
-        return _wallet->edit_transaction( transaction_id_prefix, recipient_account, memo_message );
+        return _wallet->verify_titan_deposit( transaction_id_prefix );
     }
 
     wallet_transaction_record detail::client_impl::wallet_transfer(
-            double amount_to_transfer,
+            const string& amount_to_transfer,
             const string& asset_symbol,
             const string& from_account_name,
             const string& to_account_name,
             const string& memo_message,
             const vote_selection_method& selection_method )
     {
-        const auto record = _wallet->transfer_asset( amount_to_transfer, asset_symbol,
-                                                     from_account_name, from_account_name, to_account_name,
-                                                     memo_message, selection_method );
-        network_broadcast_transaction( record.trx );
-        return record;
+        return wallet_transfer_from(amount_to_transfer, asset_symbol, from_account_name, from_account_name,
+                                    to_account_name, memo_message, selection_method);
     }
     wallet_transaction_record detail::client_impl::wallet_burn(
             double amount_to_transfer,
@@ -2029,7 +2027,7 @@ config load_config( const fc::path& datadir, bool enable_ulog )
     }
 
     wallet_transaction_record detail::client_impl::wallet_transfer_from(
-            double amount_to_transfer,
+            const string& amount_to_transfer,
             const string& asset_symbol,
             const string& paying_account_name,
             const string& from_account_name,
@@ -2037,10 +2035,23 @@ config load_config( const fc::path& datadir, bool enable_ulog )
             const string& memo_message,
             const vote_selection_method& selection_method )
     {
-        const auto record = _wallet->transfer_asset( amount_to_transfer, asset_symbol,
-                                                     paying_account_name, from_account_name, to_account_name,
-                                                     memo_message, selection_method );
+        asset amount = _chain_db->to_ugly_asset(amount_to_transfer, asset_symbol);
+        auto sender = _wallet->get_account(from_account_name);
+        auto payer = _wallet->get_account(paying_account_name);
+        auto recipient = _wallet->get_account(to_account_name);
+        transaction_builder_ptr builder = _wallet->create_transaction_builder();
+        auto record = builder->deposit_asset(payer, recipient, amount,
+                                             memo_message, selection_method, sender.owner_key)
+                              .finalize()
+                              .sign();
+
         network_broadcast_transaction( record.trx );
+        for( auto&& notice : builder->encrypted_notifications() )
+            _mail_client->send_encrypted_message(std::move(notice),
+                                                 from_account_name,
+                                                 to_account_name,
+                                                 recipient.owner_key);
+
         return record;
     }
 
@@ -2419,6 +2430,64 @@ config load_config( const fc::path& datadir, bool enable_ulog )
         return _wallet->mail_open(recipient, ciphertext);
     }
 
+    void detail::client_impl::wallet_set_preferred_mail_servers(const string& account_name,
+                                                                const std::vector<string>& server_list,
+                                                                const string& paying_account)
+    {
+        /*
+         * Brief overview of what's going on here... the user specifies a list of blockchain accounts which host mail
+         * servers. These are the mail servers the user's client will check for new mail. This list is published as a
+         * list of strings in public_data["mail_servers"].
+         *
+         * The server accounts will publish the actual endpoints in their public data as an ip::endpoint object in
+         * public_data["mail_server_endpoint"]. This function will not let the user set his mail server list unless all
+         * of his mail servers all publish this endpoint.
+         */
+
+        if( !_wallet->is_open() )
+            FC_THROW_EXCEPTION( wallet_closed, "Wallet is not open; cannot set preferred mail servers." );
+        //Skip unlock check here; wallet_account_update_registration below will check it.
+
+        //Sanity check account_name
+        wallet_account_record account_rec = _wallet->get_account(account_name);
+        if( !account_rec.is_my_account )
+            FC_THROW_EXCEPTION( unknown_receive_account,
+                                "Account ${name} is not owned by this wallet. Cannot set his mail servers.",
+                                ("name", account_name) );
+
+        //Check that all names in server_list are valid accounts which publish mail server endpoints
+        for( const string& server_name : server_list )
+        {
+            oaccount_record server_account = _chain_db->get_account_record(server_name);
+            if( !server_account )
+                FC_THROW_EXCEPTION( unknown_account_name,
+                                    "The server account ${name} from server_list is not registered on the blockchain.",
+                                    ("name", server_name) );
+            try {
+                //Not actually storing the value; I don't care. I just want to make sure that both of these .as() calls
+                //work smoothly.
+                server_account->public_data.as<fc::variant_object>()["mail_server_endpoint"].as<fc::ip::endpoint>();
+            } catch (fc::exception&) {
+                FC_ASSERT( false,
+                           "The server account ${name} from server_list does not publish a valid mail server endpoint.",
+                           ("name", server_name) );
+            }
+        }
+
+        //Update the public_data
+        fc::mutable_variant_object public_data;
+        try {
+            if( !account_rec.public_data.is_null() )
+                public_data = account_rec.public_data.as<fc::mutable_variant_object>();
+        } catch (fc::exception&) {
+            FC_ASSERT( false, "Account's public data is not an object. Please unset it or make it an object." );
+        }
+        public_data["mail_servers"] = server_list;
+
+        //Commit the change
+        wallet_account_update_registration(account_name, paying_account, public_data);
+    }
+
     map<balance_id_type, balance_record> detail::client_impl::blockchain_list_balances( const string& first, uint32_t limit )const
     {
       return _chain_db->get_balances( first, limit );
@@ -2552,34 +2621,59 @@ config load_config( const fc::path& datadir, bool enable_ulog )
       blockchain::update_ntp_time();
     }
 
-    variant detail::client_impl::get_database_sizes() const
+    variant detail::client_impl::disk_usage()const
     {
-      fc::mutable_variant_object sizes;
-      fc::mutable_variant_object scratch;
+      fc::mutable_variant_object usage;
 
-      scratch["Raw Blockchain"] = fc::directory_size(_data_dir / "chain/raw_chain");
-      scratch["Current DAC State"] = fc::directory_size(_data_dir / "chain/index");
-      sizes["Blockchain"] = scratch;
+      usage["blockchain"] = variant();
+      usage["dac_state"] = variant();
+      usage["logs"] = variant();
+      usage["mail_client"] = variant();
+      usage["mail_server"] = variant();
+      usage["network_peers"] = variant();
+      usage["wallets"] = variant();
+      usage["total"] = variant();
 
-      scratch = fc::mutable_variant_object();
-      for (string wallet_name : _wallet->list())
-        scratch[wallet_name] = fc::directory_size(_data_dir / "wallets" / wallet_name);
-      if (fc::is_directory(_data_dir / "wallets/.backups"))
-        scratch["Backups"] = fc::directory_size(_data_dir / "wallets/.backups");
-      sizes["Wallets"] = scratch;
+      const fc::path blockchain = _data_dir / "chain" / "raw_chain";
+      usage["blockchain"] = fc::is_directory( blockchain ) ? fc::directory_size( blockchain ) : variant();
 
-      if (fc::is_directory(_data_dir / "mail"))
-         sizes["Mail Server Storage"] = fc::directory_size(_data_dir / "mail");
+      const fc::path dac_state = _data_dir / "chain" / "index";
+      usage["dac_state"] = fc::is_directory( dac_state ) ? fc::directory_size( dac_state ) : variant();
 
-      sizes["Mail Client Storage"] = fc::directory_size(_data_dir / "mail_client");
+      const fc::path logs = _data_dir / "logs";
+      usage["logs"] = fc::is_directory( logs ) ? fc::directory_size( logs ) : variant();
 
-      return sizes;
+      const fc::path mail_client = _data_dir / "mail_client";
+      usage["mail_client"] = fc::is_directory( mail_client ) ? fc::directory_size( mail_client ) : variant();
+
+      const fc::path mail_server = _data_dir / "mail";
+      usage["mail_server"] = fc::is_directory( mail_server ) ? fc::directory_size( mail_server ) : variant();
+
+      const fc::path network_peers = _data_dir / "peers.leveldb";
+      usage["network_peers"] = fc::is_directory( network_peers ) ? fc::directory_size( network_peers ) : variant();
+
+      fc::mutable_variant_object wallet_sizes;
+
+      const fc::path wallets = _data_dir / "wallets";
+
+      const fc::path backups = wallets / ".backups";
+      if( fc::is_directory( backups ) )
+          wallet_sizes[".backups"] = fc::directory_size( backups );
+
+      for( const string& wallet_name : _wallet->list() )
+          wallet_sizes[wallet_name] = fc::directory_size( wallets / wallet_name );
+
+      usage["wallets"] = wallet_sizes;
+
+      usage["total"] = fc::is_directory( _data_dir ) ? fc::directory_size( _data_dir ) : variant();
+
+      return usage;
     }
 
-    void detail::client_impl::mail_store_message(const address& owner, const mail::message& message)
+    void detail::client_impl::mail_store_message(const mail::message& message)
     {
       FC_ASSERT(_mail_server, "Mail server not enabled!");
-      _mail_server->store(owner, message);
+      _mail_server->store(message);
     }
 
     mail::inventory_type detail::client_impl::mail_fetch_inventory(const address &owner,
@@ -2620,6 +2714,12 @@ config load_config( const fc::path& datadir, bool enable_ulog )
       _mail_client->retry_message(message_id);
     }
 
+    void detail::client_impl::mail_cancel_message(const message_id_type &message_id)
+    {
+      FC_ASSERT(_mail_client);
+      _mail_client->cancel_message(message_id);
+    }
+
     void detail::client_impl::mail_remove_message(const message_id_type &message_id)
     {
       FC_ASSERT(_mail_client);
@@ -2632,10 +2732,10 @@ config load_config( const fc::path& datadir, bool enable_ulog )
       _mail_client->archive_message(message_id);
     }
 
-    int detail::client_impl::mail_check_new_messages()
+    int detail::client_impl::mail_check_new_messages(bool get_all)
     {
       FC_ASSERT(_mail_client);
-      return _mail_client->check_new_messages();
+      return _mail_client->check_new_messages(get_all);
     }
 
     mail::email_record detail::client_impl::mail_get_message(const mail::message_id_type& message_id) const
@@ -2693,7 +2793,7 @@ config load_config( const fc::path& datadir, bool enable_ulog )
           my->_chain_downloader_blocks_remaining = blocks_left;
         }, my->_chain_db->get_head_block_num() + 1);
         my->_chain_downloader_future.on_complete([this,chain_downloader,network_started_callback](const fc::exception_ptr& e) {
-          if( e->code() == fc::canceled_exception::code_value )
+          if( e && e->code() == fc::canceled_exception::code_value )
           {
             delete chain_downloader;
             return;
@@ -3305,6 +3405,10 @@ config load_config( const fc::path& datadir, bool enable_ulog )
               {
                   info["wallet_last_scanned_block_timestamp"]   = _chain_db->get_block_header( last_scanned_block_num ).timestamp;
               }
+              catch (fc::canceled_exception&)
+              {
+                throw;
+              }
               catch( ... )
               {
               }
@@ -3514,12 +3618,12 @@ config load_config( const fc::path& datadir, bool enable_ulog )
 
    account_balance_summary_type client_impl::wallet_account_balance( const string& account_name )const
    {
-      return _wallet->get_account_balances( account_name );
+      return _wallet->get_account_balances( account_name, false );
    }
 
    account_balance_id_summary_type client_impl::wallet_account_balance_ids( const string& account_name )const
    {
-      return _wallet->get_account_balance_ids( account_name );
+      return _wallet->get_account_balance_ids( account_name, false );
    }
 
    account_balance_summary_type client_impl::wallet_account_yield( const string& account_name )const
@@ -3572,16 +3676,16 @@ config load_config( const fc::path& datadir, bool enable_ulog )
    wallet_transaction_record client_impl::wallet_market_submit_short(
            const string& from_account,
            const string& quantity,
-           const string& quote_symbol,
-           const string& collateral_ratio,
            const string& collateral_symbol,
+           const string& apr,
+           const string& quote_symbol,
            const string& short_price_limit )
    {
       const auto record = _wallet->submit_short( from_account,
                                                  quantity,
-                                                 quote_symbol,
-                                                 collateral_ratio,
                                                  collateral_symbol,
+                                                 apr,
+                                                 quote_symbol,
                                                  short_price_limit );
       network_broadcast_transaction( record.trx );
       return record;
@@ -3745,7 +3849,7 @@ config load_config( const fc::path& datadir, bool enable_ulog )
 
    account_vote_summary_type client_impl::wallet_account_vote_summary( const string& account_name )const
    {
-      if( !account_name.empty() && !_chain_db->is_valid_account_name( account_name ) )
+      if( !account_name.empty() && !blockchain::is_valid_account_name( account_name ) )
           FC_CAPTURE_AND_THROW( invalid_account_name, (account_name) );
 
       return _wallet->get_account_vote_summary( account_name );
@@ -3876,11 +3980,12 @@ config load_config( const fc::path& datadir, bool enable_ulog )
       return _chain_db->get_forks_list();
    }
 
-   vector<slot_record> client_impl::blockchain_get_delegate_slot_records( const string& delegate_name )const
+   vector<slot_record> client_impl::blockchain_get_delegate_slot_records( const string& delegate_name,
+                                                                          int64_t start_block_num, uint32_t count )const
    {
-      auto delegate_record = _chain_db->get_account_record( delegate_name );
+      const auto delegate_record = _chain_db->get_account_record( delegate_name );
       FC_ASSERT( delegate_record.valid() && delegate_record->is_delegate(), "${n} is not a delegate!", ("n",delegate_name) );
-      return _chain_db->get_delegate_slot_records( delegate_record->id );
+      return _chain_db->get_delegate_slot_records( delegate_record->id, start_block_num, count );
    }
 
    string client_impl::blockchain_get_block_signee( const string& block )const
@@ -3901,6 +4006,11 @@ config load_config( const fc::path& datadir, bool enable_ulog )
       // NB LHS of == operator is bts::blockchain::public_key_type and RHS is fc::ecc::public_key,
       //   the opposite order won't compile (look at operator== prototype in public_key_type class declaration)
       return rec->active_key() == fc::ecc::public_key(signature, hash);
+   }
+
+   void client_impl::blockchain_dump_state( const string& path )const
+   {
+       _chain_db->dump_state( fc::path( path ) );
    }
 
    void client_impl::debug_start_simulated_time(const fc::time_point& starting_time)
@@ -4005,13 +4115,46 @@ config load_config( const fc::path& datadir, bool enable_ulog )
       return _wallet->login_finish(server_key, client_key, client_signature);
    }
 
+   vector<bts::blockchain::api_market_status> client_impl::blockchain_list_markets()const
+   {
+       const vector<pair<asset_id_type, asset_id_type>> pairs = _chain_db->get_market_pairs();
+
+       vector<bts::blockchain::api_market_status> statuses;
+       statuses.reserve( pairs.size() );
+
+       for( const auto& pair : pairs )
+       {
+           const auto quote_record = _chain_db->get_asset_record( pair.first );
+           const auto base_record = _chain_db->get_asset_record( pair.second );
+           FC_ASSERT( quote_record.valid() && base_record.valid() );
+           const auto status = _chain_db->get_market_status( quote_record->id, base_record->id );
+           FC_ASSERT( status.valid() );
+
+           api_market_status api_status( *status );
+           price current_feed_price;
+           price last_valid_feed_price;
+
+           if( status->current_feed_price.valid() )
+               current_feed_price = *status->current_feed_price;
+           if( status->last_valid_feed_price.valid() )
+               last_valid_feed_price = *status->last_valid_feed_price;
+
+           api_status.current_feed_price = _chain_db->to_pretty_price_double( current_feed_price );
+           api_status.last_valid_feed_price = _chain_db->to_pretty_price_double( last_valid_feed_price );
+
+           statuses.push_back( api_status );
+       }
+
+       return statuses;
+   }
+
    vector<bts::blockchain::market_transaction> client_impl::blockchain_list_market_transactions( uint32_t block_num )const
    {
       return _chain_db->get_market_transactions( block_num );
    }
 
    bts::blockchain::api_market_status client_impl::blockchain_market_status( const std::string& quote,
-                                                                         const std::string& base )const
+                                                                             const std::string& base )const
    {
       auto qrec = _chain_db->get_asset_record(quote);
       auto brec = _chain_db->get_asset_record(base);
@@ -4020,13 +4163,16 @@ config load_config( const fc::path& datadir, bool enable_ulog )
       FC_ASSERT( oresult, "The ${q}/${b} market has not yet been initialized.", ("q", quote)("b", base));
 
       api_market_status result(*oresult);
-      if( oresult->center_price.ratio == fc::uint128() )
-      {
-        oprice median_delegate_price = _chain_db->get_median_delegate_price(qrec->id);
-        result.center_price = _chain_db->to_pretty_price_double(median_delegate_price? *median_delegate_price : price());
-      }
-      else
-        result.center_price = _chain_db->to_pretty_price_double(oresult->center_price);
+      price current_feed_price;
+      price last_valid_feed_price;
+
+      if( oresult->current_feed_price.valid() )
+          current_feed_price = *oresult->current_feed_price;
+      if( oresult->last_valid_feed_price.valid() )
+          last_valid_feed_price = *oresult->last_valid_feed_price;
+
+      result.current_feed_price = _chain_db->to_pretty_price_double( current_feed_price );
+      result.last_valid_feed_price = _chain_db->to_pretty_price_double( last_valid_feed_price );
       return result;
    }
 

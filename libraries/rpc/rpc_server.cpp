@@ -30,11 +30,7 @@
 
 namespace bts { namespace rpc {
 
-   using namespace client;
-   FC_REGISTER_EXCEPTIONS( (rpc_exception)
-                           (missing_parameter)
-                           (unknown_method)
-                           (login_required) )
+  using namespace client;
 
   namespace detail
   {
@@ -789,20 +785,27 @@ namespace bts { namespace rpc {
 
   void rpc_server::wait_till_rpc_server_shutdown()
   {
-    try
+    // wait until a quit has been signalled
+    if (!my->_on_quit_promise->ready())
     {
-      // wait until a quit has been signalled
-      if ( !my->_on_quit_promise->ready() )
+      try
       {
         my->_on_quit_promise->wait();
       }
-
-      // if we were running a TCP server, also wait for it to shut down
-      if (my->_tcp_serv && my->_accept_loop_complete.valid() )
-        my->_accept_loop_complete.wait();
+      catch (const fc::canceled_exception&)
+      {
+      }
     }
-    catch (const fc::canceled_exception&)
+    // if we were running a TCP server, also wait for it to shut down
+    if (my->_tcp_serv && my->_accept_loop_complete.valid())
     {
+      try
+      {
+        my->_accept_loop_complete.wait();
+      }
+      catch (const fc::canceled_exception&)
+      {
+      }
     }
   }
 
