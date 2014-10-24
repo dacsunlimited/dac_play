@@ -2878,7 +2878,7 @@ namespace detail {
         FC_ASSERT( is_open() );
         FC_ASSERT( is_unlocked() );
 
-        if( NOT is_receive_account(from_account_name) )
+        if( NOT my->is_receive_account(from_account_name) )
             FC_CAPTURE_AND_THROW( unknown_receive_account, (from_account_name) );
         if( real_quantity <= 0 )
             FC_CAPTURE_AND_THROW( negative_bid, (real_quantity) );
@@ -2900,7 +2900,7 @@ namespace detail {
         asset chips_to_buy( real_quantity * chip_asset_record->precision, chip_asset_record->id );
         asset cost_shares( cost, 0 );
         
-        auto order_key = get_new_public_key( from_account_name );
+        auto order_key = my->get_new_public_key( from_account_name );
         auto order_address = order_key;
         
         signed_transaction trx;
@@ -2937,8 +2937,8 @@ namespace detail {
         key_rec->memo = "ORDER-" + variant( address(order_key) ).as_string().substr(3,8);
         my->_wallet_db.store_key(*key_rec);
 
-        if( sign ) sign_transaction( trx, required_signatures );
-        cache_transaction( trx, record );
+        if( sign ) my->sign_transaction( trx, required_signatures );
+        my->cache_transaction( trx, record );
 
         return record;
     } FC_CAPTURE_AND_RETHROW( (from_account_name)
@@ -2953,7 +2953,7 @@ namespace detail {
             FC_ASSERT( is_open() );
             FC_ASSERT( is_unlocked() );
 
-            if( NOT is_receive_account(from_account_name) )
+            if( NOT my->is_receive_account(from_account_name) )
                 FC_CAPTURE_AND_THROW( unknown_receive_account, (from_account_name) );
             if( real_quantity <= 0 )
                 FC_CAPTURE_AND_THROW( negative_bid, (real_quantity) );
@@ -2971,7 +2971,7 @@ namespace detail {
             
             asset cost_chips( real_quantity *  chip_asset_record->precision, chip_asset_record->id );
             
-            auto order_key = get_new_public_key( from_account_name );
+            auto order_key = my->get_new_public_key( from_account_name );
             auto order_address = order_key;
             
             signed_transaction trx;
@@ -3015,8 +3015,8 @@ namespace detail {
             key_rec->memo = "ORDER-" + variant( address(order_key) ).as_string().substr(3,8);
             my->_wallet_db.store_key(*key_rec);
 
-            if( sign ) sign_transaction( trx, required_signatures );
-            cache_transaction( trx, record );
+            if( sign ) my->sign_transaction( trx, required_signatures );
+            my->cache_transaction( trx, record );
 
             return record;
         } FC_CAPTURE_AND_RETHROW( (from_account_name)
