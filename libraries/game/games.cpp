@@ -28,6 +28,13 @@ namespace bts { namespace game {
       FC_ASSERT( converter_itr != _converters.end() );
       converter_itr->second->from_variant( in, output );
    } FC_RETHROW_EXCEPTIONS( warn, "", ("in",in) ) }
+    
+    bool game_factory::scan( const game& g, wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w )
+    {
+        auto converter_itr = _converters.find( g.type.value );
+        FC_ASSERT( converter_itr != _converters.end() );
+        return converter_itr->second->scan( g, trx_rec, w );
+    }
 
 } } // bts::blockchain
 

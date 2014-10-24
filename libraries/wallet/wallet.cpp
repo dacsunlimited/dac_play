@@ -848,6 +848,12 @@ namespace detail {
    {
        return my->_wallet_db.lookup_setting(name);
    }
+    
+    owallet_key_record wallet::get_wallet_key_for_address( const address& address )const
+    { try {
+        FC_ASSERT( is_open() );
+        return my->_wallet_db.lookup_key( address );
+    } FC_RETHROW_EXCEPTIONS( warn, "" ) }
 
    public_key_type wallet::create_account( const string& account_name,
                                            const variant& private_data )

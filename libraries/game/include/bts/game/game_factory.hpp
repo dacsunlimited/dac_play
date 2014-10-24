@@ -30,6 +30,8 @@ namespace bts { namespace game {
                 virtual void evaluate( transaction_evaluation_state& eval_state, const game& game ) = 0;
               
                 virtual wallet_transaction_record play( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, const variant& var, bool sign ) = 0;
+              
+              virtual bool scan( const game& game, wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w ) = 0;
           };
 
           template<typename GameType>
@@ -63,6 +65,11 @@ namespace bts { namespace game {
               { try {
                   return GameType::play(blockchain, w, var, sign);
               } FC_CAPTURE_AND_RETHROW( (var) ) }
+              
+              virtual bool scan( const game& g, wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w )
+              { try {
+                  return g.as<GameType>().scan(trx_rec, w);
+              } FC_CAPTURE_AND_RETHROW( (g) ) }
           };
 
           template<typename GameType>
@@ -94,6 +101,8 @@ namespace bts { namespace game {
        void to_variant( const bts::game::game& in, fc::variant& output );
           /// defined in games.cpp
        void from_variant( const fc::variant& in, bts::game::game& output );
+       
+       bool scan( const game& g, wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w );
 
        private:
           std::unordered_map<int, std::shared_ptr<game_converter_base> > _converters;

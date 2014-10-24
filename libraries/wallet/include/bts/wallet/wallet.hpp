@@ -172,6 +172,10 @@ namespace bts { namespace wallet {
                                                  unordered_set<address>& required_signatures
                                       );
          ///@}
+       
+         ///@{ key management
+         owallet_key_record get_wallet_key_for_address( const address& address )const;
+         ///@}
 
          ///@{ account management
          public_key_type  create_account( const string& account_name,

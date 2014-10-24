@@ -50,6 +50,8 @@ namespace bts { namespace game {
         
         void evaluate( transaction_evaluation_state& eval_state );
         
+        bool scan( wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w );
+        
         static wallet_transaction_record play( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, const variant& params, bool sign);
     };
     

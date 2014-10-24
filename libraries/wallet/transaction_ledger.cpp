@@ -7,6 +7,8 @@
 
 #include <bts/blockchain/time.hpp>
 
+#include <bts/game/game_factory.hpp>
+
 #include <sstream>
 
 using namespace bts::wallet;
@@ -1611,64 +1613,5 @@ void wallet_impl::scan_jackpot_transaction(const jackpot_transaction& trx,
 
 bool wallet_impl::scan_game( const game_operation& op, wallet_transaction_record& trx_rec )
 {
-    /* Move to game operation
-    switch( (withdraw_condition_types) op.condition.type )
-    {
-        case withdraw_null_type:
-        {
-            FC_THROW( "withdraw_null_type not implemented!" );
-            break;
-        }
-        case withdraw_signature_type:
-        {
-            auto condtion = op.condition.as<withdraw_with_signature>();
-            // TODO: lookup if cached key and work with it only
-            // if( _wallet_db.has_private_key( deposit.owner ) )
-            if( condtion.memo )
-            {
-                // TODO: TITAN, FC_THROW( "withdraw_option_type not implemented!" );
-                break;
-            } else
-            {
-                auto opt_key_rec = _wallet_db.lookup_key( condtion.owner );
-                if( opt_key_rec.valid() && opt_key_rec->has_private_key() )
-                {
-                    // TODO: Refactor this
-                    for( auto& entry : trx_rec.ledger_entries )
-                    {
-                        if( !entry.to_account.valid() )
-                        {
-                            entry.to_account = opt_key_rec->public_key;
-                            entry.amount = asset( op.amount, 1 );
-                            entry.memo = "play dice";
-                            return true;
-                        }
-                    }
-                }
-            }
-            break;
-        }
-        case withdraw_multi_sig_type:
-        {
-            // TODO: FC_THROW( "withdraw_multi_sig_type not implemented!" );
-            break;
-        }
-        case withdraw_password_type:
-        {
-            // TODO: FC_THROW( "withdraw_password_type not implemented!" );
-            break;
-        }
-        case withdraw_option_type:
-        {
-            // TODO: FC_THROW( "withdraw_option_type not implemented!" );
-            break;
-        }
-        default:
-        {
-            FC_THROW( "unknown withdraw condition type!" );
-            break;
-        }
-    }*/
-
-    return false;
+    return bts::game::game_factory::instance().scan(op.game, trx_rec, self->shared_from_this() );
 }

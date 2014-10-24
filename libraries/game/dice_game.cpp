@@ -64,6 +64,70 @@ namespace bts { namespace game {
         eval_state._current_state->store_dice_record( *cur_record );
     }
     
+    bool dice_game::scan( wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w )
+    {
+         switch( (withdraw_condition_types) condition.type )
+         {
+             case withdraw_null_type:
+             {
+                 FC_THROW( "withdraw_null_type not implemented!" );
+                 break;
+             }
+             case withdraw_signature_type:
+             {
+                 auto condtion = condition.as<withdraw_with_signature>();
+                 // TODO: lookup if cached key and work with it only
+                 // if( _wallet_db.has_private_key( deposit.owner ) )
+                 if( condtion.memo )
+                 {
+                     // TODO: TITAN, FC_THROW( "withdraw_option_type not implemented!" );
+                     break;
+                 } else
+                 {
+                     
+                     auto opt_key_rec = w->get_wallet_key_for_address(condtion.owner);
+                     if( opt_key_rec.valid() && opt_key_rec->has_private_key() )
+                     {
+                         // TODO: Refactor this
+                         for( auto& entry : trx_rec.ledger_entries )
+                         {
+                             if( !entry.to_account.valid() )
+                             {
+                                 entry.to_account = opt_key_rec->public_key;
+                                 entry.amount = asset( amount, 1 );
+                                 entry.memo = "play dice";
+                                 return true;
+                             }
+                         }
+                     }
+                 }
+                 break;
+             }
+             case withdraw_multi_sig_type:
+             {
+                 // TODO: FC_THROW( "withdraw_multi_sig_type not implemented!" );
+                 break;
+             }
+             case withdraw_password_type:
+             {
+                 // TODO: FC_THROW( "withdraw_password_type not implemented!" );
+                 break;
+             }
+             case withdraw_option_type:
+             {
+                 // TODO: FC_THROW( "withdraw_option_type not implemented!" );
+                 break;
+             }
+             default:
+             {
+                 FC_THROW( "unknown withdraw condition type!" );
+                 break;
+             }
+         }
+        
+        return false;
+    }
+    
     wallet_transaction_record dice_game::play( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, const variant& params, bool sign )
     {
         dice_input d_input;
