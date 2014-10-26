@@ -142,6 +142,10 @@ namespace bts { namespace wallet {
                                                  signed_transaction& trx,
                                                  unordered_set<address>& required_signatures
                                       );
+       
+         void sign_transaction( signed_transaction& transaction, const unordered_set<address>& required_signatures )const;
+       
+         void cache_transaction( const signed_transaction& transaction, wallet_transaction_record& record, bool apply_transaction = true );
          ///@}
        
          ///@{ key management

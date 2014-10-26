@@ -1174,6 +1174,16 @@ vector<wallet_transaction_record> wallet::get_transactions( const string& transa
    return transactions;
 } FC_CAPTURE_AND_RETHROW() }
 
+void wallet::sign_transaction( signed_transaction& transaction, const unordered_set<address>& required_signatures )const
+{
+    my->sign_transaction( transaction, required_signatures );
+}
+
+void wallet::cache_transaction( const signed_transaction& transaction, wallet_transaction_record& record, bool apply_transaction)
+{
+    my->cache_transaction( transaction, record, apply_transaction );
+}
+
 void wallet_impl::sign_transaction( signed_transaction& transaction, const unordered_set<address>& required_signatures )const
 { try {
    transaction.expiration = blockchain::now() + self->get_transaction_expiration();
