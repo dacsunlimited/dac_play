@@ -75,7 +75,8 @@ class wallet_impl : public chain_observer
       void scan_jackpot_transaction(const jackpot_transaction& trx,
                                        uint32_t block_num,
                                        const time_point_sec& block_time,
-                                       const time_point_sec& received_time);
+                                       const time_point_sec& received_time,
+                                       const uint32_t trx_index);
 
       secret_hash_type get_secret( uint32_t block_num,
                                    const private_key_type& delegate_key )const;

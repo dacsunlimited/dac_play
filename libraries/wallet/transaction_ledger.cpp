@@ -290,8 +290,9 @@ void wallet_impl::scan_block( uint32_t block_num, const vector<private_key_type>
       scan_market_transaction( market_trx, block_num, block.timestamp, received_time );
 
    const auto jackpot_trxs = _blockchain->get_jackpot_transactions( block_num );
+   uint32_t jackpot_trx_index = 0;
    for( const auto& jackpot_trx : jackpot_trxs )
-      scan_jackpot_transaction( jackpot_trx, block_num, block.timestamp, received_time );
+       scan_jackpot_transaction(jackpot_trx, block_num, block.timestamp, received_time, jackpot_trx_index++);
 }
 
 wallet_transaction_record wallet_impl::scan_transaction(
@@ -1534,7 +1535,8 @@ wallet_transaction_record wallet::get_transaction( const string& transaction_id_
 void wallet_impl::scan_jackpot_transaction(const jackpot_transaction& trx,
                                                  uint32_t block_num,
                                                  const time_point_sec& block_time,
-                                                 const time_point_sec& received_time)
+                                                 const time_point_sec& received_time,
+                                                 const uint32_t trx_index)
 { try {
     const auto win = ( trx.jackpot_received != 0 );
     const auto play_result = string( win ? "win" : "lose" );
@@ -1578,8 +1580,9 @@ void wallet_impl::scan_jackpot_transaction(const jackpot_transaction& trx,
         in_memo_ss << play_result << ", jackpot lucky number: " << trx.lucky_number;
         in_entry.memo = in_memo_ss.str();
         
+        /* Construct a unique record id */
         std::stringstream id_ss;
-        id_ss << block_num << self->get_key_label( okey_jackpot->public_key ) << "0";
+        id_ss << block_num << string(trx.jackpot_owner) << trx_index;
         
         // TODO: Don't blow away memo, etc.
         auto record = wallet_transaction_record();
