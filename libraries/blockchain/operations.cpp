@@ -44,6 +44,7 @@ namespace bts { namespace blockchain {
    const operation_type_enum burn_operation::type                   = burn_op_type;
    const operation_type_enum link_account_operation::type           = link_account_op_type;
    const operation_type_enum release_escrow_operation::type         = release_escrow_op_type;
+   const operation_type_enum update_block_signing_key::type         = update_block_signing_key_type;
 
    
    const operation_type_enum buy_chips_operation::type         = buy_chips_type;
@@ -78,6 +79,8 @@ namespace bts { namespace blockchain {
        
       bts::blockchain::operation_factory::instance().register_operation<release_escrow_operation>();
 
+      bts::blockchain::operation_factory::instance().register_operation<update_block_signing_key>();
+
       bts::blockchain::operation_factory::instance().register_operation<buy_chips_operation>();
       bts::blockchain::operation_factory::instance().register_operation<sell_chips_operation>();
 
@@ -106,33 +109,6 @@ namespace bts { namespace blockchain {
       FC_ASSERT( converter_itr != _converters.end() );
       converter_itr->second->from_variant( in, output );
    } FC_RETHROW_EXCEPTIONS( warn, "", ("in",in) ) }
-
-   bool create_asset_operation::is_power_of_ten( int64_t n )
-   {
-      switch( n )
-      {
-         case 1ll:
-         case 10ll:
-         case 100ll:
-         case 1000ll:
-         case 10000ll:
-         case 100000ll:
-         case 1000000ll:
-         case 10000000ll:
-         case 100000000ll:
-         case 1000000000ll:
-         case 10000000000ll:
-         case 100000000000ll:
-         case 1000000000000ll:
-         case 10000000000000ll:
-         case 100000000000000ll:
-         case 1000000000000000ll:
-            return true;
-         default:
-            return false;
-      }
-      return false;
-   }
 
 } } // bts::blockchain
 

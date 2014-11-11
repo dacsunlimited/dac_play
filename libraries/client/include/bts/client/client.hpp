@@ -23,7 +23,8 @@ namespace bts { namespace client {
 
     using namespace bts::blockchain;
     using namespace bts::wallet;
-    using namespace bts::mail;
+    using bts::mail::mail_client_ptr;
+    using bts::mail::mail_server_ptr;
 
     boost::program_options::variables_map parse_option_variables(int argc, char** argv);
     fc::path get_data_dir(const boost::program_options::variables_map& option_variables);
@@ -65,24 +66,24 @@ namespace bts { namespace client {
 
     struct config
     {
-       config( ) : 
-          default_peers(vector<string>{"178.62.30.193:", "178.62.30.193:", "178.62.30.193:", "178.62.30.193:1778"}),
+       config( ) :
+          default_peers(vector<string>{ BTS_NET_TEST_SEED_IP, BTS_NET_TEST_SEED_IP, BTS_NET_TEST_SEED_IP }),
           mail_server_enabled(false),
           wallet_enabled(true),
           ignore_console(false),
           use_upnp(true),
           maximum_number_of_connections(BTS_NET_DEFAULT_MAX_CONNECTIONS) ,
-          delegate_server( fc::ip::endpoint::from_string("0.0.0.0:0") ),
-          default_delegate_peers( vector<string>({"178.62.30.193:9988"}) )
+          delegate_server( fc::ip::endpoint::from_string("0.0.0.0:9988") ),
+          default_delegate_peers( vector<string>({"0.0.0.0:9988"}) )
           {
 #ifdef BTS_TEST_NETWORK
               uint32_t port = BTS_NET_TEST_P2P_PORT + BTS_TEST_NETWORK_VERSION;
 #else
               uint32_t port = BTS_NET_DEFAULT_P2P_PORT;
 #endif
-              default_peers[0] += fc::to_string( port );
-              default_peers[1] += fc::to_string( port + 1 );
-              default_peers[2] += fc::to_string( port + 2 );
+              default_peers[0] += ":" + fc::to_string( port );
+              default_peers[1] += ":" + fc::to_string( port + 100 );
+              default_peers[2] += ":" + fc::to_string( port + 200 );
               logging = fc::logging_config::default_config();
           }
 
@@ -116,7 +117,7 @@ namespace bts { namespace client {
     {
        public:
          client(const std::string& user_agent);
-         client(const std::string& user_agent, 
+         client(const std::string& user_agent,
                 bts::net::simulated_network_ptr network_to_connect_to);
 
          void simulate_disconnect( bool state );

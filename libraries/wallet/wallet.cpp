@@ -25,14 +25,9 @@ namespace detail {
            _scanner_threads.push_back( std::unique_ptr<fc::thread>( new fc::thread( "wallet_scanner_" + std::to_string( i ) ) ) );
    }
 
-  wallet_impl::~wallet_impl()
-  {
-  }
-
-   private_key_type wallet_impl::create_one_time_key()
-   { try {
-       return _wallet_db.new_private_key( _wallet_password );
-   } FC_CAPTURE_AND_RETHROW() }
+   wallet_impl::~wallet_impl()
+   {
+   }
 
    void wallet_impl::state_changed( const pending_chain_state_ptr& state )
    {
@@ -75,7 +70,7 @@ namespace detail {
          FC_CAPTURE_AND_THROW( insufficient_funds, (from_account_name)(amount_to_withdraw)(balance_records) );
       for( const auto& record : balance_records.at( from_account_name ) )
       {
-          const asset balance = record.get_balance();
+          const asset balance = record.get_spendable_balance( _blockchain->get_pending_state()->now() );
           if( balance.amount <= 0 || balance.asset_id != amount_remaining.asset_id )
               continue;
 
@@ -242,7 +237,13 @@ namespace detail {
         {
            scan_block( block_num, private_keys, now );
 #ifdef BTS_TEST_NETWORK
-           scan_block_experimental( block_num, account_keys, account_balances, account_names );
+           try
+           {
+               scan_block_experimental( block_num, account_keys, account_balances, account_names );
+           }
+           catch( ... )
+           {
+           }
 #endif
            _scan_progress = float(block_num-start)/(min_end-start+1);
            self->set_last_scanned_block_number( block_num );
@@ -264,11 +265,7 @@ namespace detail {
             {
                auto blockchain_acct_rec = _blockchain->get_account_record( acct.second.id );
                if( blockchain_acct_rec.valid() )
-               {
-                   blockchain::account_record& brec = acct.second;
-                   brec = *blockchain_acct_rec;
-                   _wallet_db.cache_account( acct.second );
-               }
+                   _wallet_db.store_account( *blockchain_acct_rec );
             }
         }
 
@@ -301,6 +298,8 @@ namespace detail {
        std::exception_ptr upgrade_failure_exception;
        try
        {
+           self->auto_backup( "version_upgrade" );
+
            /* Example
            if( current_version < 101 )
            {
@@ -502,42 +501,31 @@ namespace detail {
     *  will not be valid for sending TITAN transactions to, but will
     *  be able to receive payments directly.
     */
-   address wallet_impl::get_new_address( const string& account_name )
+   private_key_type wallet_impl::get_new_private_key( const string& account_name )
    { try {
       if( NOT self->is_open() ) FC_CAPTURE_AND_THROW( wallet_closed );
       if( NOT self->is_unlocked() ) FC_CAPTURE_AND_THROW( wallet_locked );
       if( NOT is_receive_account(account_name) )
           FC_CAPTURE_AND_THROW( unknown_receive_account, (account_name) );
 
-      auto current_account = _wallet_db.lookup_account( account_name );
+      const auto current_account = _wallet_db.lookup_account( account_name );
       FC_ASSERT( current_account.valid() );
 
-      auto new_priv_key = _wallet_db.new_private_key( _wallet_password,
-                                                      current_account->account_address );
-      return new_priv_key.get_public_key();
+      return _wallet_db.generate_new_account_child_key( _wallet_password, account_name );
    } FC_CAPTURE_AND_RETHROW( (account_name) ) }
 
-   /**
-    *  Creates a new private key under the specified account. This key
-    *  will not be valid for sending TITAN transactions to, but will
-    *  be able to receive payments directly.
-    */
    public_key_type wallet_impl::get_new_public_key( const string& account_name )
    { try {
-      if( NOT self->is_open() ) FC_CAPTURE_AND_THROW( wallet_closed );
-      if( NOT self->is_unlocked() ) FC_CAPTURE_AND_THROW( wallet_locked );
-      if( NOT is_receive_account(account_name) )
-          FC_CAPTURE_AND_THROW( unknown_receive_account, (account_name) );
-
-      auto current_account = _wallet_db.lookup_account( account_name );
-      FC_ASSERT( current_account.valid() );
-
-      auto new_priv_key = _wallet_db.new_private_key( _wallet_password,
-                                                      current_account->account_address );
-      return new_priv_key.get_public_key();
+      return get_new_private_key( account_name ).get_public_key();
    } FC_CAPTURE_AND_RETHROW( (account_name) ) }
 
-   slate_id_type wallet_impl::select_slate( signed_transaction& transaction, const asset_id_type& deposit_asset_id, vote_selection_method selection_method )
+   address wallet_impl::get_new_address( const string& account_name, const string& label )
+   { try {
+      return address( get_new_public_key( account_name ) );
+   } FC_CAPTURE_AND_RETHROW( (account_name) ) }
+
+   slate_id_type wallet_impl::select_slate( signed_transaction& transaction, const asset_id_type& deposit_asset_id,
+                                            vote_selection_method selection_method )
    {
       auto slate_id = slate_id_type( 0 );
       if( deposit_asset_id != asset_id_type( 0 ) ) return slate_id;
@@ -564,7 +552,7 @@ namespace detail {
     */
    bool wallet_impl::is_valid_account( const string& account_name )const
    {
-      if( !blockchain::is_valid_account_name( account_name ) )
+      if( !_blockchain->is_valid_account_name( account_name ) )
           FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("account_name",account_name) );
       FC_ASSERT( self->is_open() );
       if( _wallet_db.lookup_account( account_name ).valid() )
@@ -578,7 +566,7 @@ namespace detail {
    bool wallet_impl::is_receive_account( const string& account_name )const
    {
       FC_ASSERT( self->is_open() );
-      if( !blockchain::is_valid_account_name( account_name ) ) return false;
+      if( !_blockchain->is_valid_account_name( account_name ) ) return false;
       auto opt_account = _wallet_db.lookup_account( account_name );
       if( !opt_account.valid() ) return false;
       auto opt_key = _wallet_db.lookup_key( opt_account->active_address() );
@@ -655,11 +643,12 @@ namespace detail {
           for( const auto& approved_candidate : for_candidates )
           {
             oaccount_record candidate_record = _blockchain->get_account_record(approved_candidate);
+            if( !candidate_record.valid() ) continue;
 
-            FC_ASSERT( candidate_record.valid() );
             if( !candidate_record->public_data.is_object()
                 || !candidate_record->public_data.get_object().contains("slate_id"))
               continue;
+
             if( !candidate_record->public_data.get_object()["slate_id"].is_uint64() )
             {
               //Delegate is doing something non-kosher with their slate_id. Disapprove of them.
@@ -758,7 +747,7 @@ namespace detail {
    { try {
       FC_ASSERT(is_enabled(), "Wallet is disabled in this client!");
 
-      if( !blockchain::is_valid_account_name( wallet_name ) )
+      if( !my->_blockchain->is_valid_account_name( wallet_name ) )
           FC_THROW_EXCEPTION( invalid_name, "Invalid name for a wallet!", ("wallet_name",wallet_name) );
 
       auto wallet_file_path = fc::absolute( get_data_directory() ) / wallet_name;
@@ -791,7 +780,7 @@ namespace detail {
    { try {
       FC_ASSERT(is_enabled(), "Wallet is disabled in this client!");
 
-      if( !blockchain::is_valid_account_name( wallet_name ) )
+      if( !my->_blockchain->is_valid_account_name( wallet_name ) )
           FC_THROW_EXCEPTION( invalid_name, "Invalid name for a wallet!", ("wallet_name",wallet_name) );
 
       auto wallet_file_path = fc::absolute( get_data_directory() ) / wallet_name;
@@ -884,7 +873,7 @@ namespace detail {
       if( !fc::exists( filename ) )
           FC_THROW_EXCEPTION( file_not_found, "Filename to import from could not be found!", ("filename",filename) );
 
-      if( !blockchain::is_valid_account_name( wallet_name ) )
+      if( !my->_blockchain->is_valid_account_name( wallet_name ) )
           FC_THROW_EXCEPTION( invalid_wallet_name, "Invalid name for a wallet!", ("wallet_name",wallet_name) );
 
       create( wallet_name, passphrase );
@@ -922,7 +911,7 @@ namespace detail {
       while( true )
       {
           fc::time_point_sec now( time_point::now() );
-          std::string backup_filename = wallet_name + "-" + now.to_iso_string();
+          std::string backup_filename = wallet_name + "-" + now.to_non_delimited_iso_string();
           if( !reason.empty() ) backup_filename += "-" + reason;
           backup_filename += ".json";
           backup_path = wallet_dir / ".backups" / wallet_name / backup_filename;
@@ -1110,7 +1099,7 @@ namespace detail {
    public_key_type wallet::create_account( const string& account_name,
                                            const variant& private_data )
    { try {
-      if( !blockchain::is_valid_account_name( account_name ) )
+      if( !my->_blockchain->is_valid_account_name( account_name ) )
           FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("account_name",account_name) );
 
       FC_ASSERT( is_open() );
@@ -1126,15 +1115,12 @@ namespace detail {
       if( existing_registered_account.valid() )
           FC_THROW_EXCEPTION( invalid_name, "This name is already registered with the blockchain!" );
 
-      const auto new_priv_key = my->_wallet_db.new_private_key( my->_wallet_password );
-      const auto new_pub_key  = new_priv_key.get_public_key();
-
-      my->_wallet_db.add_account( account_name, new_pub_key, private_data );
+      const public_key_type account_public_key = my->_wallet_db.generate_new_account( my->_wallet_password, account_name, private_data );
 
       if( num_accounts_before == 0 )
           set_last_scanned_block_number( my->_blockchain->get_head_block_num() );
 
-      return new_pub_key;
+      return account_public_key;
    } FC_CAPTURE_AND_RETHROW( (account_name) ) }
 
    void wallet::account_set_favorite( const string& account_name,
@@ -1153,7 +1139,7 @@ namespace detail {
            return account_set_favorite( account_name, is_favorite );
        }
        judged_account->is_favorite = is_favorite;
-       my->_wallet_db.cache_account( *judged_account );
+       my->_wallet_db.store_account( *judged_account );
    } FC_CAPTURE_AND_RETHROW( (account_name)(is_favorite) ) }
 
    /**
@@ -1171,10 +1157,10 @@ namespace detail {
    { try {
       FC_ASSERT( is_open() );
 
-      if( !blockchain::is_valid_account_name( account_name ) )
+      if( !my->_blockchain->is_valid_account_name( account_name ) )
           FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("account_name",account_name) );
 
-      const auto current_registered_account = my->_blockchain->get_account_record( account_name );
+      auto current_registered_account = my->_blockchain->get_account_record( account_name );
       if( current_registered_account.valid() && current_registered_account->owner_key != key )
          FC_THROW_EXCEPTION( invalid_name,
                              "Account name is already registered under a different key! Provided: ${p}, registered: ${r}",
@@ -1196,7 +1182,7 @@ namespace detail {
          if( !private_data.is_null() )
             current_account->private_data = private_data;
 
-         my->_wallet_db.cache_account( *current_account );
+         my->_wallet_db.store_account( *current_account );
          return;
       }
       else
@@ -1218,14 +1204,21 @@ namespace detail {
              if( !private_data.is_null() )
                 current_account->private_data = private_data;
 
-             my->_wallet_db.cache_account( *current_account );
+             my->_wallet_db.store_account( *current_account );
              return;
          }
 
-         if( current_registered_account.valid() )
-            my->_wallet_db.add_account( *current_registered_account, private_data );
-         else
-            my->_wallet_db.add_account( account_name, key, private_data );
+         if( !current_registered_account.valid() )
+         {
+             const time_point_sec now = blockchain::now();
+             current_registered_account = account_record();
+             current_registered_account->name = account_name;
+             current_registered_account->owner_key = key;
+             current_registered_account->set_active_key( now, key );
+             current_registered_account->last_update = now;
+         }
+
+         my->_wallet_db.add_contact_account( *current_registered_account, private_data );
       }
    } FC_CAPTURE_AND_RETHROW( (account_name)(key) ) }
 
@@ -1234,7 +1227,7 @@ namespace detail {
    { try {
       FC_ASSERT( is_open() );
 
-      if( !blockchain::is_valid_account_name( account_name ) )
+      if( !my->_blockchain->is_valid_account_name( account_name ) )
           FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("account_name",account_name) );
 
       auto local_account = my->_wallet_db.lookup_account( account_name );
@@ -1245,25 +1238,20 @@ namespace detail {
 
       if( local_account.valid() && chain_account.valid() )
       {
-         if( local_account->owner_key == chain_account->owner_key )
-         {
-             blockchain::account_record& bca = *local_account;
-             bca = *chain_account;
-             my->_wallet_db.cache_account( *local_account );
-         }
-         else
+         if( local_account->owner_key != chain_account->owner_key )
          {
             wlog( "local account is owned by someone different public key than blockchain account" );
             wdump( (local_account)(chain_account) );
          }
       }
-      else if( !local_account.valid() )
+
+      if( chain_account.valid() )
       {
-          local_account = wallet_account_record();
-          blockchain::account_record& bca = *local_account;
-          bca = *chain_account;
+          my->_wallet_db.store_account( *chain_account );
+          local_account = my->_wallet_db.lookup_account( account_name );
       }
 
+      FC_ASSERT( local_account.valid() );
       return *local_account;
    } FC_CAPTURE_AND_RETHROW() }
 
@@ -1286,9 +1274,9 @@ namespace detail {
    void wallet::rename_account( const string& old_account_name,
                                  const string& new_account_name )
    { try {
-      if( !blockchain::is_valid_account_name( old_account_name ) )
+      if( !my->_blockchain->is_valid_account_name( old_account_name ) )
           FC_THROW_EXCEPTION( invalid_name, "Invalid old account name!", ("old_account_name",old_account_name) );
-      if( !blockchain::is_valid_account_name( new_account_name ) )
+      if( !my->_blockchain->is_valid_account_name( new_account_name ) )
           FC_THROW_EXCEPTION( invalid_name, "Invalid new account name!", ("new_account_name",new_account_name) );
 
       FC_ASSERT( is_open() );
@@ -1369,7 +1357,7 @@ namespace detail {
       FC_ASSERT( account_name.size(), "You must specify an account name because the private key "
                                       "does not belong to any known accounts");
 
-      if( !blockchain::is_valid_account_name( account_name ) )
+      if( !my->_blockchain->is_valid_account_name( account_name ) )
           FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("account_name",account_name) );
 
       auto account_with_key = my->_wallet_db.lookup_account( key.get_public_key() );
@@ -1404,11 +1392,7 @@ namespace detail {
          return current_key_record->public_key;
       }
 
-      key_data new_key_data;
-      new_key_data.account_address = current_account->account_address;
-      new_key_data.encrypt_private_key( my->_wallet_password, key );
-
-      my->_wallet_db.store_key( new_key_data );
+      my->_wallet_db.import_key( my->_wallet_password, current_account->name, key );
 
       return pub_key;
    } FC_CAPTURE_AND_RETHROW( (account_name) ) }
@@ -1477,10 +1461,10 @@ namespace detail {
            auto oslate = my->_blockchain->get_delegate_slate( balance.delegate_slate_id() );
            if( oslate.valid() )
            {
-               total += balance.get_balance().amount * oslate->supported_delegates.size();
+               total += balance.get_spendable_balance( my->_blockchain->now() ).amount * oslate->supported_delegates.size();
                ilog("total: ${t}", ("t", total));
            }
-           total_possible += balance.get_balance().amount * BTS_BLOCKCHAIN_MAX_SLATE_SIZE;
+           total_possible += balance.get_spendable_balance( my->_blockchain->now() ).amount * BTS_BLOCKCHAIN_MAX_SLATE_SIZE;
            ilog("total_possible: ${t}", ("t", total_possible));
        }
        ilog("total_possible: ${t}", ("t", total_possible));
@@ -1504,6 +1488,14 @@ namespace detail {
       return key->decrypt_private_key( my->_wallet_password );
    } FC_CAPTURE_AND_RETHROW( (addr) ) }
 
+   public_key_type  wallet::get_public_key( const address& addr) const
+   {
+       FC_ASSERT( is_open() );
+       auto key = my->_wallet_db.lookup_key( addr );
+       FC_ASSERT( key.valid(), "No known key for this address." );
+       return key->public_key;
+   }
+
    void wallet::set_delegate_block_production( const string& delegate_name, bool enabled )
    {
       FC_ASSERT( is_open() );
@@ -1512,7 +1504,7 @@ namespace detail {
 
       if( delegate_name != "ALL" )
       {
-          if( !blockchain::is_valid_account_name( delegate_name ) )
+          if( !my->_blockchain->is_valid_account_name( delegate_name ) )
               FC_THROW_EXCEPTION( invalid_name, "Invalid delegate name!", ("delegate_name",delegate_name) );
 
           auto delegate_record = get_account( delegate_name );
@@ -1529,7 +1521,7 @@ namespace detail {
       for( auto& delegate_record : delegate_records )
       {
           delegate_record.block_production_enabled = enabled;
-          my->_wallet_db.cache_account( delegate_record );
+          my->_wallet_db.store_account( delegate_record );
       }
 
       const auto empty_after = get_my_delegates( enabled_delegate_status ).empty();
@@ -1579,6 +1571,28 @@ namespace detail {
       return my->_blockchain->get_next_producible_block_timestamp( delegate_ids );
    } FC_CAPTURE_AND_RETHROW() }
 
+
+    fc::ecc::compact_signature  wallet::sign_hash(const string& signer, const fc::sha256& hash )const
+    {
+        try {
+           auto key = public_key_type( signer );
+           auto privkey = get_private_key( address( key ) );
+           return privkey.sign_compact( hash );
+       }
+       catch (...)
+       {
+           try {
+               auto addr = address( signer );
+               auto privkey = get_private_key( addr );
+               return privkey.sign_compact( hash );
+           }
+           catch (...)
+           {
+               return get_active_private_key(signer).sign_compact(hash);
+           }
+       }
+    }
+
    void wallet::sign_block( signed_block_header& header )const
    { try {
       FC_ASSERT( is_unlocked() );
@@ -1586,8 +1600,9 @@ namespace detail {
           FC_THROW_EXCEPTION( invalid_timestamp, "Invalid block timestamp! Block production may be disabled" );
 
       auto delegate_record = my->_blockchain->get_slot_signee( header.timestamp, my->_blockchain->get_active_delegates() );
-      auto delegate_pub_key = delegate_record.active_key();
-      auto delegate_key = get_private_key( address(delegate_pub_key) );
+      FC_ASSERT( delegate_record.is_delegate() && delegate_record.delegate_info.valid() );
+      auto delegate_pub_key = delegate_record.delegate_info->block_signing_key;
+      auto delegate_key = get_private_key( address( delegate_pub_key ) );
       FC_ASSERT( delegate_pub_key == delegate_key.get_public_key() );
 
       header.previous_secret = my->get_secret( delegate_record.delegate_info->last_block_num_produced,
@@ -1900,60 +1915,125 @@ namespace detail {
       return record;
    } FC_CAPTURE_AND_RETHROW( (account_to_publish_under)(account_to_pay_with)(sign) ) }
 
-   uint32_t wallet::regenerate_keys( const string& account_name, uint32_t count )
+   void wallet::repair_records()
    { try {
-      uint32_t regenerated_keys = 0;
-      for( uint32_t i = 0; i < count; ++i )
-      {
-         fc::oexception regenerate_key_error;
-         try {
-            auto key = my->_wallet_db.get_private_key( my->_wallet_password, i );
-            auto addr = address( key.get_public_key() );
-            if( !my->_wallet_db.has_private_key( addr ) )
-            {
-               import_private_key( key, account_name );
-               ++regenerated_keys;
-            }
-         } catch ( const fc::exception& e )
-         {
-            regenerate_key_error = e;
-         }
+       FC_ASSERT( is_open() );
+       FC_ASSERT( is_unlocked() );
+       ulog( "Repairing wallet records. This may take a while..." );
+       my->_wallet_db.repair_records( my->_wallet_password );
+   } FC_CAPTURE_AND_RETHROW() }
 
-         if (regenerate_key_error)
-            ulog( "${e}", ("e", regenerate_key_error->to_detail_string()) );
-      }
+   uint32_t wallet::regenerate_keys( const string& account_name, uint32_t num_keys_to_regenerate )
+   { try {
+       FC_ASSERT( is_open() );
+       FC_ASSERT( is_unlocked() );
+       FC_ASSERT( num_keys_to_regenerate > 0 );
 
-      const auto& accs = my->_wallet_db.get_accounts();
+       owallet_account_record account_record = my->_wallet_db.lookup_account( account_name );
+       FC_ASSERT( account_record.valid() && account_record->is_my_account );
 
-      // generate count keys for each of our accounts.
-      for( const auto& item : accs )
-      {
-         if ( item.second.is_my_account )
-         {
-            for( uint32_t i = 0; i < count; ++i )
-            {
-               my->_wallet_db.new_private_key( my->_wallet_password, item.second.account_address, true );
-               ++regenerated_keys;
-            }
-         }
-      }
+       // Update local account records with latest global state
+       my->scan_registered_accounts();
 
-      auto next_child_idx = my->_wallet_db.get_property( next_child_key_index );
-      int32_t next_child_index = 0;
-      if( next_child_idx.is_null() )
-      {
-         next_child_index = 1;
-      }
-      else
-      {
-         next_child_index = next_child_idx.as<int32_t>();
-      }
-      if( next_child_index < count )
-         my->_wallet_db.set_property( property_enum::next_child_key_index, count );
+       ulog( "This may take a while..." );
+       uint32_t total_regenerated_key_count = 0;
 
-     if( regenerated_keys )
-       scan_chain( 0, -1, true );
-      return regenerated_keys;
+       // Regenerate wallet child keys
+       ulog( "Regenerating wallet child keys and importing into account: ${name}", ("name",account_name) );
+       uint32_t key_index = 0;
+       for( ; key_index < num_keys_to_regenerate; ++key_index )
+       {
+           fc::oexception regenerate_key_error;
+           try
+           {
+               const private_key_type private_key = my->_wallet_db.get_wallet_child_key( my->_wallet_password, key_index );
+               const owallet_key_record key_record = my->_wallet_db.lookup_key( private_key.get_public_key() );
+               if( !key_record.valid() || !key_record->has_private_key() )
+               {
+                   import_private_key( private_key, account_name );
+                   ++total_regenerated_key_count;
+               }
+           }
+           catch( const fc::exception& e )
+           {
+               regenerate_key_error = e;
+           }
+
+           if( regenerate_key_error.valid() )
+               ulog( "${e}", ("e",regenerate_key_error->to_detail_string()) );
+       }
+
+       // Update wallet last used child key index
+       my->_wallet_db.set_last_wallet_child_key_index( std::max( my->_wallet_db.get_last_wallet_child_key_index(), key_index - 1 ) );
+
+       // Regenerate v1 account child keys
+       ulog( "Regenerating type 1 account child keys for account: ${name}", ("name",account_name) );
+       uint32_t seq_num = 0;
+       for( ; seq_num < num_keys_to_regenerate; ++seq_num )
+       {
+           fc::oexception regenerate_key_error;
+           try
+           {
+               const private_key_type private_key = my->_wallet_db.get_account_child_key_v1( my->_wallet_password,
+                                                                                             account_record->account_address, seq_num );
+               const owallet_key_record key_record = my->_wallet_db.lookup_key( private_key.get_public_key() );
+               if( !key_record.valid() || !key_record->has_private_key() )
+               {
+                   import_private_key( private_key, account_name );
+                   ++total_regenerated_key_count;
+               }
+           }
+           catch( const fc::exception& e )
+           {
+               regenerate_key_error = e;
+           }
+
+           if( regenerate_key_error.valid() )
+               ulog( "${e}", ("e",regenerate_key_error->to_detail_string()) );
+       }
+
+       // Regenerate v2 account child keys
+       const owallet_key_record key_record = my->_wallet_db.lookup_key( address( account_record->active_key() ) );
+       if( key_record.valid() && key_record->has_private_key() )
+       {
+           ulog( "Regenerating type 2 account child keys for account: ${name}", ("name",account_name) );
+           const private_key_type active_private_key = key_record->decrypt_private_key( my->_wallet_password );
+           seq_num = 0;
+           for( ; seq_num < num_keys_to_regenerate; ++seq_num )
+           {
+               fc::oexception regenerate_key_error;
+               try
+               {
+                   const private_key_type private_key = my->_wallet_db.get_account_child_key( active_private_key, seq_num );
+                   const owallet_key_record key_record = my->_wallet_db.lookup_key( private_key.get_public_key() );
+                   if( !key_record.valid() || !key_record->has_private_key() )
+                   {
+                       import_private_key( private_key, account_name );
+                       ++total_regenerated_key_count;
+                   }
+               }
+               catch( const fc::exception& e )
+               {
+                   regenerate_key_error = e;
+               }
+
+               if( regenerate_key_error.valid() )
+                   ulog( "${e}", ("e",regenerate_key_error->to_detail_string()) );
+           }
+       }
+
+       // Update account last used key sequence number
+       account_record->last_used_gen_sequence = std::max( account_record->last_used_gen_sequence, seq_num - 1 );
+       my->_wallet_db.store_account( *account_record );
+
+       ulog( "Successfully generated ${n} keys.", ("n",total_regenerated_key_count) );
+
+       if( total_regenerated_key_count > 0 )
+           scan_chain( 0, -1, true );
+
+       ulog( "Key regeneration may leave the wallet in an inconsistent state." );
+       ulog( "It is recommended to create a new wallet and transfer all funds." );
+       return total_regenerated_key_count;
    } FC_CAPTURE_AND_RETHROW() }
 
    int32_t wallet::recover_accounts( int32_t number_of_accounts, int32_t max_number_of_attempts )
@@ -1964,17 +2044,21 @@ namespace detail {
      int attempts = 0;
      int recoveries = 0;
 
+     uint32_t key_index = my->_wallet_db.get_last_wallet_child_key_index() + 1;
      while( recoveries < number_of_accounts && attempts++ < max_number_of_attempts )
      {
-        private_key_type new_priv_key = my->_wallet_db.new_private_key( my->_wallet_password, address(), false );
+        const private_key_type new_priv_key = my->_wallet_db.get_wallet_child_key( my->_wallet_password, key_index );
         fc::ecc::public_key new_pub_key = new_priv_key.get_public_key();
         auto recovered_account = my->_blockchain->get_account_record(new_pub_key);
 
         if( recovered_account.valid() )
         {
+          my->_wallet_db.set_last_wallet_child_key_index( key_index );
           import_private_key(new_priv_key, recovered_account->name, true);
           ++recoveries;
         }
+
+        ++key_index;
      }
 
      if( recoveries )
@@ -2231,7 +2315,7 @@ namespace detail {
 
              signed_transaction trx;
 
-             auto from_balance = balance_item.second.get_balance();
+             auto from_balance = balance_item.second.get_spendable_balance( my->_blockchain->get_pending_state()->now() );
 
              if( from_balance.amount <= 0 )
                 continue;
@@ -2269,7 +2353,7 @@ namespace detail {
                                         memo_message,
                                         slate_id,
                                         sender_private_key.get_public_key(),
-                                        my->create_one_time_key(),
+                                        my->get_new_private_key( from_account_name ),
                                         from_memo
                                         );
              }
@@ -2281,7 +2365,7 @@ namespace detail {
                                         memo_message,
                                         slate_id,
                                         receiver_public_key,
-                                        my->create_one_time_key(),
+                                        my->get_new_private_key( from_account_name ),
                                         to_memo
                                         );
 
@@ -2389,7 +2473,7 @@ namespace detail {
                                memo_message,
                                slate_id,
                                delegate_public_key,
-                               my->create_one_time_key(),
+                               my->get_new_private_key( delegate_name ),
                                from_memo
                                );
 
@@ -2499,6 +2583,15 @@ namespace detail {
 
       return record;
    }
+
+   address  wallet::create_new_address( const string& account_name, const string& label )
+   {
+       FC_ASSERT( is_open() );
+       FC_ASSERT( is_unlocked() );
+       FC_ASSERT( my->is_receive_account( account_name ) );
+       return my->get_new_address( account_name, label );
+   }
+
    wallet_transaction_record wallet::transfer_asset_to_address(
            double real_amount_to_transfer,
            const string& amount_to_transfer_symbol,
@@ -2639,12 +2732,12 @@ namespace detail {
    wallet_transaction_record wallet::register_account(
            const string& account_to_register,
            const variant& public_data,
-           share_type delegate_pay_rate,
+           uint8_t delegate_pay_rate,
            const string& pay_with_account_name,
            account_type new_account_type,
            bool sign )
    { try {
-      if( !blockchain::is_valid_account_name( account_to_register ) )
+      if( !my->_blockchain->is_valid_account_name( account_to_register ) )
           FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("account_to_register",account_to_register) );
 
       FC_ASSERT( is_open() );
@@ -2670,7 +2763,7 @@ namespace detail {
                             public_data,
                             account_public_key, // master
                             account_public_key, // active
-                            delegate_pay_rate,
+                            delegate_pay_rate <= 100 ? delegate_pay_rate : -1,
                             meta_info );
 
       const auto pos = account_to_register.find( '.' );
@@ -2693,9 +2786,9 @@ namespace detail {
       auto required_fees = get_transaction_fee();
 
       bool as_delegate = false;
-      if( delegate_pay_rate >= 0  )
+      if( delegate_pay_rate <= 100  )
       {
-        required_fees += asset( my->_blockchain->get_delegate_registration_fee( delegate_pay_rate ), 0 );
+        required_fees += asset(my->_blockchain->get_delegate_registration_fee(delegate_pay_rate),0);
         as_delegate = true;
       }
 
@@ -2733,7 +2826,7 @@ namespace detail {
       FC_ASSERT( create_asset_operation::is_power_of_ten( precision ) );
       FC_ASSERT( is_open() );
       FC_ASSERT( is_unlocked() );
-      FC_ASSERT( blockchain::is_valid_symbol_name( symbol ) ); // valid length and characters
+      FC_ASSERT( my->_blockchain->is_valid_symbol_name( symbol ) ); // valid length and characters
       FC_ASSERT( ! my->_blockchain->is_valid_symbol( symbol ) ); // not yet registered
 
       signed_transaction     trx;
@@ -2741,9 +2834,9 @@ namespace detail {
 
       auto required_fees = get_transaction_fee();
 
-      required_fees += asset(my->_blockchain->get_asset_registration_fee(),0);
+      required_fees += asset(my->_blockchain->get_asset_registration_fee(symbol.size()),0);
 
-      if( !blockchain::is_valid_account_name( issuer_account_name ) )
+      if( !my->_blockchain->is_valid_account_name( issuer_account_name ) )
           FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("issuer_account_name",issuer_account_name) );
       auto from_account_address = get_account_public_key( issuer_account_name );
       auto oname_rec = my->_blockchain->get_account_record( issuer_account_name );
@@ -2793,7 +2886,7 @@ namespace detail {
            const string& memo_message,
            bool sign )
    { try {
-      if( !blockchain::is_valid_account_name( to_account_name ) )
+      if( !my->_blockchain->is_valid_account_name( to_account_name ) )
           FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("to_account_name",to_account_name) );
 
       FC_ASSERT( is_open() );
@@ -2832,7 +2925,7 @@ namespace detail {
                               memo_message,
                               0,
                               sender_private_key.get_public_key(),
-                              my->create_one_time_key(),
+                              my->get_new_private_key( issuer_account->name ),
                               from_memo
                               );
 
@@ -3029,14 +3122,14 @@ namespace detail {
       auto oacct = my->_wallet_db.lookup_account( account_to_update );
       FC_ASSERT( oacct.valid() );
       oacct->private_data = private_data;
-      my->_wallet_db.cache_account( *oacct );
+      my->_wallet_db.store_account( *oacct );
    }
 
    wallet_transaction_record wallet::update_registered_account(
            const string& account_to_update,
            const string& pay_from_account,
            optional<variant> public_data,
-           share_type delegate_pay_rate,
+           uint8_t delegate_pay_rate,
            bool sign )
    { try {
       FC_ASSERT( is_unlocked() );
@@ -3045,8 +3138,12 @@ namespace detail {
       owallet_account_record payer;
          if( !pay_from_account.empty() ) payer = get_account(pay_from_account);
 
+      optional<uint8_t> pay;
+      if( delegate_pay_rate <= 100 )
+          pay = delegate_pay_rate;
+
       auto builder = create_transaction_builder();
-      builder->update_account_registration(account, public_data, optional<private_key_type>(), delegate_pay_rate, payer).
+      builder->update_account_registration(account, public_data, optional<public_key_type>(), pay, payer).
                finalize();
       if( sign )
          return builder->sign();
@@ -3065,18 +3162,20 @@ namespace detail {
       owallet_account_record payer;
       if( !pay_from_account.empty() ) payer = get_account(pay_from_account);
 
-      private_key_type new_private_key;
+      public_key_type new_public_key;
       if( new_active_key.empty() )
-        new_private_key = my->_wallet_db.new_private_key(my->_wallet_password, account.account_address, false);
+      {
+        new_public_key = my->get_new_public_key( account_to_update );
+      }
       else
       {
-        auto key = utilities::wif_to_key(new_active_key);
-        FC_ASSERT(key.valid(), "Unable to parse new active key.");
-        new_private_key = *key;
+        const optional<private_key_type> new_private_key = utilities::wif_to_key(new_active_key);
+        FC_ASSERT(new_private_key.valid(), "Unable to parse new active key.");
+        new_public_key = import_private_key( *new_private_key, account_to_update, false );
       }
 
       auto builder = create_transaction_builder();
-      builder->update_account_registration(account, optional<variant>(), new_private_key, optional<share_type>(), payer).
+      builder->update_account_registration(account, optional<variant>(), new_public_key, optional<share_type>(), payer).
                finalize();
       if( sign )
          return builder->sign();
@@ -3091,7 +3190,7 @@ namespace detail {
                                        const variant& data,
                                        bool sign  )
    {
-      if( !blockchain::is_valid_account_name( delegate_account_name ) )
+      if( !my->_blockchain->is_valid_account_name( delegate_account_name ) )
           FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("delegate_account_name",delegate_account_name) );
 
       FC_ASSERT( is_open() );
@@ -3135,7 +3234,7 @@ namespace detail {
                                              const string& message,
                                              bool sign )
    {
-      if( !blockchain::is_valid_account_name( delegate_name ) )
+      if( !my->_blockchain->is_valid_account_name( delegate_name ) )
           FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("delegate_name",delegate_name) );
 
       FC_ASSERT( is_open() );
@@ -3345,17 +3444,24 @@ namespace detail {
    wallet_transaction_record wallet::add_collateral(
            const string& from_account_name,
            const order_id_type& cover_id,
-           share_type collateral_to_add,
+           const string& real_quantity_collateral_to_add,
            bool sign )
    { try {
        if (!is_open()) FC_CAPTURE_AND_THROW (wallet_closed);
        if (!is_unlocked()) FC_CAPTURE_AND_THROW (wallet_locked);
        if (!my->is_receive_account(from_account_name)) FC_CAPTURE_AND_THROW (unknown_receive_account);
-       if (collateral_to_add <= 0) FC_CAPTURE_AND_THROW (bad_collateral_amount);
 
        const auto order = my->_blockchain->get_market_order( cover_id, cover_order );
        if( !order.valid() )
            FC_THROW_EXCEPTION( unknown_market_order, "Cannot find that cover order!" );
+
+       const oasset_record base_asset = my->_blockchain->get_asset_record( order->market_index.order_price.base_asset_id );
+       FC_ASSERT( base_asset.valid() );
+
+       const asset collateral_to_add = my->_blockchain->to_ugly_asset( real_quantity_collateral_to_add,
+                                                                       base_asset->symbol );
+
+       if (collateral_to_add.amount <= 0) FC_CAPTURE_AND_THROW (bad_collateral_amount);
 
        const auto owner_address = order->get_owner();
        const auto owner_key_record = my->_wallet_db.lookup_key( owner_address );
@@ -3369,10 +3475,10 @@ namespace detail {
        unordered_set<address> required_signatures;
        required_signatures.insert( owner_address );
 
-       trx.add_collateral( collateral_to_add, order->market_index );
+       trx.add_collateral( collateral_to_add.amount, order->market_index );
 
        auto required_fees = get_transaction_fee();
-       my->withdraw_to_transaction( asset(collateral_to_add) + required_fees,
+       my->withdraw_to_transaction( collateral_to_add + required_fees,
                                     from_account_name,
                                     trx,
                                     required_signatures );
@@ -3384,7 +3490,7 @@ namespace detail {
        auto entry = ledger_entry();
        entry.from_account = from_account_key;
        entry.to_account = get_private_key( owner_address ).get_public_key();
-       entry.amount = asset(collateral_to_add);
+       entry.amount = collateral_to_add;
        entry.memo = "add collateral to short";
        record.ledger_entries.push_back(entry);
 
@@ -3392,7 +3498,7 @@ namespace detail {
        my->cache_transaction( trx, record );
 
        return record;
-   } FC_CAPTURE_AND_RETHROW((from_account_name)(cover_id)(collateral_to_add)(sign)) }
+   } FC_CAPTURE_AND_RETHROW((from_account_name)(cover_id)(real_quantity_collateral_to_add)(sign)) }
 
    wallet_transaction_record wallet::cover_short(
            const string& from_account_name,
@@ -3456,7 +3562,12 @@ namespace detail {
          }
       }
       return xts_fee;
-   } FC_CAPTURE_AND_RETHROW() }
+       } FC_CAPTURE_AND_RETHROW() }
+
+   bool wallet::asset_can_pay_fee(const asset_id_type& desired_fee_asset_id) const
+   {
+      return get_transaction_fee(desired_fee_asset_id).asset_id == desired_fee_asset_id;
+   }
 
    void wallet::set_last_scanned_block_number( uint32_t block_num )
    { try {
@@ -3664,7 +3775,7 @@ namespace detail {
 
    private_key_type wallet::get_active_private_key( const string& account_name )const
    { try {
-      if( !blockchain::is_valid_account_name( account_name ) )
+      if( !my->_blockchain->is_valid_account_name( account_name ) )
           FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("account_name",account_name) );
       FC_ASSERT( is_open() );
       FC_ASSERT( is_unlocked() );
@@ -3686,7 +3797,7 @@ namespace detail {
     */
    public_key_type wallet::get_account_public_key( const string& account_name )const
    { try {
-      if( !blockchain::is_valid_account_name( account_name ) )
+      if( !my->_blockchain->is_valid_account_name( account_name ) )
           FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("account_name",account_name) );
       FC_ASSERT( my->is_unique_account(account_name) );
       FC_ASSERT( is_open() );
@@ -3699,11 +3810,7 @@ namespace detail {
       FC_ASSERT( opt_account.valid(), "Unable to find account '${name}'",
                 ("name",account_name) );
 
-      auto opt_key = my->_wallet_db.lookup_key( opt_account->account_address );
-      FC_ASSERT( opt_key.valid(), "Unable to find key for account '${name}",
-                ("name",account_name) );
-
-      return opt_key->public_key;
+      return opt_account->owner_key;
    } FC_CAPTURE_AND_RETHROW( (account_name) ) }
 
    void wallet::set_account_approval( const string& account_name, int8_t approval )
@@ -3718,7 +3825,7 @@ namespace detail {
       if( war.valid() )
       {
          war->approved = approval;
-         my->_wallet_db.cache_account( *war );
+         my->_wallet_db.store_account( *war );
          return;
       }
 
@@ -3797,6 +3904,7 @@ namespace detail {
       return balance_ids;
    } FC_CAPTURE_AND_RETHROW() }
 
+   // This will lie about vesting balances to show the user what they can actually spend
    account_balance_summary_type wallet::get_account_balances( const string& account_name, bool include_empty )const
    { try {
       map<string, map<asset_id_type, share_type>> balances;
@@ -3809,7 +3917,7 @@ namespace detail {
 
           for( const auto& record : records )
           {
-              const auto balance = record.get_balance();
+              const auto balance = record.get_spendable_balance( my->_blockchain->get_pending_state()->now() );
               balances[ name ][ balance.asset_id ] += balance.amount;
           }
       }
@@ -3830,7 +3938,7 @@ namespace detail {
 
           for( const auto& record : records )
           {
-              const auto balance = record.get_balance();
+              const auto balance = record.get_spendable_balance( my->_blockchain->get_pending_state()->now() );
               // TODO: Memoize these
               const auto asset_rec = pending_state->get_asset_record( balance.asset_id );
               if( !asset_rec.valid() || !asset_rec->is_market_issued() ) continue;
@@ -3843,6 +3951,47 @@ namespace detail {
 
       return yield_summary;
    } FC_CAPTURE_AND_RETHROW() }
+
+
+   asset  wallet::asset_worth( const asset& base, const string& price_in_symbol )const
+   {
+       auto oquote = my->_blockchain->get_asset_record( price_in_symbol );
+       ulog("Asset worth for:\n base: ${base}\n quote: ${quote}", ("base", base)("quote", price_in_symbol));
+       FC_ASSERT( oquote.valid() );
+       if( oquote->id == base.asset_id )
+           return base;
+
+       asset_id_type quote_id = oquote->id;
+       asset_id_type base_id = base.asset_id;
+       if (oquote->id < base.asset_id ) // switch orientation
+       {
+           quote_id = base.asset_id;
+           base_id = oquote->id;
+       }
+
+       auto market_stat = my->_blockchain->get_market_status( oquote->id, base.asset_id );
+       return asset(0);
+   }
+
+   asset wallet::get_account_net_worth( const string& account_name, const string& symbol )const
+   {
+       ulog("get_account_net_worth in asset:  USD");
+       auto btsx_worth = asset( 0, 0 );
+       auto balances = get_account_balance_records( account_name );
+       for( auto map : balances )
+       {
+           for( auto record : map.second )
+           {
+               //const auto balance = asset( record.balance, record.condition.asset_id );
+               //ulog("asset: ${asset}", ("asset", asset));
+               //btsx_worth += asset_worth(balance, "BTS_BLOCKCHAIN_SYMBOL" );
+           }
+       }
+       // open orders
+       // balances
+       // - debt
+       return btsx_worth;
+   }
 
    account_vote_summary_type wallet::get_account_vote_summary( const string& account_name )const
    { try {
@@ -3863,7 +4012,7 @@ namespace detail {
           const auto obalance = pending_state->get_balance_record( item.first );
           if( !obalance.valid() ) continue;
 
-          const auto balance = obalance->get_balance();
+          const auto balance = obalance->get_spendable_balance( pending_state->now() );
           if( balance.amount <= 0 || balance.asset_id != 0 ) continue;
 
           const auto slate_id = obalance->delegate_slate_id();
@@ -3984,6 +4133,7 @@ namespace detail {
       }
       return account_keys;
    }
+   
 
    map<order_id_type, market_order> wallet::get_market_orders( const string& account_name, uint32_t limit )const
    {
@@ -4097,5 +4247,29 @@ namespace detail {
       }
       return result;
    } FC_CAPTURE_AND_RETHROW( (quote_symbol)(base_symbol) ) }
+
+   vector<snapshot_record> wallet::check_sharedrop()const
+   { try {
+       vector<snapshot_record> snapshot_records;
+
+       const auto scan_balance = [&]( const balance_record& record )
+       {
+           if( !record.snapshot_info.valid() )
+               return;
+
+           if( record.condition.type != withdraw_vesting_type )
+               return;
+
+           const owallet_key_record key_record = my->_wallet_db.lookup_key( record.owner() );
+           if( !key_record.valid() || !key_record->has_private_key() )
+               return;
+
+           snapshot_records.push_back( *record.snapshot_info );
+       };
+
+       my->_blockchain->scan_balances( scan_balance );
+
+       return snapshot_records;
+   } FC_CAPTURE_AND_RETHROW() }
 
 } } // bts::wallet

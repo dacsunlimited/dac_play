@@ -3,17 +3,43 @@
 #include <bts/blockchain/exceptions.hpp>
 
 namespace bts { namespace blockchain {
- 
+
+   bool create_asset_operation::is_power_of_ten( int64_t n )
+   {
+      switch( n )
+      {
+         case 1ll:
+         case 10ll:
+         case 100ll:
+         case 1000ll:
+         case 10000ll:
+         case 100000ll:
+         case 1000000ll:
+         case 10000000ll:
+         case 100000000ll:
+         case 1000000000ll:
+         case 10000000000ll:
+         case 100000000000ll:
+         case 1000000000000ll:
+         case 10000000000000ll:
+         case 100000000000000ll:
+         case 1000000000000000ll:
+            return true;
+         default:
+            return false;
+      }
+   }
+
    /**
     *  @note in this method we are using 'this->' to refer to member variables for
-    *  clarity. 
+    *  clarity.
     */
    void create_asset_operation::evaluate( transaction_evaluation_state& eval_state )
    { try {
       if( NOT is_power_of_ten( this->precision ) )
          FC_CAPTURE_AND_THROW( invalid_precision, (precision) );
 
-      if( NOT blockchain::is_valid_symbol_name( this->symbol ) )
+      if( NOT eval_state._current_state->is_valid_symbol_name( this->symbol ) )
          FC_CAPTURE_AND_THROW( invalid_asset_symbol, (symbol) );
 
       if( this->maximum_share_supply <= 0 )
@@ -40,7 +66,8 @@ namespace bts { namespace blockchain {
             FC_CAPTURE_AND_THROW( missing_signature, (issuer_account_record) );
       }
 
-      eval_state.required_fees += asset(eval_state._current_state->get_asset_registration_fee(),0);
+      const asset reg_fee( eval_state._current_state->get_asset_registration_fee( this->symbol.size() ), 0 );
+      eval_state.required_fees += reg_fee;
 
       asset_record new_record;
       new_record.id                    = eval_state._current_state->new_asset_id();
@@ -56,12 +83,12 @@ namespace bts { namespace blockchain {
       new_record.precision             = this->precision;
 
       eval_state._current_state->store_asset_record( new_record );
-      
+
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
    /**
     *  @note in this method we are using 'this->' to refer to member variables for
-    *  clarity. 
+    *  clarity.
     */
    void update_asset_operation::evaluate( transaction_evaluation_state& eval_state )
    { try {
@@ -99,7 +126,7 @@ namespace bts { namespace blockchain {
 
    /**
     *  @note in this method we are using 'this->' to refer to member variables for
-    *  clarity. 
+    *  clarity.
     */
    void issue_asset_operation::evaluate( transaction_evaluation_state& eval_state )
    { try {
@@ -111,10 +138,10 @@ namespace bts { namespace blockchain {
          FC_CAPTURE_AND_THROW( unknown_asset_id, (amount.asset_id) );
 
       auto issuer_account_record = eval_state._current_state->get_account_record( current_asset_record->issuer_account_id );
-      if( NOT issuer_account_record ) 
+      if( NOT issuer_account_record )
          FC_CAPTURE_AND_THROW( unknown_account_id, (current_asset_record->issuer_account_id) );
 
-      if( NOT eval_state.check_signature( issuer_account_record->active_address() ) ) 
+      if( NOT eval_state.check_signature( issuer_account_record->active_address() ) )
       {
          FC_CAPTURE_AND_THROW( missing_signature, (issuer_account_record->active_key()) );
       }
@@ -123,9 +150,9 @@ namespace bts { namespace blockchain {
       {
          FC_CAPTURE_AND_THROW( over_issue, (amount)(current_asset_record) );
       }
-    
+
       current_asset_record->current_share_supply += this->amount.amount;
-      
+
       eval_state.add_balance( this->amount );
 
       eval_state._current_state->store_asset_record( *current_asset_record );

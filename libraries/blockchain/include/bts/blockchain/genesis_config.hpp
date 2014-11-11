@@ -9,7 +9,7 @@ namespace bts { namespace blockchain {
   {
      std::string        name;
      public_key_type    owner;
-     share_type         delegate_pay_rate = -1;
+     uint8_t            delegate_pay_rate = -1;
   };
 
   struct asset_config // these are all market-issued assets
@@ -17,21 +17,29 @@ namespace bts { namespace blockchain {
      std::string       symbol;
      std::string       name;
      std::string       description;
-     uint64_t          precision;
+     uint64_t          precision = 1;
      uint64_t          init_supply;
      uint64_t          init_collateral;
   };
 
+  struct special_balance_config
+  {
+     std::string    raw_address;
+     share_type     balance;
+  };
+
   struct genesis_block_config
   {
-     fc::time_point_sec                         timestamp;
-     std::vector<asset_config>                  chip_assets;
-     std::vector<name_config>                   names;
-     std::vector<std::pair<pts_address,double>> balances;
+     fc::time_point_sec                             timestamp;
+     std::vector<asset_config>                      chip_assets;
+     std::vector<name_config>                       names;
+     std::vector<std::pair<pts_address,share_type>> balances;
+     std::vector<special_balance_config>            bts_sharedrop;
   };
 
 } } // bts::blockchain
 
 FC_REFLECT( bts::blockchain::name_config, (name)(owner)(delegate_pay_rate) )
 FC_REFLECT( bts::blockchain::asset_config, (symbol)(name)(description)(precision)(init_supply)(init_collateral) )
-FC_REFLECT( bts::blockchain::genesis_block_config, (timestamp)(chip_assets)(names)(balances) )
+FC_REFLECT( bts::blockchain::special_balance_config, (raw_address)(balance) )
+FC_REFLECT( bts::blockchain::genesis_block_config, (timestamp)(chip_assets)(names)(balances)(bts_sharedrop) )

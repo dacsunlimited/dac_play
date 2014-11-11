@@ -38,19 +38,20 @@ namespace bts { namespace wallet {
       {}
 
       wallet_transaction_record transaction_record;
-      std::unordered_set<blockchain::address> required_signatures;
+      std::unordered_set<blockchain::address>                                      required_signatures;
       ///Set of accounts with a cover order in this transaction (only one cover allowed per account per block)
-      std::unordered_set<blockchain::address> accounts_with_covers;
+      std::unordered_set<blockchain::address>                                      accounts_with_covers;
       ///Map of <owning account address, asset ID> to that account's balance in that asset ID
-      std::map<std::pair<blockchain::address, asset_id_type>, share_type> outstanding_balances;
+      std::map<std::pair<blockchain::address, asset_id_type>, share_type>          outstanding_balances;
       ///Map of account address to key owning that account's market transactions
-      std::map<blockchain::address, public_key_type> order_keys;
+      std::map<blockchain::address, public_key_type>                               order_keys;
       ///List of partially-completed transaction notifications; these will be completed when sign() is called
-      std::vector<std::pair<mail::transaction_notice_message, public_key_type>> notices;
+      std::vector<std::pair<mail::transaction_notice_message, public_key_type>>    notices;
 
       /**
        * @brief Look up the market transaction owner key used for a particular account
        * @param account_address Account owner key address to look up
+       * @param account_name Account name to generate new owner key for if necessary
        * @return The market transaction owner key used by the specified account in this transaction
        *
        * Gets the key which owns the market operations belonging to a particular account in this operation. If that
@@ -58,7 +59,7 @@ namespace bts { namespace wallet {
        * for the subsequent market operations. If no key yet exists for the specified account, a new key will be
        * generated to serve the purpose, and registered with the specified account's wallet.
        */
-      public_key_type order_key_for_account(const blockchain::address& account_address);
+      public_key_type order_key_for_account(const blockchain::address& account_address, const string& account_name);
 
       /**
        * \defgroup<charge_functions> Low-Level Balance Manipulation Functions
@@ -114,8 +115,8 @@ namespace bts { namespace wallet {
        */
       transaction_builder& update_account_registration(const wallet_account_record& account,
                                                        optional<variant> public_data,
-                                                       optional<private_key_type> active_key,
-                                                       optional<share_type> delegate_pay,
+                                                       optional<public_key_type> active_key,
+                                                       optional<uint8_t> delegate_pay,
                                                        optional<wallet_account_record> paying_account);
       /**
        * @brief Transfer funds from payer to recipient
@@ -137,6 +138,15 @@ namespace bts { namespace wallet {
        */
       transaction_builder& deposit_asset(const wallet_account_record& payer,
                                          const account_record& recipient,
+                                         const asset& amount,
+                                         const string& memo,
+                                         vote_selection_method vote_method = vote_recommended,
+                                         fc::optional<public_key_type> memo_sender = fc::optional<public_key_type>());
+
+      transaction_builder& deposit_asset_with_escrow(const wallet_account_record& payer,
+                                         const account_record& recipient,
+                                         const account_record& escrow_agent,
+                                         digest_type agreement,
                                          const asset& amount,
                                          const string& memo,
                                          vote_selection_method vote_method = vote_recommended,
@@ -252,7 +262,7 @@ namespace bts { namespace wallet {
 
          return balances;
       }
-      void pay_fees();
+      void pay_fee();
       bool withdraw_fee();
    };
 

@@ -54,6 +54,17 @@ namespace bts { namespace blockchain {
                              const asset& amount,
                              slate_id_type delegate_id );
 
+      void deposit_to_escrow( fc::ecc::public_key receiver_key,
+                              fc::ecc::public_key escrow_key,
+                              digest_type agreement,
+                              asset amount,
+                              fc::ecc::private_key from_key,
+                              const string& memo_message,
+                              slate_id_type delegate_id,
+                              const fc::ecc::public_key& memo_public_key,
+                              fc::ecc::private_key one_time_private_key,
+                              memo_flags_enum memo_type = from_memo );
+
       void deposit_to_account( fc::ecc::public_key receiver_key,
                                 asset amount,
                                 fc::ecc::private_key from_key,
@@ -68,11 +79,11 @@ namespace bts { namespace blockchain {
                              const variant& public_data,
                              const public_key_type& master,
                              const public_key_type& active,
-                             share_type pay_rate,
-                             optional<account_meta_info> info = optional<account_meta_info>());
+                             uint8_t pay_rate = -1,
+                             optional<account_meta_info> info = optional<account_meta_info>() );
 
       void update_account( account_id_type account_id,
-                        share_type delegate_pay_rate,
+                        uint8_t delegate_pay_rate,
                         const optional<variant>& public_data,
                         const optional<public_key_type>& active );
 

@@ -83,6 +83,7 @@ namespace bts { namespace wallet {
 
          void                   set_transaction_fee( const asset& fee );
          asset                  get_transaction_fee( const asset_id_type& desired_fee_asset_id = 0 )const;
+         bool                   asset_can_pay_fee( const asset_id_type& desired_fee_asset_id = 0 )const;
 
          void                   set_transaction_expiration( uint32_t secs );
          uint32_t               get_transaction_expiration()const;
@@ -117,6 +118,7 @@ namespace bts { namespace wallet {
 
          public_key_summary get_public_key_summary( const public_key_type& pubkey ) const;
          vector<public_key_type> get_public_keys_in_account( const string& account_name )const;
+
          ///@}
 
          wallet_transaction_record get_transaction( const string& transaction_id_prefix )const;
@@ -198,6 +200,8 @@ namespace bts { namespace wallet {
          /** sign a block if this wallet controls the key for the active delegate, or throw */
          void sign_block( signed_block_header& header )const;
          ///@}
+         
+         fc::ecc::compact_signature  sign_hash(const string& signer, const fc::sha256& hash )const;
 
          /**
           *  Account management API
@@ -249,6 +253,8 @@ namespace bts { namespace wallet {
          public_key_type import_wif_private_key( const string& wif_key,
                                                  const string& account_name,
                                                  bool create_account = false );
+
+         address  create_new_address( const string& account_name, const string& label);
          ///@}
 
          /**
@@ -268,6 +274,7 @@ namespace bts { namespace wallet {
                                                          const string& memo_message,
                                                          bool sign );
 
+
          /**
           *  This transfer works like a bitcoin transaction combining multiple inputs
           *  and producing a single output. The only different aspect with transfer_asset is that
@@ -282,6 +289,7 @@ namespace bts { namespace wallet {
                  vote_selection_method selection_method,
                  bool sign = true
                  );
+
          /**
           * This transfer works like a bitcoin sendmany transaction combining multiple inputs
           * and producing a single output.
@@ -317,7 +325,7 @@ namespace bts { namespace wallet {
          wallet_transaction_record register_account(
                  const string& account_name,
                  const variant& json_data,
-                 share_type delegate_pay_rate,
+                 uint8_t delegate_pay_rate,
                  const string& pay_with_account_name,
                  bts::blockchain::account_type new_account_type = titan_account,
                  bool sign = true
@@ -327,7 +335,7 @@ namespace bts { namespace wallet {
                  const string& account_name,
                  const string& pay_from_account,
                  optional<variant> public_data,
-                 share_type delegate_pay_rate,
+                 uint8_t delegate_pay_rate = -1,
                  bool sign = true
                  );
 
@@ -426,7 +434,7 @@ namespace bts { namespace wallet {
          wallet_transaction_record add_collateral(
                  const string& from_account_name,
                  const order_id_type& short_id,
-                 share_type collateral_to_add,
+                 const string& real_quantity_collateral_to_add,
                  bool sign = true
                  );
          wallet_transaction_record cancel_market_orders(
@@ -501,6 +509,8 @@ namespace bts { namespace wallet {
          account_balance_summary_type       get_account_balances( const string& account_name = "", bool include_empty = true )const;
 
          account_balance_summary_type       get_account_yield( const string& account_name = "" )const;
+         asset                              asset_worth( const asset& base, const string& price_in_symbol )const;
+         asset                              get_account_net_worth( const string& account_name, const string& symbol )const;
          account_vote_summary_type          get_account_vote_summary( const string& account_name = "" )const;
 
          map<order_id_type, market_order>   get_market_orders( const string& account_name, uint32_t limit)const;
@@ -518,15 +528,19 @@ namespace bts { namespace wallet {
 
          void                               remove_transaction_record( const string& record_id );
 
-         uint32_t                           regenerate_keys( const string& account_name, uint32_t max_number_of_attempts );
-         int32_t                            recover_accounts(int32_t number_of_accounts , int32_t max_number_of_attempts);
+         void                               repair_records();
+         uint32_t                           regenerate_keys( const string& account_name, uint32_t num_keys_to_regenerate );
+         int32_t                            recover_accounts( int32_t number_of_accounts , int32_t max_number_of_attempts );
 
          wallet_transaction_record          recover_transaction( const string& transaction_id_prefix, const string& recipient_account );
          optional<variant_object>           verify_titan_deposit( const string& transaction_id_prefix );
 
+         vector<snapshot_record>            check_sharedrop()const;
+
          vote_summary get_vote_proportion( const string& account_name );
 
          private_key_type get_private_key( const address& addr )const;
+         public_key_type get_public_key( const address& addr) const;
 
          std::string login_start( const std::string& account_name );
          fc::variant login_finish( const public_key_type& server_key,

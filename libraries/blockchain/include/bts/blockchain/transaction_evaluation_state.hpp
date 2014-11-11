@@ -22,7 +22,7 @@ namespace bts { namespace blockchain {
    class transaction_evaluation_state
    {
       public:
-         transaction_evaluation_state( const chain_interface_ptr& blockchain, digest_type chain_id );
+         transaction_evaluation_state( chain_interface* blockchain, digest_type chain_id );
          transaction_evaluation_state(){};
 
          virtual ~transaction_evaluation_state();
@@ -48,9 +48,12 @@ namespace bts { namespace blockchain {
           */
          virtual void update_delegate_votes();
          virtual void verify_delegate_id( account_id_type id )const;
-        // virtual void verify_slate_id( slate_id_type id )const;
+         // virtual void verify_slate_id( slate_id_type id )const;
 
          bool check_signature( const address& a )const;
+
+         bool any_parent_has_signed( const string& account_name )const;
+         bool account_or_any_parent_has_signed( const account_record& record )const;
 
          /**
           *  subtracts amount from a withdraw_with_signature account with the
@@ -123,8 +126,8 @@ namespace bts { namespace blockchain {
           */
          unordered_map<account_id_type, vote_state> net_delegate_votes;
 
-      // not serialized
-         chain_interface_ptr                        _current_state;
+         // not serialized
+         chain_interface*                           _current_state;
          digest_type                                _chain_id;
          bool                                       _skip_signature_check = false;
 

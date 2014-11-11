@@ -15,7 +15,7 @@ namespace bts { namespace blockchain {
                                   const fc::variant& d,
                                   const public_key_type& owner,
                                   const public_key_type& active,
-                                  share_type pay_rate = -1 )
+                                  uint8_t pay_rate = -1 )
       :name(n),public_data(d),owner_key(owner),active_key(active),delegate_pay_rate(pay_rate){}
 
       std::string                 name;
@@ -23,10 +23,7 @@ namespace bts { namespace blockchain {
       public_key_type             owner_key;
       public_key_type             active_key;
 
-      bool                        is_delegate()const;
-
-      // 0-100% of the transaction fees to be paid to delegate
-      share_type                  delegate_pay_rate = -1;
+      uint8_t                     delegate_pay_rate = -1;
 
       /**
        *  Meta information is used by clients to evaluate
@@ -38,6 +35,7 @@ namespace bts { namespace blockchain {
        */
       optional<account_meta_info> meta_data;
 
+      bool                        is_delegate()const;
       void evaluate( transaction_evaluation_state& eval_state );
    };
 
@@ -45,19 +43,33 @@ namespace bts { namespace blockchain {
    {
       static const operation_type_enum type;
 
-      update_account_operation():account_id(0){}
-
-      /** this should be 0 for creating a new name */
       account_id_type                   account_id;
       fc::optional<fc::variant>         public_data;
       fc::optional<public_key_type>     active_key;
 
-      // 0-100% of the transaction fees to be paid to delegate
       // this value can only be reduced, never increased from
       // the prior value.
-      share_type                        delegate_pay_rate = -1;
+      uint8_t                           delegate_pay_rate = -1;
 
       bool is_delegate()const;
+      void evaluate( transaction_evaluation_state& eval_state );
+   };
+
+   /**
+    *  Updates the key used for signing blocks for a given
+    *  delegate.  Must be signed by one of:
+    *
+    *  1) Owner Key
+    *  2) Active Key
+    *  3) Current Block Signing Key
+    */
+   struct update_block_signing_key
+   {
+      static const operation_type_enum  type;
+
+      account_id_type  account_id;
+      public_key_type  block_signing_key;
+
       void evaluate( transaction_evaluation_state& eval_state );
    };
 
@@ -100,3 +112,4 @@ FC_REFLECT( bts::blockchain::register_account_operation, (name)(public_data)(own
 FC_REFLECT( bts::blockchain::update_account_operation, (account_id)(public_data)(active_key)(delegate_pay_rate) )
 FC_REFLECT( bts::blockchain::withdraw_pay_operation, (amount)(account_id) )
 FC_REFLECT( bts::blockchain::link_account_operation, (source_account)(destination_account)(data) )
+FC_REFLECT( bts::blockchain::update_block_signing_key, (account_id)(block_signing_key) )

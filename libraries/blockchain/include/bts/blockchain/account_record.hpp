@@ -48,7 +48,7 @@ namespace bts { namespace blockchain {
 
    struct delegate_stats
    {
-      delegate_stats( share_type pr = -1 ):pay_rate(pr){}
+      delegate_stats( uint8_t pr = 0 ):pay_rate(pr){}
 
       share_type        votes_for = 0;
       uint32_t          blocks_produced = 0;
@@ -58,7 +58,7 @@ namespace bts { namespace blockchain {
       /**
        *  XTS per block produced
        */
-      share_type        pay_rate = -1;
+      uint8_t           pay_rate = 0;
 
       /**
        *  Delegate pay is held in escrow and may be siezed
@@ -66,6 +66,10 @@ namespace bts { namespace blockchain {
        *  for provable cause.
        */
       share_type        pay_balance = 0;
+
+      share_type        total_paid = 0;
+      share_type        total_burned = 0;
+      public_key_type   block_signing_key;
    };
 
    typedef fc::optional<delegate_stats> odelegate_stats;
@@ -85,7 +89,7 @@ namespace bts { namespace blockchain {
       address           active_address()const;
       void              set_active_key( const time_point_sec& now, const public_key_type& new_key );
       public_key_type   active_key()const;
-      share_type        delegate_pay_rate()const;
+      uint8_t           delegate_pay_rate()const;
 
       account_id_type                        id = 0;
       std::string                            name;
@@ -138,7 +142,17 @@ FC_REFLECT( bts::blockchain::account_meta_info, (type)(data) )
 FC_REFLECT( bts::blockchain::account_record,
             (id)(name)(public_data)(owner_key)(active_key_history)(registration_date)(last_update)(delegate_info)(meta_data) )
 FC_REFLECT( bts::blockchain::delegate_stats,
-            (votes_for)(blocks_produced)(blocks_missed)(pay_rate)(pay_balance)(next_secret_hash)(last_block_num_produced) )
+            (votes_for)
+            (blocks_produced)
+            (blocks_missed)
+            (next_secret_hash)
+            (last_block_num_produced)
+            (pay_rate)
+            (pay_balance)
+            (total_paid)
+            (total_burned)
+            (block_signing_key)
+            )
 FC_REFLECT( bts::blockchain::burn_record_key,   (account_id)(transaction_id) )
 FC_REFLECT( bts::blockchain::burn_record_value, (amount)(message)(signer) )
 FC_REFLECT_DERIVED( bts::blockchain::burn_record, (bts::blockchain::burn_record_key)(bts::blockchain::burn_record_value), BOOST_PP_SEQ_NIL )

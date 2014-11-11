@@ -404,6 +404,10 @@
         "default_example" : "some_filename.txt"
       },
       {
+        "type_name" : "digest",
+        "cpp_return_type" : "bts::blockchain::digest_type"
+      },
+      {
         "type_name" : "address",
         "cpp_return_type" : "bts::blockchain::address",
         "cpp_include_file" : "bts/blockchain/address.hpp"
@@ -684,6 +688,10 @@
         "type_name" : "message_header_list",
         "cpp_return_type" : "std::vector<bts::mail::email_header>",
         "cpp_include_file" : "bts/mail/client.hpp"
+      },
+      {
+        "type_name" : "snapshot_record_list",
+        "cpp_return_type" : "std::vector<bts::blockchain::snapshot_record>"
       }
     ]
 }

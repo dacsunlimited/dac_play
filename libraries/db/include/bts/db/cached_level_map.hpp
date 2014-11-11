@@ -43,13 +43,13 @@ namespace bts { namespace db {
 
          void flush()
          {
-            // TODO...
-            // start batch
-            for( auto item : _dirty )
-               _db.store( item, _cache[item] );
-            for( auto item : _dirty_remove )
-               _db.remove( item );
-            // end batch
+            typename level_map<Key, Value>::write_batch batch = _db.create_batch();
+            for( const auto& item : _dirty )
+              batch.store(item, _cache[item]);
+            for( const auto& item : _dirty_remove )
+              batch.remove(item);
+            batch.commit();
+
             _dirty.clear();
             _dirty_remove.clear();
          }
@@ -179,6 +179,11 @@ namespace bts { namespace db {
         { try {
             _db.export_to_json( path );
         } FC_CAPTURE_AND_RETHROW( (path) ) }
+
+        size_t size() const
+        {
+          return _cache.size();
+        }
 
       private:
         CacheType                _cache;

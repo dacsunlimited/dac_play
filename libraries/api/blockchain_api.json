@@ -35,6 +35,12 @@
               "name" : "asset",
               "type" : "string",
               "description" : "asset ticker symbol or ID to calculate debt for"
+            },
+            {
+              "name" : "include_interest",
+              "type" : "bool",
+              "description" : "true to include current outstanding interest and false otherwise",
+              "default_value" : "false"
             }
         ],
         "is_const" : true,
@@ -428,7 +434,7 @@
               "name" : "limit",
               "type" : "uint32_t",
               "description" : "the maximum number of items to return, -1 for all",
-              "default_value" : "-1"
+              "default_value" : "10"
            }
         ],
         "prerequisites" : ["no_prerequisites"],
@@ -716,9 +722,9 @@
         "return_type": "bool",
         "parameters" : [
             {
-                "name" : "signing_account",
+                "name" : "signer",
                 "type" : "string",
-                "description" : "The account the signature claims to be from"
+                "description" : "A public key, address, or account name whose signature to check"
             },
             {
                 "name" : "hash",
