@@ -157,7 +157,7 @@ namespace bts { namespace game {
         // dice asset is 1
         asset chips_to_play(amount_to_play, asset_rec->id);
         
-        if( ! bts::blockchain::is_valid_account_name( d_input.from_account_name ) )
+        if( ! blockchain->is_valid_account_name( d_input.from_account_name ) )
             FC_THROW_EXCEPTION( bts::wallet::invalid_name, "Invalid account name!", ("dice_account_name",d_input.from_account_name) );
         
         

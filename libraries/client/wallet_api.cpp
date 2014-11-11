@@ -287,6 +287,33 @@ wallet_transaction_record detail::client_impl::wallet_asset_issue(
   return record;
 }
 
+wallet_transaction_record detail::client_impl::wallet_play_game(const std::string& asset_symbol, const fc::variant& param )
+{
+    const auto record = _wallet->play_game(asset_symbol, param, true);
+    network_broadcast_transaction(record.trx);
+    return record;
+}
+
+wallet_transaction_record detail::client_impl::wallet_market_buy_chips(
+        const string& from_account,
+        double quantity, 
+        const string& quantity_symbol )
+{
+    const auto record = _wallet->buy_chips(from_account, quantity, quantity_symbol, true);
+    network_broadcast_transaction(record.trx);
+    return record;
+}
+
+wallet_transaction_record detail::client_impl::wallet_market_sell_chips(
+        const string& from_account,
+        double quantity, 
+        const string& quantity_symbol)
+{
+    const auto record = _wallet->sell_chips(from_account, quantity, quantity_symbol, true);
+    network_broadcast_transaction(record.trx);
+    return record;
+}
+
 vector<string> detail::client_impl::wallet_list() const
 {
   return _wallet->list();
