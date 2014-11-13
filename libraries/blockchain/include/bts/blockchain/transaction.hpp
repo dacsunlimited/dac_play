@@ -109,9 +109,6 @@ namespace bts { namespace blockchain {
        
        void buy_chips( const asset& quantity,
                 const address& owner );
-       
-       void sell_chips( const asset& quantity,
-                      const address& owner );
 
       void burn( const asset& quantity,
                  account_id_type for_or_against,

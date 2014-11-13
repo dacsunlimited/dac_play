@@ -485,13 +485,6 @@ namespace bts { namespace wallet {
                  const string& quantity_symbol,
                  bool sign = true
                  );
-       
-         wallet_transaction_record sell_chips(
-                 const string& from_account_name,
-                 double real_quantity,
-                 const string& quantity_symbol,
-                 bool sign = true
-                 );
 
          ///@} Transaction Generation Methods
 

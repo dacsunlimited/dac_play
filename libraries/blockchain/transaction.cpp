@@ -269,16 +269,6 @@ namespace bts { namespace blockchain {
         op.owner = owner;
         operations.push_back( op );
     }
-    
-    void transaction::sell_chips( const asset& quantity,
-                    const address& owner )
-    {
-        FC_ASSERT( quantity.amount > 0 );
-        sell_chips_operation op;
-        op.amount = quantity;
-        op.owner = owner;
-        operations.push_back( op );
-    }
 
    void transaction::issue( const asset& amount_to_issue )
    {

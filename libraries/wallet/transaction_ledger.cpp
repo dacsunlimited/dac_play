@@ -432,10 +432,6 @@ wallet_transaction_record wallet_impl::scan_transaction(
                 // sync the buy back chips, TODO: Dice, update the transaction ledger
                 sync_balance_with_blockchain( op.as<buy_chips_operation>().balance_id() );
                 break;
-            case sell_chips_type:
-                // sync the sell back shares, TODO: Dice, update the transaction ledger
-                sync_balance_with_blockchain( op.as<sell_chips_operation>().balance_id() );
-                break;
             default:
                 break;
         }

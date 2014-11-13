@@ -1785,30 +1785,6 @@
           "aliases" : [ "buy_chips" ]
       },
       {
-          "method_name" : "wallet_market_sell_chips",
-          "description" : "Exchange chips for lto",
-          "return_type" : "transaction_record",
-          "parameters"  : [
-          {
-              "name" : "from_account_name",
-              "type" : "account_name",
-              "description" : "the account that will provide funds for the bid"
-          },
-          {
-              "name" : "quantity",
-              "type" : "real_amount",
-              "description" : "the quantity of items you would like to sell"
-          },
-          {
-              "name" : "quantity_symbol",
-              "type" : "asset_symbol",
-              "description" : "the type of chips you would like to sell"
-          }
-          ],
-          "prerequisites" : ["wallet_unlocked"],
-          "aliases" : [ "sell_chips" ]
-      },
-      {
          "method_name" : "wallet_recover_transaction",
          "description" : "Attempts to recover any missing recipient and memo information for the specified transaction",
          "return_type" : "transaction_record",

@@ -61,8 +61,7 @@ namespace bts { namespace blockchain {
       update_block_signing_key_type = 24,
 
       game_op_type                  = 25,
-      buy_chips_type                = 26,
-      sell_chips_type               = 27
+      buy_chips_type                = 26
    };
 
    /**
@@ -145,7 +144,6 @@ FC_REFLECT_ENUM( bts::blockchain::operation_type_enum,
 
                  (game_op_type)
                  (buy_chips_type)
-                 (sell_chips_type)
                  )
 
 FC_REFLECT( bts::blockchain::operation, (type)(data) )
