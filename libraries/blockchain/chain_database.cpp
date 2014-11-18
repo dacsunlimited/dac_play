@@ -646,7 +646,7 @@ namespace bts { namespace blockchain {
             const uint8_t pay_rate_percent = delegate_record->delegate_info->pay_rate;
             FC_ASSERT( pay_rate_percent >= 0 && pay_rate_percent <= 100 );
 
-            const share_type max_available_paycheck = self->get_max_delegate_pay_per_block();
+            const share_type max_available_paycheck = self->get_max_delegate_pay_issued_per_block();
             const share_type accepted_paycheck = (max_available_paycheck * pay_rate_percent) / 100;
             FC_ASSERT( max_available_paycheck >= accepted_paycheck );
             FC_ASSERT( accepted_paycheck >= 0 );
@@ -663,7 +663,7 @@ namespace bts { namespace blockchain {
             base_asset_record->current_share_supply -= base_asset_record->collected_fees;
             base_asset_record->collected_fees = 0;
             pending_state->store_asset_record( *base_asset_record );
-      } FC_CAPTURE_AND_RETHROW( (block_id)(block_signee) ) }
+      } FC_CAPTURE_AND_RETHROW( (block_signee) ) }
 
       void chain_database_impl::save_undo_state( const block_id_type& block_id,
                                                  const pending_chain_state_ptr& pending_state )
