@@ -32,18 +32,12 @@ bool asset_record::is_market_issued()const
    switch( issuer_account_id )
    {
       case market_issued_asset:
-      case market_feed_issued_asset:
          return true;
       default:
          return false;
    }
 }
 
-bool asset_record::uses_market_feed()const
-{
-  return issuer_account_id == market_feed_issued_asset;
-}
-    
 bool asset_record::is_chip_asset() const
 {
     return current_collateral >= 0;

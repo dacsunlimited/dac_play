@@ -59,6 +59,7 @@ namespace bts { namespace blockchain {
    FC_DECLARE_DERIVED_EXCEPTION( unknown_parent_account_name,       bts::blockchain::evaluation_error, 32010, "unknown parent account name" );
    FC_DECLARE_DERIVED_EXCEPTION( unknown_delegate_slate,            bts::blockchain::evaluation_error, 32011, "unknown delegate slate" );
    FC_DECLARE_DERIVED_EXCEPTION( too_may_delegates_in_slate,        bts::blockchain::evaluation_error, 32012, "too many delegates in slate" );
+   FC_DECLARE_DERIVED_EXCEPTION( pay_balance_remaining,             bts::blockchain::evaluation_error, 32013, "pay balance remaining" );
 
    // TODO: account.data size
    // TODO: asset.data size
@@ -71,13 +72,15 @@ namespace bts { namespace blockchain {
 
    FC_DECLARE_DERIVED_EXCEPTION( invalid_precision,                 bts::blockchain::evaluation_error, 35001, "invalid precision" );
    FC_DECLARE_DERIVED_EXCEPTION( invalid_asset_symbol,              bts::blockchain::evaluation_error, 35002, "invalid asset symbol" );
-   FC_DECLARE_DERIVED_EXCEPTION( unknown_asset_id,                  bts::blockchain::evaluation_error, 35003, "invalid asset symbol" );
+   FC_DECLARE_DERIVED_EXCEPTION( unknown_asset_id,                  bts::blockchain::evaluation_error, 35003, "unknown asset id" );
    FC_DECLARE_DERIVED_EXCEPTION( asset_symbol_in_use,               bts::blockchain::evaluation_error, 35004, "asset symbol in use" );
    FC_DECLARE_DERIVED_EXCEPTION( invalid_asset_amount,              bts::blockchain::evaluation_error, 35005, "invalid asset amount" );
    FC_DECLARE_DERIVED_EXCEPTION( negative_issue,                    bts::blockchain::evaluation_error, 35006, "negative issue" );
    FC_DECLARE_DERIVED_EXCEPTION( over_issue,                        bts::blockchain::evaluation_error, 35007, "over issue" );
    FC_DECLARE_DERIVED_EXCEPTION( unknown_asset_symbol,              bts::blockchain::evaluation_error, 35008, "unknown asset symbol" );
    FC_DECLARE_DERIVED_EXCEPTION( asset_id_in_use,                   bts::blockchain::evaluation_error, 35009, "asset id in use" );
+   FC_DECLARE_DERIVED_EXCEPTION( not_user_issued,                   bts::blockchain::evaluation_error, 35010, "not user issued" );
+   FC_DECLARE_DERIVED_EXCEPTION( invalid_asset_name,                bts::blockchain::evaluation_error, 35011, "invalid asset name" );
 
    FC_DECLARE_DERIVED_EXCEPTION( delegate_vote_limit,               bts::blockchain::evaluation_error, 36001, "delegate_vote_limit" );
    FC_DECLARE_DERIVED_EXCEPTION( insufficient_fee,                  bts::blockchain::evaluation_error, 36002, "insufficient fee" );

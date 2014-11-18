@@ -21,8 +21,9 @@ module BitShares
       @p2p_port = 10000 + Random.rand(10000)
       @running = false
 
-      raise 'BTS_BUILD env variable is not set' unless ENV['BTS_BUILD']
+      ENV['BTS_BUILD'] = '../..' unless ENV['BTS_BUILD']
       @client_binary = ENV['BTS_BUILD'] + '/programs/client/bitshares_client'
+      raise @client_binary + ' not found, please set BTS_BUILD env variable if you are using out of source builds' unless File.exist?(@client_binary)
     end
 
     def log(s)
@@ -33,17 +34,6 @@ module BitShares
 
     def td(path); "#{TEMPDIR}/#{path}"; end
 
-    def create_client_node(dir, port, create_wallet=true)
-      clientnode = BitSharesNode.new @client_binary, name: dir, data_dir: td(dir), genesis: 'genesis.json', http_port: port, p2p_port: @p2p_port, logger: @logger
-      clientnode.start(false)
-      if create_wallet
-        clientnode.exec 'enable_raw'
-        clientnode.exec 'wallet_create', 'default', '123456789'
-        clientnode.exec 'wallet_unlock', '9999999', '123456789'
-      end
-      return clientnode
-    end
-
     def for_each_delegate
       for i in 0..100
         yield "delegate#{i}"
@@ -51,12 +41,13 @@ module BitShares
     end
 
     def full_bootstrap
+      STDOUT.puts 'first time test net bootstrap.. this may take several minutes, please be patient..'
       log '========== full bootstrap ==========='
       FileUtils.rm_rf td('delegate_wallet_backup.json')
       FileUtils.rm_rf td('alice_wallet_backup.json')
       FileUtils.rm_rf td('bob_wallet_backup.json')
-      @delegate_node.exec 'wallet_create', 'default', '123456789'
-      @delegate_node.exec 'wallet_unlock', '9999999', '123456789'
+      @delegate_node.exec 'wallet_create', 'default', 'password'
+      @delegate_node.exec 'wallet_unlock', '9999999', 'password'
 
       File.open('genesis.json.keypairs') do |f|
         counter = 0
@@ -64,15 +55,10 @@ module BitShares
           pub_key, priv_key = l.split(' ')
           @delegate_node.exec 'wallet_import_private_key', priv_key, "delegate#{counter}"
           counter += 1
-          #break if counter > 10
         end
       end
 
       sleep 1.0
-
-      for i in 0..10
-        @delegate_node.exec 'wallet_delegate_set_block_production', "delegate#{i}", true
-      end
 
       balancekeys = []
       File.open('genesis.json.balancekeys') do |f|
@@ -84,9 +70,10 @@ module BitShares
       @delegate_node.exec 'wallet_import_private_key', balancekeys[0], "account0", true, true
       @delegate_node.exec 'wallet_import_private_key', balancekeys[1], "account1", true, true
 
-      for i in 0..100
-        @delegate_node.exec 'wallet_delegate_set_block_production', "delegate#{i}", true
-      end
+      # for i in 0..100
+      #   @delegate_node.exec 'wallet_delegate_set_block_production', "delegate#{i}", true
+      # end
+      @delegate_node.exec 'wallet_delegate_set_block_production', 'ALL', true
 
       @delegate_node.exec 'wallet_backup_create', td('delegate_wallet_backup.json')
 
@@ -99,9 +86,9 @@ module BitShares
 
     def quick_bootstrap
       log '========== quick bootstrap ==========='
-      @delegate_node.exec 'wallet_backup_restore', td('delegate_wallet_backup.json'), 'default', '123456789'
-      @alice_node.exec 'wallet_backup_restore', td('alice_wallet_backup.json'), 'default', '123456789'
-      @bob_node.exec 'wallet_backup_restore', td('bob_wallet_backup.json'), 'default', '123456789'
+      @delegate_node.exec 'wallet_backup_restore', td('delegate_wallet_backup.json'), 'default', 'password'
+      @alice_node.exec 'wallet_backup_restore', td('alice_wallet_backup.json'), 'default', 'password'
+      @bob_node.exec 'wallet_backup_restore', td('bob_wallet_backup.json'), 'default', 'password'
     end
 
     def wait_nodes(nodes)
@@ -125,17 +112,16 @@ module BitShares
 
     def start
       @delegate_node = BitSharesNode.new @client_binary, name: 'delegate', data_dir: td('delegate'), genesis: 'genesis.json', http_port: 5690, p2p_port: @p2p_port, delegate: true, logger: @logger
-      @delegate_node.start(false)
+      @delegate_node.start
 
       @alice_node = BitSharesNode.new @client_binary, name: 'alice', data_dir: td('alice'), genesis: 'genesis.json', http_port: 5691, p2p_port: @p2p_port, logger: @logger
-      @alice_node.start(false)
+      @alice_node.start
 
       @bob_node = BitSharesNode.new @client_binary, name: 'bob', data_dir: td('bob'), genesis: 'genesis.json', http_port: 5692, p2p_port: @p2p_port, logger: @logger
-      @bob_node.start(false)
+      @bob_node.start
 
       nodes = [@delegate_node, @alice_node, @bob_node]
       wait_nodes(nodes)
-      nodes.each{ |n| n.exec 'enable_raw' }
     end
 
     def create
@@ -147,16 +133,23 @@ module BitShares
       quick = File.exist?(td('delegate_wallet_backup.json'))
 
       @delegate_node = BitSharesNode.new @client_binary, name: 'delegate', data_dir: td('delegate'), genesis: 'genesis.json', http_port: 5690, p2p_port: @p2p_port, delegate: true, logger: @logger
-      @delegate_node.start(false)
+      @delegate_node.start
 
-      @alice_node = create_client_node('alice', 5691, !quick)
-      @bob_node = create_client_node('bob', 5692, !quick)
+      @alice_node = BitSharesNode.new @client_binary, name: 'alice', data_dir: td('alice'), genesis: 'genesis.json', http_port: 5691, p2p_port: @p2p_port, logger: @logger
+      @alice_node.start
+
+      @bob_node = BitSharesNode.new @client_binary, name: 'bob', data_dir: td('bob'), genesis: 'genesis.json', http_port: 5692, p2p_port: @p2p_port, logger: @logger
+      @bob_node.start
 
       wait_nodes([@delegate_node, @alice_node, @bob_node])
 
       if quick
         quick_bootstrap
       else
+        @alice_node.exec 'wallet_create', 'default', 'password'
+        @alice_node.exec 'wallet_unlock', '9999999', 'password'
+        @bob_node.exec 'wallet_create', 'default', 'password'
+        @bob_node.exec 'wallet_unlock', '9999999', 'password'
         full_bootstrap
       end
 
@@ -165,9 +158,9 @@ module BitShares
 
     def shutdown
       log 'shutdown'
-      @delegate_node.exec 'quit'
-      @alice_node.exec 'quit' if @alice_node
-      @bob_node.exec 'quit' if @bob_node
+      @delegate_node.stop
+      @alice_node.stop if @alice_node
+      @bob_node.stop if @bob_node
       @running = false
     end
 
@@ -181,9 +174,9 @@ if $0 == __FILE__
     testnet.create
   else
     testnet.start
+    puts 'testnet is running, press any key to exit..'
+    STDIN.getc
   end
-  puts 'testnet is running, press any key to exit..'
-  STDIN.getc
+  puts 'exiting..'
   testnet.shutdown
-  puts 'finished'
 end

@@ -20,7 +20,7 @@ namespace bts { namespace blockchain {
       static const account_type type = multisig_account;
 
       uint32_t                required;
-      std::vector<address>    owners;
+      std::set<address>       owners;
    };
 
    struct account_meta_info
@@ -48,30 +48,21 @@ namespace bts { namespace blockchain {
 
    struct delegate_stats
    {
-      delegate_stats( uint8_t pr = 0 ):pay_rate(pr){}
+      share_type                        votes_for = 0;
 
-      share_type        votes_for = 0;
-      uint32_t          blocks_produced = 0;
-      uint32_t          blocks_missed = 0;
-      secret_hash_type  next_secret_hash;
-      uint32_t          last_block_num_produced = 0;
-      /**
-       *  XTS per block produced
-       */
-      uint8_t           pay_rate = 0;
+      uint8_t                           pay_rate = 0;
+      map<uint32_t, public_key_type>    signing_key_history;
 
-      /**
-       *  Delegate pay is held in escrow and may be siezed
-       *  and returned to the shareholders if they are fired
-       *  for provable cause.
-       */
-      share_type        pay_balance = 0;
+      uint32_t                          last_block_num_produced = 0;
+      optional<secret_hash_type>        next_secret_hash;
 
-      share_type        total_paid = 0;
-      share_type        total_burned = 0;
-      public_key_type   block_signing_key;
+      share_type                        pay_balance = 0;
+      share_type                        total_paid = 0;
+      share_type                        total_burned = 0;
+
+      uint32_t                          blocks_produced = 0;
+      uint32_t                          blocks_missed = 0;
    };
-
    typedef fc::optional<delegate_stats> odelegate_stats;
 
    struct account_record
@@ -79,17 +70,25 @@ namespace bts { namespace blockchain {
       bool              is_null()const;
       account_record    make_null()const;
 
-      share_type        delegate_pay_balance()const;
-      bool              is_delegate()const;
-      bool              is_public_account()const
-      { return meta_data.valid() && meta_data->type == public_account; }
-      void              adjust_votes_for( share_type delta );
-      share_type        net_votes()const;
-      bool              is_retracted()const;
-      address           active_address()const;
+      address           owner_address()const { return address( owner_key ); }
+
       void              set_active_key( const time_point_sec& now, const public_key_type& new_key );
       public_key_type   active_key()const;
+      address           active_address()const;
+      bool              is_retracted()const;
+
+      bool              is_delegate()const;
       uint8_t           delegate_pay_rate()const;
+      void              adjust_votes_for( share_type delta );
+      share_type        net_votes()const;
+      share_type        delegate_pay_balance()const;
+
+      void              set_signing_key( uint32_t block_num, const public_key_type& signing_key );
+      public_key_type   signing_key()const;
+      address           signing_address()const;
+
+      bool              is_public_account()const { return meta_data.valid() && meta_data->type == public_account; }
+
 
       account_id_type                        id = 0;
       std::string                            name;
@@ -137,24 +136,50 @@ namespace bts { namespace blockchain {
 
 } } // bts::blockchain
 
-FC_REFLECT( bts::blockchain::account_meta_info, (type)(data) )
-
-FC_REFLECT( bts::blockchain::account_record,
-            (id)(name)(public_data)(owner_key)(active_key_history)(registration_date)(last_update)(delegate_info)(meta_data) )
+FC_REFLECT_ENUM( bts::blockchain::account_type,
+                 (titan_account)
+                 (public_account)
+                 (multisig_account)
+                 )
+FC_REFLECT( bts::blockchain::multisig_meta_info,
+            (required)
+            (owners)
+            )
+FC_REFLECT( bts::blockchain::account_meta_info,
+            (type)
+            (data)
+            )
 FC_REFLECT( bts::blockchain::delegate_stats,
             (votes_for)
-            (blocks_produced)
-            (blocks_missed)
-            (next_secret_hash)
-            (last_block_num_produced)
             (pay_rate)
+            (signing_key_history)
+            (last_block_num_produced)
+            (next_secret_hash)
             (pay_balance)
             (total_paid)
             (total_burned)
-            (block_signing_key)
+            (blocks_produced)
+            (blocks_missed)
             )
-FC_REFLECT( bts::blockchain::burn_record_key,   (account_id)(transaction_id) )
-FC_REFLECT( bts::blockchain::burn_record_value, (amount)(message)(signer) )
-FC_REFLECT_DERIVED( bts::blockchain::burn_record, (bts::blockchain::burn_record_key)(bts::blockchain::burn_record_value), BOOST_PP_SEQ_NIL )
-FC_REFLECT_ENUM( bts::blockchain::account_type, (titan_account)(public_account)(multisig_account) )
-FC_REFLECT( bts::blockchain::multisig_meta_info, (required)(owners) )
+FC_REFLECT( bts::blockchain::account_record,
+            (id)
+            (name)
+            (public_data)
+            (owner_key)
+            (active_key_history)
+            (registration_date)
+            (last_update)
+            (delegate_info)
+            (meta_data)
+            )
+FC_REFLECT( bts::blockchain::burn_record_key,
+            (account_id)
+            (transaction_id) )
+FC_REFLECT( bts::blockchain::burn_record_value,
+            (amount)
+            (message)
+            (signer) )
+FC_REFLECT_DERIVED( bts::blockchain::burn_record,
+                    (bts::blockchain::burn_record_key)
+                    (bts::blockchain::burn_record_value),
+                    BOOST_PP_SEQ_NIL )
