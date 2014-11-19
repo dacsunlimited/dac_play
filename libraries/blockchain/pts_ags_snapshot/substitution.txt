@@ -1,0 +1,166 @@
+####################################################
+# https://bitsharestalk.org/index.php?topic=4748
+# Last Updated: 2014-11-18 17:50:00
+# Last Post Entry Included: 2014-10-27 11:11:23
+#
+# Entry format requirement:
+# Address: xxxxxx
+# Message: yyyyyy
+# Signature: zzzzz
+####################################################
+
+Address: PbXSuic9B1iEmgMiWqW93cdXFvPQsHXdUc
+Message: New PTS Address: PfSQYEJYKN3YTmk74BwXy6fk2StTJczaQw
+Signature: IGDJBuhlLpOG040Qa8BnSLmNpFOCl7liNP8uO4BPAe0T+RwA2lArnfKqeDSUgw/L9th8+KEfXopMKYQqbpbxCB0=
+
+Address: PitE7xxJvjzkVcs6BT5yRxV55YJqgFrhCU
+Message: New PTS Address: PfSQYEJYKN3YTmk74BwXy6fk2StTJczaQw
+Signature: ILXLuBNagH7kKAFrPtfiuZWuXY9KjtrBfsjs/5mxZu2vgcMUQwncI6wKVWprgLxIZClfiBkbey1IDXXUVLg0vyI=
+
+Address:1Gaw39RvbkZxcXeYzGrjWvmiEqAB6PMqsX
+Message: New BTC Address: 1A2SAL7i5UwZ3pYuaf7rcBj1U3wffEAoo7
+Signature: INfjG+txvMe72T5K5yrKfHvHhbg1pGGJUvbMqYiHkYhmeXNgr23r8myPEVCUA5XmHDBAvX+34SJJMQu2IasdGxs=
+
+Address: 13U3XLUTRHLGMwfCmhde7EmQtNdJE7X2zw
+Message: New Address: 1A2SAL7i5UwZ3pYuaf7rcBj1U3wffEAoo7
+Signature: H0OJtflbALrRR4eRdzf/yCNLe+RFjsPNlU6384i3W+RUElPyrraY8FZYk3exCij5j3K9PfzvV/2JhExXhEQtVUo=
+
+Address: 178RVtWSyrCD8N1BnSdiSbMMokD2foQhAd
+Message: New BTC Address: 1KfjASdNiX97R8eJM9HPbnKcFWZ8RRhzzb
+Signature: G4SbByvsoQhLVjyA3ZDwNUZW/cYO2pJK/HsaS2KgGajMUAQMZw+ZxuD82sRzq88l30fWVgn+gYoDs1uvE6gLPbY=
+
+Address: 1GJczjbQF8evXsLCHpX9sNXQ3m2QbwH2Wv
+Message: New BTC Address: 1KfjASdNiX97R8eJM9HPbnKcFWZ8RRhzzb
+Signature: GwrBVRWHmbyhFIkD5aDRxPDIS6I1HubOZEAw+9OPHAEuRS3SH6Wy6Ma9ndKDLdmc/TF279ADDLxbYr6k1ucy8ao=
+
+Address: 19btdFcvEgF6t7hyr5n4gzsGitHZjk7uF4
+Message: New BTC Address: 1KfjASdNiX97R8eJM9HPbnKcFWZ8RRhzzb
+Signature: HDdneKnMiA5dc9uKPHlPSSI53WBL0QQw43oRhKjLOePQfzPZN39gKEZObxg45Hb8MIyq6sEBO5vfY1vJaRokHjQ=
+
+Address: 1J9FPXTMJXwh1mC4CYDp8kjtgsQehiVos4
+Message: New BTC Address: 1KfjASdNiX97R8eJM9HPbnKcFWZ8RRhzzb
+Signature: HIxFt5eGHnvLe5jgqxzP6ZuKCeVJn7hb4JgVLaFOZE4vSJNJ6qrD/ScIXny2pjOqLekdoGL11st+Jd+rmXADVQQ=
+
+Address: 18Cpgt8w1aFsGBc3s82NMCU5RiRE1kiEe3
+Message: New BTC Address: 1KfjASdNiX97R8eJM9HPbnKcFWZ8RRhzzb
+Signature: HE2tfLu9bz5GQ3pNxYLmY/vIfytnblIgqmqxWKxCqRZRuMpsXra049k+vzmKU2bOcLzpZm0OKlaW+vPOA0bHe/k=
+
+Address: 1MnEmUHF9TYXMio86dTGXvRxeirW4VFE9w
+Message: New BTC Address: 1KfjASdNiX97R8eJM9HPbnKcFWZ8RRhzzb
+Signature: G8jfexkOvKP9LLtT6pzrplIVUXja/eoWsToCFMC55uqv/w5np0A9P4ijBqLrd9lKMouwHl6jlIN+qlkBXnoVCXU=
+
+Address: 1DL9Rt8bWZbmNbSMZedqA2WeFRUeJS415s
+Message: New BTC Address: 1KfjASdNiX97R8eJM9HPbnKcFWZ8RRhzzb
+Signature: G2gllIrPC6iWBB+LBHdMdPigOFC8yhShikKJwt4lv+Nwz+Ff7sQFpvaq4Z/1yui3ngnlKdi7JdkgE04WDTf5Mgs=
+
+Address: 1QC9jKo53vAdo6zYUcHwpJWqGwCe5voxLv
+Message: New BTC Address: 1KfjASdNiX97R8eJM9HPbnKcFWZ8RRhzzb
+Signature: G8j7vZOXw6EJ4/bOXAwKQppyK9YxXSgMrRwdvwnNrJu7uRajHfYN346LWiFwz0pqLkA7+vI2xJ4D7GCFXcVDlMI=
+
+Address: 1JtuJEr3cGL7AyB4xcg9qMLjWV73qnHRBt
+Message: New BTC Address: 1KfjASdNiX97R8eJM9HPbnKcFWZ8RRhzzb
+Signature: G7iO3R96/ojfmba3v9spFQEIDUYVwjd7fXpjmb7fw5uy4sOizXbyLXvOX5AUFPlLakKqDjKE5AftdC4XE8/eG+k=
+
+Address: 1G3HMZzCr4QDihJEpz1arrmR4swm7krinM
+Message: New BTC Address: 1KfjASdNiX97R8eJM9HPbnKcFWZ8RRhzzb
+Signature: HJk5aiPFINZ9+3yKe9h7yZPuPY6yLY05T27bBReEAYDr2jCHrmDhmFzkwe8/+dtnzEfoOQXQpzEGfFFfOW8Mmz4=
+
+Address: 1HziNRPCtiY6HXsBouwpVzTYtZws5A25LZ
+Message: New BTC Address: 1KfjASdNiX97R8eJM9HPbnKcFWZ8RRhzzb
+Signature: HOsselr2VtHFden90A2ju/ZuEsw7sktu0FKINHzl0jDMo8pXdB0AGlGlpsl2g28Y2dxjzdiYCYfXRDzxNK9PG88=
+
+Address: 135xcKg36YPGi2c1yDuacgDJuxqWcporDv
+Message: New BTC Address: 1KfjASdNiX97R8eJM9HPbnKcFWZ8RRhzzb
+Signature: HOZ2WjEBP1DwaHYIMHTJDQf/WihF+CR7LzfirpbylflOtrfl5dEyTTI1mb2jSG/4qlGlIsjv0kpgOCubE3nu+ag=
+
+Address: 15MeKFbkdHp7357Ez3p1jnNdGSovoBKop6
+Message: New BTC Address: 1KfjASdNiX97R8eJM9HPbnKcFWZ8RRhzzb
+Signature: HGlyXzh9FZUHBZ/V13jkZlDRota1TcQ2fVPaSRnzr+UEgRp/qCgoVwNRR77V5ryB19q6YJNhj6KJS4kUOKJGYkM=
+
+Address: 12tiMQ2eFAsG5SwG1xYaejigbsXiqac6hx
+Message: New BTC Address: 1KfjASdNiX97R8eJM9HPbnKcFWZ8RRhzzb
+Signature: HDu6KYRqZDWe0j/SOt+nIWrYsIMhS8UVZt3xrTCjwTtlQXDCxRQ2J8NCE0NVnwmDoKpp0AHgyucQWJYmLtN/uks=
+
+Address: 1GqU61rhQ6sbwLiTc4FYSNpKZyjEA827VV
+Message: New BTC Address: 1KfjASdNiX97R8eJM9HPbnKcFWZ8RRhzzb
+Signature: HIJanrHYlXq7rwnBd5xlb/PNUS+HHuLaG/l2SZSQ5vONrwBcExig9ye6q0mUKfXq5aArWDeMhfYZGWnNtqkacGQ=
+
+Address: 1ED1wLdA3WW7Xr3EPRhZH6LmWP7gwJP5Qj
+Message: New BTC Address: 1KfjASdNiX97R8eJM9HPbnKcFWZ8RRhzzb
+Signature: HDbJeP5NnQUx+jfSiFYLEpmz0T4oFbiVV2cXXYye14aZ4BIRQLoWWrJXmfTlAlWJulGGlQT6aWYPEotHGcwga0U=
+
+Address: 1PegsunSa7ThjbEoRHxxFa5M4BgfXjbAj1
+Message: New BTC Address: 1KfjASdNiX97R8eJM9HPbnKcFWZ8RRhzzb
+Signature: HEiUGP6clZpspB/SimKGf+32SSjladL3Dhv48/11cbdCAz5MLbID2/xFsElLPO31X/x7ji1w/3q1cSGszdc3RTk=
+
+Address: 14seLs1EwvsXTb3dLvchFgMquJnF2yJwd2
+Message: New BTC Address: 1KfjASdNiX97R8eJM9HPbnKcFWZ8RRhzzb
+Signature: HAcCBASLUKqVbpqB8IxAxAMyQZasvs5FzpMVkK1SFPstzmX+yFbMmBcttFiNv770JovzVKXl4gJuhfrXvhKk1kc=
+
+Address: 1NhBbVJJUPN7X451bN9FEEq4LxyWLSWcft
+Message: New BTC Address: 1KfjASdNiX97R8eJM9HPbnKcFWZ8RRhzzb
+Signature: HFZwZC7DBQVDimDNutwXNzRLZwbReQG5fcBKG6qsuqLsoFNLL2BIV2+9awfwP0DzK+g9N1qwm8Q05WMBfvUCa8s=
+
+Address: 12ZoxtSZVqApmRTmY75P6jYpYDLkPJzNai
+Message: New BTC Address: 1KfjASdNiX97R8eJM9HPbnKcFWZ8RRhzzb
+Signature: G7e1CGNtIkHEUSfr/t4J5tGyd4yLVq84TMEceHPS9+bv6AALPqZk6dJyHQRyVWxpbPM//WfQjKCUG/1gG7EAifc=
+
+Address: 1NZHLx6jNqY3R3953j6oALgkkZF4VoM6rH
+Message: New BTC Address: 1KfjASdNiX97R8eJM9HPbnKcFWZ8RRhzzb
+Signature: G5BLE+fsbU6woQdItc1nEISf1iPtGXyRcEuEokxNrpd0mCI4b/4CL19/5WJykcD4UCj/z8zzu32h88l99kAWCo4=
+
+Address: 14Efv8ZHhbFz1fJ3eD4tfKLyHVqAXMug7y
+Message: New BTC Address: 1KfjASdNiX97R8eJM9HPbnKcFWZ8RRhzzb
+Signature: HFc7TXmUgT7C8LvBi2Y1FcR7Z9wnFFhnY+8z2gOx8orGRkOKkHj036Hwy5N6HkdpEgOCAanWKOMqdrsrQfCWTL4=
+
+Address: 12ahkRrYhBcRGT9GbGRc7Y8uMGe9WTLibF
+Message: New BTC Address: 1KfjASdNiX97R8eJM9HPbnKcFWZ8RRhzzb
+Signature: HAY1lyfujJAmyrf3o4A71vLE7jnq/uzjwAXjtMZAUIQseXkVBHV+e3ZQXGxIfSn4PYvPjKkU2VP0K7IAdVcE6oM=
+
+Address: 1TDLLyd684EqFHHwCuQuh5Hh1aEBZpEhv
+Message: New BTC Address: 12Zv4sdQbm6bKpz5artZYoM8WbfFXKuTHC
+Signature: G3LCg/TDsPdu0kHqjkKzU9wWZ5YkrJ6vwwFZxxcqAwKqCyV+yF4B8+pPsP0igMqJyu3nsYLi9b45Wz6wLLZKJPo=
+
+Address: 16qGZVP5rgwQCeLSnf2U94dHBa3QMNHJ3F
+Message: New BTC Address: 12Zv4sdQbm6bKpz5artZYoM8WbfFXKuTHC
+Signature: HEAaDv+S2E/VW/7LJmrQUBFr+FJZm++JUhgEGg1iXRZbYNCGQFEku9g1xyYX0H+2obA7liUP3DhRUH7HLC6eFoM=
+
+Address: 1FnqQz36y18HK1EvaTCaGS65xUYDSTxBtx
+Message: New BTC Address: 12Zv4sdQbm6bKpz5artZYoM8WbfFXKuTHC
+Signature: HPyWg92jFLG8AuO9zYfqKQonhC8hvLrH87u44b89u6NpJDFV7RpYgQXTHdV2WylE9Uk0Z2eS3uTZCeQob94bvcM=
+
+Address: 1JyiMXW7NXjsyhp4hvsm77xFn3J4tvxuZa
+Message: New BTC Address: 16fgrvY7ACrZDLNz9GWiwPfMuk34kZWKmf
+Signature: G50EDEm/wz3EdqL75CTTnP4KlZjijzcycqNQTg5iyM0yBtZpAAk9wupynmXX6KsG8vBYCgcNNrqXm7nrqvQ9YXo=
+
+Address: 1AEv2pKdGqJomxE9ApkW68QBg32QjjwA7b
+Message: New BTC Address: 1BYrChoJn2UNMhTtWfRrqfcJ5ntkMYjTo8
+Signature: GwcLEatgAcfF8rWGCzxk/jQB779HjiRmijiKF1vD5APPeb26MS4vEs0JeL2b7RoEqIh9zwTxxcvCLOZIlD4kQwI=
+
+Address: 1KgyqkYwq1uFMwc6MTeQKsz72jJfqHSBD9
+Message: New BTC address: 17f9pTcu15cdF6qyBzP8cJpL2AeM8zSfGi
+Signature: IHKdnztwUlFGsSBPGWFgrtHEukSOyF5+GAf6gDzvdw5gxvs7NlezEiyqTcMEfDpfnd5GAvDHKqm+5BgYQbbVKnw=
+
+Address: 1KgyqkYwq1uFMwc6MTeQKsz72jJfqHSBD9
+Message: New BTC address: 1KLNYniYHM2UwYxSA7rjRtXqNFQEEUDhPv
+Signature: IA1YfKOYNLoqDs0gf44Uo5QzPHfljeAaZXJfK5ws0RB6O4ncexjG+BvtS4iaw6h6i0hM/KqUgu99UBKfLb1GqEI=
+
+Address: 1PUZQbeu94iarZtrkKXiL4ryAEsvcsEvcE
+Message: New BTC Address: 13P4or5Dz8734Arqg2CQLXFtxy2DSjKdXa
+Signature: HI5Zzra+Mb7dtOFmY12Q6y7OSQarhzdFt7IXDMRwQR4yXHCtbe2/I2VBbzX3k0rsHm/4ccb+b5fqQdVJ5aZ2Lm8=
+
+Address: 19V4dJ4gikPMLqhG9J2iGSXk5uCcLhfmv9
+Message: New BTC Address: 1M69AMjAkeKkk6YfuEECZzbz54EnXijzvk
+Signature: HFKtmzcBIogD8Ia1xafgGH7Owso81COm5AhyhdTrFVZAYHrnF0POV3WAb6ZiRA9uUpP6h
+
+Address: 1CbkZbefm25BYFeUUUQGEvt9HYWh39hvJk
+Message: New BTC Address: 1M69AMjAkeKkk6YfuEECZzbz54EnXijzvk
+Signature: HO9rTM+3iSs+AiL6+1dx/hZS9AQ+B3ADCTy+d/cIb5V6JJXarIOEkSiSsXUz+VFZjgNW8rJo1xizUP9r6Feawno=
+
+Address: PikAq7jB7yHJnZ8gsBXFLWquD1bPoeP7x5
+Message: New PTS Address: PjjYtWpwmwEMA1MK9mjpDpSYzkTMPgjm7X
+Signature: IEe5mmZs9q9kjhYVmhqW3RYvPJ8kbe9q3HqwL8hX9FoCN0XxzHPo3t1Fb1Lput/SQ1UaNwxSKzO7K9fjJ6yUVdw=
+
+Address: 13XnJ6zKd6qgK5Uu4zJw4bdPT8M7232ZBf
+Message: New BTC Address: 1KfjASdNiX97R8eJM9HPbnKcFWZ8RRhzzb
+Signature: G3zeSUQQyK5HJWF0DsNBYtN7uVzkl5fyY7XJ6ig6/0g7AgXd73oGh+5+f9LSarZrVLFwQcZWSqKHT4DeWnBgm6I=
