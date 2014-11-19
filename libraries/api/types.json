@@ -42,12 +42,30 @@
          "cpp_return_type" : "std::map<bts::blockchain::balance_id_type, bts::blockchain::balance_record>"
       },
       {
+         "type_name" : "balance_record_list",
+         "cpp_return_type" : "std::vector<bts::blockchain::balance_record>"
+      },
+      {
          "type_name" : "price_map",
          "cpp_return_type" : "std::map<std::string,double>"
       },
       {
+         "type_name" : "price_array",
+         "cpp_return_type" : "std::vector<bts::blockchain::price>"
+      },
+      {
          "type_name" : "wallet_balance_record",
          "cpp_return_type" : "bts::wallet::wallet_balance_record"
+      },
+      {
+         "type_name" : "escrow_summary",
+         "cpp_return_type" : "bts::wallet::escrow_summary"
+      },
+      {
+        "type_name" : "escrow_summary_array",
+        "container_type" : "array",
+        "contained_type" : "escrow_summary",
+        "default_example" : "TODO"
       },
       {
         "type_name" : "account_record",
@@ -122,9 +140,20 @@
         "default_example" : "192.168.1.5:5678"
       },
       {
+        "type_name" : "optional_string",
+        "cpp_return_type" : "fc::optional<std::string>"
+      },
+      {
+        "type_name" : "optional_double",
+        "cpp_return_type" : "fc::optional<double>"
+      },
+      {
+        "type_name" : "optional_uint64_t",
+        "cpp_return_type" : "fc::optional<uint64_t>"
+      },
+      {
         "type_name" : "optional_variant",
-        "cpp_return_type" : "fc::optional<fc::variant>",
-        "default_example" : "TODO"
+        "cpp_return_type" : "fc::optional<fc::variant>"
       },
       {
         "type_name" : "optional_variant_object",
@@ -180,6 +209,10 @@
       },
       {
          "type_name" : "variants",
+         "cpp_return_type" : "fc::variants"
+      },
+      {
+         "type_name" : "parameter_list",
          "cpp_return_type" : "fc::variants"
       },
       {
@@ -692,6 +725,11 @@
       {
         "type_name" : "snapshot_record_list",
         "cpp_return_type" : "std::vector<bts::blockchain::snapshot_record>"
+      },
+       {
+        "type_name" : "transaction_builder",
+        "cpp_return_type" : "bts::wallet::transaction_builder",
+        "cpp_include_file" : "bts/wallet/transaction_builder.hpp"
       }
     ]
 }

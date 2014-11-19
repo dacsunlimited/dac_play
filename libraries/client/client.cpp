@@ -77,7 +77,6 @@ namespace bts { namespace client {
 
 const string BTS_MESSAGE_MAGIC = "BitShares Signed Message:\n";
 
-void print_banner();
 fc::logging_config create_default_logging_config( const fc::path&, bool enable_ulog );
 fc::path get_data_dir(const program_options::variables_map& option_variables);
 config load_config( const fc::path& datadir, bool enable_ulog );
@@ -193,21 +192,6 @@ string extract_commands_from_log_file(fc::path test_file)
       ulog("Extracting commands from input log file: ${log}",("log",test_file.string() ) );
    boost::filesystem::ifstream test_input(test_file);
    return extract_commands_from_log_stream(test_input);
-}
-
-
-void print_banner()
-{
-   std::cout<<"================================================================\n";
-   std::cout<<"=                                                              =\n";
-   std::cout<<"=             Welcome to BitShares "<< std::setw(5) << std::left << BTS_ADDRESS_PREFIX << "                       =\n";
-   std::cout<<"=                                                              =\n";
-   std::cout<<"=  This software is in alpha testing and is not suitable for   =\n";
-   std::cout<<"=  real monetary transactions or trading.  Use at your own     =\n";
-   std::cout<<"=  risk.                                                       =\n";
-   std::cout<<"=                                                              =\n";
-   std::cout<<"=  Type 'help' for usage information.                          =\n";
-   std::cout<<"================================================================\n";
 }
 
 fc::logging_config create_default_logging_config( const fc::path& data_dir, bool enable_ulog )
@@ -466,6 +450,7 @@ config load_config( const fc::path& datadir, bool enable_ulog )
          }
       }
 
+      std::srand( std::time( 0 ) );
       std::random_shuffle( cfg.default_peers.begin(), cfg.default_peers.end() );
       return cfg;
    } FC_RETHROW_EXCEPTIONS( warn, "unable to load config file ${cfg}", ("cfg",datadir/"config.json")) }
@@ -1343,6 +1328,9 @@ void client::open( const path& data_dir, fc::optional<fc::path> genesis_file_pat
       my->_p2p_node->set_node_delegate(my.get());
 
       my->start_rebroadcast_pending_loop();
+
+
+
    } FC_RETHROW_EXCEPTIONS( warn, "", ("data_dir",data_dir) ) }
 
 client::~client()

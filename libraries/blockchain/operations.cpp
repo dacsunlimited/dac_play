@@ -33,6 +33,8 @@ namespace bts { namespace blockchain {
 
    const operation_type_enum bid_operation::type                    = bid_op_type;
    const operation_type_enum ask_operation::type                    = ask_op_type;
+   const operation_type_enum relative_bid_operation::type           = relative_bid_op_type;
+   const operation_type_enum relative_ask_operation::type           = relative_ask_op_type;
    const operation_type_enum short_operation::type                  = short_op_type;
    const operation_type_enum cover_operation::type                  = cover_op_type;
    const operation_type_enum add_collateral_operation::type         = add_collateral_op_type;
@@ -47,8 +49,7 @@ namespace bts { namespace blockchain {
    const operation_type_enum update_block_signing_key::type         = update_block_signing_key_type;
 
    
-   const operation_type_enum buy_chips_operation::type         = buy_chips_type;
-   const operation_type_enum sell_chips_operation::type        = sell_chips_type;
+   const operation_type_enum buy_chips_operation::type              = buy_chips_type;
 
    static bool first_chain = []()->bool{
       bts::blockchain::operation_factory::instance().register_operation<withdraw_operation>();
@@ -81,9 +82,10 @@ namespace bts { namespace blockchain {
 
       bts::blockchain::operation_factory::instance().register_operation<update_block_signing_key>();
 
-      bts::blockchain::operation_factory::instance().register_operation<buy_chips_operation>();
-      bts::blockchain::operation_factory::instance().register_operation<sell_chips_operation>();
+      bts::blockchain::operation_factory::instance().register_operation<relative_bid_operation>();
+      bts::blockchain::operation_factory::instance().register_operation<relative_ask_operation>();
 
+      bts::blockchain::operation_factory::instance().register_operation<buy_chips_operation>();
       return true;
    }();
 

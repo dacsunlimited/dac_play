@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require 'open3'
+require 'json'
 require_relative './bitshares_api.rb'
 
 class BitSharesNode
@@ -38,7 +39,7 @@ class BitSharesNode
     if @logger then @logger.info s else puts s end
   end
   
-  def start(wait=true)
+  def start(wait=false)
     log "starting node '#{@name}', http port: #{@options[:http_port]}, p2p port: #{@options[:p2p_port]} \n#{@command}"
 
     stdin, out, wait_thr = Open3.popen2e(@command)
@@ -50,16 +51,24 @@ class BitSharesNode
       else
         line = out.gets
         log line
-        break if line.include? "Starting HTTP JSON RPC server on port #{@options[:http_port]}"
+        break if line and line.include? "Starting HTTP JSON RPC server on port #{@options[:http_port]}"
       end
     end
 
     sleep 1.0
     
-    @rpc_instance = BitShares::API::Rpc.new(@options[:http_port], 'user', 'pass', ignore_errors: false, logger: @logger)
+    @rpc_instance = BitShares::API::Rpc.new(@options[:http_port], 'user', 'pass', ignore_errors: false, logger: @logger, instance_name: @name)
 
     return
 
+  end
+
+  def stop
+    @handler[:stdin].write("quit\n")
+    begin
+      Process.wait(@handler[:wait_thr].pid)
+    rescue
+    end
   end
 
   def stdout_gets
@@ -84,14 +93,22 @@ class BitSharesNode
     end
   end
 
+  def get_config
+    JSON.parse( IO.read("#{@options[:data_dir]}/config.json") )
+  end
+
+  def save_config(config)
+    File.write("#{@options[:data_dir]}/config.json", JSON.pretty_generate(config))
+  end
+
 end
 
 if $0 == __FILE__
   client_binary = "#{ENV['BTS_BUILD']}/programs/client/bitshares_client"
   client_node = BitSharesNode.new client_binary, data_dir: "tmp/client_a", genesis: "test_genesis.json", http_port: 5680, delegate: false
   client_node.start
-  client_node.exec 'create', 'default', '123456789'
-  client_node.exec 'unlock', '9999999', '123456789'
+  client_node.exec 'create', 'default', 'password'
+  client_node.exec 'unlock', '9999999', 'password'
   puts "client node is up and running on port 5680"
   STDIN.getc
 end

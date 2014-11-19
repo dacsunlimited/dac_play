@@ -313,7 +313,8 @@ wallet_transaction_record wallet_impl::scan_transaction(
         const time_point_sec& received_time,
         bool overwrite_existing )
 { try {
-    const auto record_id = transaction.id();
+    const transaction_id_type record_id = transaction.permanent_id();
+    const transaction_id_type transaction_id = transaction.id();
     auto transaction_record = _wallet_db.lookup_transaction( record_id );
     const auto already_exists = transaction_record.valid();
     if( !already_exists )
@@ -373,6 +374,20 @@ wallet_transaction_record wallet_impl::scan_transaction(
                     has_withdrawal |= scan_ask( ask_op, *transaction_record, total_fee );
                 break;
             }
+            case relative_bid_op_type:
+            {
+                const auto bid_op = op.as<relative_bid_operation>();
+                if( bid_op.amount < 0 )
+                    has_withdrawal |= scan_relative_bid( bid_op, *transaction_record, total_fee );
+                break;
+            }
+            case relative_ask_op_type:
+            {
+                const auto ask_op = op.as<relative_ask_operation>();
+                if( ask_op.amount < 0 )
+                    has_withdrawal |= scan_relative_ask( ask_op, *transaction_record, total_fee );
+                break;
+            }
             case short_op_type:
             {
                 const auto short_op = op.as<short_operation>();
@@ -412,6 +427,20 @@ wallet_transaction_record wallet_impl::scan_transaction(
                     has_deposit |= scan_ask( ask_op, *transaction_record, total_fee );
                 break;
             }
+            case relative_bid_op_type:
+            {
+                const auto bid_op = op.as<relative_bid_operation>();
+                if( bid_op.amount >= 0 )
+                    has_deposit |= scan_relative_bid( bid_op, *transaction_record, total_fee );
+                break;
+            }
+            case relative_ask_op_type:
+            {
+                const auto relative_ask_op = op.as<relative_ask_operation>();
+                if( relative_ask_op.amount >= 0 )
+                    has_deposit |= scan_relative_ask( relative_ask_op, *transaction_record, total_fee );
+                break;
+            }
             case short_op_type:
             {
                 const auto short_op = op.as<short_operation>();
@@ -431,10 +460,6 @@ wallet_transaction_record wallet_impl::scan_transaction(
             case buy_chips_type:
                 // sync the buy back chips, TODO: Dice, update the transaction ledger
                 sync_balance_with_blockchain( op.as<buy_chips_operation>().balance_id() );
-                break;
-            case sell_chips_type:
-                // sync the sell back shares, TODO: Dice, update the transaction ledger
-                sync_balance_with_blockchain( op.as<sell_chips_operation>().balance_id() );
                 break;
             default:
                 break;
@@ -499,7 +524,7 @@ wallet_transaction_record wallet_impl::scan_transaction(
 
     if( has_withdrawal )
     {
-       auto blockchain_trx_state = _blockchain->get_transaction( record_id );
+       auto blockchain_trx_state = _blockchain->get_transaction( transaction_id );
        if( blockchain_trx_state.valid() )
        {
           if( !transaction_record->ledger_entries.empty() )
@@ -788,6 +813,118 @@ bool wallet_impl::scan_update_feed( const update_feed_operation& op, wallet_tran
    }
    return false;
 }
+// TODO: Refactor scan_{ask|ask|short}; exactly the same
+bool wallet_impl::scan_relative_ask( const relative_ask_operation& op,
+                                     wallet_transaction_record& trx_rec,
+                                     asset& total_fee )
+{ try {
+    const auto amount = op.get_amount();
+    if( amount.asset_id == total_fee.asset_id )
+        total_fee -= amount;
+
+    auto okey_rec = _wallet_db.lookup_key( op.ask_index.owner );
+    if( okey_rec.valid() && okey_rec->has_private_key() )
+    {
+       /* Restore key label */
+       const market_order order( relative_ask_order, op.ask_index, op.amount );
+       okey_rec->memo = order.get_small_id();
+       _wallet_db.store_key( *okey_rec );
+
+       for( auto& entry : trx_rec.ledger_entries )
+       {
+           if( amount.amount >= 0 )
+           {
+               if( !entry.to_account.valid() )
+               {
+                   entry.to_account = okey_rec->public_key;
+                   entry.amount = amount;
+                   //entry.memo =
+                   break;
+               }
+               else if( *entry.to_account == okey_rec->public_key )
+               {
+                   entry.amount = amount;
+                   break;
+               }
+           }
+           else /* Cancel order */
+           {
+               if( !entry.from_account.valid() )
+               {
+                   entry.from_account = okey_rec->public_key;
+                   entry.amount = amount;
+                   entry.memo = "cancel " + *okey_rec->memo;
+                   break;
+               }
+               else if( *entry.from_account == okey_rec->public_key )
+               {
+                   entry.amount = amount;
+                   entry.memo = "cancel " + *okey_rec->memo;
+                   break;
+               }
+           }
+       }
+
+       return true;
+    }
+    return false;
+} FC_CAPTURE_AND_RETHROW( (op) ) }
+// TODO: Refactor scan_{bid|ask|short}; exactly the same
+bool wallet_impl::scan_relative_bid( const relative_bid_operation& op,
+                                     wallet_transaction_record& trx_rec,
+                                     asset& total_fee )
+{ try {
+    const auto amount = op.get_amount();
+    if( amount.asset_id == total_fee.asset_id )
+        total_fee -= amount;
+
+    auto okey_rec = _wallet_db.lookup_key( op.bid_index.owner );
+    if( okey_rec.valid() && okey_rec->has_private_key() )
+    {
+       /* Restore key label */
+       const market_order order( relative_bid_order, op.bid_index, op.amount );
+       okey_rec->memo = order.get_small_id();
+       _wallet_db.store_key( *okey_rec );
+
+       for( auto& entry : trx_rec.ledger_entries )
+       {
+           if( amount.amount >= 0 )
+           {
+               if( !entry.to_account.valid() )
+               {
+                   entry.to_account = okey_rec->public_key;
+                   entry.amount = amount;
+                   //entry.memo =
+                   break;
+               }
+               else if( *entry.to_account == okey_rec->public_key )
+               {
+                   entry.amount = amount;
+                   break;
+               }
+           }
+           else /* Cancel order */
+           {
+               if( !entry.from_account.valid() )
+               {
+                   entry.from_account = okey_rec->public_key;
+                   entry.amount = amount;
+                   entry.memo = "cancel " + *okey_rec->memo;
+                   break;
+               }
+               else if( *entry.from_account == okey_rec->public_key )
+               {
+                   entry.amount = amount;
+                   entry.memo = "cancel " + *okey_rec->memo;
+                   break;
+               }
+           }
+       }
+
+       return true;
+    }
+    return false;
+} FC_CAPTURE_AND_RETHROW( (op) ) }
 
 // TODO: Refactor scan_{bid|ask|short}; exactly the same
 bool wallet_impl::scan_bid( const bid_operation& op, wallet_transaction_record& trx_rec, asset& total_fee )
@@ -1091,7 +1228,7 @@ bool wallet_impl::scan_deposit( const deposit_operation& op, const vector<privat
                      if( !entry.from_account.valid() ) continue;
                      const auto account_rec = self->get_account_for_address( okey_rec->public_key );
                      if( !account_rec.valid() ) continue;
-                     const auto account_key_rec = _wallet_db.lookup_key( account_rec->account_address );
+                     const auto account_key_rec = _wallet_db.lookup_key( account_rec->owner_address() );
                      if( !account_key_rec.valid() ) continue;
                      if( !trx_rec.trx.is_cancel() ) /* cover proceeds */
                      {
@@ -1193,7 +1330,6 @@ void wallet::cache_transaction( const signed_transaction& transaction, wallet_tr
 
 void wallet_impl::sign_transaction( signed_transaction& transaction, const unordered_set<address>& required_signatures )const
 { try {
-   transaction.expiration = blockchain::now() + self->get_transaction_expiration();
    const auto chain_id = _blockchain->chain_id();
    for( const auto& addr : required_signatures )
        transaction.sign( self->get_private_key( addr ), chain_id );
@@ -1204,7 +1340,7 @@ void wallet_impl::cache_transaction( const signed_transaction& transaction, wall
    if( apply_transaction ) // Should only be false when apply_transaction_experimental is used
        _blockchain->store_pending_transaction( transaction, true );
 
-   record.record_id = transaction.id();
+   record.record_id = transaction.permanent_id();
    record.trx = transaction;
    record.created_time = blockchain::now();
    record.received_time = record.created_time;
@@ -1433,7 +1569,7 @@ pretty_transaction wallet::to_pretty_trx( const wallet_transaction_record& trx_r
    pretty_trx.is_confirmed = trx_rec.is_confirmed;
    pretty_trx.is_market = trx_rec.is_market;
    pretty_trx.is_market_cancel = !trx_rec.is_virtual && trx_rec.is_market && trx_rec.trx.is_cancel();
-   pretty_trx.trx_id = trx_rec.record_id;
+   pretty_trx.trx_id = !trx_rec.is_virtual ? trx_rec.trx.id() : trx_rec.record_id;
    pretty_trx.block_num = trx_rec.block_num;
 
    for( const auto& entry : trx_rec.ledger_entries )

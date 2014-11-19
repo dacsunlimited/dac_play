@@ -1,9 +1,7 @@
-BitShares Play 
+<<<<<<< HEAD
+BitShares PLAY
 ===============================
-The BitShares development toolkit is a set of libraries used to facilitate
-the development of Decentralized Autonomous Companies (DACs).  It provides
-a framework upon which new DACs can be developed based upon a common 
-architecture.  
+BitShares PLAY is a protocal and DAC focusing on decentralized game store and peer-to-peer game asset exchange.
 
 Status
 ------
@@ -17,17 +15,9 @@ http://www.bitsuperlab.com/pdf/BitSharesPlayWhitePaper.pdf
 
 Build Instructions
 ------------------
-BitShares Toolkit uses git submodules for managing certain external dependencies. Before
-you can build you will need to fetch the submodules with the following commands:
+Different platforms have different steps for handling dependencies, check specific documents
+for more details:
 
-    git submodule init
-    git submodule update
-    cmake .
-    make
-
-Different platforms have different steps for handling dependencies, if you 
-would like to build on OS X see BUILD_OSX.md
-
-Documentation
-------------------
-Documentation is available at the GitHub wiki: https://github.com/BitShares/bitshares_toolkit/wiki.
+* [Ubuntu](https://github.com/BitShares/bitshares/blob/master/BUILD_UBUNTU.md)
+* [OSX](https://github.com/BitShares/bitshares/blob/master/BUILD_OSX.md)
+* [Windows](https://github.com/BitShares/bitshares/blob/master/BUILD_WIN32.md)
