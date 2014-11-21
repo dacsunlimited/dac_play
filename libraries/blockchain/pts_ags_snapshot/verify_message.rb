@@ -55,14 +55,14 @@ File.open(raw_file, 'r') do |file|
       new_address = message.gsub(/.+:\s*/, '')
 
       puts "#{address} => #{new_address}"
-      puts '-----------'
+      # puts '-----------'
     else
-      puts address + ': ' + valid.to_s
-      puts 'address valid?: ' + Bitcoin.valid_address?(address).to_s
-      puts message
-      puts signature
-      puts new_address
-      puts '--------------'
+      # puts address + ': ' + valid.to_s
+      # puts 'address valid?: ' + Bitcoin.valid_address?(address).to_s
+      # puts message
+      # puts signature
+      # puts new_address
+      # puts '--------------'
     end
 
   end
