@@ -1,4 +1,15 @@
 #!/usr/bin/env ruby -rubygems
+#
+# source: https://bitsharestalk.org/index.php?topic=4748.0
+#
+# if there're new requests posted in the threads, simply copy the entry into substituion.txt
+#
+# @usages: ./verify_message.rb
+#
+# WARNING: PTS address valdiation is not working yet, PTS address failed during validation
+# might still be valid signature
+#
+
 
 gem 'bitcoin-ruby'
 require 'bitcoin'
@@ -46,8 +57,10 @@ File.open(raw_file, 'r') do |file|
   content.split(/\n{2}/).each do |group|
     address, message, signature = group.split(/\n/).map{ |line| line.sub(/^[^:]+:\s*/, '') }
 
+    # switch network
     Bitcoin.network = address =~ /^[13]/ ? :bitcoin : :protoshares
 
+    # validate address and validate signature
     valid = Bitcoin.valid_address?(address) && (Bitcoin.verify_message(address, signature, message))
 
     # next if valid
