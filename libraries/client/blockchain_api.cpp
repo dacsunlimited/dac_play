@@ -358,17 +358,6 @@ asset client_impl::blockchain_calculate_supply( const string& asset )const
    return _chain_db->calculate_supply( asset_id );
 }
 
-asset client_impl::blockchain_calculate_debt( const string& asset, bool include_interest )const
-{
-   asset_id_type asset_id;
-   if( std::all_of( asset.begin(), asset.end(), ::isdigit ) )
-      asset_id = std::stoi( asset );
-   else
-      asset_id = _chain_db->get_asset_id( asset );
-
-   return _chain_db->calculate_debt( asset_id, include_interest );
-}
-
 bts::blockchain::blockchain_security_state client_impl::blockchain_get_security_state()const
 {
    blockchain_security_state state;
@@ -418,30 +407,12 @@ vector<market_order>    client_impl::blockchain_market_list_asks( const string& 
    return _chain_db->get_market_asks( quote_symbol, base_symbol, limit );
 }
 
-vector<market_order>    client_impl::blockchain_market_list_shorts( const string& quote_symbol,
-                                                                    uint32_t limit  )const
-{
-   return _chain_db->get_market_shorts( quote_symbol, limit );
-}
-vector<market_order>    client_impl::blockchain_market_list_covers( const string& quote_symbol,
-                                                                    uint32_t limit  )
-{
-   return _chain_db->get_market_covers( quote_symbol, limit );
-}
-
-share_type              client_impl::blockchain_market_get_asset_collateral( const string& symbol )
-{
-   return _chain_db->get_asset_collateral( symbol );
-}
-
 std::pair<vector<market_order>,vector<market_order>> client_impl::blockchain_market_order_book( const string& quote_symbol,
                                                                                                 const string& base_symbol,
                                                                                                 uint32_t limit  )
 {
    auto bids = blockchain_market_list_bids(quote_symbol, base_symbol, limit);
    auto asks = blockchain_market_list_asks(quote_symbol, base_symbol, limit);
-   auto covers = blockchain_market_list_covers(quote_symbol,limit);
-   asks.insert( asks.end(), covers.begin(), covers.end() );
 
    std::sort(bids.rbegin(), bids.rend(), [](const market_order& a, const market_order& b) -> bool {
       return a.market_index < b.market_index;

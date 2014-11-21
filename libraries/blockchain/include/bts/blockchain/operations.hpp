@@ -46,24 +46,23 @@ namespace bts { namespace blockchain {
       ask_op_type                   = 13,
       short_op_type                 = 14,
       cover_op_type                 = 15,
-      add_collateral_op_type        = 16,
-      remove_collateral_op_type     = 17,
+      remove_collateral_op_type     = 16,
 
-      define_delegate_slate_op_type = 18,
+      define_delegate_slate_op_type = 17,
 
-      update_feed_op_type           = 19,
-      burn_op_type                  = 20,
-      link_account_op_type          = 21,
+      update_feed_op_type           = 18,
+      burn_op_type                  = 19,
+      link_account_op_type          = 20,
 
-      withdraw_all_op_type          = 22,
-      release_escrow_op_type        = 23,
+      withdraw_all_op_type          = 21,
+      release_escrow_op_type        = 22,
 
-      update_block_signing_key_type = 24,
+      update_block_signing_key_type = 23,
 
-      relative_bid_op_type          = 25,
-      relative_ask_op_type          = 26,
-      game_op_type                  = 27,
-      buy_chips_type                = 28
+      relative_bid_op_type          = 24,
+      relative_ask_op_type          = 25,
+      game_op_type                  = 26,
+      buy_chips_type                = 27
 
    };
 
@@ -134,7 +133,6 @@ FC_REFLECT_ENUM( bts::blockchain::operation_type_enum,
                  (ask_op_type)
                  (short_op_type)
                  (cover_op_type)
-                 (add_collateral_op_type)
                  (remove_collateral_op_type)
                  (define_delegate_slate_op_type)
                  (update_feed_op_type)

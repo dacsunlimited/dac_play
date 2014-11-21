@@ -146,17 +146,6 @@ namespace bts { namespace blockchain {
                 const optional<price>& limit,
                 const address& owner );
 
-      void short_sell( const asset& quantity,
-                const price& interest_rate,
-                const address& owner,
-                const optional<price>& limit_price = optional<price>() );
-
-      void cover( const asset& quantity,
-                  const market_index_key& order_idx );
-
-      void add_collateral( share_type collateral_amount,
-                           const market_index_key& order_idx );
-
       void publish_feed( feed_id_type feed_id,
                          account_id_type delegate_id,
                          fc::variant value );

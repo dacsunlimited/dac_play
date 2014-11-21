@@ -70,8 +70,6 @@ namespace bts { namespace blockchain {
       for( const auto& item : relative_bids )   prev_state->store_relative_bid_record( item.first, item.second );
       for( const auto& item : asks )            prev_state->store_ask_record( item.first, item.second );
       for( const auto& item : relative_asks )   prev_state->store_relative_ask_record( item.first, item.second );
-      for( const auto& item : shorts )          prev_state->store_short_record( item.first, item.second );
-      for( const auto& item : collateral )      prev_state->store_collateral_record( item.first, item.second );
       for( const auto& item : transactions )    prev_state->store_transaction( item.first, item.second );
       for( const auto& item : slates )          prev_state->store_delegate_slate( item.first, item.second );
       for( const auto& item : slots )           prev_state->store_slot_record( item.second );
@@ -196,18 +194,6 @@ namespace bts { namespace blockchain {
          auto prev_value = prev_state->get_relative_ask_record( item.first );
          if( prev_value.valid() ) undo_state->store_relative_ask_record( item.first, *prev_value );
          else  undo_state->store_relative_ask_record( item.first, order_record() );
-      }
-      for( const auto& item : shorts )
-      {
-         auto prev_value = prev_state->get_short_record( item.first );
-         if( prev_value.valid() ) undo_state->store_short_record( item.first, *prev_value );
-         else  undo_state->store_short_record( item.first, order_record() );
-      }
-      for( const auto& item : collateral )
-      {
-         auto prev_value = prev_state->get_collateral_record( item.first );
-         if( prev_value.valid() ) undo_state->store_collateral_record( item.first, *prev_value );
-         else  undo_state->store_collateral_record( item.first, collateral_record() );
       }
       for( const auto& item : slots )
       {
@@ -504,24 +490,6 @@ namespace bts { namespace blockchain {
       return oorder_record();
    }
 
-   oorder_record pending_chain_state::get_short_record( const market_index_key& key )const
-   {
-      chain_interface_ptr prev_state = _prev_state.lock();
-      auto rec_itr = shorts.find( key );
-      if( rec_itr != shorts.end() ) return rec_itr->second;
-      else if( prev_state ) return prev_state->get_short_record( key );
-      return oorder_record();
-   }
-
-   ocollateral_record pending_chain_state::get_collateral_record( const market_index_key& key )const
-   {
-      chain_interface_ptr prev_state = _prev_state.lock();
-      auto rec_itr = collateral.find( key );
-      if( rec_itr != collateral.end() ) return rec_itr->second;
-      else if( prev_state ) return prev_state->get_collateral_record( key );
-      return ocollateral_record();
-   }
-
    void pending_chain_state::store_bid_record( const market_index_key& key, const order_record& rec )
    {
       bids[ key ] = rec;
@@ -546,21 +514,9 @@ namespace bts { namespace blockchain {
       _dirty_markets.insert( key.order_price.asset_pair() );
    }
 
-   void pending_chain_state::store_short_record( const market_index_key& key, const order_record& rec )
-   {
-      shorts[ key ] = rec;
-      _dirty_markets.insert( key.order_price.asset_pair() );
-   }
-
    void pending_chain_state::set_market_dirty( const asset_id_type& quote_id, const asset_id_type& base_id )
    {
       _dirty_markets.insert( std::make_pair( quote_id, base_id ) );
-   }
-
-   void pending_chain_state::store_collateral_record( const market_index_key& key, const collateral_record& rec )
-   {
-      collateral[ key ] = rec;
-      _dirty_markets.insert( key.order_price.asset_pair() );
    }
 
    void pending_chain_state::store_slot_record( const slot_record& r )

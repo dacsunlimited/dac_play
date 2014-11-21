@@ -52,15 +52,11 @@ namespace bts { namespace blockchain {
          virtual oorder_record          get_ask_record( const market_index_key& )const override;
          virtual oorder_record          get_relative_bid_record( const market_index_key& )const override;
          virtual oorder_record          get_relative_ask_record( const market_index_key& )const override;
-         virtual oorder_record          get_short_record( const market_index_key& )const override;
-         virtual ocollateral_record     get_collateral_record( const market_index_key& )const override;
 
          virtual void                   store_bid_record( const market_index_key& key, const order_record& ) override;
          virtual void                   store_ask_record( const market_index_key& key, const order_record& ) override;
          virtual void                   store_relative_bid_record( const market_index_key& key, const order_record& ) override;
          virtual void                   store_relative_ask_record( const market_index_key& key, const order_record& ) override;
-         virtual void                   store_short_record( const market_index_key& key, const order_record& ) override;
-         virtual void                   store_collateral_record( const market_index_key& key, const collateral_record& ) override;
 
 #if 0
          virtual void                   store_proposal_record( const proposal_record& r )override;
@@ -133,8 +129,6 @@ namespace bts { namespace blockchain {
          unordered_map<address, account_id_type>                        key_to_account;
          map< market_index_key, order_record>                           bids;
          map< market_index_key, order_record>                           asks;
-         map< market_index_key, order_record>                           shorts;
-         map< market_index_key, collateral_record>                      collateral;
          map<time_point_sec, slot_record>                               slots;
          map<market_history_key, market_history_record>                 market_history;
          map< std::pair<asset_id_type,asset_id_type>, market_status>    market_statuses;
@@ -158,5 +152,5 @@ namespace bts { namespace blockchain {
 // TODO: Why not reflect all members?
 FC_REFLECT( bts::blockchain::pending_chain_state,
             (assets)(slates)(accounts)(balances)(account_id_index)(symbol_id_index)(transactions)
-            (properties)(bids)(asks)(shorts)(collateral)(slots)
+            (properties)(bids)(asks)(slots)
             (market_statuses)(feeds)(burns)(relative_bids)(relative_asks)(_dirty_markets) )

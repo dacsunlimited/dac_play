@@ -1691,75 +1691,6 @@
          "aliases" : [ "relative_ask" ]
       },
       {
-         "method_name" : "wallet_market_submit_short",
-         "description" : "Used to place a request to short sell a quantity of assets at a price specified",
-         "return_type" : "transaction_record",
-         "parameters"  : [
-            {
-               "name" : "from_account_name",
-               "type" : "account_name",
-               "description" : "the account that will provide funds for the ask"
-            },
-            {
-               "name" : "short_collateral",
-               "type" : "string",
-               "description" : "the amount of collateral you wish to fund this short with"
-            },
-            {
-               "name" : "collateral_symbol",
-               "type" : "asset_symbol",
-               "description" : "the type of asset collateralizing this short (i.e. XTS)"
-            },
-            {
-               "name" : "interest_rate",
-               "type" : "string",
-               "description" : "the APR you wish to pay interest at (0.0% to 1000.0%)"
-            },
-            {
-               "name" : "quote_symbol",
-               "type" : "asset_symbol",
-               "description" : "the asset to short sell (i.e. USD)"
-            },
-            {
-               "name" : "short_price_limit",
-               "type" : "string",
-               "description" : "maximim price (USD per XTS) that the short will execute at, if 0 then no limit will be applied",
-               "default_value" : 0
-            }
-         ],
-         "prerequisites" : ["wallet_unlocked"],
-         "aliases" : [ "short" ]
-      },
-      {
-         "method_name" : "wallet_market_cover",
-         "description" : "Used to place a request to cover an existing short position",
-         "return_type" : "transaction_record",
-         "parameters"  : [
-            {
-               "name" : "from_account_name",
-               "type" : "account_name",
-               "description" : "the account that will provide funds for the ask"
-            },
-            {
-               "name" : "quantity",
-               "type" : "string",
-               "description" : "the quantity of asset you would like to cover"
-            },
-            {
-               "name" : "quantity_symbol",
-               "type" : "asset_symbol",
-               "description" : "the type of asset you are covering (ie: USD)"
-            },
-            {
-               "name" : "cover_id",
-               "type" : "order_id",
-               "description" : "the order ID you would like to cover"
-            }
-         ],
-         "prerequisites" : ["wallet_unlocked"],
-         "aliases" : ["cover"]
-      },
-      {
          "method_name" : "wallet_market_batch_update",
          "description" : "Cancel and/or create many market orders in a single transaction.",
          "return_type" : "transaction_record",
@@ -1782,30 +1713,6 @@
          ],
          "prerequisites" : ["wallet_unlocked"],
          "aliases" : []
-      },
-      {
-         "method_name" : "wallet_market_add_collateral",
-         "description" : "Add collateral to a short position",
-         "return_type" : "transaction_record",
-         "parameters"  : [
-            {
-               "name" : "from_account_name",
-               "type" : "account_name",
-               "description" : "the account that will provide funds for the ask"
-            },
-            {
-               "name" : "cover_id",
-               "type" : "order_id",
-               "description" : "the ID of the order to recollateralize"
-            },
-            {
-               "name" : "real_quantity_collateral_to_add",
-               "type" : "string",
-               "description" : "the quantity of collateral of the base asset to add to the specified position"
-            }
-          ],
-         "prerequisites" : ["wallet_unlocked"],
-         "aliases" : ["add_collateral"]
       },
       {
          "method_name" : "wallet_market_order_list",

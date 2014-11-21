@@ -143,8 +143,6 @@ namespace bts { namespace blockchain {
           _bid_db.open( data_dir / "index/bid_db" );
           _relative_ask_db.open( data_dir / "index/relative_ask_db" );
           _relative_bid_db.open( data_dir / "index/relative_bid_db" );
-          _short_db.open( data_dir / "index/short_db" );
-          _collateral_db.open( data_dir / "index/collateral_db" );
           _feed_db.open( data_dir / "index/feed_db" );
 
           _market_status_db.open( data_dir / "index/market_status_db" );
@@ -1333,8 +1331,6 @@ namespace bts { namespace blockchain {
       my->_bid_db.close();
       my->_relative_ask_db.close();
       my->_relative_bid_db.close();
-      my->_short_db.close();
-      my->_collateral_db.close();
       my->_feed_db.close();
 
       my->_market_history_db.close();
@@ -2390,17 +2386,6 @@ namespace bts { namespace blockchain {
       return my->_relative_ask_db.fetch_optional(key);
    }
 
-
-   oorder_record chain_database::get_short_record( const market_index_key& key )const
-   {
-      return my->_short_db.fetch_optional(key);
-   }
-
-   ocollateral_record chain_database::get_collateral_record( const market_index_key& key )const
-   {
-      return my->_collateral_db.fetch_optional(key);
-   }
-
    void chain_database::store_bid_record( const market_index_key& key, const order_record& order )
    {
       if( order.is_null() )
@@ -2430,22 +2415,6 @@ namespace bts { namespace blockchain {
          my->_relative_ask_db.remove( key );
       else
          my->_relative_ask_db.store( key, order );
-   }
-
-   void chain_database::store_short_record( const market_index_key& key, const order_record& order )
-   {
-      if( order.is_null() )
-         my->_short_db.remove( key );
-      else
-         my->_short_db.store( key, order );
-   }
-
-   void chain_database::store_collateral_record( const market_index_key& key, const collateral_record& collateral )
-   {
-      if( collateral.is_null() )
-         my->_collateral_db.remove( key );
-      else
-         my->_collateral_db.store( key, collateral );
    }
 
    string chain_database::get_asset_symbol( const asset_id_type& asset_id )const
@@ -2608,89 +2577,6 @@ namespace bts { namespace blockchain {
        return results;
    } FC_CAPTURE_AND_RETHROW( (quote_symbol)(base_symbol)(limit) ) }
 
-   optional<market_order> chain_database::get_market_short( const market_index_key& key )const
-   { try {
-       auto market_itr  = my->_short_db.find(key);
-       if( market_itr.valid() )
-          return market_order { short_order, market_itr.key(), market_itr.value() };
-
-       return optional<market_order>();
-   } FC_CAPTURE_AND_RETHROW( (key) ) }
-
-   vector<market_order> chain_database::get_market_shorts( const string& quote_symbol,
-                                                          uint32_t limit  )
-   { try {
-       auto quote_id = get_asset_id( quote_symbol );
-       auto base_id  = 0;
-       if( base_id >= quote_id )
-          FC_CAPTURE_AND_THROW( invalid_market, (quote_id)(base_id) );
-
-       vector<market_order> results;
-       //We dance around like this because the database sorts the shorts backwards, so we must iterate it backwards.
-       const price next_pair = (base_id+1 == quote_id) ? price( 0, quote_id+1, 0 ) : price( 0, quote_id, base_id+1 );
-       auto market_itr = my->_short_db.lower_bound( market_index_key( next_pair ) );
-       if( market_itr.valid() )   --market_itr;
-       else market_itr = my->_short_db.last();
-
-       while( market_itr.valid() )
-       {
-          auto key = market_itr.key();
-          if( key.order_price.quote_asset_id == quote_id &&
-              key.order_price.base_asset_id == base_id  )
-          {
-             order_record value = market_itr.value();
-             results.push_back( {short_order, key, value, value.balance, key.order_price} );
-          }
-          else
-          {
-             break;
-          }
-
-          if( results.size() == limit )
-             return results;
-
-          --market_itr;
-       }
-       return results;
-   } FC_CAPTURE_AND_RETHROW( (quote_symbol)(limit) ) }
-
-   vector<market_order> chain_database::get_market_covers( const string& quote_symbol, uint32_t limit )
-   { try {
-       auto quote_asset_id = get_asset_id( quote_symbol );
-       auto base_asset_id  = 0;
-       if( base_asset_id >= quote_asset_id )
-          FC_CAPTURE_AND_THROW( invalid_market, (quote_asset_id)(base_asset_id) );
-
-       vector<market_order> results;
-
-       auto market_itr  = my->_collateral_db.lower_bound( market_index_key( price( 0, quote_asset_id, base_asset_id ) ) );
-       while( market_itr.valid() )
-       {
-          auto key = market_itr.key();
-          if( key.order_price.quote_asset_id == quote_asset_id &&
-              key.order_price.base_asset_id == base_asset_id  )
-          {
-             auto collat_record = market_itr.value();
-             results.push_back( {cover_order,
-                                 key,
-                                 order_record(collat_record.payoff_balance),
-                                 collat_record.collateral_balance,
-                                 collat_record.interest_rate,
-                                 collat_record.expiration } );
-          }
-          else
-          {
-             break;
-          }
-
-          if( results.size() == limit )
-             return results;
-
-          ++market_itr;
-       }
-       return results;
-   } FC_CAPTURE_AND_RETHROW( (quote_symbol)(limit) ) }
-
    optional<market_order> chain_database::get_market_ask( const market_index_key& key )const
    { try {
        { // abs asks
@@ -2706,33 +2592,6 @@ namespace bts { namespace blockchain {
 
        return optional<market_order>();
    } FC_CAPTURE_AND_RETHROW( (key) ) }
-
-
-   share_type           chain_database::get_asset_collateral( const string& symbol )
-   { try {
-       auto quote_asset_id = get_asset_id( symbol);
-       auto base_asset_id = 0;
-       auto total = share_type(0);
-
-       auto market_itr = my->_collateral_db.lower_bound( market_index_key( price( 0, quote_asset_id, base_asset_id ) ) );
-       while( market_itr.valid() )
-       {
-           auto key = market_itr.key();
-           if( key.order_price.quote_asset_id == quote_asset_id
-               &&  key.order_price.base_asset_id == base_asset_id )
-           {
-               total += market_itr.value().collateral_balance;
-           }
-           else
-           {
-               break;
-           }
-
-           market_itr++;
-       }
-       return total;
-
-   } FC_CAPTURE_AND_RETHROW( (symbol) ) }
 
    vector<market_order> chain_database::get_market_asks( const string& quote_symbol,
                                                           const string& base_symbol,
@@ -2842,40 +2701,6 @@ namespace bts { namespace blockchain {
            for( auto itr = my->_relative_bid_db.begin(); itr.valid(); ++itr )
            {
                const auto order = market_order( relative_bid_order, itr.key(), itr.value() );
-               if( filter( order ) )
-               {
-                   orders.push_back( order );
-                   if( orders.size() >= limit )
-                       return orders;
-               }
-           }
-       }
-
-       if( type == null_order || type == short_order )
-       {
-           for( auto itr = my->_short_db.begin(); itr.valid(); ++itr )
-           {
-               const auto order = market_order( short_order, itr.key(), itr.value() );
-               if( filter( order ) )
-               {
-                   orders.push_back( order );
-                   if( orders.size() >= limit )
-                       return orders;
-               }
-           }
-       }
-
-       if( type == null_order || type == cover_order ) {
-           for( auto itr = my->_collateral_db.begin(); itr.valid(); ++itr )
-           {
-               const auto collateral_rec = itr.value();
-               const auto order_rec = order_record( collateral_rec.payoff_balance );
-               const auto order = market_order( cover_order,
-                                                itr.key(),
-                                                order_rec,
-                                                collateral_rec.collateral_balance,
-                                                collateral_rec.interest_rate,
-                                                collateral_rec.expiration );
                if( filter( order ) )
                {
                    orders.push_back( order );
@@ -3199,20 +3024,6 @@ namespace bts { namespace blockchain {
        // If base asset
        if( asset_id == asset_id_type( 0 ) )
        {
-           // Add short balances
-           for( auto short_itr = my->_short_db.begin(); short_itr.valid(); ++short_itr )
-           {
-               const order_record sh = short_itr.value();
-               total.amount += sh.balance;
-           }
-
-           // Add collateral balances
-           for( auto collateral_itr = my->_collateral_db.begin(); collateral_itr.valid(); ++collateral_itr )
-           {
-               const collateral_record collateral = collateral_itr.value();
-               total.amount += collateral.collateral_balance;
-           }
-
            // Add pay balances
            for( auto account_itr = my->_account_db.begin(); account_itr.valid(); ++account_itr )
            {
@@ -3242,32 +3053,6 @@ namespace bts { namespace blockchain {
                    total.amount += bid.balance;
                }
            }
-       }
-
-       return total;
-   }
-
-   asset chain_database::calculate_debt( const asset_id_type& asset_id, bool include_interest )const
-   {
-       const auto record = get_asset_record( asset_id );
-       FC_ASSERT( record.valid() && record->is_market_issued() );
-
-       asset total( 0, asset_id );
-
-       for( auto itr = my->_collateral_db.begin(); itr.valid(); ++itr )
-       {
-           const market_index_key& market_index = itr.key();
-           if( market_index.order_price.quote_asset_id != asset_id ) continue;
-           FC_ASSERT( market_index.order_price.base_asset_id == asset_id_type( 0 ) );
-
-           const collateral_record& record = itr.value();
-           const asset principle( record.payoff_balance, asset_id );
-           total += principle;
-           if( !include_interest ) continue;
-
-           const time_point_sec position_start_time = record.expiration - BTS_BLOCKCHAIN_MAX_SHORT_PERIOD_SEC;
-           const uint32_t position_age = (now() - position_start_time).to_seconds();
-           total += detail::market_engine::get_interest_owed( principle, record.interest_rate, position_age );
        }
 
        return total;
@@ -3484,14 +3269,6 @@ namespace bts { namespace blockchain {
        my->_relative_bid_db.export_to_json( next_path );
        ulog( "Dumped ${p}", ("p",next_path) );
 
-       next_path = dir / "_short_db.json";
-       my->_short_db.export_to_json( next_path );
-       ulog( "Dumped ${p}", ("p",next_path) );
-
-       next_path = dir / "_collateral_db.json";
-       my->_collateral_db.export_to_json( next_path );
-       ulog( "Dumped ${p}", ("p",next_path) );
-
        next_path = dir / "_feed_db.json";
        my->_feed_db.export_to_json( next_path );
        ulog( "Dumped ${p}", ("p",next_path) );
@@ -3512,7 +3289,7 @@ namespace bts { namespace blockchain {
                            (_block_num_to_id_db)(_block_id_to_block_record_db)(_block_id_to_block_data_db)(_known_transactions) \
                            (_id_to_transaction_record_db)(_pending_transaction_db)(_pending_fee_index)(_asset_db)(_balance_db) \
                            (_burn_db)(_account_db)(_address_to_account_db)(_account_index_db)(_symbol_index_db)(_delegate_vote_index_db) \
-                           (_slot_record_db)(_ask_db)(_bid_db)(_short_db)(_collateral_db)(_feed_db)(_market_status_db)(_market_history_db) \
+                           (_slot_record_db)(_ask_db)(_bid_db)(_feed_db)(_market_status_db)(_market_history_db) \
                            (_recent_operations)
 #define GET_DATABASE_SIZE(r, data, elem) stats[BOOST_PP_STRINGIZE(elem)] = my->elem.size();
      BOOST_PP_SEQ_FOR_EACH(GET_DATABASE_SIZE, _, CHAIN_DB_DATABASES)

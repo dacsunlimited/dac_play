@@ -27,27 +27,6 @@
         "aliases" : ["supply", "calculate_supply"]
       },
       {
-        "method_name": "blockchain_calculate_debt",
-        "description": "Calculate the total amount of a market-issued asset that is owed to the network by open short positions",
-        "return_type": "asset",
-        "parameters" : [
-            {
-              "name" : "asset",
-              "type" : "string",
-              "description" : "asset ticker symbol or ID to calculate debt for"
-            },
-            {
-              "name" : "include_interest",
-              "type" : "bool",
-              "description" : "true to include current outstanding interest and false otherwise",
-              "default_value" : "false"
-            }
-        ],
-        "is_const" : true,
-        "prerequisites" : ["no_prerequisites"],
-        "aliases" : ["debt", "calculate_debt"]
-      },
-      {
         "method_name": "blockchain_is_synced",
         "description": "Returns true if the local blockchain is synced with the network; false otherwise",
         "return_type": "bool",
@@ -411,61 +390,6 @@
         ],
         "prerequisites" : ["no_prerequisites"],
         "aliases" : ["market_asks"]
-      },
-      {
-        "method_name" : "blockchain_market_list_shorts",
-        "description" : "Returns the short side of the order book for a given market",
-        "return_type" : "market_order_array",
-        "parameters"  : [
-           {
-              "name" : "quote_symbol",
-              "type" : "asset_symbol",
-              "description" : "the symbol name the market is quoted in"
-           },
-           {
-              "name" : "limit",
-              "type" : "uint32_t",
-              "description" : "the maximum number of items to return, -1 for all",
-              "default_value" : "-1"
-           }
-        ],
-        "prerequisites" : ["no_prerequisites"],
-        "is_const" : true,
-        "aliases" : ["market_shorts"]
-      },
-      {
-        "method_name" : "blockchain_market_list_covers",
-        "description" : "Returns the covers side of the order book for a given market",
-        "return_type" : "market_order_array",
-        "parameters"  : [
-           {
-              "name" : "quote_symbol",
-              "type" : "asset_symbol",
-              "description" : "the symbol name the market is quoted in"
-           },
-           {
-              "name" : "limit",
-              "type" : "uint32_t",
-              "description" : "the maximum number of items to return, -1 for all",
-              "default_value" : "-1"
-           }
-        ],
-        "prerequisites" : ["no_prerequisites"],
-        "aliases" : ["market_covers"]
-      },
-      {
-        "method_name" : "blockchain_market_get_asset_collateral",
-        "description" : "Returns the total collateral for an asset of a given type",
-        "return_type" : "share_type",
-        "parameters"  : [
-           {
-              "name" : "symbol",
-              "type" : "asset_symbol",
-              "description" : "the symbol for the asset to count collateral for"
-           }
-        ],
-        "prerequisites" : ["no_prerequisites"],
-        "aliases" : ["collateral"]
       },
       {
         "method_name" : "blockchain_market_order_book",

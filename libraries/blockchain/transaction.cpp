@@ -108,20 +108,6 @@ namespace bts { namespace blockchain {
       operations.emplace_back(op);
    }
 
-   void transaction::short_sell( const asset& quantity,
-                                 const price& interest_rate,
-                                 const address& owner,
-                                 const optional<price>& limit_price )
-   {
-      short_operation op;
-      op.amount = quantity.amount;
-      op.short_index.order_price = interest_rate;
-      op.short_index.owner = owner;
-      op.limit_price = limit_price;
-
-      operations.emplace_back(op);
-   }
-
    void transaction::withdraw( const balance_id_type& account,
                                share_type             amount )
    { try {
@@ -325,18 +311,6 @@ namespace bts { namespace blockchain {
       operations.push_back( issue_asset_operation( amount_to_issue ) );
    }
 
-   void transaction::cover( const asset& cover_amount,
-                            const market_index_key& order_idx )
-   {
-      operations.push_back( cover_operation(cover_amount.amount, order_idx) );
-   }
-
-   void transaction::add_collateral( share_type collateral_amount,
-                                     const market_index_key& order_idx )
-   {
-      operations.push_back( add_collateral_operation(collateral_amount, order_idx) );
-   }
-
    void transaction::publish_feed( feed_id_type feed_id,
                                    account_id_type delegate_id,
                                    fc::variant value )
@@ -360,9 +334,6 @@ namespace bts { namespace blockchain {
                   break;
               case ask_op_type:
                   if( op.as<ask_operation>().amount < 0 ) return true;
-                  break;
-              case short_op_type:
-                  if( op.as<short_operation>().amount < 0 ) return true;
                   break;
               default:
                   break;

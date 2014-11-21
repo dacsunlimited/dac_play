@@ -976,25 +976,6 @@ wallet_transaction_record client_impl::wallet_market_submit_relative_ask(
   return record;
 }
 
-wallet_transaction_record client_impl::wallet_market_submit_short(
-       const string& from_account,
-       const string& quantity,
-       const string& collateral_symbol,
-       const string& apr,
-       const string& quote_symbol,
-       const string& short_price_limit )
-{
-  const auto record = _wallet->submit_short( from_account,
-                                             quantity,
-                                             collateral_symbol,
-                                             apr,
-                                             quote_symbol,
-                                             short_price_limit,
-                                             true );
-  network_broadcast_transaction( record.trx );
-  return record;
-}
-
 wallet_transaction_record client_impl::wallet_market_batch_update(const std::vector<order_id_type> &cancel_order_ids,
                                                                  const std::vector<order_description> &new_orders,
                                                                  bool sign)
@@ -1002,17 +983,6 @@ wallet_transaction_record client_impl::wallet_market_batch_update(const std::vec
   const auto record = _wallet->batch_market_update(cancel_order_ids, new_orders, sign);
   if( sign )
      network_broadcast_transaction( record.trx );
-  return record;
-}
-
-wallet_transaction_record client_impl::wallet_market_cover(
-       const string& from_account,
-       const string& quantity,
-       const string& quantity_symbol,
-       const order_id_type& cover_id )
-{
-  const auto record = _wallet->cover_short( from_account, quantity, quantity_symbol, cover_id, true );
-  network_broadcast_transaction( record.trx );
   return record;
 }
 
@@ -1038,15 +1008,6 @@ asset client_impl::wallet_get_transaction_fee( const string& fee_symbol )
   if( fee_symbol.empty() )
      return _wallet->get_transaction_fee( _chain_db->get_asset_id( BTS_BLOCKCHAIN_SYMBOL ) );
   return _wallet->get_transaction_fee( _chain_db->get_asset_id( fee_symbol ) );
-}
-
-wallet_transaction_record client_impl::wallet_market_add_collateral( const std::string& from_account_name,
-                                                                     const order_id_type& cover_id,
-                                                                     const string& real_quantity_collateral_to_add )
-{
-   const auto record = _wallet->add_collateral( from_account_name, cover_id, real_quantity_collateral_to_add, true );
-   network_broadcast_transaction( record.trx );
-   return record;
 }
 
 map<order_id_type, market_order> client_impl::wallet_account_order_list( const string& account_name,

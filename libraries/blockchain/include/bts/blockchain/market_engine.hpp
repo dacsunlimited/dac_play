@@ -9,22 +9,15 @@ namespace bts { namespace blockchain { namespace detail {
     /** return true if execute was successful and applied */
     bool execute( asset_id_type quote_id, asset_id_type base_id, const fc::time_point_sec& timestamp );
 
-    void cancel_all_shorts();
-
     static asset get_interest_paid(const asset& total_amount_paid, const price& apr, uint32_t age_seconds);
     static asset get_interest_owed(const asset& principle, const price& apr, uint32_t age_seconds);
 
   private:
     void push_market_transaction( const market_transaction& mtrx );
 
-    void pay_current_short( market_transaction& mtrx,
-                            asset_record& quote_asset,
-                            asset_record& base_asset );
     void pay_current_bid( const market_transaction& mtrx, asset_record& quote_asset );
-    void pay_current_cover( market_transaction& mtrx, asset_record& quote_asset );
     void pay_current_ask( const market_transaction& mtrx, asset_record& base_asset );
 
-    bool get_next_short();
     bool get_next_bid();
     bool get_next_ask();
     asset get_current_cover_debt()const;
@@ -51,8 +44,6 @@ namespace bts { namespace blockchain { namespace detail {
                                 const price& opening_price,
                                 const price& closing_price,
                                 const fc::time_point_sec& timestamp );
-
-    void cancel_current_short( market_transaction& mtrx, const asset_id_type& quote_asset_id );
 
     pending_chain_state_ptr       _pending_state;
     pending_chain_state_ptr       _prior_state;

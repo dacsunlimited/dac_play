@@ -388,13 +388,6 @@ wallet_transaction_record wallet_impl::scan_transaction(
                     has_withdrawal |= scan_relative_ask( ask_op, *transaction_record, total_fee );
                 break;
             }
-            case short_op_type:
-            {
-                const auto short_op = op.as<short_operation>();
-                if( short_op.amount < 0 )
-                    has_withdrawal |= scan_short( short_op, *transaction_record, total_fee );
-                break;
-            }
             default:
                 break;
         }
@@ -439,13 +432,6 @@ wallet_transaction_record wallet_impl::scan_transaction(
                 const auto relative_ask_op = op.as<relative_ask_operation>();
                 if( relative_ask_op.amount >= 0 )
                     has_deposit |= scan_relative_ask( relative_ask_op, *transaction_record, total_fee );
-                break;
-            }
-            case short_op_type:
-            {
-                const auto short_op = op.as<short_operation>();
-                if( short_op.amount >= 0 )
-                    has_deposit |= scan_short( short_op, *transaction_record, total_fee );
                 break;
             }
             case burn_op_type:
@@ -993,61 +979,6 @@ bool wallet_impl::scan_ask( const ask_operation& op, wallet_transaction_record& 
     {
        /* Restore key label */
        const market_order order( ask_order, op.ask_index, op.amount );
-       okey_rec->memo = order.get_small_id();
-       _wallet_db.store_key( *okey_rec );
-
-       for( auto& entry : trx_rec.ledger_entries )
-       {
-           if( amount.amount >= 0 )
-           {
-               if( !entry.to_account.valid() )
-               {
-                   entry.to_account = okey_rec->public_key;
-                   entry.amount = amount;
-                   //entry.memo =
-                   break;
-               }
-               else if( *entry.to_account == okey_rec->public_key )
-               {
-                   entry.amount = amount;
-                   break;
-               }
-           }
-           else /* Cancel order */
-           {
-               if( !entry.from_account.valid() )
-               {
-                   entry.from_account = okey_rec->public_key;
-                   entry.amount = amount;
-                   entry.memo = "cancel " + *okey_rec->memo;
-                   break;
-               }
-               else if( *entry.from_account == okey_rec->public_key )
-               {
-                   entry.amount = amount;
-                   entry.memo = "cancel " + *okey_rec->memo;
-                   break;
-               }
-           }
-       }
-
-       return true;
-    }
-    return false;
-} FC_CAPTURE_AND_RETHROW( (op) ) }
-
-// TODO: Refactor scan_{bid|ask|short}; exactly the same
-bool wallet_impl::scan_short( const short_operation& op, wallet_transaction_record& trx_rec, asset& total_fee )
-{ try {
-    const auto amount = op.get_amount();
-    if( amount.asset_id == total_fee.asset_id )
-        total_fee -= amount;
-
-    auto okey_rec = _wallet_db.lookup_key( op.short_index.owner );
-    if( okey_rec.valid() && okey_rec->has_private_key() )
-    {
-       /* Restore key label */
-       const market_order order( short_order, op.short_index, op.amount );
        okey_rec->memo = order.get_small_id();
        _wallet_db.store_key( *okey_rec );
 

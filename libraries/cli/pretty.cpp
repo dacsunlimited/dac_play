@@ -923,10 +923,7 @@ string pretty_order_list( const vector<std::pair<order_id_type, market_order>>& 
         out << std::setw( 30 ) << client->get_chain()->to_pretty_price( order.get_price() );
         out << std::setw( 20 ) << client->get_chain()->to_pretty_asset( order.get_balance() );
         out << std::setw( 20 ) << client->get_chain()->to_pretty_asset( order.get_quantity() * order.get_price() );
-        if( order.type != cover_order )
-           out << std::setw( 20 ) << "N/A";
-        else
-           out << std::setw( 20 ) << client->get_chain()->to_pretty_asset( asset( *order.collateral ) );
+        out << std::setw( 20 ) << "N/A";
         out << std::setw( 40 ) << string( id );
 
         out << "\n";

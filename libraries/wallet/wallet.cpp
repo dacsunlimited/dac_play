@@ -369,9 +369,9 @@ namespace detail {
       asset quantity = _blockchain->to_ugly_asset(balance, base_symbol);
       if( quantity.amount < 0 )
          FC_CAPTURE_AND_THROW( invalid_asset_amount, (balance) );
-      if( quantity.amount == 0 && order_type != cover_order )
+      if( quantity.amount == 0 )
          FC_CAPTURE_AND_THROW( invalid_asset_amount, (balance) );
-      if( order_type != cover_order && atof(order_price.c_str()) < 0 )
+      if( atof(order_price.c_str()) < 0 )
         FC_CAPTURE_AND_THROW( invalid_price, (order_price) );
       if( (order_type == bid_order || order_type == ask_order) && atof(order_price.c_str()) == 0 )
         FC_CAPTURE_AND_THROW( invalid_price, (order_price) );
@@ -381,7 +381,7 @@ namespace detail {
       price price_arg = _blockchain->to_ugly_price(order_price,
                                                    base_symbol,
                                                    quote_symbol,
-                                                   order_type != short_order);
+                                                   true);
 
       //This affects shorts only.
       oprice price_limit;
@@ -396,12 +396,6 @@ namespace detail {
          builder->submit_relative_bid(self->get_account(account_name), quantity, price_arg, price_limit);
       else if( order_type == relative_ask_order )
          builder->submit_relative_ask(self->get_account(account_name), quantity, price_arg, price_limit);
-      else if( order_type == short_order )
-      {
-         price_arg.ratio /= 100;
-         FC_ASSERT( price_arg.ratio < fc::uint128( 10, 0 ), "APR must be less than 1000%" );
-         builder->submit_short(self->get_account(account_name), quantity, price_arg, price_limit);
-      }
       else
          FC_THROW_EXCEPTION( invalid_operation, "This function only supports bids, asks and shorts." );
    }
@@ -3610,25 +3604,10 @@ namespace detail {
 
          switch( order_description.first )
          {
-         case cover_order:
-            FC_ASSERT(args.size() > 3, "Incorrect number of arguments.");
-            //args: from_account_name, quantity, symbol, ID
-            builder->submit_cover(get_account(args[0]),
-                                 my->_blockchain->to_ugly_asset(args[1], args[2]),
-                                 fc::ripemd160(args[3]));
-            break;
          case bid_order:
          case ask_order:
          case relative_bid_order:
          case relative_ask_order:
-         case short_order:
-            //args: account_name, quantity, base_symbol, price, quote_symbol[, price_limit (for shorts)]
-            FC_ASSERT(args.size() > 4, "Incorrect number of arguments.");
-            my->apply_order_to_builder(order_description.first, builder,
-                                       args[0], args[1], args[3], args[2], args[4],
-                                       //For shorts:
-                                       args.size() > 5? args[5] : string());
-            break;
          default:
             FC_THROW_EXCEPTION( invalid_operation, "Unknown operation type ${op}", ("op", order_description.first) );
          }
@@ -3758,121 +3737,6 @@ namespace detail {
    } FC_CAPTURE_AND_RETHROW( (from_account_name)
                              (real_quantity)(quantity_symbol)
                              (quote_price)(quote_symbol)(sign) ) }
-
-   wallet_transaction_record wallet::submit_short(const string& from_account_name,
-                                                  const string& real_quantity_xts,
-                                                  const string& collateral_symbol,
-                                                  const string& apr,
-                                                  const string& quote_symbol,
-                                                  const string& price_limit,
-                                                  bool sign)
-   { try {
-      if( NOT is_open()     ) FC_CAPTURE_AND_THROW( wallet_closed );
-      if( NOT is_unlocked() ) FC_CAPTURE_AND_THROW( wallet_locked );
-
-      transaction_builder_ptr builder = create_transaction_builder();
-      my->apply_order_to_builder(short_order,
-                                 builder,
-                                 from_account_name,
-                                 real_quantity_xts,
-                                 apr,
-                                 collateral_symbol,
-                                 quote_symbol,
-                                 price_limit);
-      builder->finalize();
-
-      if( sign )
-         return builder->sign();
-      return builder->transaction_record;
-   } FC_CAPTURE_AND_RETHROW( (from_account_name)
-                             (real_quantity_xts)(quote_symbol)
-                             (apr)(collateral_symbol)
-                             (price_limit)(sign) ) }
-
-   wallet_transaction_record wallet::add_collateral(
-           const string& from_account_name,
-           const order_id_type& cover_id,
-           const string& real_quantity_collateral_to_add,
-           bool sign )
-   { try {
-       if (!is_open()) FC_CAPTURE_AND_THROW (wallet_closed);
-       if (!is_unlocked()) FC_CAPTURE_AND_THROW (wallet_locked);
-       if (!my->is_receive_account(from_account_name)) FC_CAPTURE_AND_THROW (unknown_receive_account);
-
-       const auto order = my->_blockchain->get_market_order( cover_id, cover_order );
-       if( !order.valid() )
-           FC_THROW_EXCEPTION( unknown_market_order, "Cannot find that cover order!" );
-
-       const oasset_record base_asset = my->_blockchain->get_asset_record( order->market_index.order_price.base_asset_id );
-       FC_ASSERT( base_asset.valid() );
-
-       const asset collateral_to_add = my->_blockchain->to_ugly_asset( real_quantity_collateral_to_add,
-                                                                       base_asset->symbol );
-
-       if (collateral_to_add.amount <= 0) FC_CAPTURE_AND_THROW (bad_collateral_amount);
-
-       const auto owner_address = order->get_owner();
-       const auto owner_key_record = my->_wallet_db.lookup_key( owner_address );
-       // TODO: Throw proper exception
-       FC_ASSERT( owner_key_record.valid() && owner_key_record->has_private_key() );
-
-       auto     from_account_key = get_account_public_key( from_account_name );
-       address  from_address( from_account_key );
-
-       signed_transaction trx;
-       unordered_set<address> required_signatures;
-
-       trx.expiration = blockchain::now() + get_transaction_expiration();
-       required_signatures.insert( owner_address );
-
-       trx.add_collateral( collateral_to_add.amount, order->market_index );
-
-       auto required_fees = get_transaction_fee();
-       my->withdraw_to_transaction( collateral_to_add + required_fees,
-                                    from_account_name,
-                                    trx,
-                                    required_signatures );
-
-       auto record = wallet_transaction_record();
-       record.is_market = true;
-       record.fee = required_fees;
-
-       auto entry = ledger_entry();
-       entry.from_account = from_account_key;
-       entry.to_account = get_private_key( owner_address ).get_public_key();
-       entry.amount = collateral_to_add;
-       entry.memo = "add collateral to short";
-       record.ledger_entries.push_back(entry);
-
-       if( sign )
-       {
-           my->sign_transaction( trx, required_signatures );
-           my->cache_transaction( trx, record );
-       }
-
-       return record;
-   } FC_CAPTURE_AND_RETHROW((from_account_name)(cover_id)(real_quantity_collateral_to_add)(sign)) }
-
-   wallet_transaction_record wallet::cover_short(
-           const string& from_account_name,
-           const string& real_quantity_usd,
-           const string& quote_symbol,
-           const order_id_type& cover_id,
-           bool sign )
-   { try {
-       if( NOT is_open()     ) FC_CAPTURE_AND_THROW( wallet_closed );
-       if( NOT is_unlocked() ) FC_CAPTURE_AND_THROW( wallet_locked );
-
-       transaction_builder_ptr builder = create_transaction_builder();
-       builder->submit_cover(get_account(from_account_name),
-                             my->_blockchain->to_ugly_asset(real_quantity_usd, quote_symbol),
-                             cover_id);
-       builder->finalize();
-
-       if( sign )
-          return builder->sign();
-       return builder->transaction_record;
-   } FC_CAPTURE_AND_RETHROW( (from_account_name)(real_quantity_usd)(quote_symbol)(cover_id)(sign) ) }
 
    void wallet::set_transaction_fee( const asset& fee )
    { try {
@@ -4617,8 +4481,6 @@ namespace detail {
    { try {
       auto bids   = my->_blockchain->get_market_bids( quote_symbol, base_symbol );
       auto asks   = my->_blockchain->get_market_asks( quote_symbol, base_symbol );
-      auto shorts = my->_blockchain->get_market_shorts( quote_symbol );
-      auto covers = my->_blockchain->get_market_covers( quote_symbol );
 
       map<order_id_type, market_order> result;
 
@@ -4658,42 +4520,7 @@ namespace detail {
              count++;
          }
       }
-
-      count = 0;
-      for( const auto& order : shorts )
-      {
-         if( count > limit )
-             break;
-         auto okey_rec = my->_wallet_db.lookup_key( order.get_owner() );
-         if( !okey_rec.valid() )
-             continue;
-         auto oacct = my->_wallet_db.lookup_account( okey_rec->account_address );
-         FC_ASSERT( oacct.valid(), "Account for that account_addres doesn't exist!");
-         if( oacct->name == account_name || account_name == "ALL" )
-         {
-             if( my->_wallet_db.has_private_key( order.get_owner() ) )
-                result[ order.get_id() ] = order;
-             count++;
-         }
-      }
-
-      count = 0;
-      for( const auto& order : covers )
-      {
-         if( count > limit )
-             break;
-         auto okey_rec = my->_wallet_db.lookup_key( order.get_owner() );
-         if( !okey_rec.valid() )
-             continue;
-         auto oacct = my->_wallet_db.lookup_account( okey_rec->account_address );
-         FC_ASSERT( oacct.valid(), "Account for that account_address doesn't exist!");
-         if( oacct->name == account_name || account_name == "ALL" )
-         {
-             if( my->_wallet_db.has_private_key( order.get_owner() ) )
-                result[ order.get_id() ] = order;
-             count++;
-         }
-      }
+      
       return result;
    } FC_CAPTURE_AND_RETHROW( (quote_symbol)(base_symbol) ) }
 

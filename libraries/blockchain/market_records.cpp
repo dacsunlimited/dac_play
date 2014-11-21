@@ -35,12 +35,6 @@ asset market_order::get_balance()const
      case ask_order:
         asset_id = market_index.order_price.base_asset_id;
         break;
-     case short_order:
-        asset_id = market_index.order_price.base_asset_id;
-        break;
-     case cover_order:
-        asset_id = market_index.order_price.quote_asset_id;
-        break;
      case null_order:
         FC_ASSERT( !"Null Order" );
   }
@@ -57,20 +51,11 @@ price market_order::get_price( const price& relative )const
          return market_index.order_price + relative;
       case bid_order:
       case ask_order:
-      case short_order:
-      case cover_order:
-        return market_index.order_price;
       case null_order:
         FC_ASSERT( !"Null Order" );
    }
    FC_ASSERT( !"Should not reach this line" );
 }
-
-price market_order::get_highest_cover_price()const
-{ try {
-  FC_ASSERT( type == cover_order );
-  return asset( state.balance, market_index.order_price.quote_asset_id ) / asset( *collateral );
-} FC_CAPTURE_AND_RETHROW() }
 
 asset market_order::get_quantity()const
 {
@@ -85,14 +70,6 @@ asset market_order::get_quantity()const
      case ask_order:
      { // balance is in USD  divide by price
         return get_balance();
-     }
-     case short_order:
-     {
-        return get_balance();
-     }
-     case cover_order:
-     {
-        return asset( (*collateral * 3)/4 );
      }
      default:
         FC_ASSERT( false, "Not Implemented" );
@@ -113,14 +90,6 @@ asset market_order::get_quote_quantity()const
      case ask_order:
      { // balance is in USD  divide by price
         return get_balance() * get_price();
-     }
-     case short_order:
-     {
-        return get_balance() * get_price();
-     }
-     case cover_order:
-     {
-        return get_balance();
      }
      default:
         FC_ASSERT( false, "Not Implemented" );

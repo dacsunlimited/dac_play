@@ -21,7 +21,7 @@
 #define BTS_ADDRESS_PREFIX                                  "PLS"
 #define BTS_BLOCKCHAIN_SYMBOL                               "PLS"
 #define BTS_BLOCKCHAIN_NAME                                 "BitShares PLS"
-#define BTS_BLOCKCHAIN_DESCRIPTION                          "BitShares Play Test Network"
+#define BTS_BLOCKCHAIN_DESCRIPTION                          "BitShares PLAY Test Network"
 
 #define BTS_BLOCKCHAIN_PRECISION                            100000
 #define BTS_BLOCKCHAIN_MAX_TRANSACTION_EXPIRATION_SEC       (60*60*24*2)

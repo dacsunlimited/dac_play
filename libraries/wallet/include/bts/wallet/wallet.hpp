@@ -477,28 +477,6 @@ namespace bts { namespace wallet {
                  const string& limit,
                  bool sign
                  );
-         wallet_transaction_record submit_short(
-                 const string& from_account_name,
-                 const string& real_quantity_xts,
-                 const string& collateral_symbol,
-                 const string& apr,
-                 const string& quote_symbol,
-                 const string& price_limit,
-                 bool sign
-                 );
-         wallet_transaction_record cover_short(
-                 const string& from_account_name,
-                 const string& real_quantity_usd,
-                 const string& quote_symbol,
-                 const order_id_type& short_id,
-                 bool sign
-                 );
-         wallet_transaction_record add_collateral(
-                 const string& from_account_name,
-                 const order_id_type& short_id,
-                 const string& real_quantity_collateral_to_add,
-                 bool sign
-                 );
          wallet_transaction_record cancel_market_orders(
                  const vector<order_id_type>& order_ids,
                  bool sign

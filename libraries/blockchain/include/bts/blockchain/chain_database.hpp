@@ -249,14 +249,6 @@ namespace bts { namespace blockchain {
                                                              const string& base_symbol,
                                                              uint32_t limit = uint32_t(-1) );
 
-         optional<market_order>             get_market_short( const market_index_key& )const;
-         vector<market_order>               get_market_shorts( const string& quote_symbol,
-                                                               uint32_t limit = uint32_t(-1) );
-         vector<market_order>               get_market_covers( const string& quote_symbol,
-                                                               uint32_t limit = uint32_t(-1) );
-
-         share_type                         get_asset_collateral( const string& symbol );
-
          virtual omarket_order              get_lowest_ask_record( const asset_id_type& quote_id,
                                                                    const asset_id_type& base_id )override;
          optional<market_order>             get_market_ask( const market_index_key& )const;
@@ -308,15 +300,11 @@ namespace bts { namespace blockchain {
          virtual oorder_record              get_ask_record( const market_index_key& )const override;
          virtual oorder_record              get_relative_bid_record( const market_index_key& )const override;
          virtual oorder_record              get_relative_ask_record( const market_index_key& )const override;
-         virtual oorder_record              get_short_record( const market_index_key& )const override;
-         virtual ocollateral_record         get_collateral_record( const market_index_key& )const override;
 
          virtual void                       store_bid_record( const market_index_key& key, const order_record& ) override;
          virtual void                       store_ask_record( const market_index_key& key, const order_record& ) override;
          virtual void                       store_relative_bid_record( const market_index_key& key, const order_record& ) override;
          virtual void                       store_relative_ask_record( const market_index_key& key, const order_record& ) override;
-         virtual void                       store_short_record( const market_index_key& key, const order_record& ) override;
-         virtual void                       store_collateral_record( const market_index_key& key, const collateral_record& ) override;
 
          virtual void                       store_slot_record( const slot_record& r )override;
          virtual oslot_record               get_slot_record( const time_point_sec& start_time )const override;
@@ -348,7 +336,6 @@ namespace bts { namespace blockchain {
          virtual ofeed_record               get_feed( const feed_index& )const override;
 
          asset                              calculate_supply( const asset_id_type& asset_id )const;
-         asset                              calculate_debt( const asset_id_type& asset_id, bool include_interest = false )const;
          asset                              unclaimed_genesis();
 
          void                               dump_state( const fc::path& path )const;

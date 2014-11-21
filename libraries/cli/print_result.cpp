@@ -125,7 +125,6 @@ namespace bts { namespace cli {
 
     _command_to_function["blockchain_market_list_asks"] = &f_blockchain_market_list;
     _command_to_function["blockchain_market_list_bids"] = &f_blockchain_market_list;
-    _command_to_function["blockchain_market_list_shorts"] = &f_blockchain_market_short_list;
 
     _command_to_function["wallet_list_my_accounts"] = &f_wallet_list_my_accounts;
 
@@ -157,9 +156,6 @@ namespace bts { namespace cli {
     _command_to_function["wallet_delegate_withdraw_pay"]        = &f_wallet_transfer;
     _command_to_function["wallet_market_submit_bid"]            = &f_wallet_transfer;
     _command_to_function["wallet_market_submit_ask"]            = &f_wallet_transfer;
-    _command_to_function["wallet_market_submit_short"]          = &f_wallet_transfer;
-    _command_to_function["wallet_market_cover"]                 = &f_wallet_transfer;
-    _command_to_function["wallet_market_add_collateral"]        = &f_wallet_transfer;
     _command_to_function["wallet_market_cancel_order"]          = &f_wallet_transfer;
     _command_to_function["wallet_publish_version"]              = &f_wallet_transfer;
     _command_to_function["wallet_publish_slate"]                = &f_wallet_transfer;
@@ -752,29 +748,7 @@ namespace bts { namespace cli {
     vector<market_order>::iterator bid_itr = bids_asks.first.begin();
     auto ask_itr = bids_asks.second.begin();
 
-    vector<market_order> shorts;
-    if( base_id == 0 )
-    {
-       if (arguments.size() <= 2)
-           shorts = client->blockchain_market_list_shorts(arguments[0].as_string());
-       else
-           shorts = client->blockchain_market_list_shorts(arguments[0].as_string(), arguments[2].as_int64());
-    }
-
     auto status = client->get_chain()->get_market_status(quote_id, base_id);
-    price short_execution_price( 0, quote_id, base_id );
-    if( status.valid() && status->current_feed_price.valid() )
-        short_execution_price = *status->current_feed_price;
-
-    std::copy_if(shorts.begin(), shorts.end(), std::back_inserter(bids_asks.first), [&short_execution_price](const market_order& order) -> bool {
-        return order.state.limit_price && *order.state.limit_price < short_execution_price;
-    });
-
-    shorts.erase(std::remove_if(shorts.begin(), shorts.end(), [&short_execution_price](const market_order& short_order) -> bool {
-      //Remove if the short execution price is past the price limit
-      return (short_order.state.limit_price.valid() ?
-                  *short_order.state.limit_price < short_execution_price : false);
-    }), shorts.end());
 
     std::sort( bids_asks.first.begin(), bids_asks.first.end(), [=]( const market_order& a, const market_order& b ) -> bool
                {
@@ -782,31 +756,10 @@ namespace bts { namespace cli {
                }
              );
 
-    if(bids_asks.first.empty() && bids_asks.second.empty() && shorts.empty())
+    if(bids_asks.first.empty() && bids_asks.second.empty())
     {
       out << "No Orders\n";
       return;
-    }
-
-    if (base_id == 0 && quote_asset_record->is_market_issued())
-    {
-      market_order short_wall;
-      short_wall.type = blockchain::bid_order;
-      short_wall.state.balance = 0;
-      short_wall.market_index.order_price = short_execution_price;
-      for (auto order : shorts)
-      {
-         if( order.get_price() >= short_execution_price )
-           short_wall.state.balance += ((order.get_quantity() * short_execution_price)).amount;
-         else
-           short_wall.state.balance += (order.get_quantity() * order.get_price()).amount;
-      }
-
-      auto pos = std::lower_bound(bids_asks.first.begin(), bids_asks.first.end(), short_wall, [](const market_order& a, const market_order& b) -> bool {
-        return !(a.market_index == b.market_index) && !(a.market_index < b.market_index);
-      });
-      if (short_wall.state.balance != 0)
-        bids_asks.first.insert(pos, short_wall);
     }
 
     //bid_itr may be invalidated by now... reset it.
@@ -817,7 +770,8 @@ namespace bts { namespace cli {
       if(bid_itr != bids_asks.first.end())
       {
         bool short_wall = (bid_itr->get_owner() == address());
-        bool is_short_order = bid_itr->type == short_order;
+        // TODO: Fixed value, short orders already been removed.
+        bool is_short_order = false;
 
         if (is_short_order)
         {
@@ -873,106 +827,16 @@ namespace bts { namespace cli {
       }
       out << "\n";
     }
-
-    if(quote_asset_record->is_market_issued() && base_id == 0)
+      
+    if(status->last_error)
     {
-      out << std::string(175, '-') << "\n";
-      out << std::setw(39) << "SHORT WALL"
-        << std::string(38, ' ') << "| "
-        << std::string(34, ' ') << "MARGIN"
-        << std::string(34, ' ') << "\n"
-        << std::left << std::setw(26) << "TOTAL"
-        << std::setw(20) << "QUANTITY"
-        << std::right << std::setw(30) << "INTEREST RATE (APR)"
-        << " | " << std::left << std::setw(30) << "CALL PRICE" << std::right << std::setw(23) << "QUANTITY" << std::setw(26) << "TOTAL" << "   COLLATERAL    EXPIRES" << "\n"
-        << std::string(175, '-') << "\n";
-
-      {
-        auto ask_itr = bids_asks.second.rbegin();
-        auto bid_itr = shorts.begin();
-        while( ask_itr != bids_asks.second.rend() || bid_itr != shorts.end() )
-        {
-          if(bid_itr != shorts.end())
-          {
-            double ratio = atof(bid_itr->get_price().ratio_string().c_str());
-            ratio *= 100;
-            asset quantity_usd(bid_itr->get_quantity() * short_execution_price); //, bid_itr->get_price()) );
-            asset quantity_xts = bid_itr->get_quantity(); //quantity_usd * max_short_price;
-
-            if( bid_itr->get_price() >= short_execution_price )
-              quantity_usd = ((bid_itr->get_quantity() * short_execution_price));
-            else
-              quantity_usd = (bid_itr->get_quantity() * bid_itr->get_price());
-
-            quantity_xts = quantity_usd * short_execution_price;
-
-            out << std::left << std::setw(26) << client->get_chain()->to_pretty_asset(quantity_usd)
-              << std::setw(20) << client->get_chain()->to_pretty_asset(quantity_xts)
-              << std::right << std::setw(30) << std::fixed << std::setprecision(2) << std::to_string(ratio) + " %";
-
-            ++bid_itr;
-          } else {
-              out << string(76, ' ');
-          }
-
-          out << " | ";
-
-          while(ask_itr != bids_asks.second.rend() && !ask_itr->collateral)
-            ++ask_itr;
-          if(ask_itr != bids_asks.second.rend())
-          {
-            out << std::left << std::setw(30) << std::setprecision(8) << (fc::to_string(client->get_chain()->to_pretty_price_double(ask_itr->get_price())) + " " + quote_asset_record->symbol)
-              << std::right << std::setw(23) << client->get_chain()->to_pretty_asset(ask_itr->get_quantity())
-              << std::right << std::setw(26) << client->get_chain()->to_pretty_asset(ask_itr->get_quote_quantity())
-              << std::right << std::setw(26) << fc::get_approximate_relative_time_string( *ask_itr->expiration );
-            out << "   " << client->get_chain()->to_pretty_asset(asset(*ask_itr->collateral));
-            out << "\n";
-          }
-          else
-            out << "\n";
-
-          if(ask_itr != bids_asks.second.rend())
-            ++ask_itr;
-        }
-      }
-
-      auto status = client->get_chain()->get_market_status(quote_id, base_id);
-      if(status)
-      {
-        out << "Maximum Short Price: "
-          << client->get_chain()->to_pretty_price(short_execution_price)
-          << "     ";
-
-        if(status->last_error)
-        {
-          out << "Last Error:  ";
-          out << status->last_error->to_string() << "\n";
-          if(true || status->last_error->code() != 37005 /* insufficient funds */)
-          {
-            out << "Details:\n";
-            out << status->last_error->to_detail_string() << "\n";
-          }
-        } else {
-          out << "\n";
-        }
-      }
-
-      // TODO: print insurance fund for market issued assets
-
-    } // end call section that only applies to market issued assets vs XTS
-    else
-    {
-      auto status = client->get_chain()->get_market_status(quote_id, base_id);
-      if(status->last_error)
-      {
         out << "Last Error:  ";
         out << status->last_error->to_string() << "\n";
         if(true || status->last_error->code() != 37005 /* insufficient funds */)
         {
-          out << "Details:\n";
-          out << status->last_error->to_detail_string() << "\n";
+            out << "Details:\n";
+            out << status->last_error->to_detail_string() << "\n";
         }
-      }
     }
   }
 
