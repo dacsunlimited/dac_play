@@ -657,9 +657,8 @@ namespace bts { namespace blockchain {
             oasset_record base_asset_record = pending_state->get_asset_record( asset_id_type( 0 ) );
             FC_ASSERT( base_asset_record.valid() );
 
-            base_asset_record->current_share_supply += accepted_paycheck;
-            base_asset_record->current_share_supply -= base_asset_record->collected_fees;
-            base_asset_record->collected_fees = 0;
+            base_asset_record->collected_fees -= max_available_paycheck;
+            base_asset_record->current_share_supply -= (max_available_paycheck - accepted_paycheck);
             pending_state->store_asset_record( *base_asset_record );
       } FC_CAPTURE_AND_RETHROW( (block_signee) ) }
 
