@@ -65,7 +65,6 @@ add_library( bts_blockchain
              account_record.cpp
              asset_record.cpp
              market_records.cpp
-             dice_record.cpp
              chain_interface.cpp
              pending_chain_state.cpp
              market_engine.cpp

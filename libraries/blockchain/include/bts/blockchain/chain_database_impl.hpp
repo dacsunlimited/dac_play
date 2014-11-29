@@ -94,8 +94,6 @@ namespace bts { namespace blockchain {
             void                                        update_random_seed( const secret_hash_type& new_secret,
                                                                             const pending_chain_state_ptr& pending_state );
 
-            void                                        execute_dice_jackpot( uint32_t block_num, const pending_chain_state_ptr& pending_state );
-
             void                                        update_active_delegate_list(const full_block& block_data,
                                                                                     const pending_chain_state_ptr& pending_state );
 
@@ -128,7 +126,8 @@ namespace bts { namespace blockchain {
             bts::db::level_map<uint32_t, std::vector<block_id_type>>                    _fork_number_db;
             bts::db::level_map<block_id_type,block_fork_data>                           _fork_db;
             bts::db::cached_level_map<uint32_t, fc::variant>                            _property_db;
-            bts::db::level_map< dice_id_type, dice_record>                              _dice_db;
+          
+            bts::db::level_map< int32_t, generic_game_record >                          _game_db;
 
             bts::db::level_map<uint32_t, std::vector<jackpot_transaction> >             _jackpot_transactions_db;
 

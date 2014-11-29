@@ -53,6 +53,8 @@ namespace bts { namespace game {
         bool scan( wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w );
         
         static wallet_transaction_record play( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, const variant& params, bool sign);
+        
+        void execute_jackpot( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state );
     };
     
     struct dice_input

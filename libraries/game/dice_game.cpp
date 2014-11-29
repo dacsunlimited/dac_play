@@ -1,5 +1,6 @@
 #include <bts/game/dice_game.hpp>
 #include <bts/game/game_operations.hpp>
+#include <bts/game/game_records.hpp>
 #include <bts/blockchain/chain_interface.hpp>
 #include <bts/blockchain/exceptions.hpp>
 #include <bts/wallet/exceptions.hpp>
@@ -44,24 +45,111 @@ namespace bts { namespace game {
         /*
          * For each transaction, there must be only one dice operatiion exist
          */
-        auto cur_record = eval_state._current_state->get_dice_record( eval_state.trx.id() );
+        auto cur_record = eval_state._current_state->get_generic_game_record( eval_state.trx.id()._hash[0] );
         if( cur_record )
             FC_CAPTURE_AND_THROW( duplicate_dice_in_transaction, ( eval_state.trx.id() ) );
         
-        cur_record = dice_record();
+        
+        
+        game_dice_record cur_data;
         
         // this does not means the balance are now stored in balance record, just over pass the api
         // the dice record are not in any balance record, they are over-fly-on-sky..
         // TODO: Dice Review
         eval_state.sub_balance(this->balance_id(), asset( this->amount, dice_asset_record->id ));
         
-        cur_record->id               = eval_state.trx.id();
-        cur_record->amount           = this->amount;
-        cur_record->owner            = this->owner();
-        cur_record->odds             = this->odds;
-        cur_record->guess            = this->guess;
+        cur_data.id               = eval_state.trx.id();
+        cur_data.amount           = this->amount;
+        cur_data.owner            = this->owner();
+        cur_data.odds             = this->odds;
+        cur_data.guess            = this->guess;
         
-        eval_state._current_state->store_dice_record( *cur_record );
+        cur_record = generic_game_record(cur_data);
+        
+        eval_state._current_state->store_generic_game_record(cur_data.id._hash[0], *cur_record );
+    }
+    
+    void dice_game::execute_jackpot( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
+    {
+        // do not need to claim for the first BTS_BLOCKCHAIN_NUM_DELEGATES + 1 blocks, no dice action in genesis
+        if (block_num <= BTS_BLOCKCHAIN_NUM_DICE)
+            return;
+        
+        auto current_random_seed = blockchain->get_current_random_seed();
+        uint32_t block_random_num = current_random_seed._hash[0];
+        
+        uint32_t range = BTS_BLOCKCHAIN_DICE_RANGE;
+        
+        uint32_t block_num_of_dice = block_num - BTS_BLOCKCHAIN_NUM_DICE;
+        auto block_of_dice = blockchain->get_block(block_num_of_dice);
+        
+        share_type shares_destroyed = 0;
+        share_type shares_created = 0;
+        vector<jackpot_transaction> jackpot_transactions;
+        for( const auto& trx : block_of_dice.user_transactions )
+        {
+            auto id = trx.id();
+            auto game_record = blockchain->get_generic_game_record(id._hash[0]);
+            auto d_data = game_record->as<game_dice_record>();
+            if ( !!game_record ) {
+                uint32_t dice_random_num = id._hash[0];
+                
+                // win condition
+                uint32_t lucky_number = ( ( ( block_random_num % range ) + ( dice_random_num % range ) ) % range ) * (d_data.odds);
+                uint32_t guess = d_data.guess;
+                share_type jackpot = 0;
+                if ( lucky_number >= (guess - 1) * range && lucky_number < guess * range )
+                {
+                    jackpot = d_data.amount * (d_data.odds) * (100 - BTS_BLOCKCHAIN_HOUSE_EDGE) / 100;
+                    
+                    // add the jackpot to the accout's balance, give the jackpot from virtul pool to winner
+                    
+                    // TODO: Dice, what should be the slate_id for the withdraw_with_signature, if need, we can set to the jackpot owner?
+                    auto jackpot_balance_address = withdraw_condition( withdraw_with_signature(d_data.owner), 1 ).get_address();
+                    auto jackpot_payout = pending_state->get_balance_record( jackpot_balance_address );
+                    if( !jackpot_payout )
+                        jackpot_payout = balance_record( d_data.owner, asset(0, 1), 1);
+                    jackpot_payout->balance += jackpot;
+                    jackpot_payout->last_update = pending_state->now();
+                    
+                    pending_state->store_balance_record( *jackpot_payout );
+                    
+                    // TODO: Dice, add the virtual transactions just like market transactions
+                    
+                    // balance created
+                    
+                    shares_created += jackpot;
+                }
+                
+                // balance destroyed
+                shares_destroyed += d_data.amount;
+                // remove the dice_record from pending state after execute the jackpot
+                pending_state->store_generic_game_record(id._hash[0], game_record->make_null());
+                
+                jackpot_transaction jackpot_trx;
+                jackpot_trx.play_owner = d_data.owner;
+                jackpot_trx.jackpot_owner = d_data.owner;
+                jackpot_trx.play_amount = d_data.amount;
+                jackpot_trx.jackpot_received = jackpot;
+                jackpot_trx.odds = d_data.odds;
+                jackpot_trx.lucky_number = (lucky_number / range) + 1;
+                jackpot_transactions.push_back(jackpot_trx);
+            }
+        }
+        
+        pending_state->set_jackpot_transactions( std::move( jackpot_transactions ) );
+        
+        // TODO: Dice what if the accumulated_fees become negetive which is possible in theory
+        // const auto prev_accumulated_fees = pending_state->get_accumulated_fees();
+        //pending_state->set_accumulated_fees( prev_accumulated_fees - jackpot );
+        
+        // update the current share supply
+        // TODO: we can also add this(or part of this) house edge to the accumulated fees too, which means pay house edge to the delegates, instead of destroy it(pay dividends to all share holders)
+        // TODO: Dice The destoy part is not only the delegate now, but also the house edge, so should reflect it on ui.
+        auto base_asset_record = pending_state->get_asset_record( asset_id_type(1) );
+        FC_ASSERT( base_asset_record.valid() );
+        base_asset_record->current_share_supply += (shares_created - shares_destroyed);
+        pending_state->store_asset_record( *base_asset_record );
     }
     
     bool dice_game::scan( wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w )

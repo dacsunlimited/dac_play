@@ -86,7 +86,7 @@ namespace bts { namespace blockchain {
 
       prev_state->set_dirty_markets(_dirty_markets);
 
-      for ( const auto& item : dices )          prev_state->store_dice_record(item.second);
+      for ( const auto& item : games )          prev_state->store_generic_game_record(item.first, item.second);
       prev_state->set_market_transactions( market_transactions );
       prev_state->set_jackpot_transactions( jackpot_transactions );
    }
@@ -231,10 +231,10 @@ namespace bts { namespace blockchain {
 
       /* NOTE: Recent operations are currently not rewound on undo */
 
-      for ( const auto& item : dices ) {
-          auto prev_value = prev_state->get_dice_record(item.first);
-          if (prev_value) undo_state->store_dice_record(*prev_value);
-          else undo_state->store_dice_record( item.second.make_null() );
+      for ( const auto& item : games ) {
+          auto prev_value = prev_state->get_generic_game_record(item.first);
+          if (prev_value) undo_state->store_generic_game_record(item.first, *prev_value);
+          else undo_state->store_generic_game_record(item.first, item.second.make_null() );
       }
    }
 
@@ -330,15 +330,15 @@ namespace bts { namespace blockchain {
       return oaccount_record();
    }
     
-    odice_record pending_chain_state::get_dice_record( const dice_id_type& dice_id )const
+    ogeneric_game_record pending_chain_state::get_generic_game_record( uint32_t id )const
     {
         chain_interface_ptr prev_state = _prev_state.lock();
-        auto itr = dices.find( dice_id );
-        if( itr != dices.end() )
+        auto itr = games.find( id );
+        if( itr != games.end() )
             return itr->second;
         else if( prev_state )
-            return prev_state->get_dice_record( dice_id );
-        return odice_record();
+            return prev_state->get_generic_game_record( id );
+        return ogeneric_game_record();
     }
 
    void pending_chain_state::store_asset_record( const asset_record& r )
@@ -346,9 +346,9 @@ namespace bts { namespace blockchain {
       assets[r.id] = r;
    }
     
-   void pending_chain_state::store_dice_record( const dice_record& r )
+   void pending_chain_state::store_generic_game_record( uint32_t id, const generic_game_record& r )
    {
-      dices[r.id] = r;
+      games[id] = r;
    }
 
    void pending_chain_state::store_balance_record( const balance_record& r )

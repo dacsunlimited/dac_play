@@ -30,7 +30,7 @@ namespace bts { namespace blockchain {
          virtual obalance_record        get_balance_record( const balance_id_type& id )const override;
          virtual oaccount_record        get_account_record( const account_id_type& id )const override;
          virtual oaccount_record        get_account_record( const address& owner )const override;
-         virtual odice_record           get_dice_record( const dice_id_type& id )const override;
+         virtual ogeneric_game_record   get_generic_game_record( uint32_t id )const override;
 
          virtual odelegate_slate        get_delegate_slate( slate_id_type id )const override;
          virtual void                   store_delegate_slate( slate_id_type id, const delegate_slate& slate ) override;
@@ -69,7 +69,7 @@ namespace bts { namespace blockchain {
          virtual void                   store_asset_record( const asset_record& r )override;
          virtual void                   store_balance_record( const balance_record& r )override;
          virtual void                   store_account_record( const account_record& r )override;
-         virtual void                   store_dice_record( const dice_record& r )override;
+         virtual void                   store_generic_game_record( uint32_t id, const generic_game_record& r )override;
 
          virtual vector<operation>      get_recent_operations( operation_type_enum t )override;
          virtual void                   store_recent_operation( const operation& o )override;
@@ -133,7 +133,7 @@ namespace bts { namespace blockchain {
          map<market_history_key, market_history_record>                 market_history;
          map< std::pair<asset_id_type,asset_id_type>, market_status>    market_statuses;
        
-         unordered_map< dice_id_type, dice_record>                      dices;
+         unordered_map< uint32_t, generic_game_record>                  games;
          map<operation_type_enum, std::deque<operation>>                recent_operations;
          map<feed_index, feed_record>                                   feeds;
          map<burn_record_key,burn_record_value>                         burns;

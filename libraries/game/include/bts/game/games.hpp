@@ -71,7 +71,6 @@ namespace bts { namespace game {
         fc::enum_type<uint8_t,game_type_enum> type;
         std::vector<char> data;
     };
-    
 } } // bts::game
 
 FC_REFLECT_ENUM( bts::game::game_type_enum,

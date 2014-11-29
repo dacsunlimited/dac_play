@@ -8,7 +8,7 @@
 #include <bts/blockchain/delegate_slate.hpp>
 #include <bts/blockchain/market_records.hpp>
 #include <bts/blockchain/proposal_record.hpp>
-#include <bts/blockchain/dice_record.hpp>
+#include <bts/blockchain/game_record.hpp>
 #include <bts/blockchain/feed_operations.hpp>
 #include <bts/blockchain/types.hpp>
 
@@ -108,7 +108,7 @@ namespace bts { namespace blockchain {
 
          virtual int64_t                    get_required_confirmations()const;
 
-         virtual void                       store_dice_record( const dice_record& r )               = 0;
+         virtual void                       store_generic_game_record( uint32_t id, const generic_game_record& r )               = 0;
          virtual fc::variant                get_property( chain_property_enum property_id )const            = 0;
          virtual void                       set_property( chain_property_enum property_id,
                                                           const fc::variant& property_value )               = 0;
@@ -120,7 +120,7 @@ namespace bts { namespace blockchain {
          virtual omarket_order              get_lowest_ask_record( const asset_id_type& quote_id,
                                                                    const asset_id_type& base_id )           = 0;
 
-         virtual odice_record               get_dice_record( const dice_id_type& id )const                  = 0;
+         virtual ogeneric_game_record       get_generic_game_record( uint32_t id )const                  = 0;
 
          virtual oorder_record              get_bid_record( const market_index_key& )const                  = 0;
          virtual oorder_record              get_ask_record( const market_index_key& )const                  = 0;
