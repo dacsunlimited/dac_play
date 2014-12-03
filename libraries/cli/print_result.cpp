@@ -766,7 +766,12 @@ namespace bts { namespace cli {
     const asset_id_type& quote_id = quote_asset_record->id;
     const asset_id_type& base_id = base_asset_record->id;
       
-    auto median_price_feed = client->get_chain()->get_median_delegate_price( quote_id, base_id );
+    price feed_price;
+    {
+        const omarket_status status = client->get_chain()->get_market_status( quote_id, base_id );
+        if( status.valid() && status->last_valid_feed_price.valid() )
+            feed_price = *status->last_valid_feed_price;
+    }
 
     vector<market_order>::iterator bid_itr = bids_asks.first.begin();
     auto ask_itr = bids_asks.second.begin();
