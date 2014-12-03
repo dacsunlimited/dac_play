@@ -1131,7 +1131,6 @@ namespace bts { namespace blockchain {
                  my->_relative_bid_db.set_write_through( write_through );
 
                  my->_feed_db.set_write_through( write_through );
-                 my->_object_db.set_write_through( write_through );
                  my->_market_status_db.set_write_through( write_through );
                  my->_market_transactions_db.set_write_through( write_through );
                  my->_market_history_db.set_write_through( write_through );
@@ -1255,9 +1254,6 @@ namespace bts { namespace blockchain {
 
    void chain_database::close()
    { try {
-      my->_market_transactions_db.close();
-      my->_jackpot_transactions_db.close();
-      my->_auth_db.close();
       my->_fork_number_db.close();
       my->_fork_db.close();
       my->_slate_db.close();
@@ -1294,13 +1290,16 @@ namespace bts { namespace blockchain {
       my->_relative_bid_db.close();
       my->_feed_db.close();
 
-      my->_object_db.close();
-      
       my->_market_history_db.close();
       my->_market_status_db.close();
        
       my->_game_db.close();
 
+      my->_market_transactions_db.close();
+      my->_jackpot_transactions_db.close();
+
+      my->_object_db.close();
+      my->_auth_db.close();
    } FC_RETHROW_EXCEPTIONS( warn, "" ) }
 
    account_record chain_database::get_delegate_record_for_signee( const public_key_type& block_signee )const
