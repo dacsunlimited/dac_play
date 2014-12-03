@@ -150,8 +150,8 @@ namespace bts { namespace blockchain {
       string        get_small_id()const;
       asset         get_balance()const; // funds available for this order
       price         get_price( const price& base = price() )const;
-      asset         get_quantity()const;
-      asset         get_quote_quantity()const;
+      asset         get_quantity( const price& base = price() )const;
+      asset         get_quote_quantity( const price& base = price() )const;
       address       get_owner()const { return market_index.owner; }
 
       fc::enum_type<uint8_t, order_type_enum>   type = null_order;

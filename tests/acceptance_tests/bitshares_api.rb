@@ -44,6 +44,8 @@ module BitShares
 
       class Error < RuntimeError; end
 
+      attr_accessor :ignore_errors, :echo_off
+
       def initialize(port, username, password, options)
         @uri = URI("http://localhost:#{port}/rpc")
         @req = Net::HTTP::Post.new(@uri)
@@ -52,9 +54,12 @@ module BitShares
         @options = options
         @logger = options[:logger]
         @instance_name = options[:instance_name]
+        @ignore_errors = options[:ignore_errors]
+        @echo_off = false
       end
 
       def log(s)
+        return if @echo_off
         if @logger then @logger.info s else puts s end
       end
 
@@ -68,10 +73,10 @@ module BitShares
           result = JSON.parse(response.body)
           if result['error']
             log "error: #{result['error']}"
-            if !@options[:ignore_errors]
-              raise Error, result['error'], "#{method} #{params ? params.join(' ') : ''}"
+            unless @ignore_errors
+              raise Error, JSON.pretty_generate(result['error']), "#{method} #{params ? params.join(' ') : ''}"
             else
-              STDERR.puts "Error: #{result['error']}\n"
+              STDERR.puts JSON.pretty_generate(result['error'])
             end
           else
             log 'ok'

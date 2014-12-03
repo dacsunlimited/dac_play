@@ -349,6 +349,10 @@
         "cpp_return_type" : "std::set<bts::wallet::pretty_transaction_experimental>"
       },
       {
+         "type_name" : "withdraw_condition_type",
+         "cpp_return_type" : "bts::blockchain::withdraw_condition_types"
+      },
+      {
          "type_name" : "account_balance_summary_type",
          "cpp_return_type" : "bts::wallet::account_balance_summary_type"
       },
@@ -391,6 +395,10 @@
       {
          "type_name" : "pair<market_order_array,market_order_array>",
          "cpp_return_type" : "std::pair<std::vector<bts::blockchain::market_order>,std::vector<bts::blockchain::market_order>>"
+      },
+      {
+         "type_name" : "vector<std::pair<string, wallet_transaction_record>>",
+         "cpp_return_type" : "std::vector<std::pair<std::string, bts::wallet::wallet_transaction_record>>"
       },
       {
         "type_name" : "amount",
@@ -444,6 +452,11 @@
         "type_name" : "address",
         "cpp_return_type" : "bts::blockchain::address",
         "cpp_include_file" : "bts/blockchain/address.hpp"
+      },
+      {
+        "type_name" : "legacy_address",
+        "cpp_return_type" : "bts::blockchain::pts_address",
+        "cpp_include_file" : "bts/blockchain/pts_address.hpp"
       },
       {
         "type_name" : "full_block",
@@ -551,6 +564,10 @@
       {
          "type_name" : "block_record",
          "cpp_return_type" : "bts::blockchain::block_record"
+      },
+      {
+         "type_name" : "oblock_record",
+         "cpp_return_type" : "fc::optional<bts::blockchain::block_record>"
       },
       {
          "type_name" : "block_record_array",
@@ -726,10 +743,30 @@
         "type_name" : "snapshot_record_list",
         "cpp_return_type" : "std::vector<bts::blockchain::snapshot_record>"
       },
-       {
+      {
         "type_name" : "transaction_builder",
         "cpp_return_type" : "bts::wallet::transaction_builder",
         "cpp_include_file" : "bts/wallet/transaction_builder.hpp"
+      },
+      {
+        "type_name" : "object_record",
+        "cpp_return_type" : "bts::blockchain::object_record",
+        "cpp_include_file" : "bts/blockchain/object_record.hpp"
+      },
+      {
+        "type_name" : "obj_type",
+        "cpp_return_type" : "bts::blockchain::obj_type",
+        "cpp_include_file" : "bts/blockchain/object_record.hpp"
+      },
+      {
+        "type_name" : "object_id_type",
+        "cpp_return_type" : "bts::blockchain::object_id_type",
+        "cpp_include_file" : "bts/blockchain/object_record.hpp"
+      }
+      {
+        "type_name" : "object_array",
+        "container_type": "array",
+        "contained_type": "object_record"
       }
     ]
 }

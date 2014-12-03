@@ -5,6 +5,7 @@
 #include <bts/blockchain/proposal_record.hpp>
 #include <bts/blockchain/withdraw_types.hpp>
 #include <bts/blockchain/account_record.hpp>
+#include <bts/blockchain/object_record.hpp>
 
 #include <fc/reflect/variant.hpp>
 
@@ -38,6 +39,8 @@ namespace bts { namespace blockchain {
 
       void issue( const asset& amount_to_issue );
 
+      void set_object( int64_t id, const object_record& obj );
+
       void define_delegate_slate( delegate_slate s );
 
       void withdraw( const balance_id_type& account,
@@ -59,7 +62,7 @@ namespace bts { namespace blockchain {
                            share_type amount_to_sender,
                            share_type amount_to_receiver );
 
-      void deposit_to_escrow( fc::ecc::public_key receiver_key,
+      public_key_type deposit_to_escrow( fc::ecc::public_key receiver_key,
                               fc::ecc::public_key escrow_key,
                               digest_type agreement,
                               asset amount,
@@ -70,7 +73,7 @@ namespace bts { namespace blockchain {
                               fc::ecc::private_key one_time_private_key,
                               memo_flags_enum memo_type = from_memo );
 
-      void deposit_to_account( fc::ecc::public_key receiver_key,
+      public_key_type deposit_to_account( fc::ecc::public_key receiver_key,
                                 asset amount,
                                 fc::ecc::private_key from_key,
                                 const string& memo_message,

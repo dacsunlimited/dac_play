@@ -25,16 +25,23 @@ public_key_type transaction_builder::order_key_for_account(const address& accoun
    }
    return order_key;
 }
-transaction_builder& transaction_builder::release_escrow( const address& escrow_account,
+transaction_builder& transaction_builder::release_escrow( const account_record& payer,
+                                                          const address& escrow_account,
                                                           const address& released_by_address,
                                                           share_type     amount_to_sender,
                                                           share_type     amount_to_receiver )
-{
+{ try {
    auto escrow_record = _wimpl->_blockchain->get_balance_record( escrow_account );
    FC_ASSERT( escrow_record.valid() );
 
    auto escrow_condition = escrow_record->condition.as<withdraw_with_escrow>();
 
+   //deduct_balance( released_by_address, _wimpl->self->get_transaction_fee() );
+   // TODO: this is a hack to bypass finalize() call... 
+   _wimpl->withdraw_to_transaction( _wimpl->self->get_transaction_fee(),
+                                 payer.name,
+                                 trx,
+                                 required_signatures );
    // fetch balance record, assert that released_by_address is a party to the contract
    trx.release_escrow( escrow_account, released_by_address, amount_to_sender, amount_to_receiver );
    if( released_by_address == address() )
@@ -46,8 +53,14 @@ transaction_builder& transaction_builder::release_escrow( const address& escrow_
    {
       required_signatures.insert( released_by_address );
    }
+   if( trx.expiration == time_point_sec() )
+       trx.expiration = blockchain::now() + _wimpl->self->get_transaction_expiration();
+
+   transaction_record.record_id = trx.permanent_id();
+   transaction_record.created_time = blockchain::now();
+   transaction_record.received_time = transaction_record.created_time;
    return *this;
-}
+} FC_CAPTURE_AND_RETHROW( (payer)(escrow_account)(released_by_address)(amount_to_sender)(amount_to_receiver) ) }
 
 transaction_builder& transaction_builder::update_account_registration(const wallet_account_record& account,
                                                                       optional<variant> public_data,
@@ -239,6 +252,22 @@ transaction_builder& transaction_builder::deposit_asset_to_multisig(
    return *this;
 } FC_CAPTURE_AND_RETHROW( (from_name)(addresses)(amount) ) }
 
+transaction_builder& transaction_builder::set_object(const string& payer_name,
+                                                     const object_record& obj,
+                                                     bool create )
+{ try {
+    auto payer = _wimpl->self->get_account( payer_name );
+    deduct_balance( payer.owner_address(), asset() );
+    int64_t id;
+    if( create )
+        id = 0;
+    else
+        id = obj.short_id();
+    trx.set_object( id, obj );
+
+    return *this;
+} FC_CAPTURE_AND_RETHROW( (payer_name)(obj)(create) ) }
+
 
 transaction_builder& transaction_builder::deposit_asset_with_escrow(const bts::wallet::wallet_account_record& payer,
                                                         const bts::blockchain::account_record& recipient,
@@ -267,11 +296,12 @@ transaction_builder& transaction_builder::deposit_asset_with_escrow(const bts::w
    optional<public_key_type> titan_one_time_key;
    if( recipient.is_public_account() )
    {
-      trx.deposit(recipient.active_key(), amount, _wimpl->select_slate(trx, amount.asset_id, vote_method));
+      // TODO: user public receiver key...
    } else {
       auto one_time_key = _wimpl->get_new_private_key(payer.name);
       titan_one_time_key = one_time_key.get_public_key();
-      trx.deposit_to_escrow( recipient.active_key(),
+      auto receiver_key = trx.deposit_to_escrow(
+                             recipient.active_key(),
                              escrow_agent.active_key(),
                              agreement,
                              amount,
@@ -281,6 +311,12 @@ transaction_builder& transaction_builder::deposit_asset_with_escrow(const bts::w
                              *memo_sender,
                              one_time_key,
                              from_memo);
+
+      key_data data;
+      data.account_address = recipient.owner_address();
+      data.public_key      = receiver_key;
+      data.memo            = memo;
+      _wimpl->_wallet_db.store_key( data );
    }
 
    deduct_balance(payer.owner_key, amount);
@@ -535,7 +571,7 @@ transaction_builder& transaction_builder::update_asset( const string& symbol,
     return *this;
 } FC_CAPTURE_AND_RETHROW( (symbol)(name)(description)(public_data)(maximum_share_supply)(precision) ) }
 
-transaction_builder& transaction_builder::finalize()
+transaction_builder& transaction_builder::finalize( bool pay_fee )
 { try {
    FC_ASSERT( !trx.operations.empty(), "Cannot finalize empty transaction" );
 
@@ -546,7 +582,8 @@ transaction_builder& transaction_builder::finalize()
    else
       slate_id = 0;
 
-   pay_fee();
+   if( pay_fee )
+       this->pay_fee();
 
    //outstanding_balance is pair<pair<account address, asset ID>, share_type>
    for( const auto& outstanding_balance : outstanding_balances )
@@ -560,7 +597,8 @@ transaction_builder& transaction_builder::finalize()
       else _wimpl->withdraw_to_transaction(-balance, account_name, trx, required_signatures);
    }
 
-   trx.expiration = blockchain::now() + _wimpl->self->get_transaction_expiration();
+   if( trx.expiration == time_point_sec() )
+       trx.expiration = blockchain::now() + _wimpl->self->get_transaction_expiration();
 
    transaction_record.record_id = trx.permanent_id();
    transaction_record.created_time = blockchain::now();
@@ -570,7 +608,7 @@ transaction_builder& transaction_builder::finalize()
 } FC_CAPTURE_AND_RETHROW( (trx) ) }
 
 wallet_transaction_record& transaction_builder::sign()
-{
+{ try {
    auto chain_id = _wimpl->_blockchain->chain_id();
 
    for( const auto& address : required_signatures )
@@ -578,15 +616,17 @@ wallet_transaction_record& transaction_builder::sign()
       //Ignore exceptions; this function operates on a best-effort basis, and doesn't actually have to succeed.
       try {
          trx.sign(_wimpl->self->get_private_key(address), chain_id);
-      } catch( ... ) {}
+      } catch( const fc::exception& e )
+      {
+         wlog( "unable to sign for address ${a}:\n${e}", ("a",address)("e",e.to_detail_string()) );
+      }
    }
 
    for( auto& notice : notices )
       notice.first.trx = trx;
 
-//   _wimpl->cache_transaction(trx, transaction_record);
    return transaction_record;
-}
+} FC_CAPTURE_AND_RETHROW() }
 
 std::vector<bts::mail::message> transaction_builder::encrypted_notifications()
 {
@@ -654,7 +694,7 @@ transaction_builder& transaction_builder::withdraw_from_balance(const balance_id
     {
         auto balances = _wimpl->_blockchain->get_balances_for_address( address(from) );
         FC_ASSERT( balances.size() > 0, "No balance with that ID or owner address!" );
-        auto balance = balances[0];
+        auto balance = balances.begin()->second;
         trx.withdraw( balance.id(), amount );
         for(const auto& owner : balance.owners() )
             required_signatures.insert( owner );

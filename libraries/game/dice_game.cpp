@@ -283,7 +283,8 @@ namespace bts { namespace game {
         record.fee = required_fees;
         
         if( sign ) w->sign_transaction( trx, required_signatures );
-        w->cache_transaction( trx, record );
+        
+        record.trx = trx;
         
         return record;
     }

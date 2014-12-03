@@ -29,9 +29,6 @@ list( APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/libraries/fc/GitVers
 include( GetGitRevisionDescription )
 get_git_head_revision( GIT_REFSPEC GIT_SHA2 )
 
-# Warning Boost libraries must be detected before processing leveldb cmake (included below) since
-# Boost_Include_Dir variable is referenced there.
-
 SET(BOOST_COMPONENTS)
 LIST(APPEND BOOST_COMPONENTS thread
                              date_time
@@ -61,6 +58,20 @@ IF(NOT "${Boost_VERSION}" MATCHES "1.53(.*)")
    SET(Boost_LIBRARIES ${BOOST_LIBRARIES_TEMP} ${Boost_LIBRARIES})
 ENDIF()
 
+set( LEVEL_DB_DIR "${CMAKE_SOURCE_DIR}/libraries/leveldb" )
+
+file( GLOB LEVEL_DB_SOURCES "${LEVEL_DB_DIR}/db/*.cc"
+			    "${LEVEL_DB_DIR}/helpers/memenv/memenv.cc"
+			    "${LEVEL_DB_DIR}/table/*.cc"
+			    "${LEVEL_DB_DIR}/util/*.cc" )
+foreach( filename ${LEVEL_DB_SOURCES} )
+    if( ${filename} MATCHES ".*_test.cc" OR ${filename} MATCHES ".*_bench.cc" OR ${filename} MATCHES ".*_main.cc" )
+	list( REMOVE_ITEM LEVEL_DB_SOURCES ${filename} )
+    endif()
+endforeach()
+set(LEVELDB_BUILD_DEFINES)
+set(LEVELDB_BUILD_LIBRARIES)
+set(LEVELDB_BUILD_PRIVATE_INCLUDES "${LEVEL_DB_DIR}")
 
 if( WIN32 )
     message( STATUS "Configuring BitShares on WIN32")
@@ -68,9 +79,6 @@ if( WIN32 )
     set( BDB_STATIC_LIBS 1 )
 
     set( ZLIB_LIBRARIES "" )
-    set( LEVEL_DB_DIR vendor/leveldb-win )
-    add_subdirectory( "${LEVEL_DB_DIR}"    )
-
     SET( DEFAULT_EXECUTABLE_INSTALL_DIR bin/ )
 
     set(CRYPTO_LIB)
@@ -96,27 +104,30 @@ if( WIN32 )
 
     SET(TCL_LIBS "${TCL_LIBS}${TCL_LIB_PATH}/${TCL_LIB_NAME}g${TCL_LIB_EXT}")
     SET(TCL_LIBRARY ${TCL_LIBS})
-else( WIN32 )
-    # Apple AND Linux Options Here
-    find_package( ZLIB REQUIRED )
 
-    #set( LEVEL_DB_DIR "${CMAKE_SOURCE_DIR}/libraries/leveldb" )
-    #include( ExternalProject )
-    #ExternalProject_Add( LevelDB
-    #PREFIX "${LEVEL_DB_DIR}"
-    #SOURCE_DIR "${LEVEL_DB_DIR}"
-    #BUILD_IN_SOURCE 1
-    #CONFIGURE_COMMAND ""
-    #BUILD_COMMAND "$(MAKE)"
-    #INSTALL_COMMAND ""
-    #)
-    #include_directories( "${LEVEL_DB_DIR}" "${LEVEL_DB_DIR}/include" )
-    #add_library( leveldb STATIC IMPORTED )
-    #add_dependencies( leveldb LevelDB )
-    #set_property(TARGET leveldb PROPERTY IMPORTED_LOCATION "${LEVEL_DB_DIR}/libleveldb.a" )
+    SET(LEVELDB_PORT_FILE "${LEVEL_DB_DIR}/port/port_win.cc" )
+    list(APPEND LEVELDB_BUILD_DEFINES OS_WINDOWS LEVELDB_PLATFORM_WINDOWS )
+    list(APPEND LEVELDB_BUILD_LIBRARIES shlwapi.lib)
+    list(INSERT LEVELDB_BUILD_PRIVATE_INCLUDES 0 "${CMAKE_SOURCE_DIR}/libraries/leveldb-msvc/include")
+else( WIN32 ) # Apple AND Linux
+    SET(LEVELDB_PORT_FILE "${LEVEL_DB_DIR}/port/port_posix.cc" )
 
-    set( LEVEL_DB_DIR vendor/leveldb-1.12.0 )
-    add_subdirectory( "${LEVEL_DB_DIR}"    )
+    list(APPEND LEVELDB_BUILD_DEFINES LEVELDB_PLATFORM_POSIX LEVELDB_ATOMIC_PRESENT)
+    if( APPLE )
+        list(APPEND LEVELDB_BUILD_DEFINES OS_MACOSX)
+    else() # Linux
+        list(APPEND LEVELDB_BUILD_DEFINES OS_LINUX)
+        list(APPEND LEVELDB_BUILD_LIBRARIES pthread)
+    endif()
+
+    find_package( Gperftools QUIET )
+    if( GPERFTOOLS_FOUND )
+        message( STATUS "Found gperftools; compiling LevelDB with TCMalloc")
+        list(APPEND LEVELDB_BUILD_LIBRARIES tcmalloc)
+    else()
+        message( STATUS "Could not find gperftools; compiling LevelDB without TCMalloc")
+    endif()
+
 
     find_library(READLINE_LIBRARIES NAMES readline)
     find_path(READLINE_INCLUDE_DIR readline/readline.h)
@@ -140,14 +151,25 @@ else( WIN32 )
         endif ( FULL_STATIC_BUILD )
     endif( APPLE )
 
+    if( "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" )
+        set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-builtin-memcmp -Wstack-usage=6144" )
+    endif()
+
     if( "${CMAKE_GENERATOR}" STREQUAL "Ninja" )
         if( "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" )
             set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcolor-diagnostics" )
         endif()
     endif()
 
-	set(Boost_USE_STATIC_LIBS ON)
+    set(Boost_USE_STATIC_LIBS ON)
 endif( WIN32 )
+
+list(APPEND LEVEL_DB_SOURCES "${LEVELDB_PORT_FILE}")
+add_library( leveldb ${LEVEL_DB_SOURCES} )
+target_link_libraries( leveldb ${LEVELDB_BUILD_LIBRARIES} )
+target_include_directories( leveldb PRIVATE ${LEVELDB_BUILD_PRIVATE_INCLUDES}
+                                    PUBLIC "${LEVEL_DB_DIR}/include" )
+set_target_properties(leveldb PROPERTIES COMPILE_DEFINITIONS "${LEVELDB_BUILD_DEFINES}")
 
 find_package( BerkeleyDB )
 

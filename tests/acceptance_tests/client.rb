@@ -2,6 +2,7 @@
 
 require 'open3'
 require 'json'
+require 'readline'
 require_relative './bitshares_api.rb'
 
 class BitSharesNode
@@ -82,7 +83,22 @@ class BitSharesNode
 
   def exec(method, *params)
     raise Error, "rpc instance is not defined, make sure the node is started" unless @rpc_instance
-    @rpc_instance.request(method, params)
+    begin
+      @rpc_instance.request(method, params)
+    rescue EOFError => e
+      STDOUT.puts "encountered EOFError, #{@name} instance may have crashed"
+      pid = @handler[:wait_thr].pid
+      STDOUT.puts "waiting for process #{pid} to exit"
+      begin
+        Process.wait(pid)
+      rescue Errno::ECHILD
+        raise Error, "#{name} (pid:#{pid}) instance was crashed or exited unexpectedly"
+      end
+      # while s = stdout_gets
+      #   STDOUT.puts s
+      # end
+      raise e
+    end
   end
 
   def wait_new_block
@@ -99,6 +115,39 @@ class BitSharesNode
 
   def save_config(config)
     File.write("#{@options[:data_dir]}/config.json", JSON.pretty_generate(config))
+  end
+
+  @@completion_list = nil
+  @@completion_proc = proc { |s| @@completion_list.grep( /^#{Regexp.escape(s)}/ ) }
+
+  def interactive_mode
+    STDOUT.puts "\nentering node '#{@name}' interactive mode, enter 'exit' or 'quite' to exit"
+    ignore_errors = @rpc_instance.ignore_errors
+    @rpc_instance.ignore_errors = true
+    echo_off = @rpc_instance.echo_off
+    @rpc_instance.echo_off = true
+
+    unless @@completion_list
+      @@completion_list = []
+      res = @rpc_instance.request('help')
+      res.split("\n").each do |l|
+        c = l.chomp.split(' ')[0]
+        @@completion_list << c
+      end
+      Readline.completion_append_character = ' '
+      Readline.completion_proc = @@completion_proc
+    end
+
+    while command = Readline.readline('→ ', true)
+      break if command.nil?
+      command.chomp!
+      break if command == 'exit' or command == 'quit'
+      next if command.empty?
+      res = @rpc_instance.request('execute_command_line', [command])
+      STDOUT.puts res.gsub('\n', "\n") if res and not res.empty?
+    end
+    @rpc_instance.ignore_errors = ignore_errors
+    @rpc_instance.echo_off = echo_off
   end
 
 end

@@ -9,17 +9,19 @@ end
 class Helper
 
   def initialize
-    @logger = Logger.new('features.log')
-    @logger.info "\n\n____________________________________________________"
+    Dir.mkdir 'tmp' unless Dir.exist? 'tmp'
+    FileUtils.rm_rf('tmp/lastrun.log')
+    @logger = Logger.new('tmp/lastrun.log')
     @pause = false
   end
 
   def get_actor(name)
-    if name == 'my' or name == 'me' or name == 'I' or name == 'mine'
+    name = name.downcase
+    if name == 'my' or name == 'me' or name == 'i' or name == "i've" or name == 'mine' or name == 'myself'
       @current_actor
-    elsif name == 'Alice' or name == "Alice's"
+    elsif name == 'alice' or name == "alice's"
       @alice
-    elsif name == 'Bob' or name == "Bob's"
+    elsif name == 'bob' or name == "bob's"
       @bob
     else
       raise "Unknown actor '#{name}'"
@@ -38,6 +40,12 @@ class Helper
     return @testnet.delegate_node.exec 'blockchain_get_asset', id
   end
 
+  def get_asset_fee(symbol)
+    fee = @testnet.delegate_node.exec 'wallet_get_transaction_fee', symbol
+    asset = get_asset_by_id(fee['asset_id'])
+    return fee['amount'].to_f / asset['precision'].to_f
+  end
+
   def get_balance(data, account, currency)
     asset = get_asset_by_name(currency)
     asset_id = asset['id']
@@ -53,14 +61,15 @@ class Helper
   end
 
   #{"type"=>"ask_order", "market_index"=>{"order_price"=>{"ratio"=>"0.002", "quote_asset_id"=>7, "base_asset_id"=>0}, "owner"=>"XTSJA72rtoSYfbWvEDm4zZKve5ucNqhKRrCP"}, "state"=>{"balance"=>2000000000, "limit_price"=>nil, "last_update"=>"2014-11-18T22:34:50"}, "collateral"=>nil, "interest_rate"=>nil, "expiration"=>nil}
-  def parse_order(o)
+  def parse_ask_bid_order(o)
     res = {}
     order_price = o['market_index']['order_price']
     ratio = order_price['ratio'].to_f
     quote_asset = get_asset_by_id(order_price['quote_asset_id'])
     base_asset = get_asset_by_id(order_price['base_asset_id'])
     res[:price] = ratio * (base_asset['precision'].to_f / quote_asset['precision'].to_f)
-    res[:balance] = o['state']['balance'].to_f / base_asset['precision'].to_f
+    balance_asset = o['type'] == 'ask_order' ? base_asset : quote_asset
+    res[:balance] = o['state']['balance'].to_f / balance_asset['precision'].to_f
     return res
   end
 
@@ -80,7 +89,7 @@ class Helper
         end
       end
       if order['type'] == 'ask_order' or order['type'] == 'bid_order'
-        po = parse_order(order)
+        po = parse_ask_bid_order(order)
         if po[:balance] == o['Balance'].to_f and po[:price] == o['Price'].to_f
           @last_order_id = e[0]
           return true
@@ -139,14 +148,7 @@ Before do |scenario|
 end
 
 After do |scenario|
-  if @pause
-    STDOUT.puts '@pause: use the following urls to access the nodes:'
-    STDOUT.puts "delegate node: #{@testnet.delegate_node.url}"
-    STDOUT.puts "alice node: #{@testnet.alice_node.url}"
-    STDOUT.puts "bob node: #{@testnet.bob_node.url}"
-    STDOUT.puts 'press any key to shutdown testnet and continue..'
-    STDIN.getc
-  end
+  @testnet.pause if @pause
   @pause = false
   STDOUT.puts 'shutting down testnet..'
   @testnet.shutdown

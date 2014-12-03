@@ -102,7 +102,7 @@ program_options::variables_map parse_option_variables(int argc, char** argv)
          ("resync-blockchain", "Delete our copy of the blockchain at startup and download a "
                                "fresh copy of the entire blockchain from the network")
 
-         ("p2p-port", program_options::value<uint16_t>(), "Set network port to listen on")
+         ("p2p-port", program_options::value<string>(), "Set network port to listen on (prepend 'r' to enable SO_REUSEADDR)")
          ("accept-incoming-connections", program_options::value<bool>()->default_value(true), "Set to false to reject incoming p2p connections and only establish outbound connections")
          ("upnp", program_options::value<bool>()->default_value(true), "Enable UPNP")
 
@@ -583,11 +583,6 @@ void client_impl::delegate_loop()
       _chain_db->skip_signature_verification( false );
       ilog( "Producing block at time: ${t}", ("t",*next_block_time) );
 
-#ifndef DISABLE_DELEGATE_NETWORK
-      // sign in to delegate server using private keys of my delegates
-      //_delegate_network.signin( _wallet->get_my_delegate( enabled_delegate_status | active_delegate_status ) );
-#endif
-
       if( *next_block_time <= now )
       {
          try
@@ -602,11 +597,6 @@ void client_impl::delegate_loop()
             full_block next_block = _chain_db->generate_block( *next_block_time );
             _wallet->sign_block( next_block );
             on_new_block( next_block, next_block.id(), false );
-
-#ifndef DISABLE_DELEGATE_NETWORK
-            _delegate_network.broadcast_block( next_block );
-            // broadcast block to delegates first, starting with the next delegate
-#endif
 
             _p2p_node->broadcast( block_message( next_block ) );
             ilog( "Produced block #${n}!", ("n",next_block.block_num) );
@@ -1139,14 +1129,8 @@ fc::time_point_sec client_impl::get_block_time(const bts::net::item_hash_t& bloc
 {
    if (block_id == bts::net::item_hash_t())
    {
-      // then the question the net is really asking is, what is the timestamp of the
-      // genesis block?  That's not stored off directly anywhere I can find, but it
-      // does wind its way into the the registration date of the base asset.
-      oasset_record base_asset_record = _chain_db->get_asset_record(BTS_BLOCKCHAIN_SYMBOL);
-      FC_ASSERT(base_asset_record);
-      if (!base_asset_record)
-         return fc::time_point_sec::min();
-      return base_asset_record->registration_date;
+      // then the question the net is really asking is, what is the timestamp of the genesis block?
+      return _chain_db->get_genesis_timestamp();
    }
    // else they're asking about a specific block
    try
@@ -1240,30 +1224,6 @@ void client::simulate_disconnect( bool state )
 void client::open( const path& data_dir, fc::optional<fc::path> genesis_file_path, std::function<void(float)> reindex_status_callback )
 { try {
       my->_config = load_config( data_dir, my->_enable_ulog );
-
-#ifndef DISABLE_DELEGATE_NETWORK
-      /*
-         *  Don't delete me, I promise I will be used soon
-         *
-         *  TODO: this creates a memory leak / circular reference between client and
-         *  delegate network.
-        */
-      my->_delegate_network.set_client( shared_from_this() );
-      my->_delegate_network.listen( my->_config.delegate_server );
-
-      for( auto delegate_host : my->_config.default_delegate_peers )
-      {
-         try {
-            wlog( "connecting to delegate peer ${p}", ("p",delegate_host) );
-            my->_delegate_network.connect_to( fc::ip::endpoint::from_string(delegate_host) );
-         }
-         catch ( const fc::exception& e )
-         {
-            wlog( "${e}", ("e", e.to_detail_string() ) );
-         }
-
-      }
-#endif
 
       //std::cout << fc::json::to_pretty_string( cfg ) <<"\n";
       fc::configure_logging( my->_config.logging );
@@ -1481,10 +1441,18 @@ void client::configure_from_command_line(int argc, char** argv)
    my->configure_rpc_server(my->_config,option_variables);
    my->configure_chain_server(my->_config,option_variables);
 
+   uint16_t p2p_port = 0;
    if (option_variables.count("p2p-port"))
    {
-      uint16_t p2pport = option_variables["p2p-port"].as<uint16_t>();
-      listen_on_port(p2pport, option_variables.count("p2p-port") != 0);
+	  string str_port = option_variables["p2p-port"].as<string>();
+	  bool p2p_wait_if_not_available = true;
+	  if( str_port[0] == 'r' )
+	  {
+	      str_port = str_port.substr(1);
+	      p2p_wait_if_not_available = false;
+	  }
+      p2p_port = (uint16_t) std::stoul( str_port );
+      listen_on_port(p2p_port, p2p_wait_if_not_available);
    }
    accept_incoming_p2p_connections(option_variables["accept-incoming-connections"].as<bool>());
 
@@ -1607,7 +1575,6 @@ void client::configure_from_command_line(int argc, char** argv)
             ulog("Listening for P2P connections on ${port}",("port",port_stream.str()));
             if (option_variables.count("p2p-port"))
             {
-               uint16_t p2p_port = option_variables["p2p-port"].as<uint16_t>();
                if (p2p_port != 0 && p2p_port != actual_p2p_endpoint.port())
                   ulog(" (unable to bind to the desired port ${p2p_port} )", ("p2p_port",p2p_port));
             }
@@ -1770,7 +1737,7 @@ void client::connect_to_peer(const string& remote_endpoint)
    try
    {
       ulog("Attempting to connect to peer ${peer}", ("peer", endpoint));
-      my->_p2p_node->connect_to(endpoint);
+      my->_p2p_node->connect_to_endpoint(endpoint);
    }
    catch (const bts::net::already_connected_to_requested_peer&)
    {

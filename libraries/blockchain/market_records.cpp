@@ -1,5 +1,6 @@
 #include <bts/blockchain/market_records.hpp>
 #include <fc/exception/exception.hpp>
+#include <fc/reflect/variant.hpp>
 #include <sstream>
 #include <boost/algorithm/string.hpp>
 
@@ -42,29 +43,31 @@ asset market_order::get_balance()const
 }
 
 price market_order::get_price( const price& relative )const
-{
+{ try {
    switch( order_type_enum(type) )
    {
       case relative_bid_order:
       case relative_ask_order:
-         FC_ASSERT( relative != price() );
-         return market_index.order_price + relative;
+         if( relative != price() )
+            return market_index.order_price + relative;
+         else
+            return market_index.order_price;
       case bid_order:
       case ask_order:
       case null_order:
         FC_ASSERT( !"Null Order" );
    }
    FC_ASSERT( !"Should not reach this line" );
-}
+} FC_CAPTURE_AND_RETHROW( (*this)(relative) ) }
 
-asset market_order::get_quantity()const
+asset market_order::get_quantity( const price& relative )const
 {
   switch( order_type_enum( type ) )
   {
      case relative_bid_order:
      case bid_order:
      { // balance is in USD  divide by price
-        return get_balance() * get_price();
+        return get_balance() * get_price(relative);
      }
      case relative_ask_order:
      case ask_order:
@@ -77,7 +80,7 @@ asset market_order::get_quantity()const
   // NEVER GET HERE.....
   //return get_balance() * get_price();
 }
-asset market_order::get_quote_quantity()const
+asset market_order::get_quote_quantity( const price& relative )const
 {
   switch( order_type_enum( type ) )
   {
@@ -89,7 +92,7 @@ asset market_order::get_quote_quantity()const
      case relative_ask_order:
      case ask_order:
      { // balance is in USD  divide by price
-        return get_balance() * get_price();
+        return get_balance() * get_price(relative);
      }
      default:
         FC_ASSERT( false, "Not Implemented" );

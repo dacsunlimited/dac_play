@@ -129,6 +129,7 @@ namespace bts { namespace blockchain {
 
           _asset_db.open( data_dir / "index/asset_db" );
           _balance_db.open( data_dir / "index/balance_db" );
+          _auth_db.open( data_dir / "index/auth_db" );
           _burn_db.open( data_dir / "index/burn_db" );
           _account_db.open( data_dir / "index/account_db" );
           _address_to_account_db.open( data_dir / "index/address_to_account_db" );
@@ -144,6 +145,8 @@ namespace bts { namespace blockchain {
           _relative_ask_db.open( data_dir / "index/relative_ask_db" );
           _relative_bid_db.open( data_dir / "index/relative_bid_db" );
           _feed_db.open( data_dir / "index/feed_db" );
+
+          _object_db.open( data_dir / "index/object_db" );
 
           _market_status_db.open( data_dir / "index/market_status_db" );
           _market_history_db.open( data_dir / "index/market_history_db" );
@@ -368,6 +371,7 @@ namespace bts { namespace blockchain {
          self->set_property( chain_property_enum::last_asset_id, asset_id );
          self->set_property( chain_property_enum::last_proposal_id, 0 );
          self->set_property( chain_property_enum::last_account_id, uint64_t( config.names.size() ) );
+         self->set_property( chain_property_enum::last_object_id, 1 );
          self->set_property( chain_property_enum::last_random_seed_id, fc::variant( secret_hash_type() ) );
          self->set_property( chain_property_enum::confirmation_requirement, BTS_BLOCKCHAIN_NUM_DELEGATES*2 );
 
@@ -496,8 +500,12 @@ namespace bts { namespace blockchain {
 
           if( !self->get_block_record( block_id ).valid() ) /* Only insert with latency if not already present */
           {
-              auto latency = now - block_data.timestamp;
-              block_record record( block_data, self->get_current_random_seed(), block_data.block_size(), latency );
+              block_record record;
+              digest_block& digest = record;
+              digest = block_data;
+              record.random_seed = self->get_current_random_seed();
+              record.block_size = block_data.block_size();
+              record.latency = now - block_data.timestamp;
               _block_id_to_block_record_db.store( block_id, record );
           }
 
@@ -634,7 +642,8 @@ namespace bts { namespace blockchain {
          } FC_RETHROW_EXCEPTIONS( warn, "", ("trx_num",trx_num) )
       }
 
-      void chain_database_impl::pay_delegate( const pending_chain_state_ptr& pending_state, const public_key_type& block_signee )const
+      void chain_database_impl::pay_delegate( const pending_chain_state_ptr& pending_state, const public_key_type& block_signee,
+                                              const block_id_type& block_id )
       { try {
             oaccount_record delegate_record = self->get_account_record( address( block_signee ) );
             FC_ASSERT( delegate_record.valid() );
@@ -660,7 +669,15 @@ namespace bts { namespace blockchain {
             base_asset_record->collected_fees -= max_available_paycheck;
             base_asset_record->current_share_supply -= (max_available_paycheck - accepted_paycheck);
             pending_state->store_asset_record( *base_asset_record );
-      } FC_CAPTURE_AND_RETHROW( (block_signee) ) }
+
+            // TODO: update the right suitable value for block record
+            oblock_record block_record = self->get_block_record( block_id );
+            FC_ASSERT( block_record.valid() );
+            block_record->signee_shares_issued = 0;
+            block_record->signee_fees_collected = max_available_paycheck;
+            block_record->signee_fees_destroyed = (max_available_paycheck - accepted_paycheck);
+            _block_id_to_block_record_db.store( block_id, *block_record );
+      } FC_CAPTURE_AND_RETHROW( (block_signee)(block_id) ) }
 
       void chain_database_impl::save_undo_state( const block_id_type& block_id,
                                                  const pending_chain_state_ptr& pending_state )
@@ -863,7 +880,7 @@ namespace bts { namespace blockchain {
             public_key_type block_signee;
             if( CHECKPOINT_BLOCKS.size() > 0 && (--CHECKPOINT_BLOCKS.end())->first > block_data.block_num )
                //Skip signature validation
-               block_signee = self->get_slot_signee( block_data.timestamp, self->get_active_delegates() ).active_key();
+               block_signee = self->get_slot_signee( block_data.timestamp, self->get_active_delegates() ).signing_key();
             else
                /* We need the block_signee's key in several places and computing it is expensive, so compute it here and pass it down */
                block_signee = block_data.signee();
@@ -889,7 +906,7 @@ namespace bts { namespace blockchain {
             // apply any deterministic operations such as market operations before we perturb indexes
             //apply_deterministic_updates(pending_state);
 
-            pay_delegate( pending_state, block_signee );
+            pay_delegate( pending_state, block_signee, block_id );
 
             execute_markets( block_data.timestamp, pending_state );
 
@@ -1092,12 +1109,36 @@ namespace bts { namespace blockchain {
 
              my->open_database( data_dir );
 
-             // TODO: This was causing sync failures after re-indexing
-             //For the duration of reindexing, we allow certain databases to postpone flushing until we finish.
-             //my->_account_db.set_flush_on_store( false );
-             //my->_address_to_account_db.set_flush_on_store( false );
-             //my->_account_index_db.set_flush_on_store( false );
-             //my->_delegate_vote_index_db.set_flush_on_store( false );
+             const auto set_db_cache_write_through = [ this ]( bool write_through )
+             {
+                 my->_property_db.set_write_through( write_through );
+                 my->_slate_db.set_write_through( write_through );
+
+                 my->_account_db.set_write_through( write_through );
+                 my->_account_index_db.set_write_through( write_through );
+                 my->_address_to_account_db.set_write_through( write_through );
+                 my->_delegate_vote_index_db.set_write_through( write_through );
+
+                 my->_asset_db.set_write_through( write_through );
+                 my->_symbol_index_db.set_write_through( write_through );
+
+                 my->_balance_db.set_write_through( write_through );
+                 my->_burn_db.set_write_through( write_through );
+
+                 my->_ask_db.set_write_through( write_through );
+                 my->_bid_db.set_write_through( write_through );
+                 my->_relative_ask_db.set_write_through( write_through );
+                 my->_relative_bid_db.set_write_through( write_through );
+
+                 my->_feed_db.set_write_through( write_through );
+                 my->_object_db.set_write_through( write_through );
+                 my->_market_status_db.set_write_through( write_through );
+                 my->_market_transactions_db.set_write_through( write_through );
+                 my->_market_history_db.set_write_through( write_through );
+             };
+
+             // For the duration of reindexing, we allow certain databases to postpone flushing until we finish
+             set_db_cache_write_through( false );
 
              my->initialize_genesis( genesis_file );
 
@@ -1106,7 +1147,7 @@ namespace bts { namespace blockchain {
                  num_to_id[itr.key()] = itr.value();
 
              if( !reindex_status_callback )
-                std::cout << "Please be patient, this will take a few minutes...\r\nRe-indexing database..." << std::flush << std::fixed;
+                 std::cout << "Please be patient, this will take a few minutes...\r\nRe-indexing database..." << std::flush << std::fixed;
              else
                  reindex_status_callback(0);
 
@@ -1133,6 +1174,12 @@ namespace bts { namespace blockchain {
 
                  push_block(block);
                  ++blocks_indexed;
+
+                 if( blocks_indexed % 1000 == 0 )
+                 {
+                     set_db_cache_write_through( true );
+                     set_db_cache_write_through( false );
+                 }
              };
 
              if (num_to_id.empty()) {
@@ -1151,12 +1198,8 @@ namespace bts { namespace blockchain {
                  }
              }
 
-             // TODO: See above
-             //Re-enable flushing on all databases we disabled it on above
-             //my->_account_db.set_flush_on_store( true );
-             //my->_address_to_account_db.set_flush_on_store( true );
-             //my->_account_index_db.set_flush_on_store( true );
-             //my->_delegate_vote_index_db.set_flush_on_store( true );
+             // Re-enable flushing on all cached databases we disabled it on above
+             set_db_cache_write_through( true );
 
              id_to_data_orig.close();
              fc::remove_all( data_dir / "raw_chain/id_to_data_orig" );
@@ -1214,6 +1257,7 @@ namespace bts { namespace blockchain {
    { try {
       my->_market_transactions_db.close();
       my->_jackpot_transactions_db.close();
+      my->_auth_db.close();
       my->_fork_number_db.close();
       my->_fork_db.close();
       my->_slate_db.close();
@@ -1250,6 +1294,8 @@ namespace bts { namespace blockchain {
       my->_relative_bid_db.close();
       my->_feed_db.close();
 
+      my->_object_db.close();
+      
       my->_market_history_db.close();
       my->_market_status_db.close();
        
@@ -1620,60 +1666,134 @@ namespace bts { namespace blockchain {
 
    void chain_database::store_account_record( const account_record& record_to_store )
    { try {
-       const oaccount_record prev_account_record = get_account_record( record_to_store.id );
-       if( prev_account_record.valid() )
+       const auto remove_record = [ this ]( const account_record& record )
        {
-           if( prev_account_record->is_delegate() )
-               my->_delegate_vote_index_db.remove( vote_del( prev_account_record->net_votes(), prev_account_record->id ) );
-
-           if( record_to_store.is_null() )
+           my->_account_db.remove( record.id );
+           my->_account_index_db.remove( record.name );
+           my->_address_to_account_db.remove( record.owner_address() );
+           if( !record.is_retracted() )
+               my->_address_to_account_db.remove( record.active_address() );
+           if( record.is_delegate() )
            {
-               my->_account_db.remove( prev_account_record->id );
-               my->_account_index_db.remove( prev_account_record->name );
-               my->_address_to_account_db.remove( prev_account_record->owner_address() );
-               for( const auto& item : prev_account_record->active_key_history )
-               {
-                   const public_key_type& active_key = item.second;
-                   my->_address_to_account_db.remove( address( active_key) );
-               }
-               if( prev_account_record->is_delegate() )
-               {
-                   for( const auto& item : prev_account_record->delegate_info->signing_key_history )
-                   {
-                       const public_key_type& signing_key = item.second;
-                       my->_address_to_account_db.remove( address( signing_key) );
-                   }
-               }
+               my->_address_to_account_db.remove( record.signing_address() );
+               if( !record.is_retracted() )
+                   my->_delegate_vote_index_db.remove( vote_del( record.net_votes(), record.id ) );
            }
-       }
+       };
 
-       if( record_to_store.is_null() )
+       const auto store_record = [ this ]( const account_record& record )
+       {
+           my->_account_db.store( record.id, record );
+           my->_account_index_db.store( record.name, record.id );
+           my->_address_to_account_db.store( record.owner_address(), record.id );
+           if( !record.is_retracted() )
+               my->_address_to_account_db.store( record.active_address(), record.id );
+           if( record.is_delegate() )
+           {
+               my->_address_to_account_db.store( record.signing_address(), record.id );
+               if( !record.is_retracted() )
+                   my->_delegate_vote_index_db.store( vote_del( record.net_votes(), record.id ), 0 /*dummy value*/ );
+           }
+       };
+
+       const auto index_active_keys = [ this ]( const account_record& prev_record, const account_record& new_record )
+       {
+           if( prev_record.is_retracted() && new_record.is_retracted() )
+               return;
+
+           if( !prev_record.is_retracted() && new_record.is_retracted() )
+               return my->_address_to_account_db.remove( prev_record.active_address() );
+
+           if( prev_record.is_retracted() && !new_record.is_retracted() )
+               return my->_address_to_account_db.store( new_record.active_address(), new_record.id );
+
+           const address& prev_active_address = prev_record.active_address();
+           const address& new_active_address = new_record.active_address();
+           if( prev_active_address != new_active_address )
+           {
+               my->_address_to_account_db.remove( prev_active_address );
+               my->_address_to_account_db.store( new_active_address, new_record.id );
+           }
+       };
+
+       const auto index_signing_keys = [ this ]( const account_record& prev_record, const account_record& new_record )
+       {
+           if( !prev_record.is_delegate() && !new_record.is_delegate() )
+               return;
+
+           if( prev_record.is_delegate() && !new_record.is_delegate() )
+               return my->_address_to_account_db.remove( prev_record.signing_address() );
+
+           if( !prev_record.is_delegate() && new_record.is_delegate() )
+               return my->_address_to_account_db.store( new_record.signing_address(), new_record.id );
+
+           const address& prev_signing_address = prev_record.signing_address();
+           const address& new_signing_address = new_record.signing_address();
+           if( prev_signing_address != new_signing_address )
+           {
+               my->_address_to_account_db.remove( prev_signing_address );
+               my->_address_to_account_db.store( new_signing_address, new_record.id );
+           }
+       };
+
+       const auto index_votes = [ this ]( const account_record& prev_record, const account_record& new_record )
+       {
+           if( !prev_record.is_delegate() && !new_record.is_delegate() )
+               return;
+
+           if( prev_record.is_delegate() && !new_record.is_delegate() )
+           {
+               if( !prev_record.is_retracted() )
+                   my->_delegate_vote_index_db.remove( vote_del( prev_record.net_votes(), prev_record.id ) );
+               return;
+           }
+
+           if( !prev_record.is_delegate() && new_record.is_delegate() )
+           {
+               if( !new_record.is_retracted() )
+                   my->_delegate_vote_index_db.store( vote_del( new_record.net_votes(), new_record.id ), 0 /*dummy value*/ );
+               return;
+           }
+
+           const share_type& prev_votes = prev_record.net_votes();
+           const share_type& new_votes = new_record.net_votes();
+           if( prev_votes != new_votes )
+           {
+               if( !prev_record.is_retracted() )
+                   my->_delegate_vote_index_db.remove( vote_del( prev_votes, prev_record.id ) );
+               if( !new_record.is_retracted() )
+                   my->_delegate_vote_index_db.store( vote_del( new_votes, new_record.id ), 0 /*dummy value*/ );
+           }
+       };
+
+       const oaccount_record prev_account_record = get_account_record( record_to_store.id );
+       if( !prev_account_record.valid() && record_to_store.is_null() )
            return;
 
-       my->_account_db.store( record_to_store.id, record_to_store );
-       my->_account_index_db.store( record_to_store.name, record_to_store.id );
-       my->_address_to_account_db.store( record_to_store.owner_address(), record_to_store.id );
-       for( const auto& item : record_to_store.active_key_history )
-       {
-           const public_key_type& active_key = item.second;
-           if( active_key == public_key_type() ) continue;
-           my->_address_to_account_db.store( address( active_key ), record_to_store.id );
-       }
-       if( record_to_store.is_delegate() )
-       {
-           for( const auto& item : record_to_store.delegate_info->signing_key_history )
-           {
-               const public_key_type& signing_key = item.second;
-               if( signing_key == public_key_type() ) continue;
-               my->_address_to_account_db.store( address( signing_key ), record_to_store.id );
-           }
+       if( prev_account_record.valid() && record_to_store.is_null() )
+           return remove_record( *prev_account_record );
 
-#ifndef WIN32
-#warning [SOFTFORK] Retracting delegate accounts should not be allowed until everyone is upgraded
-#endif
-           if( !record_to_store.is_retracted() )
-               my->_delegate_vote_index_db.store( vote_del( record_to_store.net_votes(), record_to_store.id ), 0 /*dummy value*/ );
+       if( !prev_account_record.valid() && !record_to_store.is_null() )
+           return store_record( record_to_store );
+
+       // Common case: updating an existing record
+       my->_account_db.store( record_to_store.id, record_to_store );
+
+       if( prev_account_record->name != record_to_store.name )
+       {
+           my->_account_index_db.remove( prev_account_record->name );
+           my->_account_index_db.store( record_to_store.name, record_to_store.id );
        }
+
+       if( prev_account_record->owner_key != record_to_store.owner_key )
+       {
+           my->_address_to_account_db.remove( prev_account_record->owner_address() );
+           my->_address_to_account_db.store( record_to_store.owner_address(), record_to_store.id );
+       }
+
+       index_active_keys( *prev_account_record, record_to_store );
+       index_signing_keys( *prev_account_record, record_to_store );
+       index_votes( *prev_account_record, record_to_store );
    } FC_CAPTURE_AND_RETHROW( (record_to_store) ) }
 
    vector<operation> chain_database::get_recent_operations(operation_type_enum t)
@@ -1691,6 +1811,17 @@ namespace bts { namespace blockchain {
       if( recent_op_queue.size() > MAX_RECENT_OPERATIONS )
         recent_op_queue.pop_front();
    }
+
+
+    oobject_record             chain_database::get_object_record( object_id_type id )
+    {
+       return my->_object_db.fetch_optional( id );
+    }
+
+    void                       chain_database::store_object_record( const object_record& obj )
+    {
+        my->_object_db.store( obj._id, obj );
+    }
 
    otransaction_record chain_database::get_transaction( const transaction_id_type& trx_id, bool exact )const
    { try {
@@ -1733,7 +1864,7 @@ namespace bts { namespace blockchain {
       }
    } FC_CAPTURE_AND_RETHROW( (record_id)(record_to_store) ) }
 
-   void chain_database::scan_assets( function<void( const asset_record& )> callback )
+   void chain_database::scan_assets( function<void( const asset_record& )> callback )const
    {
         auto asset_itr = my->_asset_db.begin();
         while( asset_itr.valid() )
@@ -1743,7 +1874,7 @@ namespace bts { namespace blockchain {
         }
    }
 
-   void chain_database::scan_balances( function<void( const balance_record& )> callback )
+   void chain_database::scan_balances( function<void( const balance_record& )> callback )const
    {
         auto balances = my->_balance_db.begin();
         while( balances.valid() )
@@ -1753,7 +1884,7 @@ namespace bts { namespace blockchain {
         }
    }
 
-   void chain_database::scan_accounts( function<void( const account_record& )> callback )
+   void chain_database::scan_accounts( function<void( const account_record& )> callback )const
    {
         auto name_itr = my->_account_db.begin();
         while( name_itr.valid() )
@@ -1762,6 +1893,17 @@ namespace bts { namespace blockchain {
            ++name_itr;
         }
    }
+
+   void chain_database::scan_objects( function<void( const object_record& )> callback )const
+   {
+        auto itr = my->_object_db.begin();
+        while( itr.valid() )
+        {
+           callback( itr.value() );
+           ++itr;
+        }
+   }
+
 
    /** this should throw if the trx is invalid */
    transaction_evaluation_state_ptr chain_database::store_pending_transaction( const signed_transaction& trx, bool override_limits )
@@ -1924,34 +2066,29 @@ namespace bts { namespace blockchain {
         return balances;
     } FC_RETHROW_EXCEPTIONS( warn, "", ("first",first)("limit",limit) )  }
 
-    vector<balance_record> chain_database::get_balances_for_address( const address& addr )const
-    {
-        vector<balance_record> ret;
-        for( auto pair : get_balances( "", -1 ) )
+   map<balance_id_type, balance_record> chain_database::get_balances_for_address( const address& addr )const
+   { try {
+        map<balance_id_type, balance_record> ret;
+        const auto scan_balance = [ &addr, &ret ]( const balance_record& record )
         {
-            auto bal = pair.second;
-            if( bal.is_owner( addr ) )
-            {
-                ret.push_back(bal);
-            }
-        }
+            if( record.is_owner( addr ) || addr == record.id() )
+                ret[record.id()] = record;
+        };
+        scan_balances( scan_balance );
         return ret;
-    }
+   } FC_CAPTURE_AND_RETHROW( (addr) ) }
 
-    vector<balance_record> chain_database::get_balances_for_key( const public_key_type& key )const
-    {
-        vector<balance_record> ret;
-        for( auto pair : get_balances( "", -1 ) )
+   map<balance_id_type, balance_record> chain_database::get_balances_for_key( const public_key_type& key )const
+   { try {
+        map<balance_id_type, balance_record> ret;
+        const auto scan_balance = [ &key, &ret ]( const balance_record& record )
         {
-            auto bal = pair.second;
-            if( bal.is_owner(key) )
-            {
-                ret.push_back( bal );
-            }
-        }
+            if( record.is_owner( key ) )
+                ret[record.id()] = record;
+        };
+        scan_balances( scan_balance );
         return ret;
-    }
-
+   } FC_CAPTURE_AND_RETHROW( (key) ) }
 
     std::vector<account_record> chain_database::get_accounts( const string& first, uint32_t limit )const
     { try {
@@ -2565,8 +2702,8 @@ namespace bts { namespace blockchain {
        return results;
    } FC_CAPTURE_AND_RETHROW( (quote_symbol)(base_symbol)(limit) ) }
 
-   vector<market_order> chain_database::get_market_orders( std::function<bool( const market_order& )> filter,
-                                                           uint32_t limit, order_type_enum type )const
+   vector<market_order> chain_database::scan_market_orders( std::function<bool( const market_order& )> filter,
+                                                            uint32_t limit, order_type_enum type )const
    { try {
        vector<market_order> orders;
        if( limit == 0 ) return orders;
@@ -2637,7 +2774,7 @@ namespace bts { namespace blockchain {
            return order.get_id() == order_id;
        };
 
-       const auto orders = get_market_orders( filter, 1, type );
+       const auto orders = scan_market_orders( filter, 1, type );
        if( !orders.empty() )
            return orders.front();
 
@@ -3190,6 +3327,10 @@ namespace bts { namespace blockchain {
        my->_feed_db.export_to_json( next_path );
        ulog( "Dumped ${p}", ("p",next_path) );
 
+       next_path = dir / "_object_db.json";
+       my->_object_db.export_to_json( next_path );
+       ulog( "Dumped ${p}", ("p",next_path) );
+
        next_path = dir / "_market_status_db.json";
        my->_market_status_db.export_to_json( next_path );
        ulog( "Dumped ${p}", ("p",next_path) );
@@ -3213,5 +3354,17 @@ namespace bts { namespace blockchain {
      return stats;
    }
 
+   void                        chain_database::authorize( asset_id_type asset_id, const address& owner, object_id_type oid  )
+   {
+      if( oid != -1 )
+         my->_auth_db.store( std::make_pair( asset_id, owner ), oid );
+      else
+         my->_auth_db.remove( std::make_pair( asset_id, owner ) );
+   }
+
+   optional<object_id_type>    chain_database::get_authorization( asset_id_type asset_id, const address& owner )const
+   {
+      return my->_auth_db.fetch_optional( std::make_pair( asset_id, owner ) );
+   }
 
 } } // bts::blockchain

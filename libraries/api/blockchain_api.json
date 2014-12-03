@@ -175,8 +175,8 @@
       },
       {
         "method_name": "blockchain_get_block",
-        "description": "Retrieves the block header for the given block number or ID",
-        "return_type": "odigest_block",
+        "description": "Retrieves the block record for the given block number or ID",
+        "return_type": "oblock_record",
         "parameters" : [
             {
               "name" : "block",
@@ -256,12 +256,12 @@
       },
       {
         "method_name": "blockchain_list_address_balances",
-        "description": "Lists balance records which can be claimed by signature for this address",
-        "return_type": "balance_record_list",
+        "description": "Lists balance records which are the balance IDs or which can be claimed by signature for this address",
+        "return_type": "balance_record_map",
         "parameters" : [
             {
               "name" : "addr",
-              "type" : "address",
+              "type" : "string",
               "description" : "address to scan for"
             }
         ],
@@ -286,7 +286,7 @@
       {
         "method_name": "blockchain_list_key_balances",
         "description": "Lists balance records which can be claimed by signature for this key",
-        "return_type": "balance_record_list",
+        "return_type": "balance_record_map",
         "parameters" : [
             {
               "name" : "key",

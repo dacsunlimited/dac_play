@@ -242,6 +242,14 @@ namespace bts { namespace cli {
       const auto& usage = result.as<fc::mutable_variant_object>();
       out << pretty_disk_usage( usage );
     };
+
+    _command_to_function["blockchain_get_block"] = [](std::ostream& out, const fc::variants& arguments, const fc::variant& result, cptr client)
+    {
+      auto block = result.as<fc::mutable_variant_object>();
+      if(!block["processing_time"].is_null() && FILTER_OUTPUT_FOR_TESTS)
+        block["processing_time"] = "<d-ign>" + block["processing_time"].as_string() + "</d-ign>";
+      out << fc::json::to_pretty_string(block) << "\n";
+    };
   }
 
   void print_result::f_blockchain_get_account_wall( std::ostream& out, const fc::variants& arguments, const fc::variant& result, cptr client )
@@ -294,6 +302,13 @@ namespace bts { namespace cli {
   {
     const auto& market_orders = result.as<vector<market_order>>();
 
+    const string& quote_symbol = arguments[ 0 ].as_string();
+    const oasset_record quote_asset_record = client->get_chain()->get_asset_record( quote_symbol );
+    FC_ASSERT( quote_asset_record.valid() );
+    const asset_id_type& quote_id = quote_asset_record->id;
+
+    const omarket_status status = client->get_chain()->get_market_status( quote_id, asset_id_type( 0 ) );
+
     out << std::left;
     out << std::setw( 30 ) << "AMOUNT";
     out << std::setw( 30 ) << "COLLATERAL";
@@ -306,14 +321,20 @@ namespace bts { namespace cli {
 
     for( const auto& order : market_orders )
     {
-       out << std::setw( 30 ) <<  client->get_chain()->to_pretty_asset( order.get_balance() / order.get_price() );
-       out << std::setw( 30 ) <<  client->get_chain()->to_pretty_asset( order.get_balance() );
-       out << std::setw( 30 ) <<  std::to_string(100 * atof(order.interest_rate->ratio_string().c_str())) + " %";
-       if( order.state.limit_price.valid() )
-          out << std::setw( 30 ) <<  client->get_chain()->to_pretty_price( *order.state.limit_price );
+       out << std::setw( 30 );
+       if( status.valid() && status->current_feed_price.valid() )
+           out << client->get_chain()->to_pretty_asset( (order.get_balance() * *status->current_feed_price) / 2 );
+       else if( status.valid() && status->last_valid_feed_price.valid() )
+           out << client->get_chain()->to_pretty_asset( (order.get_balance() * *status->last_valid_feed_price) / 2 );
        else
-          out << std::setw( 30 ) <<  "NONE";
-       out << std::setw( 40 ) <<  variant(order.get_id()).as_string();
+           out << "N/A";
+       out << std::setw( 30 ) << client->get_chain()->to_pretty_asset( order.get_balance() );
+       out << std::setw( 30 ) << std::to_string(100 * atof(order.interest_rate->ratio_string().c_str())) + " %";
+       if( order.state.limit_price.valid() )
+          out << std::setw( 30 ) << client->get_chain()->to_pretty_price( *order.state.limit_price );
+       else
+          out << std::setw( 30 ) << "NONE";
+       out << std::setw( 40 ) << variant(order.get_id()).as_string();
        out << "\n";
     }
     out << "\n";
@@ -504,7 +525,7 @@ namespace bts { namespace cli {
       out << '-';
     out << '\n';
 
-    auto counter = 0;
+    int32_t counter = 0;
     for(const auto& acct : account_records)
     {
       if(acct.is_delegate())
@@ -721,7 +742,7 @@ namespace bts { namespace cli {
   }
 
   void print_result::f_blockchain_market_order_book(std::ostream& out, const fc::variants& arguments, const fc::variant& result, cptr client )
-  {
+  { try {
     auto bids_asks = result.as<std::pair<vector<market_order>, vector<market_order>>>();
 
     out << std::string(5, ' ') << "BIDS (* Short, + Relative)"
@@ -744,6 +765,8 @@ namespace bts { namespace cli {
 
     const asset_id_type& quote_id = quote_asset_record->id;
     const asset_id_type& base_id = base_asset_record->id;
+      
+    auto median_price_feed = client->get_chain()->get_median_delegate_price( quote_id, base_id );
 
     vector<market_order>::iterator bid_itr = bids_asks.first.begin();
     auto ask_itr = bids_asks.second.begin();
@@ -752,7 +775,14 @@ namespace bts { namespace cli {
 
     std::sort( bids_asks.first.begin(), bids_asks.first.end(), [=]( const market_order& a, const market_order& b ) -> bool
                {
-                  return a.get_price( *status->current_feed_price ) > b.get_price( *status->current_feed_price );
+                  FC_ASSERT( median_price_feed );
+                  return a.get_price( *median_price_feed) > b.get_price( *median_price_feed );
+               }
+             );
+    std::sort( bids_asks.second.begin(), bids_asks.second.end(), [=]( const market_order& a, const market_order& b ) -> bool
+               {
+                  FC_ASSERT( median_price_feed );
+                  return a.get_price( *median_price_feed) > b.get_price( *median_price_feed );
                }
              );
 
@@ -776,14 +806,15 @@ namespace bts { namespace cli {
         if (is_short_order)
         {
           asset quantity(bid_itr->get_quote_quantity() * (*bid_itr->state.limit_price));
-          out << std::left << std::setw(26) << client->get_chain()->to_pretty_asset(bid_itr->get_quote_quantity())
+          out << std::left << std::setw(26) << client->get_chain()->to_pretty_asset(bid_itr->get_quote_quantity(*median_price_feed))
               << std::setw(20) << client->get_chain()->to_pretty_asset(quantity)
               << std::right << std::setw(30) << (fc::to_string(client->get_chain()->to_pretty_price_double(*bid_itr->state.limit_price)) + " " + quote_asset_record->symbol);
         } else if( bid_itr->type == relative_bid_order )
         {
-          auto abs_price = *status->current_feed_price + bid_itr->get_price();
+          FC_ASSERT( median_price_feed );
+          auto abs_price =  bid_itr->get_price(*median_price_feed);
           out << std::left << std::setw(26) << client->get_chain()->to_pretty_asset(bid_itr->get_balance())
-              << std::setw(20) << client->get_chain()->to_pretty_asset(bid_itr->get_quantity());
+              << std::setw(20) << client->get_chain()->to_pretty_asset(bid_itr->get_quantity(*median_price_feed));
               if( bid_itr->state.limit_price )
               {
                  auto order_price = std::min( abs_price, *bid_itr->state.limit_price);
@@ -795,8 +826,9 @@ namespace bts { namespace cli {
               }
         } else {
           out << std::left << std::setw(26) << client->get_chain()->to_pretty_asset(bid_itr->get_balance())
-              << std::setw(20) << client->get_chain()->to_pretty_asset(bid_itr->get_quantity())
-              << std::right << std::setw(30) << (fc::to_string(client->get_chain()->to_pretty_price_double(bid_itr->get_price())) + " " + quote_asset_record->symbol);
+              << std::setw(20) << client->get_chain()->to_pretty_asset(bid_itr->get_quantity(*median_price_feed))
+              << std::right << std::setw(30) << 
+                  (fc::to_string(client->get_chain()->to_pretty_price_double(bid_itr->get_price(*median_price_feed))) + " " + quote_asset_record->symbol);
         }
 
         if (short_wall || is_short_order)
@@ -811,15 +843,20 @@ namespace bts { namespace cli {
       else
         out << std::string(77, ' ');
 
-      out << "| ";
+      out << "|";
 
       while(ask_itr != bids_asks.second.end())
       {
+        if( ask_itr->type == relative_ask_order )
+          out << "+";
+
+        auto abs_price =  ask_itr->get_price(*median_price_feed);
+        
         if(!ask_itr->collateral)
         {
-          out << std::left << std::setw(30) << (fc::to_string(client->get_chain()->to_pretty_price_double(ask_itr->get_price())) + " " + quote_asset_record->symbol)
-            << std::right << std::setw(23) << client->get_chain()->to_pretty_asset(ask_itr->get_quantity())
-            << std::right << std::setw(26) << client->get_chain()->to_pretty_asset(ask_itr->get_quote_quantity());
+          out << std::left << std::setw(30) << (fc::to_string(client->get_chain()->to_pretty_price_double(abs_price)) + " " + quote_asset_record->symbol)
+            << std::right << std::setw(23) << client->get_chain()->to_pretty_asset(ask_itr->get_quantity(*median_price_feed))
+            << std::right << std::setw(26) << client->get_chain()->to_pretty_asset(ask_itr->get_quote_quantity(*median_price_feed));
           ++ask_itr;
           break;
         }
@@ -838,7 +875,7 @@ namespace bts { namespace cli {
             out << status->last_error->to_detail_string() << "\n";
         }
     }
-  }
+  } FC_CAPTURE_AND_RETHROW( (arguments)(result) ) }
 
   void print_result::f_blockchain_market_order_history(std::ostream& out, const fc::variants& arguments, const fc::variant& result, cptr client )
   {
