@@ -7,6 +7,7 @@
 #include <bts/blockchain/genesis_json.hpp>
 #include <bts/blockchain/market_records.hpp>
 #include <bts/blockchain/operation_factory.hpp>
+#include <bts/blockchain/game_executors.hpp>
 #include <bts/blockchain/time.hpp>
 
 #include <bts/db/cached_level_map.hpp>
@@ -913,9 +914,8 @@ namespace bts { namespace blockchain {
             apply_transactions( block_data, pending_state );
 
             update_active_delegate_list( block_data, pending_state );
-             
-            // TODO: review that wether the jackpot should before update random seed or after that
-            // execute_dice_jackpot( block_data.block_num, pending_state );
+            
+            game_executors::instance().execute( self->shared_from_this(), block_data.block_num, pending_state);
             
             update_random_seed( block_data.previous_secret, pending_state );
 

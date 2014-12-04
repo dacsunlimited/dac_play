@@ -4,6 +4,7 @@
 #include <bts/game/games.hpp>
 #include <bts/blockchain/transaction_evaluation_state.hpp>
 #include <bts/blockchain/chain_interface.hpp>
+#include <bts/blockchain/game_executors.hpp>
 #include <bts/wallet/wallet.hpp>
 #include <bts/wallet/wallet_records.hpp>
 
@@ -78,6 +79,9 @@ namespace bts { namespace game {
              FC_ASSERT( _converters.find( GameType::type ) == _converters.end(),
                         "Game ID already Registered ${id}", ("id",GameType::type) );
             _converters[GameType::type] = std::make_shared< game_converter<GameType> >();
+            game_executors::instance().register_game_executor([=](chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state) {
+                GameType::execute(blockchain, block_num, pending_state);
+            });
           }
 
           void evaluate( transaction_evaluation_state& eval_state, const game& g )
@@ -88,21 +92,21 @@ namespace bts { namespace game {
              itr->second->evaluate( eval_state, g );
           }
        
-       wallet_transaction_record play(const int& game_id, chain_database_ptr blockchain, bts::wallet::wallet_ptr w, const variant& var, bool sign)
-       {
+          wallet_transaction_record play(const int& game_id, chain_database_ptr blockchain, bts::wallet::wallet_ptr w, const variant& var, bool sign)
+          {
               auto itr = _converters.find( uint8_t(game_id) );
               if( itr == _converters.end() )
                   FC_THROW_EXCEPTION( bts::blockchain::unsupported_chain_operation, "", ("game_id", game_id) );
               
               return itr->second->play(blockchain, w, var, sign);
-       }
+          }
 
           /// defined in games.cpp
-       void to_variant( const bts::game::game& in, fc::variant& output );
+          void to_variant( const bts::game::game& in, fc::variant& output );
           /// defined in games.cpp
-       void from_variant( const fc::variant& in, bts::game::game& output );
+          void from_variant( const fc::variant& in, bts::game::game& output );
        
-       bool scan( const game& g, wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w );
+          bool scan( const game& g, wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w );
 
        private:
           std::unordered_map<int, std::shared_ptr<game_converter_base> > _converters;

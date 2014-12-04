@@ -5,6 +5,7 @@
 #include <bts/blockchain/market_operations.hpp>
 #include <bts/blockchain/object_operations.hpp>
 #include <bts/blockchain/operation_factory.hpp>
+#include <bts/blockchain/game_executors.hpp>
 #include <bts/blockchain/proposal_operations.hpp>
 #include <bts/blockchain/operations.hpp>
 
@@ -87,6 +88,12 @@ namespace bts { namespace blockchain {
       bts::blockchain::operation_factory::instance().register_operation<update_asset_ext_operation>();
       return true;
    }();
+    
+   game_executors& game_executors::instance()
+   {
+      static std::unique_ptr<game_executors> inst( new game_executors() );
+      return *inst;
+   }
 
    operation_factory& operation_factory::instance()
    {

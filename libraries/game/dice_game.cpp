@@ -69,8 +69,9 @@ namespace bts { namespace game {
         eval_state._current_state->store_generic_game_record(cur_data.id._hash[0], *cur_record );
     }
     
-    void dice_game::execute_jackpot( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
+    void dice_game::execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
     {
+        // TODO: review that wether the jackpot should before update random seed or after that
         // do not need to claim for the first BTS_BLOCKCHAIN_NUM_DELEGATES + 1 blocks, no dice action in genesis
         if (block_num <= BTS_BLOCKCHAIN_NUM_DICE)
             return;
