@@ -91,8 +91,10 @@ namespace bts { namespace game {
         {
             auto id = trx.id();
             auto game_record = blockchain->get_generic_game_record(id._hash[0]);
-            auto d_data = game_record->as<game_dice_record>();
+            
             if ( !!game_record ) {
+                auto d_data = game_record->as<game_dice_record>();
+                
                 uint32_t dice_random_num = id._hash[0];
                 
                 // win condition
