@@ -369,6 +369,41 @@
         "aliases" : ["object_list"]
       },
       {
+        "method_name": "wallet_set_edge",
+        "description": "Create or update an edge object.",
+        "return_type": "transaction_builder",
+        "parameters" :
+          [
+            {
+              "name" : "paying_account",
+              "type" : "account_name",
+              "description" : "Account that will pay for this transaction"
+            },
+            {
+              "name" : "from",
+              "type" : "object_id_type",
+              "description" : ""
+            },
+            {
+              "name" : "to",
+              "type" : "object_id_type",
+              "description" : "Account that will pay for this transaction"
+            },
+            {
+              "name" : "name",
+              "type" : "string",
+              "description" : "The edge name (the 'key', used in index)"
+            },
+            {
+              "name" : "value",
+              "type" : "variant",
+              "description" : "The edge 'value', not part of the index"
+            }
+          ],
+        "prerequisites" : ["wallet_unlocked"],
+        "aliases" : ["set_edge"]
+      },
+      {
         "method_name": "wallet_account_transaction_history",
         "description": "Lists transaction history for the specified account",
         "return_type": "pretty_transactions",
@@ -606,20 +641,49 @@
         "prerequisites" : ["wallet_open"]
       },
       {
+        "method_name": "wallet_asset_authorize_key",
+        "description": "Authorizes a public key to control funds of a particular asset class.  Requires authority of asset issuer",
+        "return_type": "transaction_record",
+        "parameters" : [
+            {
+              "name" : "paying_account",
+              "type" : "account_name",
+              "description" : "the account that will pay the transaction fee"
+            },
+            {
+              "name" : "symbol",
+              "type" : "asset_symbol",
+              "description" : "the asset granting authorization"
+            },
+            {
+              "name" : "address",
+              "type" : "string",
+              "description" : "the address being granted permission, or the public key, or the account name"
+            },
+            {
+               "name" : "meta",
+               "type" : "object_id_type",
+               "description" : "-1 to remove authorization, otherwise a link to an object in the object graph",
+               "default_value" : 0
+            }
+           ],
+        "prerequisites" : ["wallet_unlocked"]
+      },
+      {
         "method_name": "wallet_burn",
         "description": "Burns given amount to the given account.  This will allow you to post message and +/- sentiment on someones account as a form of reputation.",
         "return_type": "transaction_record",
         "parameters" :
           [
             {
-              "name" : "amount_to_transfer",
+              "name" : "amount_to_burn",
               "type" : "real_amount",
-              "description" : "the amount of shares to transfer"
+              "description" : "the amount of shares to burn"
             },
             {
               "name" : "asset_symbol",
               "type" : "asset_symbol",
-              "description" : "the asset to transfer"
+              "description" : "the asset to burn"
             },
             {
               "name" : "from_account_name",
@@ -1627,16 +1691,22 @@
                   "default_value" : 0
                },
                {
-                  "name" : "restricted",
-                  "type" : "bool",
-                  "description" : "whether or not ownership of the asset is restricted to authorized keys",
-                  "default_value" : false
+                  "name" : "flags",
+                  "type" : "asset_permission_array",
+                  "description" : "a set of flags set by the issuer (if they have permission to set them)",
+                  "default_value" : []
                },
                {
-                  "name" : "retractable",
-                  "type" : "bool",
-                  "description" : "whether or not issuer is a co-signer on all balances",
-                  "default_value" : true
+                  "name" : "issuer_permissions",
+                  "type" : "asset_permission_array",
+                  "description" : "a set of permissions an issuer retains",
+                  "default_value" : ["retractable","market_halt","balance_halt","supply_limit"]
+               },
+               {
+                  "name" : "issuer_account_name",
+                  "type" : "account_name",
+                  "description" : "used to transfer the asset to a new user",
+                  "default_value" : ""
                },
                {
                   "name" : "required_sigs",
@@ -2269,7 +2339,7 @@
                  "name" : "vote_method",
                  "type" : "vote_selection_method",
                  "description" : "enumeration [vote_none | vote_all | vote_random | vote_recommended] ",
-                 "default_value" : "vote_recommended"
+                 "default_value" : "vote_all"
                },
                {
                   "name" : "sign_and_broadcast",

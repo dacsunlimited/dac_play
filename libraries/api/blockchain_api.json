@@ -123,7 +123,7 @@
       {
         "method_name": "blockchain_list_feed_prices",
         "description": "Returns a list of all currently valid feed prices",
-        "return_type": "price_array",
+        "return_type": "price_map",
         "parameters" : [],
         "is_const" : true,
         "prerequisites" : ["no_prerequisites"]
@@ -156,10 +156,10 @@
       {
         "method_name": "blockchain_get_transaction",
         "description": "Get detailed information about an in-wallet transaction",
-        "return_type": "optional_blockchain_transaction_record",
+        "return_type": "transaction_record_pair",
         "parameters" : [
             {
-              "name" : "transaction_id",
+              "name" : "transaction_id_prefix",
               "type" : "string",
               "description" : "the base58 transaction ID to return"
             },
@@ -191,7 +191,7 @@
       {
         "method_name": "blockchain_get_block_transactions",
         "description": "Retrieves the detailed transaction information for a block",
-        "return_type": "blockchain_transaction_record_map",
+        "return_type": "transaction_record_map",
         "parameters" : [
             {
               "name" : "block",
@@ -744,6 +744,50 @@
         ],
         "is_const"   : false,
         "prerequisites" : ["no_prerequisites"]
+      },
+      {
+        "method_name": "blockchain_get_object",
+        "description": "Get a particular object with a known ID",
+        "return_type": "object_record",
+        "parameters" :
+          [
+            {
+              "name" : "id",
+              "type" : "object_id_type",
+              "description" : ""
+            }
+          ],
+        "prerequisites" : ["wallet_unlocked"],
+        "aliases" : ["get_object"],
+        "is_const": true
+      },
+      {
+        "method_name": "blockchain_get_edges",
+        "description": "Get all edges with given properties",
+        "return_type": "edge_array",
+        "parameters" :
+          [
+            {
+              "name" : "from",
+              "type" : "object_id_type",
+              "description" : ""
+            },
+            {
+              "name" : "to",
+              "type" : "object_id_type",
+              "description" : "",
+              "default_value" : -1
+            },
+            {
+              "name" : "name",
+              "type" : "string",
+              "description" : "",
+              "default_value" : ""
+            }
+          ],
+        "prerequisites" : ["wallet_unlocked"],
+        "aliases" : ["get_edges"],
+        "is_const": true
       }
     ]
 }

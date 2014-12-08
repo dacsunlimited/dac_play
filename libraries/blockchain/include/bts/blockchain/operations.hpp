@@ -20,54 +20,60 @@ namespace bts { namespace blockchain {
    {
       null_op_type                  = 0,
 
-      /** balance operations */
+      // balances
       withdraw_op_type              = 1,
       deposit_op_type               = 2,
 
-      /** account operations */
+      // accounts
       register_account_op_type      = 3,
       update_account_op_type        = 4,
       withdraw_pay_op_type          = 5,
 
-      /** asset operations */
+      // assets
       create_asset_op_type          = 6,
       update_asset_op_type          = 7,
       issue_asset_op_type           = 8,
+      create_asset_prop_op_type     = 9,
 
-      /** delegate operations */
-      fire_delegate_op_type         = 9,
+      // reserved
+      reserved_op_1_type            = 10,
+      reserved_op_2_type            = 11,
 
-      /** proposal operations */
-      submit_proposal_op_type       = 10,
-      vote_proposal_op_type         = 11,
-
-      /** market operations */
+      // market
       bid_op_type                   = 12,
       ask_op_type                   = 13,
       short_op_type                 = 14,
       cover_op_type                 = 15,
-      remove_collateral_op_type     = 16,
+      reserved_op_3_type            = 16,
 
       define_delegate_slate_op_type = 17,
 
       update_feed_op_type           = 18,
-      burn_op_type                  = 19,
-      link_account_op_type          = 20,
 
-      withdraw_all_op_type          = 21,
+      burn_op_type                  = 19,
+
+      // reserved
+      reserved_op_4_type            = 20,
+      reserved_op_5_type            = 21,
+
       release_escrow_op_type        = 22,
 
       update_block_signing_key_type = 23,
 
+      // relative orders
       relative_bid_op_type          = 24,
       relative_ask_op_type          = 25,
-      game_op_type                  = 26,
-      buy_chips_type                = 27,
-      update_balance_vote_op_type   = 28,
 
-      set_object_op_type            = 29,
-      authorize_op_type             = 30,
-      update_asset_ext_op_type      = 31
+      game_op_type                  = 27,
+      buy_chips_type                = 28,
+      update_balance_vote_op_type   = 29,
+
+      set_object_op_type            = 30,
+      authorize_op_type             = 31,
+      update_asset_ext_op_type      = 32,
+
+      // assets
+      cancel_order_op_type          = 35 /** TODO: return funds to balance with same key as order */
    };
 
    /**
@@ -130,20 +136,19 @@ FC_REFLECT_ENUM( bts::blockchain::operation_type_enum,
                  (create_asset_op_type)
                  (update_asset_op_type)
                  (issue_asset_op_type)
-                 (fire_delegate_op_type)
-                 (submit_proposal_op_type)
-                 (vote_proposal_op_type)
+                 (create_asset_prop_op_type)
+                 (reserved_op_1_type)
+                 (reserved_op_2_type)
                  (bid_op_type)
                  (ask_op_type)
                  (short_op_type)
                  (cover_op_type)
-                 (remove_collateral_op_type)
+                 (reserved_op_3_type)
                  (define_delegate_slate_op_type)
                  (update_feed_op_type)
                  (burn_op_type)
-                 (link_account_op_type)
-                 (withdraw_all_op_type)
-
+                 (reserved_op_4_type)
+                 (reserved_op_5_type)
                  (release_escrow_op_type)
                  (update_block_signing_key_type)
 
@@ -156,6 +161,7 @@ FC_REFLECT_ENUM( bts::blockchain::operation_type_enum,
                  (set_object_op_type)
                  (authorize_op_type)
                  (update_asset_ext_op_type)
+                 (cancel_order_op_type)
                  )
 
 FC_REFLECT( bts::blockchain::operation, (type)(data) )

@@ -1,30 +1,8 @@
 #pragma once
-//#define DEFAULT_LOGGER "blockchain"
 
 #include <bts/blockchain/chain_database.hpp>
-#include <bts/blockchain/checkpoints.hpp>
-#include <bts/blockchain/config.hpp>
-#include <bts/blockchain/genesis_config.hpp>
-#include <bts/blockchain/genesis_json.hpp>
-#include <bts/blockchain/market_records.hpp>
-#include <bts/blockchain/operation_factory.hpp>
-#include <bts/blockchain/time.hpp>
-
 #include <bts/db/cached_level_map.hpp>
-#include <bts/db/level_map.hpp>
-
-#include <fc/io/fstream.hpp>
-#include <fc/io/json.hpp>
-#include <fc/io/raw_variant.hpp>
 #include <fc/thread/mutex.hpp>
-#include <fc/thread/non_preemptable_scope_check.hpp>
-#include <fc/thread/unique_lock.hpp>
-
-#include <algorithm>
-#include <deque>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
 
 namespace bts { namespace blockchain {
 
@@ -132,11 +110,6 @@ namespace bts { namespace blockchain {
 
             bts::db::level_map<uint32_t, std::vector<jackpot_transaction> >             _jackpot_transactions_db;
 
-#if 0
-            bts::db::level_map<proposal_id_type, proposal_record>                       _proposal_db;
-            bts::db::level_map<proposal_vote_id_type, proposal_vote>                    _proposal_vote_db;
-#endif
-
             /** the data required to 'undo' the changes a block made to the database */
             bts::db::level_map<block_id_type,pending_chain_state>                       _undo_state_db;
 
@@ -178,7 +151,11 @@ namespace bts { namespace blockchain {
             bts::db::cached_level_map<feed_index, feed_record>                          _feed_db;
 
             bts::db::level_map<object_id_type, object_record>                           _object_db;
-            bts::db::level_map<std::pair<asset_id_type,address>, object_id_type>        _auth_db;
+            bts::db::level_map<edge_index_key, object_id_type>                           _edge_index;
+            bts::db::level_map<edge_index_key, object_id_type>                           _reverse_edge_index;
+
+            bts::db::level_map<std::pair<asset_id_type,address>, object_id_type>                  _auth_db;
+            bts::db::level_map<std::pair<asset_id_type,proposal_id_type>, proposal_record>        _asset_proposal_db;
 
             bts::db::cached_level_map<std::pair<asset_id_type,asset_id_type>, market_status> _market_status_db;
             bts::db::cached_level_map<market_history_key, market_history_record>        _market_history_db;

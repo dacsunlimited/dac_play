@@ -204,11 +204,6 @@ namespace bts { namespace game {
                  // TODO: FC_THROW( "withdraw_password_type not implemented!" );
                  break;
              }
-             case withdraw_option_type:
-             {
-                 // TODO: FC_THROW( "withdraw_option_type not implemented!" );
-                 break;
-             }
              default:
              {
                  FC_THROW( "unknown withdraw condition type!" );
@@ -243,7 +238,7 @@ namespace bts { namespace game {
         const auto asset_rec = blockchain->get_asset_record( "DICE" );
         FC_ASSERT( asset_rec.valid() );
         
-        share_type amount_to_play = d_input.amount * asset_rec->get_precision();
+        share_type amount_to_play = d_input.amount * asset_rec->precision;
         
         // dice asset is 1
         asset chips_to_play(amount_to_play, asset_rec->id);

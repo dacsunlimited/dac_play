@@ -1,34 +1,21 @@
-//#define DEFAULT_LOGGER "blockchain"
-
 #include <bts/blockchain/chain_database.hpp>
+#include <bts/blockchain/chain_database_impl.hpp>
 #include <bts/blockchain/checkpoints.hpp>
 #include <bts/blockchain/config.hpp>
+#include <bts/blockchain/exceptions.hpp>
 #include <bts/blockchain/genesis_config.hpp>
 #include <bts/blockchain/genesis_json.hpp>
-#include <bts/blockchain/market_records.hpp>
-#include <bts/blockchain/operation_factory.hpp>
-#include <bts/blockchain/game_executors.hpp>
+#include <bts/blockchain/market_engine.hpp>
 #include <bts/blockchain/time.hpp>
-
-#include <bts/db/cached_level_map.hpp>
-#include <bts/db/level_map.hpp>
+#include <bts/blockchain/game_executors.hpp>
 
 #include <fc/io/fstream.hpp>
-#include <fc/io/json.hpp>
 #include <fc/io/raw_variant.hpp>
-#include <fc/thread/mutex.hpp>
 #include <fc/thread/non_preemptable_scope_check.hpp>
 #include <fc/thread/unique_lock.hpp>
 
-#include <algorithm>
-#include <deque>
-#include <fstream>
 #include <iomanip>
 #include <iostream>
-
-// the definition of detail::chain_database_impl is moved to a separate file so it can be shared by the market_engine(s)
-#include <bts/blockchain/chain_database_impl.hpp>
-#include <bts/blockchain/market_engine.hpp>
 
 namespace bts { namespace blockchain {
 
@@ -111,10 +98,6 @@ namespace bts { namespace blockchain {
           _fork_number_db.open( data_dir / "index/fork_number_db" );
           _fork_db.open( data_dir / "index/fork_db" );
           _slate_db.open( data_dir / "index/slate_db" );
-#if 0
-          _proposal_db.open( data_dir / "index/proposal_db" );
-          _proposal_vote_db.open( data_dir / "index/proposal_vote_db" );
-#endif
 
           _undo_state_db.open( data_dir / "index/undo_state_db" );
 
@@ -131,6 +114,7 @@ namespace bts { namespace blockchain {
           _asset_db.open( data_dir / "index/asset_db" );
           _balance_db.open( data_dir / "index/balance_db" );
           _auth_db.open( data_dir / "index/auth_db" );
+          _asset_proposal_db.open( data_dir / "index/asset_proposal_db" );
           _burn_db.open( data_dir / "index/burn_db" );
           _account_db.open( data_dir / "index/account_db" );
           _address_to_account_db.open( data_dir / "index/address_to_account_db" );
@@ -148,6 +132,8 @@ namespace bts { namespace blockchain {
           _feed_db.open( data_dir / "index/feed_db" );
 
           _object_db.open( data_dir / "index/object_db" );
+          _edge_index.open( data_dir / "index/edge_index" );
+          _reverse_edge_index.open( data_dir / "index/reverse_edge_index" );
 
           _market_status_db.open( data_dir / "index/market_status_db" );
           _market_history_db.open( data_dir / "index/market_history_db" );
@@ -338,6 +324,8 @@ namespace bts { namespace blockchain {
          base_asset.current_share_supply = total.amount;
          base_asset.maximum_share_supply = BTS_BLOCKCHAIN_MAX_SHARES;
          base_asset.collected_fees = 0;
+         base_asset.flags = asset_permissions::none;
+         base_asset.issuer_permissions = asset_permissions::none;
          self->store_asset_record( base_asset );
 
          for( const auto& asset : config.chip_assets )
@@ -349,7 +337,7 @@ namespace bts { namespace blockchain {
             rec.name = asset.name;
             rec.description = asset.description;
             rec.public_data = variant("");
-            rec.issuer_account_id = asset_record::market_issued_asset;
+            rec.issuer_account_id = asset_record::market_issuer_id;
             rec.precision = asset.precision;
             rec.registration_date = timestamp;
             rec.last_update = timestamp;
@@ -370,7 +358,6 @@ namespace bts { namespace blockchain {
 
          self->set_property( chain_property_enum::active_delegate_list_id, fc::variant( self->next_round_active_delegates() ) );
          self->set_property( chain_property_enum::last_asset_id, asset_id );
-         self->set_property( chain_property_enum::last_proposal_id, 0 );
          self->set_property( chain_property_enum::last_account_id, uint64_t( config.names.size() ) );
          self->set_property( chain_property_enum::last_object_id, 1 );
          self->set_property( chain_property_enum::last_random_seed_id, fc::variant( secret_hash_type() ) );
@@ -1258,10 +1245,6 @@ namespace bts { namespace blockchain {
       my->_fork_db.close();
       my->_slate_db.close();
       my->_property_db.close();
-#if 0
-      my->_proposal_db.close();
-      my->_proposal_vote_db.close();
-#endif
 
       my->_undo_state_db.close();
 
@@ -1299,7 +1282,11 @@ namespace bts { namespace blockchain {
       my->_jackpot_transactions_db.close();
 
       my->_object_db.close();
+      my->_edge_index.close();
+      my->_reverse_edge_index.close();
+
       my->_auth_db.close();
+      my->_asset_proposal_db.close();
    } FC_RETHROW_EXCEPTIONS( warn, "" ) }
 
    account_record chain_database::get_delegate_record_for_signee( const public_key_type& block_signee )const
@@ -1812,14 +1799,94 @@ namespace bts { namespace blockchain {
    }
 
 
-    oobject_record             chain_database::get_object_record( object_id_type id )
+    oobject_record             chain_database::get_object_record( const object_id_type& id )
     {
        return my->_object_db.fetch_optional( id );
     }
 
     void                       chain_database::store_object_record( const object_record& obj )
     {
+        // Set indices
+        switch( obj.type() )
+        {
+            case account_object:
+            case asset_object:
+                FC_ASSERT(!"You cannot store these object types via object interface yet!");
+                break;
+            case edge_object:
+            {
+                auto edge = obj.as<edge_record>();
+                my->_edge_index.store( edge.index_key(), edge._id );
+                my->_reverse_edge_index.store( edge.reverse_index_key(), edge._id );
+                break;
+            }
+            case base_object:
+            default:
+                break;
+        }
         my->_object_db.store( obj._id, obj );
+    }
+
+
+
+    oedge_record               chain_database::get_edge( const object_id_type& from,
+                                         const object_id_type& to,
+                                         const string& name )const
+    {
+        edge_index_key key;
+        key.from = from; key.to = to; key.name = name;
+        auto id = my->_edge_index.fetch_optional( key );
+        if( NOT id.valid() )
+            return oedge_record();
+        auto obj = my->_object_db.fetch_optional( *id );
+        if( NOT obj.valid() )
+            return oedge_record();
+        auto edge = obj->as<edge_record>();
+        return edge;
+    }
+    map<string, edge_record>   chain_database::get_edges( const object_id_type& from,
+                                          const object_id_type& to )const
+    {
+        map<string, edge_record> ret;
+        edge_index_key key;
+        key.from = from; key.to = to;
+        auto itr = my->_edge_index.find( key );
+        while( itr.valid() )
+        {
+            auto obj = my->_object_db.fetch_optional( itr.value() );
+            FC_ASSERT( obj.valid(), "Edge in index but not in object DB" );
+            auto edge = obj->as<edge_record>();
+            if (edge.from != from || edge.to != to)
+                break;
+            ret[edge.name] = edge;
+        }
+        return ret;
+    }
+    map<object_id_type, map<string, edge_record>> chain_database::get_edges( const object_id_type& from )const
+    {
+        map<object_id_type, map<string, edge_record>> ret;
+        edge_index_key key;
+        key.from = from;
+        auto itr = my->_edge_index.find( key );
+        while( itr.valid() )
+        {
+            auto obj = my->_object_db.fetch_optional( itr.value() );
+            FC_ASSERT( obj.valid(), "Edge in index but not in object DB" );
+            auto edge = obj->as<edge_record>();
+            if (edge.from != from)
+                break;
+            if( ret.find(edge.from) != ret.end() )
+            {
+                ret[edge.to][edge.name] = edge;
+            }
+            else
+            {
+                map<string, edge_record> by_name;
+                by_name[edge.name] = edge;
+                ret[edge.to] = by_name;
+            }
+        }
+        return ret;
     }
 
    otransaction_record chain_database::get_transaction( const transaction_id_type& trx_id, bool exact )const
@@ -2294,71 +2361,6 @@ namespace bts { namespace blockchain {
          return my->_chain_id;
    }
 
-#if 0
-   void chain_database::store_proposal_record( const proposal_record& r )
-   {
-      if( r.is_null() )
-      {
-         my->_proposal_db.remove( r.id );
-      }
-      else
-      {
-         my->_proposal_db.store( r.id, r );
-      }
-   }
-
-   oproposal_record chain_database::get_proposal_record( proposal_id_type id )const
-   {
-      return my->_proposal_db.fetch_optional(id);
-   }
-
-   void chain_database::store_proposal_vote( const proposal_vote& r )
-   {
-      if( r.is_null() )
-      {
-         my->_proposal_vote_db.remove( r.id );
-      }
-      else
-      {
-         my->_proposal_vote_db.store( r.id, r );
-      }
-   }
-
-   oproposal_vote chain_database::get_proposal_vote( proposal_vote_id_type id )const
-   {
-      return my->_proposal_vote_db.fetch_optional(id);
-   }
-
-   std::vector<proposal_record> chain_database::get_proposals( uint32_t first, uint32_t count )const
-   {
-      std::vector<proposal_record> results;
-      auto current_itr = my->_proposal_db.lower_bound( first );
-      uint32_t found = 0;
-      while( current_itr.valid() && found < count )
-      {
-         results.push_back( current_itr.value() );
-         ++found;
-         ++current_itr;
-      }
-      return results;
-   }
-
-   std::vector<proposal_vote> chain_database::get_proposal_votes( proposal_id_type proposal_id ) const
-   {
-      std::vector<proposal_vote> results;
-      auto current_itr = my->_proposal_vote_db.lower_bound( proposal_vote_id_type(proposal_id,0) );
-      while( current_itr.valid() )
-      {
-         if( current_itr.key().proposal_id != proposal_id )
-            return results;
-
-         results.push_back( current_itr.value() );
-         ++current_itr;
-      }
-      return results;
-   }
-#endif
-
    fc::variant_object chain_database::find_delegate_vote_discrepancies() const
    {
       unordered_map<account_id_type, share_type> calculated_balances;
@@ -2366,11 +2368,11 @@ namespace bts { namespace blockchain {
       for (auto balance_itr = my->_balance_db.begin(); balance_itr.valid(); ++balance_itr)
       {
         balance_record balance = balance_itr.value();
-        if (balance.delegate_slate_id() == 0)
+        if (balance.slate_id() == 0)
           continue;
         if (balance.asset_id() == 0)
         {
-          odelegate_slate slate = get_delegate_slate(balance.delegate_slate_id());
+          odelegate_slate slate = get_delegate_slate(balance.slate_id());
           FC_ASSERT(slate.valid(), "Unknown slate ID found in balance.");
 
           for (account_id_type delegate : slate->supported_delegates)
@@ -2614,7 +2616,7 @@ namespace bts { namespace blockchain {
              if( key.order_price.quote_asset_id == quote_id &&
                  key.order_price.base_asset_id == base_id  )
              {
-                results.push_back( {bid_order, key, market_itr.value()} );
+                results.push_back( {relative_bid_order, key, market_itr.value()} );
              }
              else break;
 
@@ -3330,6 +3332,14 @@ namespace bts { namespace blockchain {
        my->_object_db.export_to_json( next_path );
        ulog( "Dumped ${p}", ("p",next_path) );
 
+       next_path = dir / "_edge_index.json";
+       my->_edge_index.export_to_json( next_path );
+       ulog( "Dumped ${p}", ("p",next_path) );
+
+       next_path = dir / "_reverse_edge_index.json";
+       my->_reverse_edge_index.export_to_json( next_path );
+       ulog( "Dumped ${p}", ("p",next_path) );
+
        next_path = dir / "_market_status_db.json";
        my->_market_status_db.export_to_json( next_path );
        ulog( "Dumped ${p}", ("p",next_path) );
@@ -3346,7 +3356,7 @@ namespace bts { namespace blockchain {
                            (_block_num_to_id_db)(_block_id_to_block_record_db)(_block_id_to_block_data_db)(_known_transactions) \
                            (_id_to_transaction_record_db)(_pending_transaction_db)(_pending_fee_index)(_asset_db)(_balance_db) \
                            (_burn_db)(_account_db)(_address_to_account_db)(_account_index_db)(_symbol_index_db)(_delegate_vote_index_db) \
-                           (_slot_record_db)(_ask_db)(_bid_db)(_feed_db)(_market_status_db)(_market_history_db) \
+                           (_slot_record_db)(_ask_db)(_bid_db)(_feed_db)(_object_db)(_edge_index)(_reverse_edge_index)(_market_status_db)(_market_history_db) \
                            (_recent_operations)
 #define GET_DATABASE_SIZE(r, data, elem) stats[BOOST_PP_STRINGIZE(elem)] = my->elem.size();
      BOOST_PP_SEQ_FOR_EACH(GET_DATABASE_SIZE, _, CHAIN_DB_DATABASES)
@@ -3364,6 +3374,22 @@ namespace bts { namespace blockchain {
    optional<object_id_type>    chain_database::get_authorization( asset_id_type asset_id, const address& owner )const
    {
       return my->_auth_db.fetch_optional( std::make_pair( asset_id, owner ) );
+   }
+   void                       chain_database::store_asset_proposal( const proposal_record& r ) 
+   {
+      if( r.info == -1 )
+      {
+         my->_asset_proposal_db.remove( r.key() );
+      }
+      else
+      {
+         my->_asset_proposal_db.store( r.key(), r );
+      }
+   }
+
+   optional<proposal_record>  chain_database::fetch_asset_proposal( asset_id_type asset_id, proposal_id_type proposal_id )const 
+   {
+      return my->_asset_proposal_db.fetch_optional( std::make_pair(asset_id,proposal_id) );
    }
 
 } } // bts::blockchain

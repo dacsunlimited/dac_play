@@ -1,9 +1,25 @@
 #include <bts/blockchain/edge_record.hpp>
 #include <bts/blockchain/types.hpp>
-
-#include <bts/blockchain/balance_record.hpp> // how else do I get FC_ASSERT ?
-
+#include <fc/exception/exception.hpp>
 
 namespace bts { namespace blockchain {
+
+    edge_index_key edge_record::index_key()
+    {
+        edge_index_key key;
+        key.from = from;
+        key.to = to;
+        key.name = name;
+        return key;
+    }
+
+    edge_index_key edge_record::reverse_index_key()
+    {
+        edge_index_key key;
+        key.from = to;
+        key.to = from;
+        key.name = name;
+        return key;
+    }
 
 }} // bts::blockchain

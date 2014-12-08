@@ -33,6 +33,8 @@ namespace bts { namespace blockchain {
       if( !issuer_override && !eval_state.check_signature( owner ) )
          FC_CAPTURE_AND_THROW( missing_signature, (bid_index.owner) );
 
+      FC_ASSERT( !issuer_override && !quote_asset_rec->is_balance_frozen() );
+
       asset delta_amount  = this->get_amount();
 
       eval_state.validate_asset( delta_amount );
@@ -131,7 +133,7 @@ namespace bts { namespace blockchain {
    { try {
       if( this->ask_index.order_price == price() )
          FC_CAPTURE_AND_THROW( zero_price, (ask_index.order_price) );
-      
+
       auto owner = this->ask_index.owner;
 
       auto base_asset_rec = eval_state._current_state->get_asset_record( ask_index.order_price.base_asset_id );
@@ -148,6 +150,7 @@ namespace bts { namespace blockchain {
       if( !issuer_override && !eval_state.check_signature( owner ) )
          FC_CAPTURE_AND_THROW( missing_signature, (ask_index.owner) );
 
+      FC_ASSERT( !issuer_override && !base_asset_rec->is_balance_frozen() );
 
       asset delta_amount  = this->get_amount();
 
@@ -257,7 +260,7 @@ namespace bts { namespace blockchain {
         auto  asset_to_buy = eval_state._current_state->get_asset_record( this->amount.asset_id );
 
         FC_ASSERT( asset_to_buy.valid() );
-        FC_ASSERT( asset_to_buy->is_chip_asset(), "${symbol} is not a chip asset", ("symbol",asset_to_buy->symbol) );
+        // TODO: FC_ASSERT( asset_to_buy->is_chip_asset(), "${symbol} is not a chip asset", ("symbol",asset_to_buy->symbol) );
         
         double price = (asset_to_buy->current_collateral * 1.0) / asset_to_buy->current_share_supply;
         share_type collateral_to_add = this->amount.amount * price;

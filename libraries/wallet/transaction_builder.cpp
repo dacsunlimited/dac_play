@@ -56,7 +56,7 @@ transaction_builder& transaction_builder::release_escrow( const account_record& 
    if( trx.expiration == time_point_sec() )
        trx.expiration = blockchain::now() + _wimpl->self->get_transaction_expiration();
 
-   transaction_record.record_id = trx.permanent_id();
+   transaction_record.record_id = trx.id();
    transaction_record.created_time = blockchain::now();
    transaction_record.received_time = transaction_record.created_time;
    return *this;
@@ -264,6 +264,8 @@ transaction_builder& transaction_builder::set_object(const string& payer_name,
     else
         id = obj.short_id();
     trx.set_object( id, obj );
+    for( auto addr : _wimpl->_blockchain->get_object_owners( obj ).owners )
+        required_signatures.insert( addr );
 
     return *this;
 } FC_CAPTURE_AND_RETHROW( (payer_name)(obj)(create) ) }
@@ -296,7 +298,7 @@ transaction_builder& transaction_builder::deposit_asset_with_escrow(const bts::w
    optional<public_key_type> titan_one_time_key;
    if( recipient.is_public_account() )
    {
-      // TODO: user public receiver key...
+      // TODO: user public active receiver key...
    } else {
       auto one_time_key = _wimpl->get_new_private_key(payer.name);
       titan_one_time_key = one_time_key.get_public_key();
@@ -548,7 +550,14 @@ transaction_builder& transaction_builder::update_asset( const string& symbol,
                                                         const optional<string>& description,
                                                         const optional<variant>& public_data,
                                                         const optional<double>& maximum_share_supply,
-                                                        const optional<uint64_t>& precision )
+                                                        const optional<uint64_t>& precision,
+                                                        const share_type& issuer_fee,
+                                                        uint32_t flags,
+                                                        uint32_t issuer_perms,
+                                                        const optional<account_id_type> issuer_account_id,
+                                                        uint32_t required_sigs,
+                                                        const vector<address>& authority 
+                                                        )
 { try {
     const oasset_record asset_record = _wimpl->_blockchain->get_asset_record( symbol );
     FC_ASSERT( asset_record.valid() );
@@ -556,8 +565,15 @@ transaction_builder& transaction_builder::update_asset( const string& symbol,
     const oaccount_record issuer_account_record = _wimpl->_blockchain->get_account_record( asset_record->issuer_account_id );
     if( !issuer_account_record.valid() )
         FC_THROW_EXCEPTION( unknown_account, "Unknown issuer account id!" );
+    
+    account_id_type new_issuer_account_id;
+    if( issuer_account_id.valid() )
+        new_issuer_account_id = *issuer_account_id;
+    else
+        new_issuer_account_id = asset_record->issuer_account_id;
 
-    trx.update_asset( asset_record->id, name, description, public_data, maximum_share_supply, precision );
+    trx.update_asset_ext( asset_record->id, name, description, public_data, maximum_share_supply, precision,
+                          issuer_fee, flags, issuer_perms, new_issuer_account_id, required_sigs, authority );
     deduct_balance( issuer_account_record->active_key(), asset() );
 
     ledger_entry entry;
@@ -567,7 +583,8 @@ transaction_builder& transaction_builder::update_asset( const string& symbol,
 
     transaction_record.ledger_entries.push_back( entry );
 
-    required_signatures.insert( issuer_account_record->active_key() );
+    for( auto owner : asset_record->authority.owners )
+       required_signatures.insert( owner );
     return *this;
 } FC_CAPTURE_AND_RETHROW( (symbol)(name)(description)(public_data)(maximum_share_supply)(precision) ) }
 
@@ -600,7 +617,7 @@ transaction_builder& transaction_builder::finalize( bool pay_fee )
    if( trx.expiration == time_point_sec() )
        trx.expiration = blockchain::now() + _wimpl->self->get_transaction_expiration();
 
-   transaction_record.record_id = trx.permanent_id();
+   transaction_record.record_id = trx.id();
    transaction_record.created_time = blockchain::now();
    transaction_record.received_time = transaction_record.created_time;
 
@@ -710,6 +727,16 @@ transaction_builder& transaction_builder::deposit_to_balance(const balance_id_ty
     trx.deposit( to, amount, vote_method );
     return *this;
 }
+
+transaction_builder& transaction_builder::asset_authorize_key( const string& symbol, 
+                                                               const address& owner,  
+                                                               object_id_type meta )
+{ try {
+   const oasset_record asset_record = _wimpl->_blockchain->get_asset_record( symbol );
+   FC_ASSERT( asset_record.valid() );
+   trx.authorize_key( asset_record->id, owner, meta ); 
+   return *this;
+} FC_CAPTURE_AND_RETHROW( (symbol)(owner)(meta) ) }
 
 //Time to get desperate
 bool transaction_builder::withdraw_fee()

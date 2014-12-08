@@ -201,6 +201,7 @@ namespace bts { namespace wallet {
                                       const object_record& obj,
                                       bool create );
 
+
       transaction_builder& withdraw_from_balance(const balance_id_type& from,
                                                  const share_type& amount);
       transaction_builder& deposit_to_balance(const balance_id_type& to,
@@ -279,6 +280,10 @@ namespace bts { namespace wallet {
                                         asset cover_amount,
                                         const order_id_type& order_id);
 
+      transaction_builder& asset_authorize_key( const string& symbol, 
+                                                const address& owner,  
+                                                object_id_type meta );
+
       transaction_builder& update_block_signing_key( const string& authorizing_account_name,
                                                      const string& delegate_name,
                                                      const public_key_type& block_signing_key );
@@ -288,7 +293,14 @@ namespace bts { namespace wallet {
                                          const optional<string>& description,
                                          const optional<variant>& public_data,
                                          const optional<double>& maximum_share_supply,
-                                         const optional<uint64_t>& precision );
+                                         const optional<uint64_t>& precision,
+                                         const share_type& issuer_fee,
+                                         uint32_t flags,
+                                         uint32_t issuer_perms,
+                                         const optional<account_id_type> issuer_account_id,
+                                         uint32_t required_sigs,
+                                         const vector<address>& authority 
+                                       );
 
       /**
        * @brief Balance the books and pay the fees

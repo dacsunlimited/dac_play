@@ -11,15 +11,12 @@ namespace bts { namespace blockchain {
 
    enum withdraw_condition_types
    {
-      /** assumes blockchain already knowws the condition, which
-       * is provided the first time something is withdrawn */
       withdraw_null_type        = 0,
       withdraw_signature_type   = 1,
       withdraw_vesting_type     = 2,
       withdraw_multi_sig_type   = 3,
       withdraw_escrow_type      = 4,
       withdraw_password_type    = 5,
-      withdraw_option_type      = 6
    };
 
    /**
@@ -28,14 +25,14 @@ namespace bts { namespace blockchain {
     */
    struct withdraw_condition
    {
-      withdraw_condition():asset_id(0),delegate_slate_id(0),type(withdraw_null_type){}
+      withdraw_condition():asset_id(0),slate_id(0),type(withdraw_null_type){}
 
       template<typename WithdrawType>
       withdraw_condition( const WithdrawType& t, asset_id_type asset_id_arg = 0, slate_id_type delegate_id_arg = 0 )
       {
          type = WithdrawType::type;
          asset_id = asset_id_arg;
-         delegate_slate_id = delegate_id_arg;
+         slate_id = delegate_id_arg;
          data = fc::raw::pack( t );
       }
 
@@ -49,7 +46,7 @@ namespace bts { namespace blockchain {
       balance_id_type get_address()const;
 
       asset_id_type                                     asset_id;
-      slate_id_type                                     delegate_slate_id = 0;
+      slate_id_type                                     slate_id = 0;
       fc::enum_type<uint8_t, withdraw_condition_types>  type = withdraw_null_type;
       std::vector<char>                                 data;
    };
@@ -106,7 +103,7 @@ namespace bts { namespace blockchain {
       withdraw_with_signature( const address owner_arg = address() )
       :owner(owner_arg){}
 
-      omemo_status     decrypt_memo_data( const fc::ecc::private_key& receiver_key )const;
+      omemo_status     decrypt_memo_data( const fc::ecc::private_key& receiver_key, bool ignore_owner = false )const;
       public_key_type  encrypt_memo_data( const fc::ecc::private_key& one_time_private_key,
                                       const fc::ecc::public_key&  to_public_key,
                                       const fc::ecc::private_key& from_private_key,
@@ -188,16 +185,6 @@ namespace bts { namespace blockchain {
       optional<titan_memo>            memo;
    };
 
-   struct withdraw_option
-   {
-      static const uint8_t type;
-
-      address              optionor;
-      address              optionee;
-      fc::time_point_sec   date;
-      price                strike_price;
-   };
-
 } } // bts::blockchain
 
 namespace fc {
@@ -212,13 +199,12 @@ FC_REFLECT_ENUM( bts::blockchain::withdraw_condition_types,
         (withdraw_signature_type)
         (withdraw_vesting_type)
         (withdraw_multi_sig_type)
-        (withdraw_password_type)
-        (withdraw_option_type)
         (withdraw_escrow_type)
+        (withdraw_password_type)
         )
 FC_REFLECT( bts::blockchain::withdraw_condition,
         (asset_id)
-        (delegate_slate_id)
+        (slate_id)
         (type)
         (data)
         )
@@ -256,23 +242,17 @@ FC_REFLECT( bts::blockchain::withdraw_with_multi_sig,
         (owners)
         (memo)
         )
-FC_REFLECT( bts::blockchain::withdraw_with_password,
-        (payee)
-        (payor)
-        (timeout)
-        (password_hash)
-        (memo)
-        )
-FC_REFLECT( bts::blockchain::withdraw_option,
-        (optionor)
-        (optionee)
-        (date)
-        (strike_price)
-        )
 FC_REFLECT( bts::blockchain::withdraw_with_escrow,
         (sender)
         (receiver)
         (escrow)
         (agreement_digest)
+        (memo)
+        )
+FC_REFLECT( bts::blockchain::withdraw_with_password,
+        (payee)
+        (payor)
+        (timeout)
+        (password_hash)
         (memo)
         )

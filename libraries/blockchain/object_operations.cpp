@@ -11,19 +11,21 @@ namespace bts { namespace blockchain {
     void set_object_operation::evaluate( transaction_evaluation_state& eval_state )
     { try {
         object_record obj;
-       
+
         if( this->id < 0 )
         {
             FC_ASSERT(! "unimplemented: set_object with negative id" );
         }
-        else if( this->id == 0 ) 
+        else if( this->id == 0 )
         {
+            ilog("@1 Object type: ${t}", ("t", this->obj.type()));
             auto next_id = eval_state._current_state->new_object_id(this->obj.type());
             obj = this->obj;
             obj.set_id( this->obj.type(), next_id );
+            ilog("@2 Object type: ${t}", ("t", this->obj.type()));
             switch( obj.type() )
             {
-                case( normal_object ):
+                case( base_object ):
                 case( edge_object ):
                 {
                     auto owners = eval_state._current_state->get_object_owners( obj );
@@ -47,7 +49,7 @@ namespace bts { namespace blockchain {
             auto owners = eval_state._current_state->get_object_owners( obj );
             switch( obj.type() )
             {
-                case( normal_object ):
+                case( base_object ):
                 case( edge_object ):
                 {
                     if( NOT eval_state.check_multisig( owners ) )
