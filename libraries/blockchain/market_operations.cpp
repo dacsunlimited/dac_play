@@ -16,7 +16,6 @@ namespace bts { namespace blockchain {
       if( this->bid_index.order_price == price() )
          FC_CAPTURE_AND_THROW( zero_price, (bid_index.order_price) );
 
-
       auto owner = this->bid_index.owner;
 
       auto base_asset_rec = eval_state._current_state->get_asset_record( bid_index.order_price.base_asset_id );
@@ -28,8 +27,7 @@ namespace bts { namespace blockchain {
       if( quote_asset_rec->is_restricted() )
          FC_ASSERT( eval_state._current_state->get_authorization( quote_asset_rec->id, owner ) );
 
-      bool issuer_override = quote_asset_rec->is_retractable() && eval_state.verify_authority( quote_asset_rec->authority );
-
+      const bool issuer_override = quote_asset_rec->is_retractable() && eval_state.verify_authority( quote_asset_rec->authority );
       if( !issuer_override && !eval_state.check_signature( owner ) )
          FC_CAPTURE_AND_THROW( missing_signature, (bid_index.owner) );
 
@@ -122,7 +120,6 @@ namespace bts { namespace blockchain {
       //auto check   = eval_state._current_state->get_bid_record( this->bid_index );
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
-
    /**
     *  If the amount is negative then it will withdraw/cancel the bid assuming
     *  it is signed by the owner and there is sufficient funds.
@@ -145,8 +142,7 @@ namespace bts { namespace blockchain {
       if( quote_asset_rec->is_restricted() )
          FC_ASSERT( eval_state._current_state->get_authorization( quote_asset_rec->id, owner ) );
 
-      bool issuer_override = base_asset_rec->is_retractable() && eval_state.verify_authority( base_asset_rec->authority );
-
+      const bool issuer_override = base_asset_rec->is_retractable() && eval_state.verify_authority( base_asset_rec->authority );
       if( !issuer_override && !eval_state.check_signature( owner ) )
          FC_CAPTURE_AND_THROW( missing_signature, (ask_index.owner) );
 
@@ -157,7 +153,6 @@ namespace bts { namespace blockchain {
       eval_state.validate_asset( delta_amount );
 
       auto current_ask   = eval_state._current_state->get_ask_record( this->ask_index );
-
 
       if( this->amount == 0 ) FC_CAPTURE_AND_THROW( zero_amount );
       if( this->amount <  0 ) // withdraw
@@ -213,7 +208,6 @@ namespace bts { namespace blockchain {
 
       auto current_ask   = eval_state._current_state->get_ask_record( this->ask_index );
 
-
       if( this->amount == 0 ) FC_CAPTURE_AND_THROW( zero_amount );
       if( this->amount <  0 ) // withdraw
       {
@@ -242,53 +236,53 @@ namespace bts { namespace blockchain {
       eval_state._current_state->store_relative_ask_record( this->ask_index, *current_ask );
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
     
-    balance_id_type  buy_chips_operation::balance_id()const
-    {
-        withdraw_condition condition(withdraw_with_signature( this->owner ), this->amount.asset_id);
-        return condition.get_address();
-    }
-    
-    void buy_chips_operation::evaluate( transaction_evaluation_state& eval_state )
-    { try {
-        if ( this->amount.amount == 0) {
-            FC_CAPTURE_AND_THROW( zero_amount );
-        }
-        
-        if( this->amount.amount < 0 )
-            FC_CAPTURE_AND_THROW( negative_deposit );
-        
-        auto  asset_to_buy = eval_state._current_state->get_asset_record( this->amount.asset_id );
+   balance_id_type  buy_chips_operation::balance_id()const
+   {
+       withdraw_condition condition(withdraw_with_signature( this->owner ), this->amount.asset_id);
+       return condition.get_address();
+   }
+   
+   void buy_chips_operation::evaluate( transaction_evaluation_state& eval_state )
+   { try {
+       if ( this->amount.amount == 0) {
+           FC_CAPTURE_AND_THROW( zero_amount );
+       }
+       
+       if( this->amount.amount < 0 )
+           FC_CAPTURE_AND_THROW( negative_deposit );
+       
+       auto  asset_to_buy = eval_state._current_state->get_asset_record( this->amount.asset_id );
 
-        FC_ASSERT( asset_to_buy.valid() );
-        // TODO: FC_ASSERT( asset_to_buy->is_chip_asset(), "${symbol} is not a chip asset", ("symbol",asset_to_buy->symbol) );
-        
-        double price = (asset_to_buy->current_collateral * 1.0) / asset_to_buy->current_share_supply;
-        share_type collateral_to_add = this->amount.amount * price;
-        
-        asset cost_shares( collateral_to_add, 0);
-        
-        eval_state.sub_balance( this->owner, cost_shares);
-        
-        // deposit amount of chips to the owner. and update the asset record's current collateral
-        
-        withdraw_condition condition( withdraw_with_signature( this->owner ), this->amount.asset_id);
-        
-        auto chips_balance_id = condition.get_address();
-        auto cur_record = eval_state._current_state->get_balance_record( chips_balance_id );
-        if( !cur_record )
-        {
-            cur_record = balance_record( condition );
-        }
-        cur_record->last_update   = eval_state._current_state->now();
-        cur_record->balance       += this->amount.amount;
-        // because this is system created from vitual, so no need to sub_balance
-        eval_state._current_state->store_balance_record( *cur_record );
-        
-        asset_to_buy->current_collateral += collateral_to_add;
-        asset_to_buy->current_share_supply += this->amount.amount;
-        // TODO: Dice, do we need to update the asset 0's current supply, no. Because it is just become the collateral of chips.
-        
-        eval_state._current_state->store_asset_record( *asset_to_buy );
-    } FC_CAPTURE_AND_RETHROW( (*this) ) }
+       FC_ASSERT( asset_to_buy.valid() );
+       // TODO: FC_ASSERT( asset_to_buy->is_chip_asset(), "${symbol} is not a chip asset", ("symbol",asset_to_buy->symbol) );
+       
+       double price = (asset_to_buy->current_collateral * 1.0) / asset_to_buy->current_share_supply;
+       share_type collateral_to_add = this->amount.amount * price;
+       
+       asset cost_shares( collateral_to_add, 0);
+       
+       eval_state.sub_balance( this->owner, cost_shares);
+       
+       // deposit amount of chips to the owner. and update the asset record's current collateral
+       
+       withdraw_condition condition( withdraw_with_signature( this->owner ), this->amount.asset_id);
+       
+       auto chips_balance_id = condition.get_address();
+       auto cur_record = eval_state._current_state->get_balance_record( chips_balance_id );
+       if( !cur_record )
+       {
+           cur_record = balance_record( condition );
+       }
+       cur_record->last_update   = eval_state._current_state->now();
+       cur_record->balance       += this->amount.amount;
+       // because this is system created from vitual, so no need to sub_balance
+       eval_state._current_state->store_balance_record( *cur_record );
+       
+       asset_to_buy->current_collateral += collateral_to_add;
+       asset_to_buy->current_share_supply += this->amount.amount;
+       // TODO: Dice, do we need to update the asset 0's current supply, no. Because it is just become the collateral of chips.
+       
+       eval_state._current_state->store_asset_record( *asset_to_buy );
+   } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
 } } // bts::blockchain

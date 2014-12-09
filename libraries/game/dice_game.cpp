@@ -194,7 +194,7 @@ namespace bts { namespace game {
                  }
                  break;
              }
-             case withdraw_multi_sig_type:
+             case withdraw_multisig_type:
              {
                  // TODO: FC_THROW( "withdraw_multi_sig_type not implemented!" );
                  break;
