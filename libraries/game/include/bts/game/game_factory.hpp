@@ -79,9 +79,10 @@ namespace bts { namespace game {
              FC_ASSERT( _converters.find( GameType::type ) == _converters.end(),
                         "Game ID already Registered ${id}", ("id",GameType::type) );
             _converters[GameType::type] = std::make_shared< game_converter<GameType> >();
-            game_executors::instance().register_game_executor([=](chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state) {
-                GameType::execute(blockchain, block_num, pending_state);
-            });
+
+            game_executors::instance().register_game_executor(
+                std::function<void( chain_database_ptr, uint32_t, const pending_chain_state_ptr&)>(GameType::execute)
+            );
           }
 
           void evaluate( transaction_evaluation_state& eval_state, const game& g )
