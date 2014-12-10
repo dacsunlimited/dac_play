@@ -9,7 +9,7 @@
 /** @file bts/blockchain/config.hpp
  *  @brief Defines global constants that determine blockchain behavior
  */
-#define BTS_BLOCKCHAIN_VERSION                              2
+#define BTS_BLOCKCHAIN_VERSION                              109
 #define BTS_BLOCKCHAIN_DATABASE_VERSION                     6
 
 /**
@@ -20,7 +20,7 @@
  */
 #define BTS_ADDRESS_PREFIX                                  "XTS"
 #define BTS_BLOCKCHAIN_SYMBOL                               "XTS"
-#define BTS_BLOCKCHAIN_NAME                                 "BitShares PLAY XTS"
+#define BTS_BLOCKCHAIN_NAME                                 "BitShares XTS"
 #define BTS_BLOCKCHAIN_DESCRIPTION                          "BitShares PLAY Test Network"
 
 #define BTS_BLOCKCHAIN_PRECISION                            100000
