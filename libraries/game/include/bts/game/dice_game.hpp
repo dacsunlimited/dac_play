@@ -22,6 +22,9 @@
  */
 #define NOT !
 
+#define BTS_BLOCKCHAIN_NUM_DICE                             (BTS_BLOCKCHAIN_NUM_DELEGATES / 10)
+#define BTS_BLOCKCHAIN_DICE_RANGE                           (100000000)
+
 namespace bts { namespace game {
     using namespace bts::blockchain;
     using namespace bts::wallet;

@@ -3208,6 +3208,9 @@ namespace detail {
         
         signed_transaction trx;
         unordered_set<address>     required_signatures;
+        
+        trx.expiration = blockchain::now() + get_transaction_expiration();
+        
         required_signatures.insert(order_address);
         
         auto required_fees = get_transaction_fee();
@@ -3242,8 +3245,7 @@ namespace detail {
 
         if( sign ) my->sign_transaction( trx, required_signatures );
         
-        // TODO: record.trx = trx;
-        // Move to transaction builder?
+        record.trx = trx;
 
         return record;
     } FC_CAPTURE_AND_RETHROW( (from_account_name)
