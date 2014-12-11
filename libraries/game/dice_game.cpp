@@ -3,6 +3,7 @@
 #include <bts/game/game_records.hpp>
 #include <bts/blockchain/chain_interface.hpp>
 #include <bts/blockchain/exceptions.hpp>
+#include <bts/blockchain/time.hpp>
 #include <bts/wallet/exceptions.hpp>
 
 
@@ -229,6 +230,8 @@ namespace bts { namespace game {
         // TODO: Now we have the assumption that the asset id equals the game id.
         signed_transaction     trx;
         unordered_set<address> required_signatures;
+        
+        trx.expiration = now() + w->get_transaction_expiration();
         
         // TODO: adjust fee based upon blockchain price per byte and
         // the size of trx... 'recursively'

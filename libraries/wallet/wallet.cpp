@@ -3169,7 +3169,6 @@ namespace detail {
            FC_CAPTURE_AND_THROW( unknown_asset_symbol, (symbol) );
        
        auto record =bts::game::game_factory::instance().play(chip_asset_record->id, my->_blockchain, shared_from_this(), params, sign);
-       record.trx.expiration = blockchain::now() + get_transaction_expiration();
        
        return record;
        
@@ -3213,6 +3212,8 @@ namespace detail {
         signed_transaction trx;
         unordered_set<address>     required_signatures;
         
+        trx.expiration = blockchain::now() + get_transaction_expiration();
+        
         required_signatures.insert(order_address);
         
         auto required_fees = get_transaction_fee();
@@ -3247,7 +3248,6 @@ namespace detail {
 
         if( sign ) my->sign_transaction( trx, required_signatures );
         
-        trx.expiration = blockchain::now() + get_transaction_expiration();
         record.trx = trx;
 
         return record;
