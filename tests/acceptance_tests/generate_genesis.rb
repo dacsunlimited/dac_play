@@ -2,15 +2,13 @@
 
 require 'json'
 
-raise 'BTS_BUILD env variable is not set' unless ENV['BTS_BUILD']
+ENV['BTS_BUILD'] = '../..' unless ENV['BTS_BUILD']
 @create_key_binary = ENV['BTS_BUILD'] + '/programs/utils/bts_create_key'
 
 def create_key
-  keys = `#{@create_key_binary}`.split("\n")
-  public_key = /: (\w+)/.match(keys[0])[1]
-  private_key = /: (\w+)/.match(keys[2])[1]
-  pts_key = /: (\w+)/.match(keys[4])[1]
-  return public_key, private_key, pts_key
+  keys = JSON.parse `#{@create_key_binary}`
+
+  return keys["public_key"], keys["private_key"], keys["pts_address"]
 end
 
 delegate_keys = []

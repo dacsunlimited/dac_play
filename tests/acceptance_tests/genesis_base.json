@@ -5,63 +5,23 @@
     "base_name": "BitShares XTS",
     "base_symbol": "XTS",
     "base_description": "Test stake in BitShares XTS",
-    "market_assets": [
-        {
-            "symbol": "PTS",
-            "name": "BitShares PTS",
-            "description": "1 PTS",
-            "precision": 100000000,
-            "min_price": 0.000001,
-            "max_price": 1000000
-        },
-        {
-            "symbol": "LTC",
-            "name": "Litecoin",
-            "description": "1 litecoin",
-            "precision": 100000000,
-            "min_price": 0.000001,
-            "max_price": 1000000
-        },
-        {
-            "symbol": "BTC",
-            "name": "Bitcoin",
-            "description": "1 bitcoin",
-            "precision": 100000000,
-            "min_price": 0.000001,
-            "max_price": 1000000
-        },
-        {
-            "symbol": "GLD",
-            "name": "Gold",
-            "description": "1 troy ounce .999 fine gold",
-            "precision": 1000000,
-            "min_price": 0.000001,
-            "max_price": 1000000
-        },
-        {
-            "symbol": "TRY",
-            "name": "Turkish Lira",
-            "description": "1 Turkish lira",
-            "precision": 10000,
-            "min_price": 0.000001,
-            "max_price": 1000000
-        },
-        {
-            "symbol": "CNY",
-            "name": "Chinese Yuan",
-            "description": "1 Chinese yuan",
-            "precision": 10000,
-            "min_price": 0.000001,
-            "max_price": 1000000
-        },
-        {
-            "symbol": "USD",
-            "name": "United States Dollar",
-            "description": "1 United States dollar",
-            "precision": 10000,
-            "min_price": 0.000001,
-            "max_price": 1000000
-        }
+    "chip_assets": [
+    {
+        "symbol": "DICE",
+        "name": "Dice Game",
+        "description": "The chips of dice game",
+        "precision": 100,
+        "init_supply": 10000,
+        "init_collateral": 1000
+    },
+    {
+        "symbol": "BET",
+        "name": "BET Game",
+        "description": "The chips of one two players counterparty betting game",
+        "precision": 100,
+        "init_supply": 10000,
+        "init_collateral": 1000
+    }
     ],
     "names": [
         {
