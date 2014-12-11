@@ -3,9 +3,8 @@
 #include <bts/game/game_records.hpp>
 #include <bts/blockchain/chain_interface.hpp>
 #include <bts/blockchain/exceptions.hpp>
+#include <bts/blockchain/time.hpp>
 #include <bts/wallet/exceptions.hpp>
-
-
 
 namespace bts { namespace game {
     using namespace bts::blockchain;
@@ -18,6 +17,7 @@ namespace bts { namespace game {
     
     bts::blockchain::address dice_game::owner()const
     {
+        // TODO: Only support withdraw signature for now
         if( condition.type == bts::blockchain::withdraw_signature_type )
             return condition.as<bts::blockchain::withdraw_with_signature>().owner;
         return bts::blockchain::address();
@@ -29,7 +29,7 @@ namespace bts { namespace game {
         amount = amnt;
         odds = o;
         guess = g;
-        // TODO: Dice specify the slate_id, if slate_id is added make sure the one in scan_jackpot_transaction is updated too.
+        // TODO: Dice specify the slate_id, if slate_id is added make sure the one in scan_game_transaction is updated too.
         condition = bts::blockchain::withdraw_condition( bts::blockchain::withdraw_with_signature( owner ), 1);
     }
     
@@ -48,8 +48,6 @@ namespace bts { namespace game {
         auto cur_record = eval_state._current_state->get_generic_game_record( eval_state.trx.id()._hash[0] );
         if( cur_record )
             FC_CAPTURE_AND_THROW( duplicate_dice_in_transaction, ( eval_state.trx.id() ) );
-        
-        
         
         game_dice_record cur_data;
         
@@ -86,7 +84,7 @@ namespace bts { namespace game {
         
         share_type shares_destroyed = 0;
         share_type shares_created = 0;
-        vector<jackpot_transaction> jackpot_transactions;
+        vector<game_transaction> game_transactions;
         for( const auto& trx : block_of_dice.user_transactions )
         {
             auto id = trx.id();
@@ -129,18 +127,18 @@ namespace bts { namespace game {
                 // remove the dice_record from pending state after execute the jackpot
                 pending_state->store_generic_game_record(id._hash[0], game_record->make_null());
                 
-                jackpot_transaction jackpot_trx;
+                game_transaction jackpot_trx;
                 jackpot_trx.play_owner = d_data.owner;
                 jackpot_trx.jackpot_owner = d_data.owner;
                 jackpot_trx.play_amount = d_data.amount;
                 jackpot_trx.jackpot_received = jackpot;
                 jackpot_trx.odds = d_data.odds;
                 jackpot_trx.lucky_number = (lucky_number / range) + 1;
-                jackpot_transactions.push_back(jackpot_trx);
+                game_transactions.push_back(jackpot_trx);
             }
         }
         
-        pending_state->set_jackpot_transactions( std::move( jackpot_transactions ) );
+        pending_state->set_game_transactions( std::move( game_transactions ) );
         
         // TODO: Dice what if the accumulated_fees become negetive which is possible in theory
         // const auto prev_accumulated_fees = pending_state->get_accumulated_fees();
@@ -229,6 +227,8 @@ namespace bts { namespace game {
         // TODO: Now we have the assumption that the asset id equals the game id.
         signed_transaction     trx;
         unordered_set<address> required_signatures;
+        
+        trx.expiration = now() + w->get_transaction_expiration();
         
         // TODO: adjust fee based upon blockchain price per byte and
         // the size of trx... 'recursively'

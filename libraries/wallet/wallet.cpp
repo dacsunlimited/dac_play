@@ -3168,7 +3168,10 @@ namespace detail {
        if( NOT chip_asset_record )
            FC_CAPTURE_AND_THROW( unknown_asset_symbol, (symbol) );
        
-       return bts::game::game_factory::instance().play(chip_asset_record->id, my->_blockchain, shared_from_this(), params, sign);
+       auto record =bts::game::game_factory::instance().play(chip_asset_record->id, my->_blockchain, shared_from_this(), params, sign);
+       
+       return record;
+       
    } FC_RETHROW_EXCEPTIONS( warn, "",
                             ( "prams", params) ) }
     

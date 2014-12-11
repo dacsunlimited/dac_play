@@ -1,6 +1,8 @@
 BitShares Mac OS X Build Instructions
 ===============================
 
+0. Old guide: https://github.com/bitsuperlab/bitshares_play/blob/game_layer/BUILD_OSX.md
+
 1. Install XCode and its command line tools by following the instructions here: https://guide.macports.org/#installing.xcode
 
 2. Install Homebrew by following the instructions here: http://brew.sh/
