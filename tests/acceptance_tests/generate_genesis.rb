@@ -8,7 +8,7 @@ ENV['BTS_BUILD'] = '../..' unless ENV['BTS_BUILD']
 def create_key
   keys = JSON.parse `#{@create_key_binary}`
 
-  return keys["public_key"], keys["private_key"], keys["pts_address"]
+  return keys["public_key"], keys["wif_private_key"], keys["pts_address"]
 end
 
 delegate_keys = []
