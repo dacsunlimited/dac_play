@@ -94,7 +94,7 @@ namespace bts { namespace blockchain {
              FC_CAPTURE_AND_THROW( new_database_version, (database_version)(BTS_BLOCKCHAIN_DATABASE_VERSION) );
           }
           _market_transactions_db.open( data_dir / "index/market_transactions_db" );
-          _jackpot_transactions_db.open( data_dir / "index/jackpot_transactions_db" );
+          _game_transactions_db.open( data_dir / "index/game_transactions_db" );
           _fork_number_db.open( data_dir / "index/fork_number_db" );
           _fork_db.open( data_dir / "index/fork_db" );
           _slate_db.open( data_dir / "index/slate_db" );
@@ -1281,7 +1281,7 @@ namespace bts { namespace blockchain {
       my->_game_db.close();
 
       my->_market_transactions_db.close();
-      my->_jackpot_transactions_db.close();
+      my->_game_transactions_db.close();
 
       my->_object_db.close();
       my->_edge_index.close();
@@ -2925,23 +2925,23 @@ namespace bts { namespace blockchain {
       return vector<market_transaction>();
    }
     
-    void chain_database::set_jackpot_transactions( vector<jackpot_transaction> trxs )
+    void chain_database::set_game_transactions( vector<game_transaction> trxs )
     {
         if( trxs.size() == 0 )
         {
-            my->_jackpot_transactions_db.remove( get_head_block_num()+1 );
+            my->_game_transactions_db.remove( get_head_block_num()+1 );
         }
         else
         {
-            my->_jackpot_transactions_db.store( get_head_block_num()+1, trxs );
+            my->_game_transactions_db.store( get_head_block_num()+1, trxs );
         }
     }
     
-    vector<jackpot_transaction> chain_database::get_jackpot_transactions( uint32_t block_num  )const
+    vector<game_transaction> chain_database::get_game_transactions( uint32_t block_num  )const
     {
-        auto tmp = my->_jackpot_transactions_db.fetch_optional(block_num);
+        auto tmp = my->_game_transactions_db.fetch_optional(block_num);
         if( tmp ) return *tmp;
-        return vector<jackpot_transaction>();
+        return vector<game_transaction>();
     }
 
    vector<order_history_record> chain_database::market_order_history(asset_id_type quote,

@@ -40,9 +40,9 @@ namespace bts { namespace blockchain {
         fc::variant                                      data;
     };
     
-    struct jackpot_transaction
+    struct game_transaction
     {
-        jackpot_transaction(){}
+        game_transaction(){}
         
         address                                   play_owner;
         address                                   jackpot_owner;
@@ -60,8 +60,8 @@ FC_REFLECT( bts::blockchain::generic_game_record,
            (type)
            (data)
            )
-FC_REFLECT_TYPENAME( std::vector<bts::blockchain::jackpot_transaction> )
-FC_REFLECT( bts::blockchain::jackpot_transaction,
+FC_REFLECT_TYPENAME( std::vector<bts::blockchain::game_transaction> )
+FC_REFLECT( bts::blockchain::game_transaction,
            (play_owner)
            (jackpot_owner)
            (play_amount)

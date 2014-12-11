@@ -108,7 +108,7 @@ namespace bts { namespace blockchain {
           
             bts::db::level_map< int32_t, generic_game_record >                          _game_db;
 
-            bts::db::level_map<uint32_t, std::vector<jackpot_transaction> >             _jackpot_transactions_db;
+            bts::db::level_map<uint32_t, std::vector<game_transaction> >                _game_transactions_db;
 
             /** the data required to 'undo' the changes a block made to the database */
             bts::db::level_map<block_id_type,pending_chain_state>                       _undo_state_db;

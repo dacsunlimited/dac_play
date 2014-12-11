@@ -119,7 +119,7 @@ namespace bts { namespace blockchain {
          virtual uint32_t               get_head_block_num()const override;
 
          virtual void                   set_market_transactions( vector<market_transaction> trxs )override;
-         virtual void                   set_jackpot_transactions( vector<jackpot_transaction> trxs ) override;
+         virtual void                   set_game_transactions( vector<game_transaction> trxs ) override;
 
          /**
           *  This is a pass through method that goes stright to chain database whether or not transaction ID is valid
@@ -128,7 +128,7 @@ namespace bts { namespace blockchain {
 
          // NOTE: this isn't really part of the chain state, but more part of the block state
          vector<market_transaction>                                     market_transactions;
-         vector<jackpot_transaction>                                    jackpot_transactions;
+         vector<game_transaction>                                       game_transactions;
 
          unordered_map< asset_id_type, asset_record>                       assets;
          unordered_map< slate_id_type, delegate_slate>                     slates;
