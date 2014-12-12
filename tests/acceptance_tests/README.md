@@ -14,8 +14,9 @@ On **Linux** I recommend to use rvm to install Ruby, here is how to do this on U
   $ curl -L https://get.rvm.io | bash -s stable
   $ source ~/.rvm/scripts/rvm
   $ echo "source ~/.rvm/scripts/rvm" >> ~/.bashrc
-  $ rvm install 2.1.3
-  $ rvm use 2.1.3 --default
+  $ rvm install 2.1
+  $ rvm use 2.1 --default
+  $ rvm use 2.1@play --create
 ```
 
 If you are installing as a non-root user and the `rvm install` command prompts you for the root password, try the following command:
@@ -33,30 +34,34 @@ On **OS X** you can install it via brew:
 
 On **Windows** (not tested) you can use RubyInstaller http://rubyinstaller.org
 
-  
+
 **After you installed Ruby, install bundler gem:**
 ```bash
   $ gem install bundler
 ```
 
 Now you can install all dependencies by typing 'bundle' inside acceptance_tests dir.
- 
+```bash
+  $ bundle
+```
+
+
 If you are using out of source builds, you need to define BTS_BUILD environment variable pointing to your bitshares build directory, e.g.:
 ```bash
   $ export BTS_BUILD=/home/user/bitshares/build
 ```
-  
+
 ## Usage
-  
+
 Run the tests (features) via 'cucumber' command:
 ```bash
   $ cucumber
-```  
+```
 
 Or you can specify a feature to run:
 ```bash
   $ cucumber features/market.feature
-```  
+```
 
 Or tag (this can be any word that starts with @ sing and placed before scenario), e.g.:
 ```bash
@@ -68,13 +73,13 @@ Or tag (this can be any word that starts with @ sing and placed before scenario)
 Testnet is being recreated from scratch before each scenario, so each scenario starts within a clean state.
 
 The first run can take a little bit longer because it bootstraps the test net, next runs will much faster because it resets the state by restoring wallets from backup rather recreating everything from scratch.
-  
+
 If you want to pause scenarios execution and keep testnet running after scenario to inspect the nodes via http rpc, insert @pause tag before scenario.
 
-In order to access the nodes via web wallet you need to create htdocs symlink to web_wallet/generated or to web_wallet/build, e.g. 
+In order to access the nodes via web wallet you need to create htdocs symlink to web_wallet/generated or to web_wallet/build, e.g.
 
   $ ln -s ../web_wallet/generated htdocs
-  
+
 And open http://localhost:5690 (or 5691/5692) in your browser.
 
 * RPC username and password: user pass
