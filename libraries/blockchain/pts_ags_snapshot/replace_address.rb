@@ -47,7 +47,10 @@ PbXSuic9B1iEmgMiWqW93cdXFvPQsHXdUc => PfSQYEJYKN3YTmk74BwXy6fk2StTJczaQw
 PitE7xxJvjzkVcs6BT5yRxV55YJqgFrhCU => PfSQYEJYKN3YTmk74BwXy6fk2StTJczaQw
 EOF
 
+# copy file
+`cp #{input_file} #{output_file}`
+# run replacement
 replacements.split("\n").each do |line|
   old_addr, new_addr = line.split(/\s*=>\s*/)
-  `sed 's/#{old_addr}/#{new_addr}/g' #{input_file} > #{output_file}`
+  `sed 's/#{old_addr}/#{new_addr}/g' #{output_file} > tmp_file && mv tmp_file #{output_file}`
 end
