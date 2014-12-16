@@ -1,5 +1,12 @@
 #!/usr/bin/env ruby
 
+# RESULT
+# bts: 69999999398775 vs 70000000000000 [diff: -601225]
+# ags: 19999999995125 vs 20000000000000 [diff: -4875]
+# pts: 19999999977410 vs 20000000000000 [diff: -22590]
+#
+# diff due to rounding issue, within acceptable range
+
 require 'json'
 
 COIN = 100_000
