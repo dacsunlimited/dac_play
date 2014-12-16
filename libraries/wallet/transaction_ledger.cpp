@@ -75,34 +75,7 @@ void wallet_impl::scan_market_transaction(
                 || mtrx.bid_received.asset_id != 0
                 || mtrx.bid_paid.amount != 0 )
             {
-                {
-                    auto entry = ledger_entry();
-                    entry.from_account = okey_bid->public_key;
-                    entry.to_account = okey_bid->public_key;
-                    if( mtrx.short_collateral.valid() )
-                        entry.amount = *mtrx.short_collateral;
-                    else
-                        entry.amount = mtrx.bid_received;
-                    entry.memo = "add collateral";
-                    record.ledger_entries.push_back( entry );
-                }
-                {
-                    auto entry = ledger_entry();
-                    //entry.from_account = "MARKET";
-                    entry.to_account =  okey_bid->public_key;
-                    entry.amount = mtrx.ask_paid;
-                    entry.memo = "add collateral";
-                    record.ledger_entries.push_back( entry );
-                }
-                {
-                    auto entry = ledger_entry();
-                    entry.from_account = okey_bid->public_key;
-                    //entry.to_account = "MARKET";
-                    entry.amount = mtrx.bid_paid;
-                    entry.memo = "short proceeds @ " + _blockchain->to_pretty_price( mtrx.bid_price );
-                    record.ledger_entries.push_back( entry );
-                    self->update_margin_position( entry );
-                }
+                FC_ASSERT( false, "This is a short order!" );
             }
             else /* Automatic market cancel */
             {
@@ -167,33 +140,7 @@ void wallet_impl::scan_market_transaction(
         }
         else /* if( mtrx.ask_type == cover_order ) */
         {
-            {
-                auto entry = ledger_entry();
-                entry.from_account = okey_ask->public_key;
-                //entry.to_account = "MARKET";
-                entry.amount = mtrx.ask_paid;
-                entry.memo = "sell collateral @ " + _blockchain->to_pretty_price( mtrx.ask_price );
-                record.ledger_entries.push_back( entry );
-            }
-            {
-                auto entry = ledger_entry();
-                //entry.from_account = "MARKET";
-                entry.to_account = okey_ask->public_key;
-                entry.amount = mtrx.ask_received;
-                entry.memo = "payoff debt @ " + _blockchain->to_pretty_price( mtrx.ask_price );
-                record.ledger_entries.push_back( entry );
-            }
-            if( mtrx.returned_collateral.valid() )
-            {
-                auto entry = ledger_entry();
-                entry.from_account = okey_ask->public_key;
-                entry.to_account = ask_account_key->public_key;
-                entry.amount = *mtrx.returned_collateral;
-                entry.memo = "cover proceeds";
-                record.ledger_entries.push_back( entry );
-                self->wallet_claimed_transaction( entry );
-                record.fee = mtrx.fees_collected;
-            }
+            FC_ASSERT( false, "This is a cover order!" );
         }
 
         _wallet_db.store_transaction( record );

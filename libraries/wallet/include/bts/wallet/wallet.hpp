@@ -39,7 +39,7 @@ namespace bts { namespace wallet {
          //Emitted when wallet claims a new transaction. Argument is new ledger entry.
          fc::signal<void( ledger_entry )> wallet_claimed_transaction;
          //Emitted when someone (partially or fully) fills your short, thereby giving you a margin position
-         fc::signal<void( ledger_entry )> update_margin_position;
+         //fc::signal<void( ledger_entry )> update_margin_position;
 
          /**
           *  Wallet File Management
