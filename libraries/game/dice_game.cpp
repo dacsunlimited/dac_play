@@ -1,6 +1,6 @@
 #include <bts/game/dice_game.hpp>
 #include <bts/game/game_operations.hpp>
-#include <bts/game/game_records.hpp>
+#include <bts/game/rule_record.hpp>
 #include <bts/blockchain/chain_interface.hpp>
 #include <bts/blockchain/exceptions.hpp>
 #include <bts/blockchain/time.hpp>
@@ -49,7 +49,7 @@ namespace bts { namespace game {
         if( cur_record )
             FC_CAPTURE_AND_THROW( duplicate_dice_in_transaction, ( eval_state.trx.id() ) );
         
-        game_dice_record cur_data;
+        rule_dice_record cur_data;
         
         // this does not means the balance are now stored in balance record, just over pass the api
         // the dice record are not in any balance record, they are over-fly-on-sky..
@@ -91,7 +91,7 @@ namespace bts { namespace game {
             auto game_record = blockchain->get_generic_game_record(id._hash[0]);
             
             if ( !!game_record ) {
-                auto d_data = game_record->as<game_dice_record>();
+                auto d_data = game_record->as<rule_dice_record>();
                 
                 uint32_t dice_random_num = id._hash[0];
                 

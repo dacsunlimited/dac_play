@@ -524,16 +524,26 @@ namespace bts { namespace wallet {
                  const vector<std::pair<order_type_enum,vector<string>>>& new_orders,
                  bool sign
                  );
-
+       
+         wallet_transaction_record create_game(
+                                                     const string& symbol,
+                                                     const string& game_name,
+                                                     const string& description,
+                                                     const variant& data,
+                                                     const string& issuer_account_name,
+                                                     const string& asset_symbol,
+                                                     uint32_t rule_id,
+                                                       bool sign );
+       
          wallet_transaction_record play_game( const string& symbol,
-                 const variant& params,
-                 bool sign = true );
+                                           const variant& params,
+                                           bool sign );
        
          wallet_transaction_record buy_chips(
                  const string& from_account_name,
                  double real_quantity,
                  const string& quantity_symbol,
-                 bool sign = true
+                 bool sign
                  );
 
          ///@} Transaction Generation Methods

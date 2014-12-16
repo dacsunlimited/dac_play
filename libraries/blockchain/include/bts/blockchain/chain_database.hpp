@@ -265,6 +265,7 @@ namespace bts { namespace blockchain {
                                                                 uint32_t limit = -1, order_type_enum type = null_order )const;
 
          void                               scan_assets( function<void( const asset_record& )> callback )const;
+         void                               scan_games( function<void( const game_record& )> callback )const;
          void                               scan_balances( function<void( const balance_record& )> callback )const;
          void                               scan_accounts( function<void( const account_record& )> callback )const;
          void                               scan_objects( function<void( const object_record& )> callback )const;
@@ -284,10 +285,15 @@ namespace bts { namespace blockchain {
 
          virtual oasset_record              get_asset_record( const string& symbol )const override;
          virtual oaccount_record            get_account_record( const string& name )const override;
+       
+         virtual ogame_record               get_game_record( const game_id_type& id )const override;
+         virtual ogame_record               get_game_record( const string& symbol )const override;
 
          virtual void                       store_asset_record( const asset_record& r )override;
          virtual void                       store_balance_record( const balance_record& r )override;
          virtual void                       store_account_record( const account_record& r )override;
+         virtual void                       store_game_record( const game_record& r )override;
+       
          virtual void                       store_generic_game_record(uint32_t id, const generic_game_record& r )override;
 
          virtual vector<operation>          get_recent_operations( operation_type_enum t )override;

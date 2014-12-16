@@ -1602,5 +1602,5 @@ void wallet_impl::scan_game_transaction(const game_transaction& gtrx,
 
 bool wallet_impl::scan_game( const game_operation& op, wallet_transaction_record& trx_rec )
 {
-    return bts::game::game_factory::instance().scan(op.game, trx_rec, self->shared_from_this() );
+    return bts::game::game_factory::instance().scan(op.rule, trx_rec, self->shared_from_this() );
 }

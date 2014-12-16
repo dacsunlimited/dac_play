@@ -5,6 +5,36 @@
 
 namespace bts { namespace blockchain {
     
+    struct game_record
+    {
+        enum
+        {
+            god_issuer_id     =  0,
+            null_issuer_id    = -1
+        };
+        
+        game_record make_null()const;
+        bool is_null()const               { return issuer_account_id == null_issuer_id; };
+        
+        bool is_user_issued()const        { return issuer_account_id > god_issuer_id; };
+        
+        game_id_type        id;
+        std::string         symbol;
+        std::string         name;
+        std::string         description;
+        fc::variant         public_data;
+        account_id_type     issuer_account_id;
+        asset_id_type       asset_id;
+        rule_id_type        rule_id;
+        fc::time_point_sec  registration_date;
+        fc::time_point_sec  last_update;
+        
+        /** reserved for future extensions */
+        vector<char>        reserved;
+    };
+    typedef fc::optional<game_record> ogame_record;
+    
+    // TODO: Rename to generic_rule_record
     struct generic_game_record
     {
         generic_game_record():type(0){}
@@ -55,6 +85,19 @@ namespace bts { namespace blockchain {
     typedef fc::optional<generic_game_record> ogeneric_game_record;
     
 } } // bts::blockchain
+
+FC_REFLECT( bts::blockchain::game_record,
+           (id)
+           (symbol)
+           (name)
+           (description)
+           (public_data)
+           (issuer_account_id)
+           (asset_id)
+           (rule_id)
+           (registration_date)
+           (last_update)
+           )
 
 FC_REFLECT( bts::blockchain::generic_game_record,
            (type)

@@ -724,8 +724,24 @@ wallet_transaction_record detail::client_impl::wallet_asset_issue(
   network_broadcast_transaction( record.trx );
   return record;
 }
+    
+wallet_transaction_record detail::client_impl::wallet_game_create(
+                                                                  const std::string& symbol,
+                                                                  const std::string& game_name,
+                                                                  const std::string& issuer_name,
+                                                                  const std::string& asset_symbol,
+                                                                  uint32_t rule_id,
+                                                                  const std::string& description,
+                                                                  const fc::variant& public_data /* = fc::json::from_string("null").as<fc::variant>() */ )
+{
+   auto record = _wallet->create_game( symbol, game_name, description, public_data, issuer_name,
+                                            asset_symbol, rule_id, true );
+   _wallet->cache_transaction( record );
+   network_broadcast_transaction( record.trx );
+   return record;
+}
 
-wallet_transaction_record detail::client_impl::wallet_play_game(const std::string& asset_symbol, const fc::variant& param )
+wallet_transaction_record detail::client_impl::wallet_game_play(const std::string& asset_symbol, const fc::variant& param )
 {
     auto record = _wallet->play_game(asset_symbol, param, true);
     _wallet->cache_transaction(record);

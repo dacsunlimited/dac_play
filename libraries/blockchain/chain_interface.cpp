@@ -130,6 +130,18 @@ namespace bts { namespace blockchain {
       set_property( chain_property_enum::last_asset_id, next_id );
       return next_id;
    }
+    
+    game_id_type chain_interface::last_game_id()const
+    {
+        return get_property( chain_property_enum::last_game_id ).as<game_id_type>();
+    }
+    
+    game_id_type chain_interface::new_game_id()
+    {
+        auto next_id = last_game_id() + 1;
+        set_property( chain_property_enum::last_game_id, next_id );
+        return next_id;
+    }
 
    account_id_type chain_interface::last_account_id()const
    {

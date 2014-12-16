@@ -36,6 +36,7 @@ namespace bts { namespace blockchain {
          virtual obalance_record        get_balance_record( const balance_id_type& id )const override;
          virtual oaccount_record        get_account_record( const account_id_type& id )const override;
          virtual oaccount_record        get_account_record( const address& owner )const override;
+         virtual ogame_record           get_game_record( const game_id_type& id )const override;
          virtual ogeneric_game_record   get_generic_game_record( uint32_t id )const override;
 
          virtual odelegate_slate        get_delegate_slate( slate_id_type id )const override;
@@ -48,6 +49,7 @@ namespace bts { namespace blockchain {
 
          virtual oasset_record          get_asset_record( const string& symbol )const override;
          virtual oaccount_record        get_account_record( const string& name )const override;
+         virtual ogame_record           get_game_record( const string& symbol )const override;
 
          virtual omarket_status         get_market_status( const asset_id_type& quote_id, const asset_id_type& base_id )override;
          virtual void                   store_market_status( const market_status& s ) override;
@@ -67,6 +69,7 @@ namespace bts { namespace blockchain {
          virtual void                   store_asset_record( const asset_record& r )override;
          virtual void                   store_balance_record( const balance_record& r )override;
          virtual void                   store_account_record( const account_record& r )override;
+         virtual void                   store_game_record( const game_record& r )override;
          virtual void                   store_generic_game_record( uint32_t id, const generic_game_record& r )override;
 
          virtual vector<operation>      get_recent_operations( operation_type_enum t )override;
@@ -136,6 +139,7 @@ namespace bts { namespace blockchain {
          unordered_map< balance_id_type, balance_record>                   balances;
          unordered_map< string, account_id_type>                           account_id_index;
          unordered_map< string, asset_id_type>                             symbol_id_index;
+         unordered_map< string, game_id_type>                              game_symbol_id_index;
          unordered_map< transaction_id_type, transaction_record>           transactions;
          unordered_map< chain_property_type, variant>                      properties;
          unordered_map<address, account_id_type>                           key_to_account;
@@ -162,7 +166,9 @@ namespace bts { namespace blockchain {
 
          chain_interface_weak_ptr                                          _prev_state;
 
-         unordered_map< uint32_t, generic_game_record>                     games;
+         unordered_map< uint32_t, generic_game_record>                     rules;
+       
+         unordered_map< game_id_type, game_record>                         games;
    };
 
    typedef std::shared_ptr<pending_chain_state> pending_chain_state_ptr;
@@ -170,7 +176,7 @@ namespace bts { namespace blockchain {
 } } // bts::blockchain
 
 FC_REFLECT( bts::blockchain::pending_chain_state,
-            (assets)(slates)(accounts)(balances)(account_id_index)(symbol_id_index)(transactions)
+            (assets)(slates)(accounts)(balances)(account_id_index)(symbol_id_index)(game_symbol_id_index)(transactions)
             (properties)(bids)(asks)(slots)
             (market_statuses)(feeds)(objects)(burns)(relative_bids)(relative_asks)(_dirty_markets)
             (authorizations)(asset_proposals)

@@ -13,7 +13,7 @@ namespace bts { namespace game {
     void game_operation::evaluate( transaction_evaluation_state& eval_state )
     { try {
         
-        game_factory::instance().evaluate( eval_state, game );
+        game_factory::instance().evaluate( eval_state, rule );
 
     } FC_CAPTURE_AND_RETHROW( (*this) ) }
 

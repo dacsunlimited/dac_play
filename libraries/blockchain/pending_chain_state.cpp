@@ -80,11 +80,13 @@ namespace bts { namespace blockchain {
       }
       for( const auto& item : burns ) prev_state->store_burn_record( burn_record(item.first,item.second) );
       for( const auto& item : objects ) prev_state->store_object_record( item.second );
+       
+       for( const auto& item : games )          prev_state->store_game_record( item.second );
       prev_state->set_market_transactions( market_transactions );
 
       prev_state->set_dirty_markets(_dirty_markets);
 
-      for ( const auto& item : games )          prev_state->store_generic_game_record(item.first, item.second);
+      for ( const auto& item : rules )          prev_state->store_generic_game_record(item.first, item.second);
       prev_state->set_market_transactions( market_transactions );
       prev_state->set_game_transactions( game_transactions );
    }
@@ -231,11 +233,18 @@ namespace bts { namespace blockchain {
 
       /* NOTE: Recent operations are currently not rewound on undo */
 
-      for ( const auto& item : games ) {
+      for ( const auto& item : rules ) {
           auto prev_value = prev_state->get_generic_game_record(item.first);
           if (prev_value) undo_state->store_generic_game_record(item.first, *prev_value);
           else undo_state->store_generic_game_record(item.first, item.second.make_null() );
       }
+       
+       for( const auto& item :  games)
+       {
+           auto prev_value = prev_state->get_game_record( item.first );
+           if( !!prev_value ) undo_state->store_game_record( *prev_value );
+           else undo_state->store_game_record( item.second.make_null() );
+       }
    }
 
    /** load the state from a variant */
@@ -273,6 +282,28 @@ namespace bts { namespace blockchain {
         return prev_state->get_asset_record( symbol );
       return oasset_record();
    }
+    
+    ogame_record pending_chain_state::get_game_record( const game_id_type& game_id )const
+    {
+        chain_interface_ptr prev_state = _prev_state.lock();
+        auto itr = games.find( game_id );
+        if( itr != games.end() )
+            return itr->second;
+        else if( prev_state )
+            return prev_state->get_game_record( game_id );
+        return ogame_record();
+    }
+    
+    ogame_record pending_chain_state::get_game_record( const std::string& symbol )const
+    {
+        chain_interface_ptr prev_state = _prev_state.lock();
+        auto itr = game_symbol_id_index.find( symbol );
+        if( itr != game_symbol_id_index.end() )
+            return get_game_record( itr->second );
+        else if( prev_state )
+            return prev_state->get_game_record( symbol );
+        return ogame_record();
+    }
 
    obalance_record pending_chain_state::get_balance_record( const balance_id_type& balance_id )const
    {
@@ -333,8 +364,8 @@ namespace bts { namespace blockchain {
     ogeneric_game_record pending_chain_state::get_generic_game_record( uint32_t id )const
     {
         chain_interface_ptr prev_state = _prev_state.lock();
-        auto itr = games.find( id );
-        if( itr != games.end() )
+        auto itr = rules.find( id );
+        if( itr != rules.end() )
             return itr->second;
         else if( prev_state )
             return prev_state->get_generic_game_record( id );
@@ -346,9 +377,14 @@ namespace bts { namespace blockchain {
       assets[r.id] = r;
    }
     
+    void pending_chain_state::store_game_record( const game_record& r )
+    {
+        games[r.id] = r;
+    }
+    
    void pending_chain_state::store_generic_game_record( uint32_t id, const generic_game_record& r )
    {
-      games[id] = r;
+      rules[id] = r;
    }
 
    void pending_chain_state::store_balance_record( const balance_record& r )

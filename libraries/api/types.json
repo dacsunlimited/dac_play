@@ -406,6 +406,12 @@
         "default_example" : "XTS"
       },
       {
+          "type_name" : "game_symbol",
+          "cpp_return_type" : "std::string",
+          "cpp_include_file" : "string",
+          "default_example" : "GAME"
+      },
+      {
         "type_name" : "invoice_summary",
         "cpp_return_type" : "bts::wallet::invoice_summary",
         "cpp_include_file" : "bts/wallet/wallet.hpp",
