@@ -34,20 +34,20 @@ namespace bts { namespace blockchain {
     };
     typedef fc::optional<game_record> ogame_record;
     
-    // TODO: Rename to generic_rule_record
-    struct generic_game_record
+    struct rule_data_record
     {
-        generic_game_record():type(0){}
+        rule_data_record():type(0){}
         
         template<typename RecordType>
-        generic_game_record( const RecordType& rec )
+        rule_data_record( const RecordType& rec )
         :type( int(RecordType::type) ),data(rec)
         { }
         
         template<typename RecordType>
         RecordType as()const;
         
-        int32_t get_game_record_index()const
+        // TODO: Figure out what following index used for
+        int32_t get_rule_data_index()const
         { try {
             FC_ASSERT( data.is_object() );
             FC_ASSERT( data.get_object().contains( "index" ) );
@@ -59,9 +59,9 @@ namespace bts { namespace blockchain {
             return type == 0;
         }
         
-        generic_game_record make_null()const
+        rule_data_record make_null()const
         {
-            generic_game_record cpy(*this);
+            rule_data_record cpy(*this);
             cpy.type = 0;
             return cpy;
         }
@@ -82,7 +82,7 @@ namespace bts { namespace blockchain {
         uint32_t                                  lucky_number;
     };
     
-    typedef fc::optional<generic_game_record> ogeneric_game_record;
+    typedef fc::optional<rule_data_record> orule_data_record;
     
 } } // bts::blockchain
 
@@ -99,7 +99,7 @@ FC_REFLECT( bts::blockchain::game_record,
            (last_update)
            )
 
-FC_REFLECT( bts::blockchain::generic_game_record,
+FC_REFLECT( bts::blockchain::rule_data_record,
            (type)
            (data)
            )
@@ -115,7 +115,7 @@ FC_REFLECT( bts::blockchain::game_transaction,
 
 namespace bts { namespace blockchain {
     template<typename RecordType>
-    RecordType generic_game_record::as()const
+    RecordType rule_data_record::as()const
     {
         FC_ASSERT( type == RecordType::type, "",
                   ("type",type));

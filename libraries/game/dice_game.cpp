@@ -45,7 +45,7 @@ namespace bts { namespace game {
         /*
          * For each transaction, there must be only one dice operatiion exist
          */
-        auto cur_record = eval_state._current_state->get_generic_game_record( eval_state.trx.id()._hash[0] );
+        auto cur_record = eval_state._current_state->get_rule_data_record( eval_state.trx.id()._hash[0] );
         if( cur_record )
             FC_CAPTURE_AND_THROW( duplicate_dice_in_transaction, ( eval_state.trx.id() ) );
         
@@ -62,9 +62,9 @@ namespace bts { namespace game {
         cur_data.odds             = this->odds;
         cur_data.guess            = this->guess;
         
-        cur_record = generic_game_record(cur_data);
+        cur_record = rule_data_record(cur_data);
         
-        eval_state._current_state->store_generic_game_record(cur_data.id._hash[0], *cur_record );
+        eval_state._current_state->store_rule_data_record(cur_data.id._hash[0], *cur_record );
     }
     
     void dice_game::execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
@@ -88,10 +88,10 @@ namespace bts { namespace game {
         for( const auto& trx : block_of_dice.user_transactions )
         {
             auto id = trx.id();
-            auto game_record = blockchain->get_generic_game_record(id._hash[0]);
+            auto rule_record = blockchain->get_rule_data_record(id._hash[0]);
             
-            if ( !!game_record ) {
-                auto d_data = game_record->as<rule_dice_record>();
+            if ( !!rule_record ) {
+                auto d_data = rule_record->as<rule_dice_record>();
                 
                 uint32_t dice_random_num = id._hash[0];
                 
@@ -125,7 +125,7 @@ namespace bts { namespace game {
                 // balance destroyed
                 shares_destroyed += d_data.amount;
                 // remove the dice_record from pending state after execute the jackpot
-                pending_state->store_generic_game_record(id._hash[0], game_record->make_null());
+                pending_state->store_rule_data_record(id._hash[0], rule_record->make_null());
                 
                 game_transaction jackpot_trx;
                 jackpot_trx.play_owner = d_data.owner;

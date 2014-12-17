@@ -37,7 +37,7 @@ namespace bts { namespace blockchain {
          virtual oaccount_record        get_account_record( const account_id_type& id )const override;
          virtual oaccount_record        get_account_record( const address& owner )const override;
          virtual ogame_record           get_game_record( const game_id_type& id )const override;
-         virtual ogeneric_game_record   get_generic_game_record( uint32_t id )const override;
+         virtual orule_data_record      get_rule_data_record( uint32_t id )const override;
 
          virtual odelegate_slate        get_delegate_slate( slate_id_type id )const override;
          virtual void                   store_delegate_slate( slate_id_type id, const delegate_slate& slate ) override;
@@ -70,7 +70,7 @@ namespace bts { namespace blockchain {
          virtual void                   store_balance_record( const balance_record& r )override;
          virtual void                   store_account_record( const account_record& r )override;
          virtual void                   store_game_record( const game_record& r )override;
-         virtual void                   store_generic_game_record( uint32_t id, const generic_game_record& r )override;
+         virtual void                   store_rule_data_record( uint32_t id, const rule_data_record& r )override;
 
          virtual vector<operation>      get_recent_operations( operation_type_enum t )override;
          virtual void                   store_recent_operation( const operation& o )override;
@@ -166,7 +166,7 @@ namespace bts { namespace blockchain {
 
          chain_interface_weak_ptr                                          _prev_state;
 
-         unordered_map< uint32_t, generic_game_record>                     rules;
+         unordered_map< uint32_t, rule_data_record>                        rules;
        
          unordered_map< game_id_type, game_record>                         games;
    };

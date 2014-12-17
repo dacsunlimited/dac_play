@@ -1599,9 +1599,9 @@ namespace bts { namespace blockchain {
       return arec->id;
    } FC_CAPTURE_AND_RETHROW( (symbol) ) }
     
-   ogeneric_game_record chain_database::get_generic_game_record( uint32_t game_id )const
+   orule_data_record chain_database::get_rule_data_record( uint32_t rule_data_id )const
    {
-      return my->_rule_db.fetch_optional( game_id );
+      return my->_rule_db.fetch_optional( rule_data_id );
    }
 
    bool chain_database::is_valid_symbol( const string& symbol )const
@@ -1661,7 +1661,7 @@ namespace bts { namespace blockchain {
         }
     } FC_CAPTURE_AND_RETHROW( (game_to_store) ) }
     
-   void chain_database::store_generic_game_record( uint32_t id, const generic_game_record& r )
+   void chain_database::store_rule_data_record( uint32_t id, const rule_data_record& r )
    {
        try {
            ilog( "rule record: ${r}", ("r",r) );

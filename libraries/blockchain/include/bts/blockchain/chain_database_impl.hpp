@@ -106,7 +106,7 @@ namespace bts { namespace blockchain {
             bts::db::level_map<block_id_type,block_fork_data>                           _fork_db;
             bts::db::cached_level_map<uint32_t, fc::variant>                            _property_db;
           
-            bts::db::level_map< int32_t, generic_game_record >                          _rule_db;
+            bts::db::level_map< int32_t, rule_data_record >                             _rule_db;
 
             bts::db::level_map<uint32_t, std::vector<game_transaction> >                _game_transactions_db;
 

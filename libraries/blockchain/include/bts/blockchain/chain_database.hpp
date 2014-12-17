@@ -281,7 +281,7 @@ namespace bts { namespace blockchain {
          virtual obalance_record            get_balance_record( const balance_id_type& id )const override;
          virtual oaccount_record            get_account_record( const account_id_type& id )const override;
          virtual oaccount_record            get_account_record( const address& owner )const override;
-         virtual ogeneric_game_record       get_generic_game_record( uint32_t id )const override;
+         virtual orule_data_record          get_rule_data_record( uint32_t id )const override;
 
          virtual oasset_record              get_asset_record( const string& symbol )const override;
          virtual oaccount_record            get_account_record( const string& name )const override;
@@ -294,7 +294,7 @@ namespace bts { namespace blockchain {
          virtual void                       store_account_record( const account_record& r )override;
          virtual void                       store_game_record( const game_record& r )override;
        
-         virtual void                       store_generic_game_record(uint32_t id, const generic_game_record& r )override;
+         virtual void                       store_rule_data_record(uint32_t id, const rule_data_record& r )override;
 
          virtual vector<operation>          get_recent_operations( operation_type_enum t )override;
          virtual void                       store_recent_operation( const operation& o )override;

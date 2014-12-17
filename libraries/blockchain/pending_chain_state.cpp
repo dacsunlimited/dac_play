@@ -86,7 +86,7 @@ namespace bts { namespace blockchain {
 
       prev_state->set_dirty_markets(_dirty_markets);
 
-      for ( const auto& item : rules )          prev_state->store_generic_game_record(item.first, item.second);
+      for ( const auto& item : rules )          prev_state->store_rule_data_record(item.first, item.second);
       prev_state->set_market_transactions( market_transactions );
       prev_state->set_game_transactions( game_transactions );
    }
@@ -234,9 +234,9 @@ namespace bts { namespace blockchain {
       /* NOTE: Recent operations are currently not rewound on undo */
 
       for ( const auto& item : rules ) {
-          auto prev_value = prev_state->get_generic_game_record(item.first);
-          if (prev_value) undo_state->store_generic_game_record(item.first, *prev_value);
-          else undo_state->store_generic_game_record(item.first, item.second.make_null() );
+          auto prev_value = prev_state->get_rule_data_record(item.first);
+          if (prev_value) undo_state->store_rule_data_record(item.first, *prev_value);
+          else undo_state->store_rule_data_record(item.first, item.second.make_null() );
       }
        
        for( const auto& item :  games)
@@ -361,15 +361,15 @@ namespace bts { namespace blockchain {
       return oaccount_record();
    }
     
-    ogeneric_game_record pending_chain_state::get_generic_game_record( uint32_t id )const
+    orule_data_record pending_chain_state::get_rule_data_record( uint32_t id )const
     {
         chain_interface_ptr prev_state = _prev_state.lock();
         auto itr = rules.find( id );
         if( itr != rules.end() )
             return itr->second;
         else if( prev_state )
-            return prev_state->get_generic_game_record( id );
-        return ogeneric_game_record();
+            return prev_state->get_rule_data_record( id );
+        return orule_data_record();
     }
 
    void pending_chain_state::store_asset_record( const asset_record& r )
@@ -382,7 +382,7 @@ namespace bts { namespace blockchain {
         games[r.id] = r;
     }
     
-   void pending_chain_state::store_generic_game_record( uint32_t id, const generic_game_record& r )
+   void pending_chain_state::store_rule_data_record( uint32_t id, const rule_data_record& r )
    {
       rules[id] = r;
    }
