@@ -122,6 +122,7 @@ namespace bts { namespace blockchain {
 
           _account_index_db.open( data_dir / "index/account_index_db" );
           _symbol_index_db.open( data_dir / "index/symbol_index_db" );
+          _game_symbol_index_db.open( data_dir / "index/game_symbol_index_db" );
           _delegate_vote_index_db.open( data_dir / "index/delegate_vote_index_db" );
 
           _slot_record_db.open( data_dir / "index/slot_record_db" );
@@ -139,7 +140,9 @@ namespace bts { namespace blockchain {
           _market_status_db.open( data_dir / "index/market_status_db" );
           _market_history_db.open( data_dir / "index/market_history_db" );
           
-          _game_db.open( data_dir / "index/game_db");
+          _rule_db.open( data_dir / "index/_rule_db");
+          
+          _game_db.open ( data_dir / "index/_game_db");
 
           _pending_trx_state = std::make_shared<pending_chain_state>( self->shared_from_this() );
       } FC_CAPTURE_AND_RETHROW( (data_dir) ) }
@@ -1109,6 +1112,7 @@ namespace bts { namespace blockchain {
 
                  my->_asset_db.set_write_through( write_through );
                  my->_symbol_index_db.set_write_through( write_through );
+                 my->_game_symbol_index_db.set_write_through( write_through );
 
                  my->_balance_db.set_write_through( write_through );
                  my->_burn_db.set_write_through( write_through );
@@ -1122,6 +1126,8 @@ namespace bts { namespace blockchain {
                  my->_market_status_db.set_write_through( write_through );
                  my->_market_transactions_db.set_write_through( write_through );
                  my->_market_history_db.set_write_through( write_through );
+                 
+                 my->_game_db.set_write_through( write_through );
              };
 
              // For the duration of reindexing, we allow certain databases to postpone flushing until we finish
@@ -1265,6 +1271,7 @@ namespace bts { namespace blockchain {
 
       my->_account_index_db.close();
       my->_symbol_index_db.close();
+      my->_game_symbol_index_db.close();
       my->_delegate_vote_index_db.close();
 
       my->_slot_record_db.close();
@@ -1278,7 +1285,7 @@ namespace bts { namespace blockchain {
       my->_market_history_db.close();
       my->_market_status_db.close();
        
-      my->_game_db.close();
+      my->_rule_db.close();
 
       my->_market_transactions_db.close();
       my->_game_transactions_db.close();
@@ -1289,6 +1296,8 @@ namespace bts { namespace blockchain {
 
       my->_auth_db.close();
       my->_asset_proposal_db.close();
+       
+       my->_game_db.close();
    } FC_RETHROW_EXCEPTIONS( warn, "" ) }
 
    account_record chain_database::get_delegate_record_for_signee( const public_key_type& block_signee )const
@@ -1554,6 +1563,16 @@ namespace bts { namespace blockchain {
       }
       return oasset_record();
    }
+    
+    ogame_record chain_database::get_game_record( const game_id_type& id )const
+    {
+        auto itr = my->_game_db.find( id );
+        if( itr.valid() )
+        {
+            return itr.value();
+        }
+        return ogame_record();
+    }
 
    oaccount_record chain_database::get_account_record( const address& account_owner )const
    { try {
@@ -1582,7 +1601,7 @@ namespace bts { namespace blockchain {
     
    ogeneric_game_record chain_database::get_generic_game_record( uint32_t game_id )const
    {
-      return my->_game_db.fetch_optional( game_id );
+      return my->_rule_db.fetch_optional( game_id );
    }
 
    bool chain_database::is_valid_symbol( const string& symbol )const
@@ -1597,6 +1616,14 @@ namespace bts { namespace blockchain {
           return get_asset_record( symbol_id_itr.value() );
        return oasset_record();
    } FC_CAPTURE_AND_RETHROW( (symbol) ) }
+    
+    ogame_record chain_database::get_game_record( const string& symbol )const
+    { try {
+        auto symbol_id_itr = my->_game_symbol_index_db.find( symbol );
+        if( symbol_id_itr.valid() )
+            return get_game_record( symbol_id_itr.value() );
+        return ogame_record();
+    } FC_CAPTURE_AND_RETHROW( (symbol) ) }
 
    oaccount_record chain_database::get_account_record( const string& account_name )const
    { try {
@@ -1620,17 +1647,31 @@ namespace bts { namespace blockchain {
        }
    } FC_CAPTURE_AND_RETHROW( (asset_to_store) ) }
     
+    void chain_database::store_game_record( const game_record& game_to_store )
+    { try {
+        if( game_to_store.is_null() )
+        {
+            my->_game_db.remove( game_to_store.id );
+            my->_game_symbol_index_db.remove( game_to_store.symbol );
+        }
+        else
+        {
+            my->_game_db.store( game_to_store.id, game_to_store );
+            my->_game_symbol_index_db.store( game_to_store.symbol, game_to_store.id );
+        }
+    } FC_CAPTURE_AND_RETHROW( (game_to_store) ) }
+    
    void chain_database::store_generic_game_record( uint32_t id, const generic_game_record& r )
    {
        try {
-           ilog( "game record: ${r}", ("r",r) );
+           ilog( "rule record: ${r}", ("r",r) );
            if( r.is_null() )
            {
-               my->_game_db.remove( id );
+               my->_rule_db.remove( id );
            }
            else
            {
-               my->_game_db.store( id, r );
+               my->_rule_db.store( id, r );
            }
    } FC_RETHROW_EXCEPTIONS( warn, "", ("record", r) ) }
 
@@ -1941,6 +1982,16 @@ namespace bts { namespace blockchain {
            ++asset_itr;
         }
    }
+    
+    void chain_database::scan_games( function<void( const game_record& )> callback )const
+    {
+        auto game_itr = my->_game_db.begin();
+        while( game_itr.valid() )
+        {
+            callback( game_itr.value() );
+            ++game_itr;
+        }
+    }
 
    void chain_database::scan_balances( function<void( const balance_record& )> callback )const
    {
@@ -3277,6 +3328,10 @@ namespace bts { namespace blockchain {
        next_path = dir / "_asset_db.json";
        my->_asset_db.export_to_json( next_path );
        ulog( "Dumped ${p}", ("p",next_path) );
+       
+       next_path = dir / "_game_db.json";
+       my->_game_db.export_to_json( next_path );
+       ulog( "Dumped ${p}", ("p",next_path) );
 
        next_path = dir / "_balance_db.json";
        my->_balance_db.export_to_json( next_path );
@@ -3300,6 +3355,10 @@ namespace bts { namespace blockchain {
 
        next_path = dir / "_symbol_index_db.json";
        my->_symbol_index_db.export_to_json( next_path );
+       ulog( "Dumped ${p}", ("p",next_path) );
+       
+       next_path = dir / "_game_symbol_index_db.json";
+       my->_game_symbol_index_db.export_to_json( next_path );
        ulog( "Dumped ${p}", ("p",next_path) );
 
        next_path = dir / "_delegate_vote_index_db.json";
@@ -3356,8 +3415,8 @@ namespace bts { namespace blockchain {
      fc::mutable_variant_object stats;
 #define CHAIN_DB_DATABASES (_market_transactions_db)(_slate_db)(_fork_number_db)(_fork_db)(_property_db)(_undo_state_db) \
                            (_block_num_to_id_db)(_block_id_to_block_record_db)(_block_id_to_block_data_db)(_known_transactions) \
-                           (_id_to_transaction_record_db)(_pending_transaction_db)(_pending_fee_index)(_asset_db)(_balance_db) \
-                           (_burn_db)(_account_db)(_address_to_account_db)(_account_index_db)(_symbol_index_db)(_delegate_vote_index_db) \
+                           (_id_to_transaction_record_db)(_pending_transaction_db)(_pending_fee_index)(_asset_db)(_game_db)(_balance_db) \
+                           (_burn_db)(_account_db)(_address_to_account_db)(_account_index_db)(_symbol_index_db)(_game_symbol_index_db)(_delegate_vote_index_db) \
                            (_slot_record_db)(_ask_db)(_bid_db)(_feed_db)(_object_db)(_edge_index)(_reverse_edge_index)(_market_status_db)(_market_history_db) \
                            (_recent_operations)
 #define GET_DATABASE_SIZE(r, data, elem) stats[BOOST_PP_STRINGIZE(elem)] = my->elem.size();

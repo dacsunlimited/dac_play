@@ -7,7 +7,7 @@
 #include <bts/blockchain/address.hpp>
 #include <bts/blockchain/types.hpp>
 #include <bts/blockchain/withdraw_types.hpp>
-#include <bts/game/games.hpp>
+#include <bts/game/rule_record.hpp>
 #include <bts/blockchain/transaction_evaluation_state.hpp>
 
 #include <bts/blockchain/chain_database.hpp>
@@ -29,9 +29,24 @@ namespace bts { namespace game {
     using namespace bts::blockchain;
     using namespace bts::wallet;
     
+    typedef transaction_id_type                dice_id_type;
+    
+    struct dice_data
+    {
+        dice_data(){}
+        
+        dice_id_type        id = dice_id_type();
+        address             owner;
+        share_type          amount;
+        uint32_t            odds;
+        uint32_t            guess;
+    };
+    
+    typedef rule_record< dice_data,                dice_rule_type >  rule_dice_record;
+    
     struct dice_game
     {
-        static const game_type_enum    type;
+        static const uint8_t    type;
         
         dice_game():amount(0), odds(1){}
         
@@ -73,6 +88,7 @@ namespace bts { namespace game {
     };
     
 } } // bts::game
+FC_REFLECT( bts::game::dice_data, (id)(owner)(amount)(odds)(guess) )
 
 FC_REFLECT( bts::game::dice_game, (amount)(odds)(guess)(condition) )
 FC_REFLECT( bts::game::dice_input, (from_account_name)(amount)(odds)(guess) )

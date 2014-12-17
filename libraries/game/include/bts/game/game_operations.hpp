@@ -3,7 +3,7 @@
 #include <bts/blockchain/operations.hpp>
 #include <bts/blockchain/types.hpp>
 #include <bts/blockchain/withdraw_types.hpp>
-#include <bts/game/games.hpp>
+#include <bts/game/rule_record.hpp>
 
 namespace bts { namespace game {
     using namespace bts::blockchain;
@@ -12,17 +12,17 @@ namespace bts { namespace game {
     {
         static const operation_type_enum type;
         
-        bts::game::game  game;
+        bts::game::rule  rule;
         
         game_operation(){}
         
-        game_operation( const bts::game::game& g)
+        game_operation( const bts::game::rule& r)
         {
-            game = g;
+            rule = r;
         }
         
         void evaluate( transaction_evaluation_state& eval_state );
     };
 } } // bts::game
 
-FC_REFLECT( bts::game::game_operation, (game) )
+FC_REFLECT( bts::game::game_operation, (rule) )

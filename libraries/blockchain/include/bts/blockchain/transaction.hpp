@@ -113,6 +113,14 @@ namespace bts { namespace blockchain {
 
       void buy_chips( const asset& quantity,
                 const address& owner );
+       
+      void create_game( const std::string& symbol,
+                                     const std::string& name,
+                                     const std::string& description,
+                                     const fc::variant& data,
+                                     account_id_type issuer_id,
+                                     asset_id_type asset_id,
+                       uint32_t rule_id );
 
       void update_asset_ext( const asset_id_type& asset_id,
                          const optional<string>& name,

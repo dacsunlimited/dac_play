@@ -40,7 +40,8 @@ namespace bts { namespace blockchain {
       database_version         = 6, // database version, to know when we need to upgrade
       dirty_markets            = 7,
       last_feed_id             = 8, // used for allocating new data feeds
-      last_object_id           = 9  // all object types that aren't legacy
+      last_object_id           = 9,  // all object types that aren't legacy
+      last_game_id             = 10
    };
    typedef uint32_t chain_property_type;
 
@@ -152,6 +153,7 @@ namespace bts { namespace blockchain {
          virtual obalance_record            get_balance_record( const balance_id_type& id )const            = 0;
          virtual oaccount_record            get_account_record( const account_id_type& id )const            = 0;
          virtual oaccount_record            get_account_record( const address& owner )const                 = 0;
+         virtual ogame_record               get_game_record( const game_id_type& id )const                = 0;
 
          virtual bool                       is_known_transaction( const transaction_id_type& trx_id )       = 0;
 
@@ -163,10 +165,12 @@ namespace bts { namespace blockchain {
 
          virtual oasset_record              get_asset_record( const std::string& symbol )const              = 0;
          virtual oaccount_record            get_account_record( const std::string& name )const              = 0;
+         virtual ogame_record              get_game_record( const std::string& symbol )const              = 0;
 
          virtual void                       store_asset_record( const asset_record& r )                     = 0;
          virtual void                       store_balance_record( const balance_record& r )                 = 0;
          virtual void                       store_account_record( const account_record& r )                 = 0;
+         virtual void                       store_game_record( const game_record& r )                       = 0;
 
          virtual void                       store_recent_operation( const operation& o )                    = 0;
          virtual vector<operation>          get_recent_operations( operation_type_enum t )                  = 0;
@@ -189,6 +193,9 @@ namespace bts { namespace blockchain {
 
          virtual asset_id_type              last_asset_id()const;
          virtual asset_id_type              new_asset_id();
+       
+         virtual game_id_type               last_game_id()const;
+         virtual game_id_type               new_game_id();
 
          virtual account_id_type            last_account_id()const;
          virtual account_id_type            new_account_id();
@@ -230,4 +237,5 @@ FC_REFLECT_ENUM( bts::blockchain::chain_property_enum,
                  (database_version)
                  (dirty_markets)
                  (last_feed_id)
+                 (last_game_id)
                  )

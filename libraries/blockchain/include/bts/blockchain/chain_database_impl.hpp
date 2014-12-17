@@ -106,7 +106,7 @@ namespace bts { namespace blockchain {
             bts::db::level_map<block_id_type,block_fork_data>                           _fork_db;
             bts::db::cached_level_map<uint32_t, fc::variant>                            _property_db;
           
-            bts::db::level_map< int32_t, generic_game_record >                          _game_db;
+            bts::db::level_map< int32_t, generic_game_record >                          _rule_db;
 
             bts::db::level_map<uint32_t, std::vector<game_transaction> >                _game_transactions_db;
 
@@ -131,6 +131,7 @@ namespace bts { namespace blockchain {
 
             bts::db::cached_level_map<asset_id_type, asset_record>                      _asset_db;
             bts::db::cached_level_map<string, asset_id_type>                            _symbol_index_db;
+            bts::db::cached_level_map<string, game_id_type>                             _game_symbol_index_db;
 
             bts::db::cached_level_map<balance_id_type, balance_record>                  _balance_db;
 
@@ -165,6 +166,8 @@ namespace bts { namespace blockchain {
 
             bts::db::cached_level_map<std::pair<asset_id_type,asset_id_type>, market_status> _market_status_db;
             bts::db::cached_level_map<market_history_key, market_history_record>        _market_history_db;
+          
+            bts::db::cached_level_map<game_id_type, game_record>                      _game_db;
 
             std::map<operation_type_enum, std::deque<operation>>                        _recent_operations;
       };

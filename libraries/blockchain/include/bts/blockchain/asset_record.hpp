@@ -22,13 +22,17 @@ namespace bts { namespace blockchain {
       {
           god_issuer_id     =  0,
           null_issuer_id    = -1,
-          market_issuer_id  = -2
+          market_issuer_id  = -2,
+          chip_issuer_id    = -3
       };
 
       asset_record make_null()const;
       bool is_null()const               { return issuer_account_id == null_issuer_id; };
 
       bool is_market_issued()const      { return issuer_account_id == market_issuer_id; };
+       
+      bool is_chip_issued()const        { return issuer_account_id == chip_issuer_id; };
+      
       bool is_user_issued()const        { return issuer_account_id > god_issuer_id; };
 
       bool is_retractable()const        { return is_user_issued() && (flags & retractable); }
