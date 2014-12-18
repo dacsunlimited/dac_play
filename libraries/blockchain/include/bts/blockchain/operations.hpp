@@ -42,40 +42,69 @@ namespace bts { namespace blockchain {
       // market
       bid_op_type                   = 12,
       ask_op_type                   = 13,
-      short_op_type                 = 14,
-      cover_op_type                 = 15,
-      reserved_op_3_type            = 16,
+      reserved_short_op_type        = 14,
+      reserved_cover_op_type        = 15,
+      reserved_add_collateral_op_type = 16,
 
-      define_delegate_slate_op_type = 17,
+      reserved_op_3_type            = 17,
 
-      update_feed_op_type           = 18,
+      define_delegate_slate_op_type = 18,
 
-      burn_op_type                  = 19,
+      update_feed_op_type           = 19,
+
+      burn_op_type                  = 20,
 
       // reserved
-      reserved_op_4_type            = 20,
-      reserved_op_5_type            = 21,
+      reserved_op_4_type            = 21,
+      reserved_op_5_type            = 22,
 
-      release_escrow_op_type        = 22,
+      release_escrow_op_type        = 23,
 
-      update_block_signing_key_type = 23,
+      update_block_signing_key_type = 24,
 
       // relative orders
-      relative_bid_op_type          = 24,
-      relative_ask_op_type          = 25,
+      relative_bid_op_type          = 25,
+      relative_ask_op_type          = 26,
 
-      game_op_type                  = 27,
-      buy_chips_type                = 28,
-      update_balance_vote_op_type   = 29,
+      update_balance_vote_op_type   = 27,
 
-      set_object_op_type            = 30,
-      authorize_op_type             = 31,
-      update_asset_ext_op_type      = 32,
+      set_object_op_type            = 28,
+      authorize_op_type             = 29,
+
+      update_asset_ext_op_type      = 30,
+      cancel_order_op_type          = 31, /** TODO: return funds to balance with same key as order */
+
+      // edges
+      set_edge_op_type              = 32,
+
+      // sites
+      site_create_op_type           = 33,  // creates an auction as well
+      site_update_op_type           = 34,
+
+      // auctions
+      auction_start_op_type         = 35,
+      auction_bid_op_type           = 36,
+
+      // sales
+      make_sale_op_type             = 37,
+      buy_sale_op_type              = 38,  // makes a buy or an offer
+
+      /*  devshares
+      // events
+      make_event_op_type            = 39,
+      resolve_event_op_type         = 40,
+
+      // prediction markets
+      make_lsmr_market              = 41,
+      buy_lsmr_share                = 42,
+      redeem_lsmr_share             = 43
+      */
 
       // assets
-      cancel_order_op_type          = 35, /** TODO: return funds to balance with same key as order */
+      game_op_type                  = 39,
+      buy_chips_type                = 40,
        
-       create_game_operation_type   = 36
+      create_game_operation_type    = 41
    };
 
    /**
@@ -143,8 +172,9 @@ FC_REFLECT_ENUM( bts::blockchain::operation_type_enum,
                  (reserved_op_2_type)
                  (bid_op_type)
                  (ask_op_type)
-                 (short_op_type)
-                 (cover_op_type)
+                 (reserved_short_op_type)
+                 (reserved_cover_op_type)
+                 (reserved_add_collateral_op_type)
                  (reserved_op_3_type)
                  (define_delegate_slate_op_type)
                  (update_feed_op_type)
@@ -153,10 +183,6 @@ FC_REFLECT_ENUM( bts::blockchain::operation_type_enum,
                  (reserved_op_5_type)
                  (release_escrow_op_type)
                  (update_block_signing_key_type)
-
-                 (game_op_type)
-                 (buy_chips_type)
-
                  (relative_bid_op_type)
                  (relative_ask_op_type)
                  (update_balance_vote_op_type)
@@ -164,7 +190,17 @@ FC_REFLECT_ENUM( bts::blockchain::operation_type_enum,
                  (authorize_op_type)
                  (update_asset_ext_op_type)
                  (cancel_order_op_type)
-                (create_game_operation_type)
+                 (set_edge_op_type)
+                 (site_create_op_type)
+                 (site_update_op_type)
+                 (auction_start_op_type)
+                 (auction_bid_op_type)
+                 (make_sale_op_type)
+                 (buy_sale_op_type)
+
+                 (game_op_type)
+                 (buy_chips_type)
+                 (create_game_operation_type)
                  )
 
 FC_REFLECT( bts::blockchain::operation, (type)(data) )

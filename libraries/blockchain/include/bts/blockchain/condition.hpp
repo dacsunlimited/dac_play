@@ -18,10 +18,10 @@ namespace bts { namespace blockchain {
 
     struct multisig_condition : condition
     {
-        uint32_t                required;
-        std::set<address>       owners;
+        uint32_t                 required; // 0 means anyone can claim. -1 means the DAC can
+        std::set<address>        owners;
 
-        multisig_condition(){}
+        multisig_condition():required(-1),owners(set<address>()){}
         multisig_condition( uint32_t m, set<address> owners )
             :required(m),owners(owners)
         {}
@@ -31,6 +31,8 @@ namespace bts { namespace blockchain {
     // delegate_fraud
     // timelock
     // BTC spv utxo claim
+    // cross-chain trading
+    // 
 
 }} // bts::blockchain
 

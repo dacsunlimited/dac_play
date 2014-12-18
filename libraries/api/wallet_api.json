@@ -1016,8 +1016,7 @@
 
         ],
         "prerequisites": ["json_authenticated"],
-        "aliases": ["withdraw_from_address"],
-        "is_const": true
+        "aliases": ["withdraw_from_address"]
     },
     {
         "method_name": "wallet_withdraw_from_legacy_address",
@@ -1823,17 +1822,27 @@
             "type" : "account_name",
             "description" : "the account to get a balance for, or leave empty for all accounts",
             "default_value" : ""
-         },
-         {
-            "name" : "withdraw_condition",
-            "type" : "withdraw_condition_type",
-            "description" : "the withdraw condition type to return balances for",
-            "default_value" : "withdraw_signature_type"
          }
          ],
          "is_const" : true,
          "prerequisites" : ["wallet_open"],
          "aliases" : ["balance", "getbalance"]
+      },
+      {
+         "method_name"    : "wallet_account_balance_extended",
+         "description"    : "Lists the total asset balances across all withdraw condition types for the specified account",
+         "return_type"    : "account_extended_balance_type",
+         "parameters"     : [
+         {
+            "name" : "account_name",
+            "type" : "account_name",
+            "description" : "the account to get a balance for, or leave empty for all accounts",
+            "default_value" : ""
+         }
+         ],
+         "is_const" : true,
+         "prerequisites" : ["wallet_open"],
+         "aliases" : []
       },
       {
          "method_name"    : "wallet_account_balance_ids",
@@ -1845,12 +1854,6 @@
             "type" : "account_name",
             "description" : "the account to list balance ids for, or leave empty for all accounts",
             "default_value" : ""
-         },
-         {
-            "name" : "withdraw_condition",
-            "type" : "withdraw_condition_type",
-            "description" : "the withdraw condition type to return balance ids for",
-            "default_value" : "withdraw_signature_type"
          }
          ],
          "is_const" : true,
@@ -2756,7 +2759,7 @@
       },
       {
          "method_name" : "wallet_generate_brain_seed",
-         "description" : "Generates a human friendly brain wallet key starting with a public salt as the first word",
+         "description" : "Generates a human friendly brain wallet key starting with a public salt as the last word",
          "return_type" : "string",
          "parameters"  : [
          ],

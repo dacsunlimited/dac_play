@@ -31,6 +31,23 @@ namespace bts { namespace blockchain {
       }
    };
 
+   struct expiration_index
+   {
+      asset_id_type      quote_id;
+      time_point         expiration;
+      market_index_key   key;
+
+      friend bool operator < ( const expiration_index& a, const expiration_index& b )
+      {
+         return std::tie( a.quote_id, a.expiration, a.key )  < std::tie( b.quote_id, b.expiration, b.key );
+      }
+      friend bool operator == ( const expiration_index& a, const expiration_index& b )
+      {
+         return std::tie( a.quote_id, a.expiration, a.key )  == std::tie( b.quote_id, b.expiration, b.key );
+      }
+
+   };
+
    struct market_history_key
    {
        enum time_granularity_enum {
@@ -132,15 +149,15 @@ namespace bts { namespace blockchain {
 
    struct market_order
    {
+      // bids, asks, rbids, rasks
       market_order( order_type_enum t, market_index_key k, order_record s )
       :type(t),market_index(k),state(s){}
 
-      market_order( order_type_enum t, market_index_key k, order_record s, share_type c )
-      :type(t),market_index(k),state(s),collateral(c){}
-
+      // shorts
       market_order( order_type_enum t, market_index_key k, order_record s, share_type c, price interest )
       :type(t),market_index(k),state(s),collateral(c),interest_rate(interest){}
 
+      // covers
       market_order( order_type_enum t, market_index_key k, order_record s, share_type c, price interest, time_point_sec exp )
       :type(t),market_index(k),state(s),collateral(c),interest_rate(interest),expiration(exp){}
 

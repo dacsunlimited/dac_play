@@ -44,7 +44,7 @@ namespace bts { namespace blockchain {
       fc::optional<bool>           is_valid;
       fc::optional<fc::exception>  invalid_reason;
       bool                         is_included; ///< is included in the current chain database
-      bool                         is_known; ///< do we know the content of this block
+      bool                         is_known; ///< do we know the content of this block (false if placeholder)
    };
 
    struct fork_record
@@ -132,12 +132,18 @@ namespace bts { namespace blockchain {
                                                                              bool override_limits = true );
 
          vector<transaction_evaluation_state_ptr> get_pending_transactions()const;
-         bool                                     is_known_transaction( const transaction_id_type& trx_id );
+         virtual bool                             is_known_transaction( const fc::time_point_sec& exp,
+                                                                        const digest_type& trx_id )const override;
 
          /** Produce a block for the given timeslot, the block is not signed because that is the
           *  role of the wallet.
           */
-         full_block                  generate_block( const time_point_sec& timestamp );
+         full_block                  generate_block( const time_point_sec& block_timestamp,
+                                                     size_t max_block_transaction_count = -1,
+                                                     size_t max_block_size = BTS_BLOCKCHAIN_MAX_BLOCK_SIZE,
+                                                     size_t max_transaction_size = -1,
+                                                     share_type min_transaction_fee = BTS_BLOCKCHAIN_DEFAULT_RELAY_FEE,
+                                                     const fc::microseconds& max_block_production_time = fc::seconds( 3 ) );
 
          /**
           *  The chain ID is the hash of the initial_config loaded when the
@@ -300,16 +306,24 @@ namespace bts { namespace blockchain {
          virtual void                       store_recent_operation( const operation& o )override;
 
          virtual void                       store_object_record( const object_record& obj )override;
-         virtual oobject_record             get_object_record( const object_id_type& id )override;
+         virtual oobject_record             get_object_record( const object_id_type& id )const override;
 
 
-        virtual oedge_record               get_edge( const object_id_type& from,
+        virtual void                       store_site_record( const site_record& site )override;
+        virtual osite_record               lookup_site( const string& site_name) const override;
+
+        virtual void                       store_edge_record( const object_record& edge )override;
+
+
+        virtual oobject_record             get_edge( const object_id_type& from,
                                                   const object_id_type& to,
                                                   const string& name )const          override;
-        virtual map<string, edge_record>   get_edges( const object_id_type& from,
+
+        virtual map<string, object_record> get_edges( const object_id_type& from,
                                                    const object_id_type& to )const   override;
-        virtual map<object_id_type, map<string, edge_record>>
-                                        get_edges( const object_id_type& from )const override;
+
+        virtual map<object_id_type, map<string, object_record>>
+                                            get_edges( const object_id_type& from )const override;
 
 
          virtual oorder_record              get_bid_record( const market_index_key& )const override;
@@ -362,6 +376,8 @@ namespace bts { namespace blockchain {
          {
              FC_ASSERT( false, "this shouldn't be called directly" );
          }
+
+         void track_chain_statistics( bool status = true );
 
       private:
          unique_ptr<detail::chain_database_impl> my;

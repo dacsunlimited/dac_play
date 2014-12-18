@@ -25,4 +25,20 @@ namespace bts { namespace blockchain {
         _id = -1;
     }
 
+    void     object_record::set_id( object_id_type id)
+    {
+        _id =  id;
+    }
+
 }} // bts::blockchain
+/*
+namespace fc {
+   void to_variant( const bts::blockchain::object_record& var,  variant& vo )
+   {
+   }
+
+   void from_variant( const variant& var,  bts::blockchain::object_record& vo )
+   {
+   }
+}
+*/

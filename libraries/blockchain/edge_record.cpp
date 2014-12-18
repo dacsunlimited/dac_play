@@ -3,8 +3,9 @@
 #include <fc/exception/exception.hpp>
 
 namespace bts { namespace blockchain {
+    const obj_type edge_record::type = edge_object;
 
-    edge_index_key edge_record::index_key()
+    edge_index_key edge_record::index_key()const
     {
         edge_index_key key;
         key.from = from;
@@ -13,7 +14,7 @@ namespace bts { namespace blockchain {
         return key;
     }
 
-    edge_index_key edge_record::reverse_index_key()
+    edge_index_key edge_record::reverse_index_key()const
     {
         edge_index_key key;
         key.from = to;
