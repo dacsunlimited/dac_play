@@ -4,8 +4,10 @@
 #include <bts/blockchain/feed_operations.hpp>
 #include <bts/blockchain/market_operations.hpp>
 #include <bts/blockchain/object_operations.hpp>
+#include <bts/blockchain/edge_operations.hpp>
 #include <bts/blockchain/operation_factory.hpp>
 #include <bts/blockchain/game_executors.hpp>
+#include <bts/blockchain/meta_game_operations.hpp>
 #include <bts/blockchain/operations.hpp>
 
 #include <fc/io/raw_variant.hpp>
@@ -48,6 +50,10 @@ namespace bts { namespace blockchain {
    const operation_type_enum authorize_operation::type              = authorize_op_type;
 
    const operation_type_enum update_asset_ext_operation::type       = update_asset_ext_op_type;
+    
+    const operation_type_enum create_game_operation::type       = create_game_operation_type;
+
+   const operation_type_enum set_edge_operation::type               = set_edge_op_type;
 
    static bool first_chain = []()->bool{
       bts::blockchain::operation_factory::instance().register_operation<withdraw_operation>();
@@ -84,6 +90,10 @@ namespace bts { namespace blockchain {
 
       bts::blockchain::operation_factory::instance().register_operation<update_asset_ext_operation>();
       bts::blockchain::operation_factory::instance().register_operation<create_asset_proposal>();
+       
+       bts::blockchain::operation_factory::instance().register_operation<create_game_operation>();
+
+      bts::blockchain::operation_factory::instance().register_operation<set_edge_operation>();
 
       return true;
    }();

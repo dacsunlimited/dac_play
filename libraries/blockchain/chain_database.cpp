@@ -9,6 +9,8 @@
 #include <bts/blockchain/time.hpp>
 #include <bts/blockchain/game_executors.hpp>
 
+#include <bts/blockchain/edge_record.hpp>
+
 #include <fc/io/fstream.hpp>
 #include <fc/io/raw_variant.hpp>
 #include <fc/thread/non_preemptable_scope_check.hpp>
@@ -25,7 +27,7 @@ namespace bts { namespace blockchain {
       {
             _pending_fee_index.clear();
 
-            vector<transaction_id_type> trx_to_discard;
+            vector<digest_type> trx_to_discard;
 
             _pending_trx_state = std::make_shared<pending_chain_state>( self->shared_from_this() );
             unsigned num_pending_transaction_considered = 0;
@@ -33,14 +35,14 @@ namespace bts { namespace blockchain {
             while( itr.valid() )
             {
                 signed_transaction trx = itr.value();
-                transaction_id_type trx_id = itr.key();
-                assert(trx_id == trx.id());
+                digest_type trx_id = itr.key();
+                assert(trx_id == trx.digest(_chain_id));
                 try
                 {
                   transaction_evaluation_state_ptr eval_state = self->evaluate_transaction( trx, _relay_fee );
                   share_type fees = eval_state->get_fees();
-                  _pending_fee_index[ fee_index( fees, trx_id ) ] = eval_state;
-                  wlog("revalidated pending transaction id ${id}", ("id", trx_id));
+                  _pending_fee_index[ fee_index( fees, trx.id() ) ] = eval_state;
+                  wlog("revalidated pending transaction id ${id} ${i}", ("id", trx_id)("i",trx.id()));
                 }
                 catch ( const fc::canceled_exception& )
                 {
@@ -106,9 +108,6 @@ namespace bts { namespace blockchain {
           _block_id_to_block_data_db.open( data_dir / "raw_chain/block_id_to_block_data_db" );
           _id_to_transaction_record_db.open( data_dir / "index/id_to_transaction_record_db" );
 
-          for( auto itr = _id_to_transaction_record_db.begin(); itr.valid(); ++itr )
-             _known_transactions.insert( itr.key() );
-
           _pending_transaction_db.open( data_dir / "index/pending_transaction_db" );
 
           _asset_db.open( data_dir / "index/asset_db" );
@@ -122,6 +121,7 @@ namespace bts { namespace blockchain {
 
           _account_index_db.open( data_dir / "index/account_index_db" );
           _symbol_index_db.open( data_dir / "index/symbol_index_db" );
+          _game_symbol_index_db.open( data_dir / "index/game_symbol_index_db" );
           _delegate_vote_index_db.open( data_dir / "index/delegate_vote_index_db" );
 
           _slot_record_db.open( data_dir / "index/slot_record_db" );
@@ -130,6 +130,7 @@ namespace bts { namespace blockchain {
           _bid_db.open( data_dir / "index/bid_db" );
           _relative_ask_db.open( data_dir / "index/relative_ask_db" );
           _relative_bid_db.open( data_dir / "index/relative_bid_db" );
+
           _feed_db.open( data_dir / "index/feed_db" );
 
           _object_db.open( data_dir / "index/object_db" );
@@ -139,10 +140,30 @@ namespace bts { namespace blockchain {
           _market_status_db.open( data_dir / "index/market_status_db" );
           _market_history_db.open( data_dir / "index/market_history_db" );
           
-          _game_db.open( data_dir / "index/game_db");
+          _rule_db.open( data_dir / "index/_rule_db");
+          
+          _game_db.open ( data_dir / "index/_game_db");
 
           _pending_trx_state = std::make_shared<pending_chain_state>( self->shared_from_this() );
+
+          _revalidatable_future_blocks_db.open( data_dir / "index/future_blocks_db" );
+          clear_invalidation_of_future_blocks();
+
+          for( auto itr = _id_to_transaction_record_db.begin(); itr.valid(); ++itr )
+          {
+             const auto val = itr.value();
+             if( val.trx.expiration > self->now() )
+                _unique_transactions[val.trx.expiration].insert( val.trx.digest(_chain_id) );
+          }
       } FC_CAPTURE_AND_RETHROW( (data_dir) ) }
+
+      void chain_database_impl::clear_invalidation_of_future_blocks()
+      {
+        for (auto block_id_itr = _revalidatable_future_blocks_db.begin(); block_id_itr.valid(); ++block_id_itr)
+        {
+          mark_as_unchecked( block_id_itr.key() );
+        }
+      }
 
       digest_type chain_database_impl::initialize_genesis( const optional<path>& genesis_file, bool chain_id_only )
       { try {
@@ -302,13 +323,11 @@ namespace bts { namespace blockchain {
          }
 
          asset total;
-         auto itr = _balance_db.begin();
-         while( itr.valid() )
+         for( auto itr = _balance_db.begin(); itr.valid(); ++itr )
          {
             const asset ind( itr.value().balance, itr.value().condition.asset_id );
             FC_ASSERT( ind.amount >= 0, "", ("record",itr.value()) );
             total += ind;
-            ++itr;
          }
 
          int32_t asset_id = 0;
@@ -350,6 +369,7 @@ namespace bts { namespace blockchain {
             self->store_asset_record( rec );
          }
 
+         //add fork_data for the genesis block to the fork database
          block_fork_data gen_fork;
          gen_fork.is_valid = true;
          gen_fork.is_included = true;
@@ -378,12 +398,12 @@ namespace bts { namespace blockchain {
 
       void chain_database_impl::clear_pending( const full_block& blk )
       {
-         std::unordered_set<transaction_id_type> confirmed_trx_ids;
+      //   std::unordered_set<std::pair<digest_type,time_point_sec> > confirmed_trx_ids;
 
          for( const signed_transaction& trx : blk.user_transactions )
          {
-            auto id = trx.id();
-            confirmed_trx_ids.insert( id );
+            auto id = trx.digest(_chain_id);
+       //     confirmed_trx_ids.insert( id );
             _pending_transaction_db.remove( id );
          }
 
@@ -405,16 +425,18 @@ namespace bts { namespace blockchain {
          _pending_trx_state = std::make_shared<pending_chain_state>( self->shared_from_this() );
       }
 
-      std::pair<block_id_type, block_fork_data> chain_database_impl::recursive_mark_as_linked( const std::unordered_set<block_id_type>& ids )
+      std::pair<block_id_type, block_fork_data> chain_database_impl::recursive_mark_as_linked(const std::unordered_set<block_id_type>& ids)
       {
          block_fork_data longest_fork;
          uint32_t highest_block_num = 0;
          block_id_type last_block_id;
 
          std::unordered_set<block_id_type> next_ids = ids;
+         //while there are any next blocks for current block number being processed
          while( next_ids.size() )
          {
-            std::unordered_set<block_id_type> pending;
+            std::unordered_set<block_id_type> pending; //builds list of all next blocks for the current block number being processed
+            //mark as linked all blocks at the current block number being processed
             for( const auto& item : next_ids )
             {
                 block_fork_data record = _fork_db.fetch( item );
@@ -423,6 +445,7 @@ namespace bts { namespace blockchain {
                 //ilog( "store: ${id} => ${data}", ("id",item)("data",record) );
                 _fork_db.store( item, record );
 
+                //keep one of the block ids of the current block number being processed (simplify this code)
                 auto block_record = _block_id_to_block_record_db.fetch(item);
                 if( block_record.block_num > highest_block_num )
                 {
@@ -431,7 +454,7 @@ namespace bts { namespace blockchain {
                     longest_fork = record;
                 }
             }
-            next_ids = pending;
+            next_ids = pending; //conceptually this increments the current block number being processed
          }
 
          return std::make_pair(last_block_id, longest_fork);
@@ -445,6 +468,7 @@ namespace bts { namespace blockchain {
             for( const auto& item : next_ids )
             {
                 block_fork_data record = _fork_db.fetch( item );
+                assert(!record.valid()); //make sure we don't invalidate a previously validated record
                 record.is_valid = false;
                 record.invalid_reason = reason;
                 pending.insert( record.next_blocks.begin(), record.next_blocks.end() );
@@ -480,6 +504,19 @@ namespace bts { namespace blockchain {
       std::pair<block_id_type, block_fork_data> chain_database_impl::store_and_index( const block_id_type& block_id,
                                                                                       const full_block& block_data )
       { try {
+          //we should never try to store a block we've already seen (verify not in any of our databases)
+          assert(!_block_id_to_block_data_db.fetch_optional(block_id));
+          #ifndef NDEBUG
+          {
+            //check block id is not in fork_data, or if it is, make sure it's just a placeholder for block we are waiting for
+            optional<block_fork_data> fork_data = _fork_db.fetch_optional(block_id);
+            assert(!fork_data || !fork_data->is_known);
+            //check block not in parallel_blocks database
+            vector<block_id_type> parallel_blocks = fetch_blocks_at_number( block_data.block_num );
+            assert( std::find(parallel_blocks.begin(), parallel_blocks.end(), block_id) == parallel_blocks.end());
+          }
+          #endif
+
           auto now = blockchain::now();
           //ilog( "block_number: ${n}   id: ${id}  prev: ${prev}",
           //      ("n",block_data.block_num)("id",block_id)("prev",block_data.previous) );
@@ -498,20 +535,21 @@ namespace bts { namespace blockchain {
               _block_id_to_block_record_db.store( block_id, record );
           }
 
-          // update the parallel block list
+          // update the parallel block list (fork_number_db):
+          // get vector of all blocks with same block number, add this block to that list, then update the database
           vector<block_id_type> parallel_blocks = fetch_blocks_at_number( block_data.block_num );
+          //if block not in parallel block list, add it
           if (std::find( parallel_blocks.begin(), parallel_blocks.end(), block_id ) == parallel_blocks.end())
           {
-            // don't add the block to the list if it's already there.
             // TODO: do we need to execute any of the rest of this function (or, for that matter, its caller) if the block is already there
             parallel_blocks.push_back( block_id );
             _fork_number_db.store( block_data.block_num, parallel_blocks );
           }
 
-          // now find how it links in.
+          // Tell our previous block that we are one of it's next blocks (update previous block's next_blocks set)
           block_fork_data prev_fork_data;
           auto prev_itr = _fork_db.find( block_data.previous );
-          if( prev_itr.valid() ) // we already know about its previous
+          if( prev_itr.valid() ) // we already know about its previous (note: we always know about genesis block)
           {
              ilog( "           we already know about its previous: ${p}", ("p",block_data.previous) );
              prev_fork_data = prev_itr.value();
@@ -519,42 +557,69 @@ namespace bts { namespace blockchain {
              //ilog( "              ${id} = ${record}", ("id",prev_itr.key())("record",prev_fork_data) );
              _fork_db.store( prev_itr.key(), prev_fork_data );
           }
-          else
+          else //if we don't know about the previous block even as a placeholder, create a placeholder for the previous block (placeholder block defaults as unlinked)
           {
              elog( "           we don't know about its previous: ${p}", ("p",block_data.previous) );
-
-             // create it... we do not know about the previous block so
-             // we must create it and assume it is not linked...
-             prev_fork_data.next_blocks.insert(block_id);
-             prev_fork_data.is_linked = block_data.previous == block_id_type(); //false;
+             prev_fork_data.next_blocks.insert(block_id); //tell placeholder block about new block
+             prev_fork_data.is_linked = false; //this is only a placeholder, we don't know what its previous block is, so it can't be linked
              //ilog( "              ${id} = ${record}", ("id",block_data.previous)("record",prev_fork_data) );
              _fork_db.store( block_data.previous, prev_fork_data );
           }
 
-          block_fork_data current_fork;
           auto cur_itr = _fork_db.find( block_id );
-          current_fork.is_known = true;
-          if( cur_itr.valid() )
+          if( cur_itr.valid() ) //if placeholder was previously created for block
           {
-             current_fork = cur_itr.value();
-             ilog( "          current_fork: ${fork}", ("fork",current_fork) );
-             ilog( "          prev_fork: ${prev_fork}", ("prev_fork",prev_fork_data) );
-             if( !current_fork.is_linked && prev_fork_data.is_linked )
-             {
-                // we found the missing link
-                current_fork.is_linked = true;
-                auto longest_fork = recursive_mark_as_linked( current_fork.next_blocks );
-                _fork_db.store( block_id, current_fork );
+            block_fork_data current_fork = cur_itr.value();
+            current_fork.is_known = true; //was placeholder, now a known block
+            ilog( "          current_fork: ${fork}", ("fork",current_fork) );
+            ilog( "          prev_fork: ${prev_fork}", ("prev_fork",prev_fork_data) );
+            // if new block is linked to genesis block, recursively mark all its next blocks as linked and return longest descendant block
+            assert(!current_fork.is_linked);
+            if( prev_fork_data.is_linked )
+            {
+              current_fork.is_linked = true;
+              //if previous block is invalid, mark the new block as invalid too (block can't be valid if any previous block in its chain is invalid)
+              bool prev_block_is_invalid = prev_fork_data.is_valid && !*prev_fork_data.is_valid;
+              if (prev_block_is_invalid)
+              {
+                current_fork.is_valid = false;
+                current_fork.invalid_reason = prev_fork_data.invalid_reason;
+              }
+              _fork_db.store( block_id, current_fork ); //update placeholder fork_block record with block data
+              if (prev_block_is_invalid) //if previous block was invalid, mark all descendants as invalid and return current_block
+              {
+                recursive_mark_as_invalid(current_fork.next_blocks, *prev_fork_data.invalid_reason );
+                return std::make_pair(block_id, current_fork);
+              }
+              else //we have a potentially viable alternate chain, mark the descendant blocks as linked and return the longest end block from descendant chains
+              {
+                std::pair<block_id_type,block_fork_data> longest_fork = recursive_mark_as_linked(current_fork.next_blocks);
                 return longest_fork;
-             }
+              }
+            }
+            else //this new block is not linked to genesis block, so no point in determining its longest descendant block, just return it and let it be skipped over
+            {
+              _fork_db.store( block_id, current_fork ); //update placeholder fork_block record with block data
+              return std::make_pair(block_id, current_fork);
+            }
           }
-          else
+          else //no placeholder exists for this new block, just set its link flag
           {
-             current_fork.is_linked = prev_fork_data.is_linked;
-             //ilog( "          current_fork: ${id} = ${fork}", ("id",block_id)("fork",current_fork) );
+            block_fork_data current_fork;
+            current_fork.is_known = true;
+            current_fork.is_linked = prev_fork_data.is_linked; //is linked if it's previous block is linked
+            bool prev_block_is_invalid = prev_fork_data.is_valid && !*prev_fork_data.is_valid;
+            if (prev_block_is_invalid)
+            {
+              current_fork.is_valid = false;
+              current_fork.invalid_reason = prev_fork_data.invalid_reason;
+            }
+            //ilog( "          current_fork: ${id} = ${fork}", ("id",block_id)("fork",current_fork) );
+            _fork_db.store( block_id, current_fork ); //add new fork_block record to database
+            //this is first time we've seen this block mentioned, so we don't know about any linked descendants from it,
+            //and therefore this is the last block in this chain that we know about, so just return that
+            return std::make_pair(block_id, current_fork);
           }
-          _fork_db.store( block_id, current_fork );
-          return std::make_pair(block_id, current_fork);
       } FC_CAPTURE_AND_RETHROW( (block_id) ) }
 
       void chain_database_impl::mark_invalid(const block_id_type& block_id , const fc::exception& reason)
@@ -562,10 +627,38 @@ namespace bts { namespace blockchain {
          // fetch the fork data for block_id, mark it as invalid and
          // then mark every item after it as invalid as well.
          auto fork_data = _fork_db.fetch( block_id );
+         assert(!fork_data.valid()); //make sure we're not invalidating a block that we previously have validated
          fork_data.is_valid = false;
          fork_data.invalid_reason = reason;
          _fork_db.store( block_id, fork_data );
          recursive_mark_as_invalid( fork_data.next_blocks, reason );
+      }
+
+      void chain_database_impl::mark_as_unchecked(const block_id_type& block_id)
+      {
+        // fetch the fork data for block_id, mark it as unchecked
+        auto fork_data = _fork_db.fetch( block_id );
+        assert(!fork_data.valid()); //make sure we're not unchecking a block that we previously have validated
+        fork_data.is_valid.reset(); //mark as unchecked (i.e. we will check validity again later during switch_to_fork)
+        fork_data.invalid_reason.reset();
+        dlog( "store: ${id} => ${data}", ("id",block_id)("data",fork_data) );
+        _fork_db.store( block_id, fork_data );
+        // then mark every block after it as unchecked as well.
+        std::unordered_set<block_id_type>& next_ids = fork_data.next_blocks;
+        while( next_ids.size() )
+        {
+          std::unordered_set<block_id_type> pending_blocks_for_next_loop_iteration;
+          for( const auto& next_block_id : next_ids )
+          {
+            block_fork_data record = _fork_db.fetch( next_block_id );
+            record.is_valid.reset(); //mark as unchecked (i.e. we will check validity again later during switch_to_fork)
+            record.invalid_reason.reset();
+            pending_blocks_for_next_loop_iteration.insert( record.next_blocks.begin(), record.next_blocks.end() );
+            dlog( "store: ${id} => ${data}", ("id",next_block_id)("data",record) );
+            _fork_db.store( next_block_id, record );
+          }
+          next_ids = pending_blocks_for_next_loop_iteration;
+        }
       }
 
       void chain_database_impl::mark_included( const block_id_type& block_id, bool included )
@@ -587,9 +680,11 @@ namespace bts { namespace blockchain {
 
       void chain_database_impl::switch_to_fork( const block_id_type& block_id )
       { try {
+         if (block_id == _head_block_id) //if block_id is current head block, do nothing
+           return; //this is necessary to avoid unnecessarily popping the head block in this case
+
          ilog( "switch from fork ${id} to ${to_id}", ("id",_head_block_id)("to_id",block_id) );
          vector<block_id_type> history = get_fork_history( block_id );
-         FC_ASSERT( history.size() > 0 );
          while( history.back() != _head_block_id )
          {
             ilog( "    pop ${id}", ("id",_head_block_id) );
@@ -616,7 +711,7 @@ namespace bts { namespace blockchain {
                //ilog( "applying   ${trx}", ("trx",trx) );
                transaction_evaluation_state_ptr trx_eval_state =
                       std::make_shared<transaction_evaluation_state>(pending_state.get(), _chain_id);
-               trx_eval_state->evaluate( trx, _skip_signature_verification );
+               trx_eval_state->evaluate( trx, _skip_signature_verification, true );
                //ilog( "evaluation: ${e}", ("e",*trx_eval_state) );
                // TODO:  capture the evaluation state with a callback for wallets...
                // summary.transaction_states.emplace_back( std::move(trx_eval_state) );
@@ -769,8 +864,11 @@ namespace bts { namespace blockchain {
           delegate_info.last_block_num_produced = produced_block.block_num;
           pending_state->store_account_record( *delegate_record );
 
-          const slot_record slot( produced_block.timestamp, delegate_id, produced_block.id() );
-          pending_state->store_slot_record( slot );
+          if( _track_stats )
+          {
+             const slot_record slot( produced_block.timestamp, delegate_id, produced_block.id() );
+             pending_state->store_slot_record( slot );
+          }
 
           /* Update production info for missing delegates */
 
@@ -794,7 +892,8 @@ namespace bts { namespace blockchain {
               delegate_record->delegate_info->blocks_missed += 1;
               pending_state->store_account_record( *delegate_record );
 
-              pending_state->store_slot_record( slot_record( block_timestamp, delegate_id )  );
+             if( _track_stats )
+                 pending_state->store_slot_record( slot_record( block_timestamp, delegate_id )  );
           }
 
           /* Update required confirmation count */
@@ -850,11 +949,12 @@ namespace bts { namespace blockchain {
            market_engine engine( pending_state, *this );
            if( engine.execute( market_pair.first, market_pair.second, timestamp ) )
            {
-              market_transactions.insert( market_transactions.end(), engine._market_transactions.begin(), engine._market_transactions.end() );
+              if( _track_stats )
+                 market_transactions.insert( market_transactions.end(), engine._market_transactions.begin(), engine._market_transactions.end() );
            }
         }
-
-        pending_state->set_market_transactions( std::move( market_transactions ) );
+        if( _track_stats )
+           pending_state->set_market_transactions( std::move( market_transactions ) );
       } FC_CAPTURE_AND_RETHROW() }
 
       /**
@@ -872,7 +972,7 @@ namespace bts { namespace blockchain {
                block_signee = self->get_slot_signee( block_data.timestamp, self->get_active_delegates() ).signing_key();
             else
                /* We need the block_signee's key in several places and computing it is expensive, so compute it here and pass it down */
-               block_signee = block_data.signee();
+               block_signee = block_data.signee( true );
 
             auto checkpoint_itr = CHECKPOINT_BLOCKS.find(block_data.block_num);
             if( checkpoint_itr != CHECKPOINT_BLOCKS.end() && checkpoint_itr->second != block_id )
@@ -931,6 +1031,13 @@ namespace bts { namespace blockchain {
             throw;
          }
 
+         // purge the expired known transactions database, they cannot no longer fork us
+         auto itr = _unique_transactions.begin();
+         while( itr != _unique_transactions.end() && itr->first < self->now() )
+         {
+            itr = _unique_transactions.erase(itr);
+         }
+
          //Schedule the observer notifications for later; the chain is in a
          //non-premptable state right now, and observers may yield.
          if( (now() - block_data.timestamp).to_seconds() < BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC )
@@ -978,6 +1085,7 @@ namespace bts { namespace blockchain {
 
       void chain_database_impl::pop_block()
       { try {
+         assert(_head_block_header.block_num != 0);
          if( _head_block_header.block_num == 0 )
          {
             wlog( "attempting to pop block 0" );
@@ -1109,6 +1217,7 @@ namespace bts { namespace blockchain {
 
                  my->_asset_db.set_write_through( write_through );
                  my->_symbol_index_db.set_write_through( write_through );
+                 my->_game_symbol_index_db.set_write_through( write_through );
 
                  my->_balance_db.set_write_through( write_through );
                  my->_burn_db.set_write_through( write_through );
@@ -1122,6 +1231,8 @@ namespace bts { namespace blockchain {
                  my->_market_status_db.set_write_through( write_through );
                  my->_market_transactions_db.set_write_through( write_through );
                  my->_market_history_db.set_write_through( write_through );
+                 
+                 my->_game_db.set_write_through( write_through );
              };
 
              // For the duration of reindexing, we allow certain databases to postpone flushing until we finish
@@ -1129,9 +1240,16 @@ namespace bts { namespace blockchain {
 
              my->initialize_genesis( genesis_file );
 
+             // Load block num -> id db into memory and clear from disk for re-indexing
              map<uint32_t, block_id_type> num_to_id;
-             for (auto itr = my->_block_num_to_id_db.begin(); itr.valid(); ++itr)
-                 num_to_id[itr.key()] = itr.value();
+             {
+                 for( auto itr = my->_block_num_to_id_db.begin(); itr.valid(); ++itr )
+                     num_to_id.emplace_hint( num_to_id.end(), itr.key(), itr.value() );
+
+                 my->_block_num_to_id_db.close();
+                 fc::remove_all( data_dir / "raw_chain/block_num_to_id_db" );
+                 my->_block_num_to_id_db.open( data_dir / "raw_chain/block_num_to_id_db" );
+             }
 
              if( !reindex_status_callback )
                  std::cout << "Please be patient, this will take a few minutes...\r\nRe-indexing database..." << std::flush << std::fixed;
@@ -1169,16 +1287,15 @@ namespace bts { namespace blockchain {
                  }
              };
 
-             if (num_to_id.empty()) {
-                 auto block_itr = id_to_data_orig.begin();
-                 while( block_itr.valid() ) {
+             if (num_to_id.empty())
+             {
+                 for( auto block_itr = id_to_data_orig.begin(); block_itr.valid(); ++block_itr )
                      insert_block(block_itr.value());
-                     ++block_itr;
-                 }
              }
              else
              {
-                 for (const auto& num_id : num_to_id) {
+                 for (const auto& num_id : num_to_id)
+                 {
                      auto oblock = id_to_data_orig.fetch_optional(num_id.second);
                      if (oblock)
                          insert_block(*oblock);
@@ -1205,24 +1322,23 @@ namespace bts { namespace blockchain {
           my->_chain_id = db_chain_id;
 
           //  process the pending transactions to cache by fees
-          auto pending_itr = my->_pending_transaction_db.begin();
-          wlog( "loading pending trx..." );
-          while( pending_itr.valid() )
+          for( auto pending_itr = my->_pending_transaction_db.begin(); pending_itr.valid(); ++pending_itr )
           {
-             try {
+             try
+             {
                 auto trx = pending_itr.value();
                 wlog( " loading pending transaction ${trx}", ("trx",trx) );
                 auto trx_id = trx.id();
+                auto id = trx.digest(my->_chain_id);
                 auto eval_state = evaluate_transaction( trx, my->_relay_fee );
                 share_type fees = eval_state->get_fees();
                 my->_pending_fee_index[ fee_index( fees, trx_id ) ] = eval_state;
-                my->_pending_transaction_db.store( trx_id, trx );
+                my->_pending_transaction_db.store( id, trx );
              }
              catch ( const fc::exception& e )
              {
                 wlog( "error processing pending transaction: ${e}", ("e",e.to_detail_string() ) );
              }
-             ++pending_itr;
           }
       }
       catch (...)
@@ -1265,6 +1381,7 @@ namespace bts { namespace blockchain {
 
       my->_account_index_db.close();
       my->_symbol_index_db.close();
+      my->_game_symbol_index_db.close();
       my->_delegate_vote_index_db.close();
 
       my->_slot_record_db.close();
@@ -1278,7 +1395,7 @@ namespace bts { namespace blockchain {
       my->_market_history_db.close();
       my->_market_status_db.close();
        
-      my->_game_db.close();
+      my->_rule_db.close();
 
       my->_market_transactions_db.close();
       my->_game_transactions_db.close();
@@ -1289,6 +1406,10 @@ namespace bts { namespace blockchain {
 
       my->_auth_db.close();
       my->_asset_proposal_db.close();
+       
+      my->_game_db.close();
+
+      my->_revalidatable_future_blocks_db.close();
    } FC_RETHROW_EXCEPTIONS( warn, "" ) }
 
    account_record chain_database::get_delegate_record_for_signee( const public_key_type& block_signee )const
@@ -1352,7 +1473,7 @@ namespace bts { namespace blockchain {
       pending_chain_state_ptr          pend_state = std::make_shared<pending_chain_state>(my->_pending_trx_state);
       transaction_evaluation_state_ptr trx_eval_state = std::make_shared<transaction_evaluation_state>(pend_state.get(), my->_chain_id);
 
-      trx_eval_state->evaluate( trx );
+      trx_eval_state->evaluate( trx, false, true );
       auto fees = trx_eval_state->get_fees() + trx_eval_state->alt_fees_paid.amount;
       if( fees < required_fees )
       {
@@ -1372,7 +1493,7 @@ namespace bts { namespace blockchain {
           auto pending_state = std::make_shared<pending_chain_state>( shared_from_this() );
           transaction_evaluation_state_ptr eval_state = std::make_shared<transaction_evaluation_state>( pending_state.get(), my->_chain_id );
 
-          eval_state->evaluate( transaction );
+          eval_state->evaluate( transaction, false, true );
           auto fees = eval_state->get_fees();
           if( fees < min_fee )
              FC_CAPTURE_AND_THROW( insufficient_relay_fee, (fees)(min_fee) );
@@ -1465,13 +1586,14 @@ namespace bts { namespace blockchain {
     */
    block_fork_data chain_database::push_block( const full_block& block_data )
    { try {
-      if( get_head_block_num() > BTS_BLOCKCHAIN_MAX_UNDO_HISTORY &&
-          block_data.block_num <= (get_head_block_num() - BTS_BLOCKCHAIN_MAX_UNDO_HISTORY) )
+      uint32_t head_block_num = get_head_block_num();
+      if( head_block_num > BTS_BLOCKCHAIN_MAX_UNDO_HISTORY &&
+          block_data.block_num <= (head_block_num - BTS_BLOCKCHAIN_MAX_UNDO_HISTORY) )
         FC_THROW_EXCEPTION(block_older_than_undo_history,
                            "block ${new_block_hash} (number ${new_block_num}) is on a fork older than "
                            "our undo history would allow us to switch to (current head block is number ${head_block_num}, undo history is ${undo_history})",
                            ("new_block_hash", block_data.id())("new_block_num", block_data.block_num)
-                           ("head_block_num", get_head_block_num())("undo_history", BTS_BLOCKCHAIN_MAX_UNDO_HISTORY));
+                           ("head_block_num", head_block_num)("undo_history", BTS_BLOCKCHAIN_MAX_UNDO_HISTORY));
 
       // only allow a single fiber attempt to push blocks at any given time,
       // this method is not re-entrant.
@@ -1486,46 +1608,68 @@ namespace bts { namespace blockchain {
 
       auto processing_start_time = time_point::now();
       auto block_id = block_data.id();
-      auto current_head_id = my->_head_block_id;
+      //auto current_head_id = my->_head_block_id;
 
       std::pair<block_id_type, block_fork_data> longest_fork = my->store_and_index( block_id, block_data );
-      optional<block_fork_data> new_fork_data = get_block_fork_data(block_id);
-      FC_ASSERT(new_fork_data, "can't get fork data for a block we just successfully pushed");
+      assert(get_block_fork_data(block_id) && "can't get fork data for a block we just successfully pushed");
 
-      //ilog( "previous ${p} ==? current ${c}", ("p",block_data.previous)("c",current_head_id) );
-      if( block_data.previous == current_head_id )
+      /*
+      store_and_index has returned the potential chain with the longest_fork (highest block number other than possible the current head block number)
+      if (longest_fork is linked and not known to be invalid and is higher than the current head block number)
+        highest_unchecked_block_number = longest_fork blocknumber;
+        do
+          foreach next_fork_to_try in all blocks at same block number
+              if (next_fork_try is linked and not known to be invalid)
+                try
+                  switch_to_fork(next_fork_to_try) //this throws if block in fork is invalid, then we'll try another fork
+                  return
+                catch block from future and add to database for potential revalidation on startup or if we get from another peer later
+                catch any other invalid block and do nothing
+          --highest_unchecked_block_number
+        while(highest_unchecked_block_number > 0)
+      */
+      if (longest_fork.second.can_link())
       {
-         // attempt to extend chain
-         my->extend_chain( block_data );
-         new_fork_data = get_block_fork_data(block_id);
-         FC_ASSERT(new_fork_data, "can't get fork data for a block we just successfully pushed");
+        full_block longest_fork_block = my->_block_id_to_block_data_db.fetch(longest_fork.first);
+        uint32_t highest_unchecked_block_number = longest_fork_block.block_num;
+        if (highest_unchecked_block_number > head_block_num)
+        {
+          do
+          {
+            optional<vector<block_id_type>> parallel_blocks = my->_fork_number_db.fetch_optional(highest_unchecked_block_number);
+            if (parallel_blocks)
+              //for all blocks at same block number
+              for (const block_id_type& next_fork_to_try_id : *parallel_blocks)
+              {
+                block_fork_data next_fork_to_try = my->_fork_db.fetch(next_fork_to_try_id);
+                if (next_fork_to_try.can_link())
+                  try
+                  {
+                    my->switch_to_fork(next_fork_to_try_id); //verify this works if next_fork_to_try is current head block
+                    /* Store processing time */
+                    auto record = get_block_record( block_id );
+                    FC_ASSERT( record.valid() );
+                    record->processing_time = time_point::now() - processing_start_time;
+                    my->_block_id_to_block_record_db.store( block_id, *record );
+                    return *get_block_fork_data(block_id);
+                  }
+                  catch (const time_in_future& e)
+                  {
+                    // Blocks from the future can become valid later, so keep a list of these blocks that we can iterate over
+                    // whenever we think our clock time has changed from it's standard flow
+                    my->_revalidatable_future_blocks_db.store(block_id, 0);
+                    wlog("fork rejected because it has block with time in future, storing block id for revalidation later");
+                  }
+                  catch (const fc::exception& e) //swallow any invalidation exceptions except for time_in_future invalidations
+                  {
+                    wlog("fork permanently rejected as it has permanently invalid block");
+                  }
+              }
+            --highest_unchecked_block_number;
+          } while(highest_unchecked_block_number > 0); // while condition should only fail if we've never received a valid block yet
+        } //end if fork is longer than current chain (including possibly by extending chain)
       }
-      else if( longest_fork.second.can_link() &&
-               my->_block_id_to_block_record_db.fetch(longest_fork.first).block_num > my->_head_block_header.block_num )
-      {
-         try {
-            my->switch_to_fork( longest_fork.first );
-            new_fork_data = get_block_fork_data(block_id);
-            FC_ASSERT(new_fork_data, "can't get fork data for a block we just successfully pushed");
-         }
-         catch ( const fc::canceled_exception& )
-         {
-            throw;
-         }
-         catch ( const fc::exception& e )
-         {
-            wlog( "attempt to switch to fork failed: ${e}, reverting", ("e",e.to_detail_string() ) );
-            my->switch_to_fork( current_head_id );
-         }
-      }
-
-      /* Store processing time */
-      auto record = get_block_record( block_id );
-      FC_ASSERT( record.valid() );
-      record->processing_time = time_point::now() - processing_start_time;
-      my->_block_id_to_block_record_db.store( block_id, *record );
-
-      return *new_fork_data;
+      return *get_block_fork_data(block_id);
    } FC_CAPTURE_AND_RETHROW( (block_data) )  }
 
   std::vector<block_id_type> chain_database::get_fork_history( const block_id_type& id )
@@ -1554,6 +1698,16 @@ namespace bts { namespace blockchain {
       }
       return oasset_record();
    }
+    
+    ogame_record chain_database::get_game_record( const game_id_type& id )const
+    {
+        auto itr = my->_game_db.find( id );
+        if( itr.valid() )
+        {
+            return itr.value();
+        }
+        return ogame_record();
+    }
 
    oaccount_record chain_database::get_account_record( const address& account_owner )const
    { try {
@@ -1580,9 +1734,9 @@ namespace bts { namespace blockchain {
       return arec->id;
    } FC_CAPTURE_AND_RETHROW( (symbol) ) }
     
-   ogeneric_game_record chain_database::get_generic_game_record( uint32_t game_id )const
+   orule_data_record chain_database::get_rule_data_record( uint32_t rule_data_id )const
    {
-      return my->_game_db.fetch_optional( game_id );
+      return my->_rule_db.fetch_optional( rule_data_id );
    }
 
    bool chain_database::is_valid_symbol( const string& symbol )const
@@ -1597,6 +1751,14 @@ namespace bts { namespace blockchain {
           return get_asset_record( symbol_id_itr.value() );
        return oasset_record();
    } FC_CAPTURE_AND_RETHROW( (symbol) ) }
+    
+    ogame_record chain_database::get_game_record( const string& symbol )const
+    { try {
+        auto symbol_id_itr = my->_game_symbol_index_db.find( symbol );
+        if( symbol_id_itr.valid() )
+            return get_game_record( symbol_id_itr.value() );
+        return ogame_record();
+    } FC_CAPTURE_AND_RETHROW( (symbol) ) }
 
    oaccount_record chain_database::get_account_record( const string& account_name )const
    { try {
@@ -1620,17 +1782,31 @@ namespace bts { namespace blockchain {
        }
    } FC_CAPTURE_AND_RETHROW( (asset_to_store) ) }
     
-   void chain_database::store_generic_game_record( uint32_t id, const generic_game_record& r )
+    void chain_database::store_game_record( const game_record& game_to_store )
+    { try {
+        if( game_to_store.is_null() )
+        {
+            my->_game_db.remove( game_to_store.id );
+            my->_game_symbol_index_db.remove( game_to_store.symbol );
+        }
+        else
+        {
+            my->_game_db.store( game_to_store.id, game_to_store );
+            my->_game_symbol_index_db.store( game_to_store.symbol, game_to_store.id );
+        }
+    } FC_CAPTURE_AND_RETHROW( (game_to_store) ) }
+    
+   void chain_database::store_rule_data_record( uint32_t id, const rule_data_record& r )
    {
        try {
-           ilog( "game record: ${r}", ("r",r) );
+           ilog( "rule record: ${r}", ("r",r) );
            if( r.is_null() )
            {
-               my->_game_db.remove( id );
+               my->_rule_db.remove( id );
            }
            else
            {
-               my->_game_db.store( id, r );
+               my->_rule_db.store( id, r );
            }
    } FC_RETHROW_EXCEPTIONS( warn, "", ("record", r) ) }
 
@@ -1801,98 +1977,106 @@ namespace bts { namespace blockchain {
    }
 
 
-    oobject_record             chain_database::get_object_record( const object_id_type& id )
+    oobject_record             chain_database::get_object_record( const object_id_type& id )const
     {
        return my->_object_db.fetch_optional( id );
     }
 
     void                       chain_database::store_object_record( const object_record& obj )
-    {
-        // Set indices
+    { try {
         switch( obj.type() )
         {
-            case account_object:
-            case asset_object:
-                FC_ASSERT(!"You cannot store these object types via object interface yet!");
+            case base_object:
+            {
+                ilog("@n storing a base_object record in chain DB");
+                my->_object_db.store( obj._id, obj );
+                auto o = my->_object_db.fetch_optional( obj._id );
+                ilog("@n fetched it again as a sanity check: ${o}", ("o", o));
                 break;
+            }
             case edge_object:
             {
-                auto edge = obj.as<edge_record>();
-                my->_edge_index.store( edge.index_key(), edge._id );
-                my->_reverse_edge_index.store( edge.reverse_index_key(), edge._id );
+                store_edge_record( obj );
                 break;
             }
-            case base_object:
+            case account_object:
+            case asset_object:
+            case throttled_auction_object:
+            case user_auction_object:
+            case site_object:
             default:
+                FC_ASSERT(!"You cannot store these object types via object interface yet!");
                 break;
         }
-        my->_object_db.store( obj._id, obj );
+    } FC_CAPTURE_AND_RETHROW( (obj) ) }
+
+
+
+    void                       chain_database::store_site_record( const site_record& site )
+    {
+        /*
+        my->_site_index.store(site.site_name, site);
+        my->_object_db.store(site._id, site);
+        ilog("@n after storing site in chain DB:");
+        ilog("@n      as an object: ${o}", ("o", object_record(site)));
+        ilog("@n      as a site: ${s}", ("s", site));
+        */
     }
 
+   osite_record  chain_database::lookup_site( const string& site_name )const
+   { try {
+       auto site = my->_site_index.fetch_optional( site_name );
+       if( site.valid() )
+       {
+           return site;
+           /*
+           auto obj = my->_object_db.fetch( *site_id );
+           return obj.as<site_record>();
+           */
+       }
+       return osite_record();
+   } FC_CAPTURE_AND_RETHROW( (site_name) ) }
 
 
-    oedge_record               chain_database::get_edge( const object_id_type& from,
-                                         const object_id_type& to,
-                                         const string& name )const
+
+
+    void            chain_database::store_edge_record( const object_record& edge )
+    { try {
+        ilog("@n storing edge in chain DB: ${e}", ("e", edge));
+        auto edge_data = edge.as<edge_record>();
+        my->_edge_index.store( edge_data.index_key(), edge._id );
+        my->_reverse_edge_index.store( edge_data.reverse_index_key(), edge._id );
+        my->_object_db.store( edge._id, edge );
+    } FC_CAPTURE_AND_RETHROW( (edge) ) }
+
+    oobject_record  chain_database::get_edge( const object_id_type& from,
+                                             const object_id_type& to,
+                                             const string& name )const
     {
-        edge_index_key key;
-        key.from = from; key.to = to; key.name = name;
-        auto id = my->_edge_index.fetch_optional( key );
-        if( NOT id.valid() )
-            return oedge_record();
-        auto obj = my->_object_db.fetch_optional( *id );
-        if( NOT obj.valid() )
-            return oedge_record();
-        auto edge = obj->as<edge_record>();
-        return edge;
+        edge_index_key key( from, to, name );
+        auto object_id = my->_edge_index.fetch_optional( key );
+        if( object_id )
+           return get_object_record( *object_id );
+        return oobject_record();
     }
-    map<string, edge_record>   chain_database::get_edges( const object_id_type& from,
-                                          const object_id_type& to )const
+    map<string, object_record>   chain_database::get_edges( const object_id_type& from,
+                                                            const object_id_type& to )const
     {
-        map<string, edge_record> ret;
-        edge_index_key key;
-        key.from = from; key.to = to;
-        auto itr = my->_edge_index.find( key );
-        while( itr.valid() )
-        {
-            auto obj = my->_object_db.fetch_optional( itr.value() );
-            FC_ASSERT( obj.valid(), "Edge in index but not in object DB" );
-            auto edge = obj->as<edge_record>();
-            if (edge.from != from || edge.to != to)
-                break;
-            ret[edge.name] = edge;
-        }
+        FC_ASSERT(!"unimplemented");
+        map<string, object_record> ret;
         return ret;
     }
-    map<object_id_type, map<string, edge_record>> chain_database::get_edges( const object_id_type& from )const
+
+    map<object_id_type, map<string, object_record>> chain_database::get_edges( const object_id_type& from )const
     {
-        map<object_id_type, map<string, edge_record>> ret;
-        edge_index_key key;
-        key.from = from;
-        auto itr = my->_edge_index.find( key );
-        while( itr.valid() )
-        {
-            auto obj = my->_object_db.fetch_optional( itr.value() );
-            FC_ASSERT( obj.valid(), "Edge in index but not in object DB" );
-            auto edge = obj->as<edge_record>();
-            if (edge.from != from)
-                break;
-            if( ret.find(edge.from) != ret.end() )
-            {
-                ret[edge.to][edge.name] = edge;
-            }
-            else
-            {
-                map<string, edge_record> by_name;
-                by_name[edge.name] = edge;
-                ret[edge.to] = by_name;
-            }
-        }
+        FC_ASSERT(!"unimplemented");
+        map<object_id_type, map<string, object_record>> ret;
         return ret;
     }
 
    otransaction_record chain_database::get_transaction( const transaction_id_type& trx_id, bool exact )const
    { try {
+      FC_ASSERT( my->_track_stats );
       auto trx_rec = my->_id_to_transaction_record_db.fetch_optional( trx_id );
       if( trx_rec || exact )
       {
@@ -1921,57 +2105,57 @@ namespace bts { namespace blockchain {
    { try {
       if( record_to_store.trx.operations.size() == 0 )
       {
-        my->_id_to_transaction_record_db.remove( record_id );
-        my->_known_transactions.erase( record_id );
+        if( my->_track_stats )
+           my->_id_to_transaction_record_db.remove( record_id );
+        my->_unique_transactions[record_to_store.trx.expiration].erase( record_to_store.trx.digest(my->_chain_id) );
       }
       else
       {
         FC_ASSERT( record_id == record_to_store.trx.id() );
-        my->_id_to_transaction_record_db.store( record_id, record_to_store );
-        my->_known_transactions.insert( record_id );
+        if( my->_track_stats )
+           my->_id_to_transaction_record_db.store( record_id, record_to_store );
+        if( record_to_store.trx.expiration > this->now() )
+           FC_ASSERT( my->_unique_transactions[record_to_store.trx.expiration].insert( record_to_store.trx.digest(my->_chain_id) ).second );
       }
    } FC_CAPTURE_AND_RETHROW( (record_id)(record_to_store) ) }
 
    void chain_database::scan_assets( function<void( const asset_record& )> callback )const
    {
-        auto asset_itr = my->_asset_db.begin();
-        while( asset_itr.valid() )
-        {
+       for( auto asset_itr = my->_asset_db.begin(); asset_itr.valid(); ++asset_itr )
            callback( asset_itr.value() );
-           ++asset_itr;
-        }
    }
+    
+    void chain_database::scan_games( function<void( const game_record& )> callback )const
+    {
+        auto game_itr = my->_game_db.begin();
+        while( game_itr.valid() )
+        {
+            callback( game_itr.value() );
+            ++game_itr;
+        }
+    }
 
    void chain_database::scan_balances( function<void( const balance_record& )> callback )const
    {
-        auto balances = my->_balance_db.begin();
-        while( balances.valid() )
-        {
+        for( auto balances = my->_balance_db.begin(); balances.valid(); ++balances )
            callback( balances.value() );
-           ++balances;
-        }
    }
 
    void chain_database::scan_accounts( function<void( const account_record& )> callback )const
    {
-        auto name_itr = my->_account_db.begin();
-        while( name_itr.valid() )
-        {
+        for( auto name_itr = my->_account_db.begin(); name_itr.valid(); ++name_itr )
            callback( name_itr.value() );
-           ++name_itr;
-        }
    }
 
    void chain_database::scan_objects( function<void( const object_record& )> callback )const
    {
-        auto itr = my->_object_db.begin();
-        while( itr.valid() )
+        ilog("@n starting object db scan");
+        for( auto itr = my->_object_db.begin(); itr.valid(); ++itr )
         {
+           ilog("@n scanning object: ${o}", ("o", itr.value()));
            callback( itr.value() );
-           ++itr;
         }
    }
-
 
    /** this should throw if the trx is invalid */
    transaction_evaluation_state_ptr chain_database::store_pending_transaction( const signed_transaction& trx, bool override_limits )
@@ -1980,7 +2164,8 @@ namespace bts { namespace blockchain {
       if (override_limits)
         wlog("storing new local transaction with id ${id}", ("id", trx_id));
 
-      auto current_itr = my->_pending_transaction_db.find(trx_id);
+      auto id =  trx.digest(my->_chain_id);
+      auto current_itr = my->_pending_transaction_db.find(id);
       if( current_itr.valid() )
         return nullptr;
 
@@ -2001,7 +2186,7 @@ namespace bts { namespace blockchain {
       //   FC_CAPTURE_AND_THROW( insufficient_relay_fee, (fees)(my->_relay_fee) );
 
       my->_pending_fee_index[ fee_index( fees, trx_id ) ] = eval_state;
-      my->_pending_transaction_db.store( trx_id, trx );
+      my->_pending_transaction_db.store( id, trx );
 
       return eval_state;
    } FC_RETHROW_EXCEPTIONS( warn, "", ("trx",trx) ) }
@@ -2017,62 +2202,89 @@ namespace bts { namespace blockchain {
       return trxs;
    }
 
-   full_block chain_database::generate_block( const time_point_sec& timestamp )
+   full_block chain_database::generate_block( const time_point_sec& block_timestamp,
+                                              size_t max_block_transaction_count, size_t max_block_size,
+                                              size_t max_transaction_size, share_type min_transaction_fee,
+                                              const fc::microseconds& max_block_production_time )
    { try {
-      auto start_time = time_point::now();
+      const time_point start_time = time_point::now();
 
-      pending_chain_state_ptr pending_state = std::make_shared<pending_chain_state>( shared_from_this() );
-      my->execute_markets( timestamp, pending_state );
-      auto pending_trx = get_pending_transactions();
+      const pending_chain_state_ptr pending_state = std::make_shared<pending_chain_state>( shared_from_this() );
+      my->execute_markets( block_timestamp, pending_state );
 
-      full_block next_block;
-      size_t block_size = 0;
-      share_type total_fees = 0;
-
-      // TODO: Sort pending transactions by highest fee
-      for( const auto& item : pending_trx )
+      full_block new_block;
+      size_t block_size = new_block.block_size();
+      if( max_block_transaction_count > 0 && max_block_size > block_size )
       {
-         auto trx_size = item->trx.data_size();
-         if( block_size + trx_size > BTS_BLOCKCHAIN_MAX_BLOCK_SIZE ) break;
-         block_size += trx_size;
+          // Evaluate pending transactions
+          const vector<transaction_evaluation_state_ptr> pending_trx = get_pending_transactions();
+          for( const transaction_evaluation_state_ptr& item : pending_trx )
+          {
+              if( time_point::now() - start_time >= max_block_production_time )
+                  break;
 
-         /* Make modifications to temporary state */
-         auto pending_trx_state = std::make_shared<pending_chain_state>( pending_state );
-         auto trx_eval_state = std::make_shared<transaction_evaluation_state>( pending_trx_state.get(), my->_chain_id );
+              const signed_transaction& new_transaction = item->trx;
+              try
+              {
+                  // Evaluate transaction size
+                  const size_t transaction_size = new_transaction.data_size();
+                  if( transaction_size > max_transaction_size )
+                  {
+                      wlog( "Excluding transaction ${id} of size ${size} because it exceeds transaction size limit ${limit}",
+                            ("id",new_transaction.id())("size",transaction_size)("limit",max_transaction_size) );
+                      continue;
+                  }
+                  else if( block_size + transaction_size > max_block_size )
+                  {
+                      wlog( "Excluding transaction ${id} of size ${size} because block would exceed block size limit ${limit}",
+                            ("id",new_transaction.id())("size",transaction_size)("limit",max_block_size) );
+                      continue;
+                  }
+                  block_size += transaction_size;
 
-         try
-         {
-            trx_eval_state->evaluate( item->trx );
-            // TODO: what about fees in other currencies?
-            total_fees += trx_eval_state->get_fees( 0 );
-            /* Apply temporary state to block state */
-            pending_trx_state->apply_changes();
-            next_block.user_transactions.push_back( item->trx );
-         }
-         catch ( const fc::canceled_exception& )
-         {
-            throw;
-         }
-         catch( const fc::exception& e )
-         {
-            wlog( "Pending transaction was found to be invalid in context of block\n ${trx} \n${e}",
-                  ("trx",fc::json::to_pretty_string(item->trx))("e",e.to_detail_string()) );
-         }
+                  auto pending_trx_state = std::make_shared<pending_chain_state>( pending_state );
+                  auto trx_eval_state = std::make_shared<transaction_evaluation_state>( pending_trx_state.get(), my->_chain_id );
 
-         /* Limit the time we spend evaluating transactions */
-         if( time_point::now() - start_time > fc::seconds(5) )
-            break;
+                  // Evaluate transaction in a temporary context
+                  trx_eval_state->evaluate( new_transaction, false, true );
+
+                  const share_type transaction_fee = trx_eval_state->get_fees( 0 ) + trx_eval_state->alt_fees_paid.amount;
+                  if( transaction_fee < min_transaction_fee )
+                  {
+                      wlog( "Excluding transaction ${id} with fee ${fee} because it does not meet transaction fee limit ${limit}",
+                            ("id",new_transaction.id())("fee",transaction_fee)("limit",min_transaction_fee) );
+                      continue;
+                  }
+
+                  // Apply transaction to pending state
+                  pending_trx_state->apply_changes();
+
+                  new_block.user_transactions.push_back( new_transaction );
+                  if( new_block.user_transactions.size() >= max_block_transaction_count )
+                      break;
+              }
+              catch( const fc::canceled_exception& )
+              {
+                  throw;
+              }
+              catch( const fc::exception& e )
+              {
+                  wlog( "Pending transaction was found to be invalid in context of block\n${trx}\n${e}",
+                        ("trx",fc::json::to_pretty_string( new_transaction ))("e",e.to_detail_string()) );
+              }
+          }
       }
 
-      auto head_block = get_head_block();
+      const signed_block_header head_block = get_head_block();
 
-      next_block.previous           = head_block.block_num ? head_block.id() : block_id_type();
-      next_block.block_num          = head_block.block_num + 1;
-      next_block.timestamp          = timestamp;
-      next_block.transaction_digest = digest_block( next_block ).calculate_transaction_digest();
+      new_block.previous            = head_block.block_num > 0 ? head_block.id() : block_id_type();
+      new_block.block_num           = head_block.block_num + 1;
+      new_block.timestamp           = block_timestamp;
+      new_block.transaction_digest  = digest_block( new_block ).calculate_transaction_digest();
 
-      return next_block;
-   } FC_CAPTURE_AND_RETHROW( (timestamp) ) }
+      return new_block;
+   } FC_CAPTURE_AND_RETHROW( (block_timestamp)(max_block_transaction_count)(max_block_size)(max_transaction_size)
+                             (min_transaction_fee)(max_block_production_time) ) }
 
    void chain_database::add_observer( chain_observer* observer )
    {
@@ -2319,6 +2531,7 @@ namespace bts { namespace blockchain {
     vector<slot_record> chain_database::get_delegate_slot_records( const account_id_type& delegate_id,
                                                                    int64_t start_block_num, uint32_t count )const
     {
+        FC_ASSERT( my->_track_stats, "index of slot records is disabled" );
         FC_ASSERT( count > 0 );
         if( start_block_num < 0 )
             start_block_num = int64_t( get_head_block_num() ) + start_block_num;
@@ -2804,19 +3017,22 @@ namespace bts { namespace blockchain {
 
    void chain_database::store_slot_record( const slot_record& r )
    {
-       if( r.is_null() )
-           my->_slot_record_db.remove( r.start_time );
-       else
-           my->_slot_record_db.store( r.start_time, r );
+     if( !my->_track_stats ) return;
+     if( r.is_null() )
+         my->_slot_record_db.remove( r.start_time );
+     else
+         my->_slot_record_db.store( r.start_time, r );
    }
 
    oslot_record chain_database::get_slot_record( const time_point_sec& start_time )const
    {
+     FC_ASSERT( my->_track_stats );
      return my->_slot_record_db.fetch_optional( start_time );
    }
 
    void chain_database::store_market_history_record(const market_history_key& key, const market_history_record& record)
    {
+     if( !my->_track_stats ) return;
      if( record.volume == 0 )
        my->_market_history_db.remove( key );
      else
@@ -2825,6 +3041,7 @@ namespace bts { namespace blockchain {
 
    omarket_history_record chain_database::get_market_history_record(const market_history_key& key) const
    {
+     FC_ASSERT( my->_track_stats );
      return my->_market_history_db.fetch_optional( key );
    }
 
@@ -2887,9 +3104,12 @@ namespace bts { namespace blockchain {
       return history;
    }
 
-   bool chain_database::is_known_transaction( const transaction_id_type& id )
+   bool chain_database::is_known_transaction( const fc::time_point_sec& exp, const digest_type& id )const
    {
-      return my->_known_transactions.find( id ) != my->_known_transactions.end();
+      auto itr = my->_unique_transactions.find(exp);
+      if( itr != my->_unique_transactions.end() )
+         return itr->second.find( id ) != itr->second.end();
+      return false;
    }
    void chain_database::skip_signature_verification( bool state )
    {
@@ -2908,6 +3128,7 @@ namespace bts { namespace blockchain {
 
    void chain_database::set_market_transactions( vector<market_transaction> trxs )
    {
+      FC_ASSERT( my->_track_stats );
       if( trxs.size() == 0 )
       {
          my->_market_transactions_db.remove( get_head_block_num()+1 );
@@ -2920,6 +3141,7 @@ namespace bts { namespace blockchain {
 
    vector<market_transaction> chain_database::get_market_transactions( uint32_t block_num  )const
    {
+      FC_ASSERT( my->_track_stats );
       auto tmp = my->_market_transactions_db.fetch_optional(block_num);
       if( tmp ) return *tmp;
       return vector<market_transaction>();
@@ -3117,15 +3339,14 @@ namespace bts { namespace blockchain {
 
    asset chain_database::unclaimed_genesis()
    {
-        auto balance = my->_balance_db.begin();
         asset unclaimed_total(0);
         auto genesis_date = get_genesis_timestamp();
 
-        while (balance.valid()) {
+        for( auto balance = my->_balance_db.begin(); balance.valid(); ++balance )
+        {
             if (balance.value().last_update <= genesis_date)
                 unclaimed_total.amount += balance.value().balance;
 
-            ++balance;
         }
 
         return unclaimed_total;
@@ -3200,6 +3421,9 @@ namespace bts { namespace blockchain {
 
    void chain_database::store_burn_record( const burn_record& br )
    {
+      if( !my->_track_stats )
+         return;
+
       if( br.is_null() )
       {
          my->_burn_db.remove( br );
@@ -3210,6 +3434,7 @@ namespace bts { namespace blockchain {
 
    oburn_record chain_database::fetch_burn_record( const burn_record_key& key )const
    {
+      FC_ASSERT( my->_track_stats );
       auto oval = my->_burn_db.fetch_optional( key );
       if( oval )
          return burn_record( key, *oval );
@@ -3217,6 +3442,7 @@ namespace bts { namespace blockchain {
    }
    vector<burn_record> chain_database::fetch_burn_records( const string& account_name )const
    { try {
+      FC_ASSERT( my->_track_stats );
       vector<burn_record> results;
       auto opt_account_record = get_account_record( account_name );
       FC_ASSERT( opt_account_record.valid() );
@@ -3277,6 +3503,10 @@ namespace bts { namespace blockchain {
        next_path = dir / "_asset_db.json";
        my->_asset_db.export_to_json( next_path );
        ulog( "Dumped ${p}", ("p",next_path) );
+       
+       next_path = dir / "_game_db.json";
+       my->_game_db.export_to_json( next_path );
+       ulog( "Dumped ${p}", ("p",next_path) );
 
        next_path = dir / "_balance_db.json";
        my->_balance_db.export_to_json( next_path );
@@ -3300,6 +3530,10 @@ namespace bts { namespace blockchain {
 
        next_path = dir / "_symbol_index_db.json";
        my->_symbol_index_db.export_to_json( next_path );
+       ulog( "Dumped ${p}", ("p",next_path) );
+       
+       next_path = dir / "_game_symbol_index_db.json";
+       my->_game_symbol_index_db.export_to_json( next_path );
        ulog( "Dumped ${p}", ("p",next_path) );
 
        next_path = dir / "_delegate_vote_index_db.json";
@@ -3355,9 +3589,9 @@ namespace bts { namespace blockchain {
    {
      fc::mutable_variant_object stats;
 #define CHAIN_DB_DATABASES (_market_transactions_db)(_slate_db)(_fork_number_db)(_fork_db)(_property_db)(_undo_state_db) \
-                           (_block_num_to_id_db)(_block_id_to_block_record_db)(_block_id_to_block_data_db)(_known_transactions) \
-                           (_id_to_transaction_record_db)(_pending_transaction_db)(_pending_fee_index)(_asset_db)(_balance_db) \
-                           (_burn_db)(_account_db)(_address_to_account_db)(_account_index_db)(_symbol_index_db)(_delegate_vote_index_db) \
+                           (_block_num_to_id_db)(_block_id_to_block_record_db)(_block_id_to_block_data_db) \
+                           (_id_to_transaction_record_db)(_pending_transaction_db)(_pending_fee_index)(_asset_db)(_game_db)(_balance_db) \
+                           (_burn_db)(_account_db)(_address_to_account_db)(_account_index_db)(_symbol_index_db)(_game_symbol_index_db)(_delegate_vote_index_db) \
                            (_slot_record_db)(_ask_db)(_bid_db)(_feed_db)(_object_db)(_edge_index)(_reverse_edge_index)(_market_status_db)(_market_history_db) \
                            (_recent_operations)
 #define GET_DATABASE_SIZE(r, data, elem) stats[BOOST_PP_STRINGIZE(elem)] = my->elem.size();
@@ -3377,7 +3611,7 @@ namespace bts { namespace blockchain {
    {
       return my->_auth_db.fetch_optional( std::make_pair( asset_id, owner ) );
    }
-   void                       chain_database::store_asset_proposal( const proposal_record& r ) 
+   void                       chain_database::store_asset_proposal( const proposal_record& r )
    {
       if( r.info == -1 )
       {
@@ -3389,22 +3623,24 @@ namespace bts { namespace blockchain {
       }
    }
 
-   optional<proposal_record>  chain_database::fetch_asset_proposal( asset_id_type asset_id, proposal_id_type proposal_id )const 
+   optional<proposal_record>  chain_database::fetch_asset_proposal( asset_id_type asset_id, proposal_id_type proposal_id )const
    {
       return my->_asset_proposal_db.fetch_optional( std::make_pair(asset_id,proposal_id) );
    }
    void     chain_database::index_transaction( const address& addr, const transaction_id_type& trx_id )
    {
-      my->_address_to_trx_index.store( std::make_pair(addr,trx_id), char(0) );
+      if( my->_track_stats )
+         my->_address_to_trx_index.store( std::make_pair(addr,trx_id), char(0) );
    }
    vector<transaction_record>  chain_database::fetch_address_transactions( const address& addr )
    {
+      FC_ASSERT( my->_track_stats );
       vector<transaction_record> results;
       auto itr = my->_address_to_trx_index.lower_bound( std::make_pair(addr, transaction_id_type()) );
       while( itr.valid() )
       {
          auto key = itr.key();
-         if( key.first != addr ) 
+         if( key.first != addr )
             break;
 
          if( auto otrx = get_transaction( key.second ) )
@@ -3413,6 +3649,10 @@ namespace bts { namespace blockchain {
          ++itr;
       }
       return results;
+   }
+   void chain_database::track_chain_statistics( bool status )
+   {
+      my->_track_stats = status;
    }
 
 } } // bts::blockchain

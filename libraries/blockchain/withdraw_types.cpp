@@ -4,6 +4,8 @@
 #include <fc/crypto/aes.hpp>
 #include <fc/reflect/variant.hpp>
 
+#include <boost/algorithm/string.hpp>
+
 namespace bts { namespace blockchain {
 
    const uint8_t withdraw_with_signature::type    = withdraw_signature_type;
@@ -34,6 +36,15 @@ namespace bts { namespace blockchain {
    balance_id_type withdraw_condition::get_address()const
    {
       return address( *this );
+   }
+
+   string withdraw_condition::type_label()const
+   {
+      string label = string( this->type );
+      label = label.substr( 9 );
+      label = label.substr( 0, label.find( "_" ) );
+      boost::to_upper( label );
+      return label;
    }
 
    omemo_status withdraw_with_signature::decrypt_memo_data( const fc::ecc::private_key& receiver_key, bool ignore_owner )const
@@ -221,14 +232,15 @@ namespace fc {
          case withdraw_multisig_type:
             obj["data"] = fc::raw::unpack<withdraw_with_multisig>( var.data );
             break;
-         case withdraw_escrow_type:
-            obj["data"] = fc::raw::unpack<withdraw_with_escrow>( var.data );
-            break;
          case withdraw_password_type:
             obj["data"] = fc::raw::unpack<withdraw_with_password>( var.data );
             break;
-         default:
-            FC_ASSERT( !"Invalid withdraw condition!" );
+         case withdraw_reserved_type:
+            break;
+         case withdraw_escrow_type:
+            obj["data"] = fc::raw::unpack<withdraw_with_escrow>( var.data );
+            break;
+         // No default to force compiler warning
       }
       vo = std::move( obj );
    }
@@ -254,11 +266,13 @@ namespace fc {
          case withdraw_multisig_type:
             vo.data = fc::raw::pack( obj["data"].as<withdraw_with_multisig>() );
             return;
-         case withdraw_escrow_type:
-            vo.data = fc::raw::pack( obj["data"].as<withdraw_with_escrow>() );
-            return;
          case withdraw_password_type:
             vo.data = fc::raw::pack( obj["data"].as<withdraw_with_password>() );
+            return;
+         case withdraw_reserved_type:
+            return;
+         case withdraw_escrow_type:
+            vo.data = fc::raw::pack( obj["data"].as<withdraw_with_escrow>() );
             return;
          // No default to force compiler warning
       }

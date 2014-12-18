@@ -7,7 +7,7 @@
 
 #include <bts/blockchain/time.hpp>
 
-#include <bts/game/game_factory.hpp>
+#include <bts/game/rule_factory.hpp>
 
 #include <sstream>
 
@@ -75,34 +75,7 @@ void wallet_impl::scan_market_transaction(
                 || mtrx.bid_received.asset_id != 0
                 || mtrx.bid_paid.amount != 0 )
             {
-                {
-                    auto entry = ledger_entry();
-                    entry.from_account = okey_bid->public_key;
-                    entry.to_account = okey_bid->public_key;
-                    if( mtrx.short_collateral.valid() )
-                        entry.amount = *mtrx.short_collateral;
-                    else
-                        entry.amount = mtrx.bid_received;
-                    entry.memo = "add collateral";
-                    record.ledger_entries.push_back( entry );
-                }
-                {
-                    auto entry = ledger_entry();
-                    //entry.from_account = "MARKET";
-                    entry.to_account =  okey_bid->public_key;
-                    entry.amount = mtrx.ask_paid;
-                    entry.memo = "add collateral";
-                    record.ledger_entries.push_back( entry );
-                }
-                {
-                    auto entry = ledger_entry();
-                    entry.from_account = okey_bid->public_key;
-                    //entry.to_account = "MARKET";
-                    entry.amount = mtrx.bid_paid;
-                    entry.memo = "short proceeds @ " + _blockchain->to_pretty_price( mtrx.bid_price );
-                    record.ledger_entries.push_back( entry );
-                    self->update_margin_position( entry );
-                }
+                FC_ASSERT( false, "This is a short order!" );
             }
             else /* Automatic market cancel */
             {
@@ -167,33 +140,7 @@ void wallet_impl::scan_market_transaction(
         }
         else /* if( mtrx.ask_type == cover_order ) */
         {
-            {
-                auto entry = ledger_entry();
-                entry.from_account = okey_ask->public_key;
-                //entry.to_account = "MARKET";
-                entry.amount = mtrx.ask_paid;
-                entry.memo = "sell collateral @ " + _blockchain->to_pretty_price( mtrx.ask_price );
-                record.ledger_entries.push_back( entry );
-            }
-            {
-                auto entry = ledger_entry();
-                //entry.from_account = "MARKET";
-                entry.to_account = okey_ask->public_key;
-                entry.amount = mtrx.ask_received;
-                entry.memo = "payoff debt @ " + _blockchain->to_pretty_price( mtrx.ask_price );
-                record.ledger_entries.push_back( entry );
-            }
-            if( mtrx.returned_collateral.valid() )
-            {
-                auto entry = ledger_entry();
-                entry.from_account = okey_ask->public_key;
-                entry.to_account = ask_account_key->public_key;
-                entry.amount = *mtrx.returned_collateral;
-                entry.memo = "cover proceeds";
-                record.ledger_entries.push_back( entry );
-                self->wallet_claimed_transaction( entry );
-                record.fee = mtrx.fees_collected;
-            }
+            FC_ASSERT( false, "This is a cover order!" );
         }
 
         _wallet_db.store_transaction( record );
@@ -260,16 +207,27 @@ void wallet_impl::scan_registered_accounts()
 {
    _blockchain->scan_accounts( [&]( const blockchain::account_record& scanned_account_record )
    {
-        // TODO: check owner key as well!
-        auto key_rec =_wallet_db.lookup_key( scanned_account_record.active_key() );
-        if( key_rec.valid() && key_rec->has_private_key() )
+        const auto account_record = _wallet_db.lookup_account( scanned_account_record.name );
+        if( account_record.valid() )
         {
-           auto existing_account_record = _wallet_db.lookup_account( key_rec->account_address );
-           if( existing_account_record.valid() )
-              _wallet_db.store_account( scanned_account_record );
+            _wallet_db.store_account( scanned_account_record );
+            return;
         }
+
+        auto key_record = _wallet_db.lookup_key( scanned_account_record.owner_address() );
+        if( !key_record.valid() || !key_record->has_private_key() )
+        {
+            key_record = _wallet_db.lookup_key( scanned_account_record.active_address() );
+            if( !key_record.valid() || !key_record->has_private_key() )
+            {
+                if( scanned_account_record.is_delegate() )
+                    key_record = _wallet_db.lookup_key( scanned_account_record.signing_address() );
+            }
+        }
+
+        if( key_record.valid() && key_record->has_private_key() )
+            _wallet_db.store_account( scanned_account_record );
    } );
-   ilog( "account scan complete" );
 }
 
 void wallet_impl::scan_block( uint32_t block_num, const vector<private_key_type>& keys, const time_point_sec& received_time )
@@ -1655,5 +1613,5 @@ void wallet_impl::scan_game_transaction(const game_transaction& gtrx,
 
 bool wallet_impl::scan_game( const game_operation& op, wallet_transaction_record& trx_rec )
 {
-    return bts::game::game_factory::instance().scan(op.game, trx_rec, self->shared_from_this() );
+    return bts::game::rule_factory::instance().scan(op.rule, trx_rec, self->shared_from_this() );
 }

@@ -36,18 +36,20 @@ namespace bts { namespace blockchain {
          virtual obalance_record        get_balance_record( const balance_id_type& id )const override;
          virtual oaccount_record        get_account_record( const account_id_type& id )const override;
          virtual oaccount_record        get_account_record( const address& owner )const override;
-         virtual ogeneric_game_record   get_generic_game_record( uint32_t id )const override;
+         virtual ogame_record           get_game_record( const game_id_type& id )const override;
+         virtual orule_data_record      get_rule_data_record( uint32_t id )const override;
 
          virtual odelegate_slate        get_delegate_slate( slate_id_type id )const override;
          virtual void                   store_delegate_slate( slate_id_type id, const delegate_slate& slate ) override;
 
-         virtual bool                   is_known_transaction( const transaction_id_type& trx_id ) override;
+         virtual bool                   is_known_transaction( const fc::time_point_sec& exp, const digest_type& trx_id )const override;
          virtual otransaction_record    get_transaction( const transaction_id_type& trx_id, bool exact = true )const override;
 
          virtual void                   store_transaction( const transaction_id_type&, const transaction_record&  ) override;
 
          virtual oasset_record          get_asset_record( const string& symbol )const override;
          virtual oaccount_record        get_account_record( const string& name )const override;
+         virtual ogame_record           get_game_record( const string& symbol )const override;
 
          virtual omarket_status         get_market_status( const asset_id_type& quote_id, const asset_id_type& base_id )override;
          virtual void                   store_market_status( const market_status& s ) override;
@@ -67,21 +69,26 @@ namespace bts { namespace blockchain {
          virtual void                   store_asset_record( const asset_record& r )override;
          virtual void                   store_balance_record( const balance_record& r )override;
          virtual void                   store_account_record( const account_record& r )override;
-         virtual void                   store_generic_game_record( uint32_t id, const generic_game_record& r )override;
+         virtual void                   store_game_record( const game_record& r )override;
+         virtual void                   store_rule_data_record( uint32_t id, const rule_data_record& r )override;
 
          virtual vector<operation>      get_recent_operations( operation_type_enum t )override;
          virtual void                   store_recent_operation( const operation& o )override;
 
          virtual void                   store_object_record( const object_record& obj )override;
-         virtual oobject_record         get_object_record( const object_id_type& id )override;
+         virtual oobject_record         get_object_record( const object_id_type& id )const override;
 
 
-         virtual oedge_record               get_edge( const object_id_type& from,
+         virtual void                       store_site_record( const site_record& site )override;
+         virtual osite_record               lookup_site( const string& site_name)const override;
+
+         virtual void                       store_edge_record( const object_record& edge )override;
+         virtual oobject_record               get_edge( const object_id_type& from,
                                                       const object_id_type& to,
                                                       const string& name )const          override;
-         virtual map<string, edge_record>   get_edges( const object_id_type& from,
+         virtual map<string, object_record>   get_edges( const object_id_type& from,
                                                        const object_id_type& to )const   override;
-         virtual map<object_id_type, map<string, edge_record>>
+         virtual map<object_id_type, map<string, object_record>>
                                         get_edges( const object_id_type& from )const override;
 
 
@@ -136,7 +143,9 @@ namespace bts { namespace blockchain {
          unordered_map< balance_id_type, balance_record>                   balances;
          unordered_map< string, account_id_type>                           account_id_index;
          unordered_map< string, asset_id_type>                             symbol_id_index;
+         unordered_map< string, game_id_type>                              game_symbol_id_index;
          unordered_map< transaction_id_type, transaction_record>           transactions;
+         unordered_set< digest_type >                                      unique_transactions;
          unordered_map< chain_property_type, variant>                      properties;
          unordered_map<address, account_id_type>                           key_to_account;
          map< market_index_key, order_record>                              bids;
@@ -149,11 +158,12 @@ namespace bts { namespace blockchain {
          map<burn_record_key,burn_record_value>                            burns;
          map< market_index_key, order_record>                              relative_bids;
          map< market_index_key, order_record>                              relative_asks;
-                                                                           
+
          map< object_id_type, object_record >                              objects;
 
-         map< edge_index_key, object_id_type >                             edge_index;
-         map< edge_index_key, object_id_type >                             reverse_edge_index;
+         map< edge_index_key, object_id_type >                                edge_index;
+         map< edge_index_key, object_id_type >                                reverse_edge_index;
+         map< string, site_record >                                        site_index;
 
          map< std::pair<asset_id_type,address>, object_id_type >           authorizations;
          map< std::pair<asset_id_type,proposal_id_type>, proposal_record > asset_proposals;
@@ -162,7 +172,9 @@ namespace bts { namespace blockchain {
 
          chain_interface_weak_ptr                                          _prev_state;
 
-         unordered_map< uint32_t, generic_game_record>                     games;
+         unordered_map< uint32_t, rule_data_record>                        rules;
+       
+         unordered_map< game_id_type, game_record>                         games;
    };
 
    typedef std::shared_ptr<pending_chain_state> pending_chain_state_ptr;
@@ -170,7 +182,7 @@ namespace bts { namespace blockchain {
 } } // bts::blockchain
 
 FC_REFLECT( bts::blockchain::pending_chain_state,
-            (assets)(slates)(accounts)(balances)(account_id_index)(symbol_id_index)(transactions)
+            (assets)(slates)(accounts)(balances)(account_id_index)(symbol_id_index)(game_symbol_id_index)(transactions)
             (properties)(bids)(asks)(slots)
             (market_statuses)(feeds)(objects)(burns)(relative_bids)(relative_asks)(_dirty_markets)
             (authorizations)(asset_proposals)

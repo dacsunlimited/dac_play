@@ -1016,8 +1016,7 @@
 
         ],
         "prerequisites": ["json_authenticated"],
-        "aliases": ["withdraw_from_address"],
-        "is_const": true
+        "aliases": ["withdraw_from_address"]
     },
     {
         "method_name": "wallet_withdraw_from_legacy_address",
@@ -1645,6 +1644,50 @@
          "prerequisites" : ["wallet_unlocked"]
       },
       {
+          "method_name" : "wallet_game_create",
+          "description" : "Creates a new game and binding to an asset",
+          "return_type" : "transaction_record",
+          "parameters"  : [
+          {
+              "name" : "symbol",
+              "type" : "game_symbol",
+              "description" : "the ticker symbol for the new game"
+          },
+          {
+              "name" : "game_name",
+              "type" : "string",
+              "description" : "the name of the game"
+          },
+          {
+              "name" : "issuer_name",
+              "type" : "string",
+              "description" : "the name of the issuer of the game"
+          },
+          {
+              "name" : "asset_symbol",
+              "type" : "asset_symbol",
+              "description" : "the ticker symbol for the new asset"
+          },
+          {
+              "name" : "rule_id",
+              "type" : "uint32_t",
+              "description" : "the id of the rule binding to this game"
+          },
+          {
+              "name" : "description",
+              "type" : "string",
+              "description" : "a description of the asset"
+          },
+          {
+              "name" : "public_data",
+              "type" : "json_variant",
+              "description" : "arbitrary data attached to the asset",
+              "default_value" : null
+          }
+          ],
+          "prerequisites" : ["wallet_unlocked"]
+      },
+      {
          "method_name" : "wallet_asset_update",
          "description" : "Updates an existing user-issued asset; only the public_data can be updated if any shares of the asset exist",
          "return_type" : "transaction_record",
@@ -1779,17 +1822,27 @@
             "type" : "account_name",
             "description" : "the account to get a balance for, or leave empty for all accounts",
             "default_value" : ""
-         },
-         {
-            "name" : "withdraw_condition",
-            "type" : "withdraw_condition_type",
-            "description" : "the withdraw condition type to return balances for",
-            "default_value" : "withdraw_signature_type"
          }
          ],
          "is_const" : true,
          "prerequisites" : ["wallet_open"],
          "aliases" : ["balance", "getbalance"]
+      },
+      {
+         "method_name"    : "wallet_account_balance_extended",
+         "description"    : "Lists the total asset balances across all withdraw condition types for the specified account",
+         "return_type"    : "account_extended_balance_type",
+         "parameters"     : [
+         {
+            "name" : "account_name",
+            "type" : "account_name",
+            "description" : "the account to get a balance for, or leave empty for all accounts",
+            "default_value" : ""
+         }
+         ],
+         "is_const" : true,
+         "prerequisites" : ["wallet_open"],
+         "aliases" : []
       },
       {
          "method_name"    : "wallet_account_balance_ids",
@@ -1801,12 +1854,6 @@
             "type" : "account_name",
             "description" : "the account to list balance ids for, or leave empty for all accounts",
             "default_value" : ""
-         },
-         {
-            "name" : "withdraw_condition",
-            "type" : "withdraw_condition_type",
-            "description" : "the withdraw condition type to return balance ids for",
-            "default_value" : "withdraw_signature_type"
          }
          ],
          "is_const" : true,
@@ -2445,7 +2492,7 @@
          "prerequisites" : ["wallet_unlocked"]
       },
       {
-          "method_name" : "wallet_play_game",
+          "method_name" : "wallet_game_play",
           "description" : "Play game with param variant",
           "return_type" : "transaction_record",
           "parameters"  : [
@@ -2712,7 +2759,7 @@
       },
       {
          "method_name" : "wallet_generate_brain_seed",
-         "description" : "Generates a human friendly brain wallet key starting with a public salt as the first word",
+         "description" : "Generates a human friendly brain wallet key starting with a public salt as the last word",
          "return_type" : "string",
          "parameters"  : [
          ],

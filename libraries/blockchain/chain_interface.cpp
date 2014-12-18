@@ -55,15 +55,14 @@ namespace bts { namespace blockchain {
            return false;
 
        int dots = 0;
-       std::locale loc;
-       for( const auto& c : symbol )
+       for( const char& c : symbol )
        {
            if( c == '.' )
            {
               if( ++dots > 1 )
                return false;
            }
-           else if( !std::isalnum( c, loc ) || !std::isupper( c, loc ) )
+           else if( !std::isalnum( c, std::locale::classic() ) || !std::isupper( c, std::locale::classic() ) )
                return false;
        }
        if( symbol.back() == '.' ) return false;
@@ -130,6 +129,18 @@ namespace bts { namespace blockchain {
       set_property( chain_property_enum::last_asset_id, next_id );
       return next_id;
    }
+    
+    game_id_type chain_interface::last_game_id()const
+    {
+        return get_property( chain_property_enum::last_game_id ).as<game_id_type>();
+    }
+    
+    game_id_type chain_interface::new_game_id()
+    {
+        auto next_id = last_game_id() + 1;
+        set_property( chain_property_enum::last_game_id, next_id );
+        return next_id;
+    }
 
    account_id_type chain_interface::last_account_id()const
    {
@@ -158,33 +169,52 @@ namespace bts { namespace blockchain {
       return next_id;
    }
 
-   multisig_condition   chain_interface::get_object_owners( const object_record& obj )
+   // Get an object for whom get_object_condition(o) will not throw and will represent
+   // the condition that is also the owner for this given object
+   object_id_type       chain_interface::get_owner_object( const object_id_type& obj )
+   {
+       FC_ASSERT(!"unimplemented");
+   }
+
+   multisig_condition   chain_interface::get_object_condition( const object_id_type& id, int depth )
    { try {
-       multisig_condition owners;
+       auto oobj = get_object_record( id );
+       FC_ASSERT( oobj.valid(), "No such object!" );
+       return get_object_condition( *oobj, depth );
+   } FC_CAPTURE_AND_RETHROW( (id ) ) }
+
+
+   multisig_condition   chain_interface::get_object_condition( const object_record& obj, int depth )
+   { try {
+       if( depth >= 100 )//BTS_OWNER_DEPENDENCY_MAX_DEPTH )
+           FC_ASSERT(!"Cannot determine object condition.");
+       multisig_condition condition;
        switch( obj.type() )
        {
            case( obj_type::base_object ):
            {
-               owners = obj._owners;
-               return owners;
+               if( obj.owner_object == obj._id )
+                   return obj._owners;
+               else
+                   return get_object_condition( obj.owner_object, depth+1 );
            }
            case( obj_type::edge_object ):
            {
+               ilog("@n object: ${o}", ("o", obj));
                const edge_record& edge = obj.as<edge_record>();
+               ilog("@n edge: ${e}", ("e", edge));
                auto from_object = get_object_record( edge.from );
                FC_ASSERT( from_object.valid(), "Unrecognized from object.");
-               // Remove the next assert once you deal with max recursion depth for get_object_owners
-               FC_ASSERT( from_object->type() != obj_type::edge_object, "You can't make an edge from an edge yet.");
-               return get_object_owners( *from_object );
+               return get_object_condition( *from_object, depth+1 );
            }
            case( obj_type::account_object ):
            {
                auto account_id = obj.short_id();
                auto oacct = get_account_record( account_id );
                FC_ASSERT( oacct.valid(), "No such account object!");
-               owners.owners.insert( oacct->owner_address() );
-               owners.required = 1;
-               return owners;
+               condition.owners.insert( oacct->owner_address() );
+               condition.required = 1;
+               return condition;
            }
            case( obj_type::asset_object ):
            {
@@ -194,9 +224,9 @@ namespace bts { namespace blockchain {
                {
                    auto oacct = get_account_record( oasset->issuer_account_id );
                    FC_ASSERT(!"This asset has an issuer but the issuer account doens't exist. Crap!");
-                   owners.owners.insert( oacct->owner_address() );
-                   owners.required = 1;
-                   return owners;
+                   condition.owners.insert( oacct->owner_address() );
+                   condition.required = 1;
+                   return condition;
                }
                else
                {
@@ -205,19 +235,19 @@ namespace bts { namespace blockchain {
            }
            default:
            {
-               FC_ASSERT(!"I don't know how to get the owners for this object type!");
+               FC_ASSERT(!"I don't know how to get the condition for this object type!");
            }
        }
        FC_ASSERT(!"This code path should not happen.");
    } FC_CAPTURE_AND_RETHROW( (obj.short_id())(obj.type())(obj) ) }
 
-    oedge_record               chain_interface::get_edge( const object_id_type& id )
+    oobject_record               chain_interface::get_edge( const object_id_type& id )
     {
         auto object = get_object_record( id );
         if( NOT object.valid() )
-            return oedge_record();
+            return oobject_record();
         FC_ASSERT( object->type() == edge_object, "This object is not an edge!"); // TODO check form ID as first check
-        return object->as<edge_record>();
+        return object;
     }
 
    vector<account_id_type> chain_interface::get_active_delegates()const
@@ -264,31 +294,39 @@ namespace bts { namespace blockchain {
 
    asset chain_interface::to_ugly_asset(const std::string& amount, const std::string& symbol) const
    { try {
-      auto record = get_asset_record( symbol );
+      const auto record = get_asset_record( symbol );
       if( !record ) FC_CAPTURE_AND_THROW( unknown_asset_symbol, (symbol) );
+      asset ugly_asset(0, record->id);
 
-      auto decimal = amount.find(".");
-      if( decimal == string::npos )
-         return asset(atoll(amount.c_str()) * record->precision, record->id);
+      const auto decimal = amount.find(".");
+      ugly_asset.amount += atoll(amount.substr(0, decimal).c_str()) * record->precision;
 
-      share_type whole = atoll(amount.substr(0, decimal).c_str()) * record->precision;
-      string fraction_string = amount.substr(decimal+1);
-      share_type fraction = atoll(fraction_string.c_str());
-
-      if( fraction_string.empty() || fraction <= 0 )
-         return asset(whole, record->id);
-
-      while( fraction < record->precision )
-         fraction *= 10;
-      while( fraction > record->precision )
-         fraction /= 10;
-      while( fraction_string.size() && fraction_string[0] == '0')
+      if( decimal != string::npos )
       {
-         fraction /= 10;
-         fraction_string.erase(0, 1);
+          string fraction_string = amount.substr(decimal+1);
+          share_type fraction = atoll(fraction_string.c_str());
+
+          if( !fraction_string.empty() && fraction > 0 )
+          {
+              while( fraction < record->precision )
+                 fraction *= 10;
+              while( fraction >= record->precision )
+                 fraction /= 10;
+              while( fraction_string.size() && fraction_string[0] == '0')
+              {
+                 fraction /= 10;
+                 fraction_string.erase(0, 1);
+              }
+
+              if( ugly_asset.amount >= 0 )
+                  ugly_asset.amount += fraction;
+              else
+                  ugly_asset.amount -= fraction;
+          }
       }
-      return asset(whole >= 0? whole + fraction : whole - fraction, record->id);
-       } FC_CAPTURE_AND_RETHROW( (amount)(symbol) ) }
+
+      return ugly_asset;
+   } FC_CAPTURE_AND_RETHROW( (amount)(symbol) ) }
 
    price chain_interface::to_ugly_price(const std::string& price_string,
                                         const std::string& base_symbol,

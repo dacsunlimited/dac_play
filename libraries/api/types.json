@@ -334,6 +334,10 @@
          "cpp_return_type" : "bts::wallet::account_balance_id_summary_type"
       },
       {
+         "type_name" : "account_extended_balance_type",
+         "cpp_return_type" : "bts::wallet::account_extended_balance_type"
+      },
+      {
          "type_name" : "market_order",
          "cpp_return_type" : "bts::blockchain::market_order"
       },
@@ -404,6 +408,12 @@
         "cpp_return_type" : "std::string",
         "cpp_include_file" : "string",
         "default_example" : "XTS"
+      },
+      {
+          "type_name" : "game_symbol",
+          "cpp_return_type" : "std::string",
+          "cpp_include_file" : "string",
+          "default_example" : "GAME"
       },
       {
         "type_name" : "invoice_summary",

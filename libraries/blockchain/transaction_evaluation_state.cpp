@@ -16,8 +16,13 @@ namespace bts { namespace blockchain {
    bool transaction_evaluation_state::verify_authority( const multisig_meta_info& siginfo )
    {
       uint32_t sig_count = 0;
+      ilog("@n verifying authority");
       for( const auto item : siginfo.owners )
+      {
          sig_count += check_signature( item );
+         ilog("@n sig_count: ${s}", ("s", sig_count));
+      }
+      ilog("@n required: ${s}", ("s", siginfo.required));
       return sig_count >= siginfo.required;
    }
 
@@ -29,15 +34,33 @@ namespace bts { namespace blockchain {
    bool transaction_evaluation_state::check_multisig( const multisig_condition& condition )const
    { try {
 
-      if( _skip_signature_check )
-          return true;
       auto valid = 0;
       for( auto addr : condition.owners )
-          if( signed_keys.find( addr) != signed_keys.end() )
+          if( check_signature( addr ) )
               valid++;
       return valid >= condition.required;
 
    } FC_CAPTURE_AND_RETHROW( (condition) ) }
+
+
+   bool transaction_evaluation_state::check_update_permission( const object_id_type& id )const
+   { try {
+        if( _skip_signature_check )
+            return true;
+        auto object = _current_state->get_object_record( id );
+        FC_ASSERT( object.valid(), "Checking update permission for an object that doesn't exist!");
+        switch( object->type() )
+        {
+            case( obj_type::base_object ):
+            {
+                return check_multisig( object->_owners );
+                break;
+            }
+            default:
+                FC_ASSERT(!"Unimplemenetd case in check_update_permission");
+        }
+        return false;
+   } FC_CAPTURE_AND_RETHROW( (id) ) }
 
    bool transaction_evaluation_state::any_parent_has_signed( const string& account_name )const
    { try {
@@ -164,7 +187,7 @@ namespace bts { namespace blockchain {
       }
    } FC_RETHROW_EXCEPTIONS( warn, "" ) }
 
-   void transaction_evaluation_state::evaluate( const signed_transaction& trx_arg, bool skip_signature_check )
+   void transaction_evaluation_state::evaluate( const signed_transaction& trx_arg, bool skip_signature_check, bool enforce_canonical )
    { try {
       _skip_signature_check = skip_signature_check;
       try {
@@ -178,7 +201,7 @@ namespace bts { namespace blockchain {
 
         auto trx_id = trx_arg.id();
 
-        if( _current_state->is_known_transaction( trx_id ) )
+        if( _current_state->is_known_transaction( trx_arg.expiration, trx_arg.digest( _chain_id ) ) )
            FC_CAPTURE_AND_THROW( duplicate_transaction, (trx_id) );
 
         trx = trx_arg;
@@ -187,7 +210,7 @@ namespace bts { namespace blockchain {
            auto digest = trx_arg.digest( _chain_id );
            for( const auto& sig : trx.signatures )
            {
-              auto key = fc::ecc::public_key( sig, digest ).serialize();
+              auto key = fc::ecc::public_key( sig, digest, enforce_canonical ).serialize();
               signed_keys.insert( address(key) );
               signed_keys.insert( address(pts_address(key,false,56) ) );
               signed_keys.insert( address(pts_address(key,true,56) )  );

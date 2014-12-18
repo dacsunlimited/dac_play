@@ -1,7 +1,7 @@
 ####################################################
 # https://bitsharestalk.org/index.php?topic=4748
-# Last Updated: 2014-11-18 17:50:00
-# Last Post Entry Included: 2014-10-27 11:11:23
+# Last Updated: 2014-12-15 17:50:00
+# Last Post Entry Included: 2014-12-02 02:50:08
 #
 # Entry format requirement:
 # Address: xxxxxx
@@ -164,3 +164,7 @@ Signature: IEe5mmZs9q9kjhYVmhqW3RYvPJ8kbe9q3HqwL8hX9FoCN0XxzHPo3t1Fb1Lput/SQ1UaN
 Address: 13XnJ6zKd6qgK5Uu4zJw4bdPT8M7232ZBf
 Message: New BTC Address: 1KfjASdNiX97R8eJM9HPbnKcFWZ8RRhzzb
 Signature: G3zeSUQQyK5HJWF0DsNBYtN7uVzkl5fyY7XJ6ig6/0g7AgXd73oGh+5+f9LSarZrVLFwQcZWSqKHT4DeWnBgm6I=
+
+Address: 1CRXTFk9AuPm3gVQAgZQZ3tWwn8CiZGqSR
+Message: New BTC Address: 1D8Wr6cG2YTCaZL8oyRaUxogHnD3CJoS1D
+Signature: G7mrA0Hy21zGX3Lu6gz0ALbGPZyEqK/cHNzGD8NXc9ZsCkcwlUYqJVd3R1DXXgtivqApoWHpcnJ/8011DhRbMSU=

@@ -5,6 +5,7 @@
 #include <bts/blockchain/balance_record.hpp>
 #include <bts/blockchain/object_record.hpp>
 #include <bts/blockchain/edge_record.hpp>
+#include <bts/blockchain/site_record.hpp>
 #include <bts/blockchain/withdraw_types.hpp>
 #include <bts/blockchain/block_record.hpp>
 #include <bts/blockchain/delegate_slate.hpp>
@@ -40,7 +41,8 @@ namespace bts { namespace blockchain {
       database_version         = 6, // database version, to know when we need to upgrade
       dirty_markets            = 7,
       last_feed_id             = 8, // used for allocating new data feeds
-      last_object_id           = 9  // all object types that aren't legacy
+      last_object_id           = 9,  // all object types that aren't legacy
+      last_game_id             = 10
    };
    typedef uint32_t chain_property_type;
 
@@ -117,7 +119,7 @@ namespace bts { namespace blockchain {
 
          virtual int64_t                    get_required_confirmations()const;
 
-         virtual void                       store_generic_game_record( uint32_t id, const generic_game_record& r )               = 0;
+         virtual void                       store_rule_data_record( uint32_t id, const rule_data_record& r )               = 0;
          virtual fc::variant                get_property( chain_property_enum property_id )const            = 0;
          virtual void                       set_property( chain_property_enum property_id,
                                                           const fc::variant& property_value )               = 0;
@@ -129,7 +131,7 @@ namespace bts { namespace blockchain {
          virtual omarket_order              get_lowest_ask_record( const asset_id_type& quote_id,
                                                                    const asset_id_type& base_id )           = 0;
 
-         virtual ogeneric_game_record       get_generic_game_record( uint32_t id )const                  = 0;
+         virtual orule_data_record          get_rule_data_record( uint32_t id )const                  = 0;
 
          virtual oorder_record              get_bid_record( const market_index_key& )const                  = 0;
          virtual oorder_record              get_ask_record( const market_index_key& )const                  = 0;
@@ -143,17 +145,19 @@ namespace bts { namespace blockchain {
                                                               const order_record& )                         = 0;
 
          virtual void                       store_relative_bid_record( const market_index_key& key,
-                                                              const order_record& )                         = 0;
+                                                                       const order_record& )                = 0;
 
          virtual void                       store_relative_ask_record( const market_index_key& key,
-                                                              const order_record& )                         = 0;
+                                                                       const order_record& )                = 0;
 
          virtual oasset_record              get_asset_record( const asset_id_type& id )const                = 0;
          virtual obalance_record            get_balance_record( const balance_id_type& id )const            = 0;
          virtual oaccount_record            get_account_record( const account_id_type& id )const            = 0;
          virtual oaccount_record            get_account_record( const address& owner )const                 = 0;
+         virtual ogame_record               get_game_record( const game_id_type& id )const                = 0;
 
-         virtual bool                       is_known_transaction( const transaction_id_type& trx_id )       = 0;
+         virtual bool                       is_known_transaction( const fc::time_point_sec&,
+                                                                  const digest_type& trx_id )const          = 0;
 
          virtual otransaction_record        get_transaction( const transaction_id_type& trx_id,
                                                              bool exact = true )const                       = 0;
@@ -163,32 +167,41 @@ namespace bts { namespace blockchain {
 
          virtual oasset_record              get_asset_record( const std::string& symbol )const              = 0;
          virtual oaccount_record            get_account_record( const std::string& name )const              = 0;
+         virtual ogame_record              get_game_record( const std::string& symbol )const              = 0;
 
          virtual void                       store_asset_record( const asset_record& r )                     = 0;
          virtual void                       store_balance_record( const balance_record& r )                 = 0;
          virtual void                       store_account_record( const account_record& r )                 = 0;
+         virtual void                       store_game_record( const game_record& r )                       = 0;
 
          virtual void                       store_recent_operation( const operation& o )                    = 0;
          virtual vector<operation>          get_recent_operations( operation_type_enum t )                  = 0;
 
          virtual void                       store_object_record( const object_record& obj )                 = 0;
-         virtual oobject_record             get_object_record( const object_id_type& id )                   = 0;
+         virtual oobject_record             get_object_record( const object_id_type& id )const              = 0;
 
+         virtual void                       store_edge_record( const object_record& edge )                  = 0;
 
-         oedge_record                       get_edge( const object_id_type& id );
-         virtual oedge_record               get_edge( const object_id_type& from,
+         virtual void                       store_site_record( const site_record& edge )                    = 0;
+
+         oobject_record                       get_edge( const object_id_type& id );
+         virtual oobject_record               get_edge( const object_id_type& from,
                                                       const object_id_type& to,
                                                       const string& name )const                             = 0;
-         virtual map<string, edge_record>   get_edges( const object_id_type& from,
+         virtual map<string, object_record>   get_edges( const object_id_type& from,
                                                        const object_id_type& to )const                      = 0;
-         virtual map<object_id_type, map<string, edge_record>>
+         virtual map<object_id_type, map<string, object_record>>
                                             get_edges( const object_id_type& from )const                    = 0;
 
+         virtual osite_record               lookup_site( const string& site_name) const                    = 0;
 
          virtual void                       apply_deterministic_updates(){}
 
          virtual asset_id_type              last_asset_id()const;
          virtual asset_id_type              new_asset_id();
+       
+         virtual game_id_type               last_game_id()const;
+         virtual game_id_type               new_game_id();
 
          virtual account_id_type            last_account_id()const;
          virtual account_id_type            new_account_id();
@@ -196,7 +209,9 @@ namespace bts { namespace blockchain {
          virtual object_id_type             last_object_id()const;
          virtual object_id_type             new_object_id( obj_type type );
 
-         virtual multisig_condition         get_object_owners( const object_record& obj );
+         virtual multisig_condition         get_object_condition( const object_id_type& id, int depth = 0 );
+         virtual multisig_condition         get_object_condition( const object_record& obj, int depth = 0 );
+         virtual object_id_type             get_owner_object( const object_id_type& obj );
 
          virtual uint32_t                   get_head_block_num()const                                       = 0;
 
@@ -230,4 +245,5 @@ FC_REFLECT_ENUM( bts::blockchain::chain_property_enum,
                  (database_version)
                  (dirty_markets)
                  (last_feed_id)
+                 (last_game_id)
                  )

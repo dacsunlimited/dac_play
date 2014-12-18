@@ -5,6 +5,7 @@
 #include <bts/blockchain/withdraw_types.hpp>
 #include <bts/blockchain/account_record.hpp>
 #include <bts/blockchain/object_record.hpp>
+#include <bts/blockchain/edge_record.hpp>
 
 #include <fc/reflect/variant.hpp>
 
@@ -38,7 +39,8 @@ namespace bts { namespace blockchain {
 
       void issue( const asset& amount_to_issue );
 
-      void set_object( int64_t id, const object_record& obj );
+      void set_object( const object_record& obj );
+      void set_edge( const edge_record& edge );
 
       void define_delegate_slate( delegate_slate s );
 
@@ -113,6 +115,14 @@ namespace bts { namespace blockchain {
 
       void buy_chips( const asset& quantity,
                 const address& owner );
+       
+      void create_game( const std::string& symbol,
+                                     const std::string& name,
+                                     const std::string& description,
+                                     const fc::variant& data,
+                                     account_id_type issuer_id,
+                                     asset_id_type asset_id,
+                       uint32_t rule_id );
 
       void update_asset_ext( const asset_id_type& asset_id,
                          const optional<string>& name,

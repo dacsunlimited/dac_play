@@ -4,6 +4,10 @@
 #include <bts/blockchain/market_operations.hpp>
 #include <bts/blockchain/feed_operations.hpp>
 #include <bts/blockchain/object_operations.hpp>
+#include <bts/blockchain/edge_operations.hpp>
+
+#include <bts/blockchain/meta_game_operations.hpp>
+
 #include <bts/blockchain/time.hpp>
 #include <bts/blockchain/transaction.hpp>
 
@@ -38,10 +42,16 @@ namespace bts { namespace blockchain {
       signatures.push_back( signer.sign_compact( digest(chain_id) ) );
    }
 
-   void transaction::set_object( int64_t id, const object_record& obj )
+   void transaction::set_object( const object_record& obj )
    {
-      operations.emplace_back( set_object_operation( id, obj ) );
+      operations.emplace_back( set_object_operation( obj ) );
    }
+
+   void transaction::set_edge( const edge_record& edge )
+   {
+      operations.emplace_back( set_edge_operation( edge ) );
+   }
+
 
    void transaction::define_delegate_slate( delegate_slate s )
    {
@@ -303,6 +313,25 @@ namespace bts { namespace blockchain {
    void transaction::issue( const asset& amount_to_issue )
    {
       operations.push_back( issue_asset_operation( amount_to_issue ) );
+   }
+    
+   void transaction::create_game( const std::string& symbol,
+                                   const std::string& name,
+                                   const std::string& description,
+                                   const fc::variant& data,
+                                   account_id_type issuer_id,
+                                   asset_id_type asset_id,
+                                   uint32_t rule_id )
+   {
+        create_game_operation op;
+        op.symbol = symbol;
+        op.name = name;
+        op.description = description;
+        op.public_data = data;
+        op.issuer_account_id = issuer_id;
+        op.asset_id = asset_id;
+        op.rule_id = rule_id;
+        operations.push_back( op );
    }
 
    void transaction::publish_feed( feed_id_type feed_id,

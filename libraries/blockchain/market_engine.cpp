@@ -38,8 +38,8 @@ namespace bts { namespace blockchain { namespace detail {
           asset trading_volume(0, base_id);
           price opening_price, closing_price;
 
-          if( !_ask_itr.valid() ) _ask_itr = _db_impl._ask_db.begin(); 
-          if( !_relative_ask_itr.valid() ) _relative_ask_itr = _db_impl._relative_ask_db.begin(); 
+          if( !_ask_itr.valid() ) _ask_itr = _db_impl._ask_db.begin();
+          if( !_relative_ask_itr.valid() ) _relative_ask_itr = _db_impl._relative_ask_db.begin();
 
           if( _bid_itr.valid() )   --_bid_itr;
           else _bid_itr = _db_impl._bid_db.last();
@@ -48,8 +48,9 @@ namespace bts { namespace blockchain { namespace detail {
           else _relative_bid_itr = _db_impl._relative_bid_db.last();
 
           _feed_price = _db_impl.self->get_median_delegate_price( _quote_id, _base_id );
-          // Market issued assets cannot match until the first time there is a median feed
-          if( quote_asset->is_market_issued() && !base_asset->is_market_issued() )
+
+          // Market issued assets cannot match until the first time there is a median feed; assume feed price base id 0
+          if( quote_asset->is_market_issued() && base_asset->id == asset_id_type( 0 ) )
           {
               const omarket_status market_stat = _pending_state->get_market_status( _quote_id, _base_id );
               if( (!market_stat.valid() || !market_stat->last_valid_feed_price.valid()) && !_feed_price.valid() )
@@ -287,7 +288,7 @@ namespace bts { namespace blockchain { namespace detail {
       if( _bid_itr.valid() )
       {
          market_order abs_bid( bid_order, _bid_itr.key(), _bid_itr.value() );
-         if( abs_bid.get_price().quote_asset_id == _quote_id && abs_bid.get_price().base_asset_id == _base_id ) 
+         if( abs_bid.get_price().quote_asset_id == _quote_id && abs_bid.get_price().base_asset_id == _base_id )
          {
             if( bid )
             {

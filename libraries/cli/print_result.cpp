@@ -239,13 +239,7 @@ namespace bts { namespace cli {
       out << pretty_disk_usage( usage );
     };
 
-    _command_to_function["blockchain_get_block"] = [](std::ostream& out, const fc::variants& arguments, const fc::variant& result, cptr client)
-    {
-      auto block = result.as<fc::mutable_variant_object>();
-      if(!block["processing_time"].is_null() && FILTER_OUTPUT_FOR_TESTS)
-        block["processing_time"] = "<d-ign>" + block["processing_time"].as_string() + "</d-ign>";
-      out << fc::json::to_pretty_string(block) << "\n";
-    };
+    _command_to_function["blockchain_get_block"] = &f_blockchain_get_block;
   }
 
   void print_result::f_blockchain_get_account_wall( std::ostream& out, const fc::variants& arguments, const fc::variant& result, cptr client )
@@ -653,18 +647,25 @@ namespace bts { namespace cli {
     }
     else
     {
-      out << std::setw(10) << "TXN ID"
+      out << std::setw(15) << "TXN ID"
+         << std::setw(20) << "EXPIRES"
         << std::setw(10) << "SIZE"
         << std::setw(25) << "OPERATION COUNT"
         << std::setw(25) << "SIGNATURE COUNT"
-        << "\n" << std::string(70, '-') << "\n";
+        << "\n" << std::string(100, '-') << "\n";
 
       for(const auto& transaction : transactions)
       {
         if(FILTER_OUTPUT_FOR_TESTS)
-          out << std::setw(10) << "<d-ign>" << transaction.id().str().substr(0, 8) << "</d-ign>";
+        {
+          out << std::setw(15) << "<d-ign>" << transaction.digest(client->get_chain()->chain_id()).str().substr(0, 8) << "</d-ign>";
+          out << std::setw(20) << "<d-ign>" << string(transaction.expiration) << "</d-ign>";
+        }
         else
-          out << std::setw(10) << transaction.id().str().substr(0, 8);
+        {
+          out << std::setw(15) << transaction.digest(client->get_chain()->chain_id()).str().substr(0, 8);
+          out << std::setw(20) << string(transaction.expiration);
+        }
 
         out << std::setw(10) << transaction.data_size()
           << std::setw(25) << transaction.operations.size()
@@ -989,4 +990,17 @@ namespace bts { namespace cli {
     }
   }
 
+  void print_result::f_blockchain_get_block(std::ostream& out, const fc::variants& arguments, const fc::variant& result, cptr client)
+  {
+    auto block = result.as<fc::mutable_variant_object>();
+    if(!block["previous"].is_null() && FILTER_OUTPUT_FOR_TESTS)
+      block["previous"] = "<d-ign>" + block["previous"].as_string() + "</d-ign>";
+    if(!block["next_secret_hash"].is_null() && FILTER_OUTPUT_FOR_TESTS)
+      block["next_secret_hash"] = "<d-ign>" + block["next_secret_hash"].as_string() + "</d-ign>";
+    if(!block["delegate_signature"].is_null() && FILTER_OUTPUT_FOR_TESTS)
+      block["delegate_signature"] = "<d-ign>" + block["delegate_signature"].as_string() + "</d-ign>";
+    if(!block["processing_time"].is_null() && FILTER_OUTPUT_FOR_TESTS)
+      block["processing_time"] = "<d-ign>" + block["processing_time"].as_string() + "</d-ign>";
+    out << fc::json::to_pretty_string(block) << "\n";
+  }
 } }

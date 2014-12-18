@@ -5,19 +5,49 @@
 
 namespace bts { namespace blockchain {
     
-    struct generic_game_record
+    struct game_record
     {
-        generic_game_record():type(0){}
+        enum
+        {
+            god_issuer_id     =  0,
+            null_issuer_id    = -1
+        };
+        
+        game_record make_null()const;
+        bool is_null()const               { return issuer_account_id == null_issuer_id; };
+        
+        bool is_user_issued()const        { return issuer_account_id > god_issuer_id; };
+        
+        game_id_type        id;
+        std::string         symbol;
+        std::string         name;
+        std::string         description;
+        fc::variant         public_data;
+        account_id_type     issuer_account_id;
+        asset_id_type       asset_id;
+        rule_id_type        rule_id;
+        fc::time_point_sec  registration_date;
+        fc::time_point_sec  last_update;
+        
+        /** reserved for future extensions */
+        vector<char>        reserved;
+    };
+    typedef fc::optional<game_record> ogame_record;
+    
+    struct rule_data_record
+    {
+        rule_data_record():type(0){}
         
         template<typename RecordType>
-        generic_game_record( const RecordType& rec )
+        rule_data_record( const RecordType& rec )
         :type( int(RecordType::type) ),data(rec)
         { }
         
         template<typename RecordType>
         RecordType as()const;
         
-        int32_t get_game_record_index()const
+        // TODO: Figure out what following index used for
+        int32_t get_rule_data_index()const
         { try {
             FC_ASSERT( data.is_object() );
             FC_ASSERT( data.get_object().contains( "index" ) );
@@ -29,9 +59,9 @@ namespace bts { namespace blockchain {
             return type == 0;
         }
         
-        generic_game_record make_null()const
+        rule_data_record make_null()const
         {
-            generic_game_record cpy(*this);
+            rule_data_record cpy(*this);
             cpy.type = 0;
             return cpy;
         }
@@ -52,11 +82,24 @@ namespace bts { namespace blockchain {
         uint32_t                                  lucky_number;
     };
     
-    typedef fc::optional<generic_game_record> ogeneric_game_record;
+    typedef fc::optional<rule_data_record> orule_data_record;
     
 } } // bts::blockchain
 
-FC_REFLECT( bts::blockchain::generic_game_record,
+FC_REFLECT( bts::blockchain::game_record,
+           (id)
+           (symbol)
+           (name)
+           (description)
+           (public_data)
+           (issuer_account_id)
+           (asset_id)
+           (rule_id)
+           (registration_date)
+           (last_update)
+           )
+
+FC_REFLECT( bts::blockchain::rule_data_record,
            (type)
            (data)
            )
@@ -72,7 +115,7 @@ FC_REFLECT( bts::blockchain::game_transaction,
 
 namespace bts { namespace blockchain {
     template<typename RecordType>
-    RecordType generic_game_record::as()const
+    RecordType rule_data_record::as()const
     {
         FC_ASSERT( type == RecordType::type, "",
                   ("type",type));
