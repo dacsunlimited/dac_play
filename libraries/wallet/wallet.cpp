@@ -7,7 +7,7 @@
 #include <bts/cli/pretty.hpp>
 #include <bts/utilities/git_revision.hpp>
 #include <bts/utilities/key_conversion.hpp>
-#include <bts/game/game_factory.hpp>
+#include <bts/game/rule_factory.hpp>
 
 #include <thread>
 #include <fstream>
@@ -3241,7 +3241,7 @@ namespace detail {
        if( NOT chip_asset_record )
            FC_CAPTURE_AND_THROW( unknown_asset_symbol, (symbol) );
        
-       auto record =bts::game::game_factory::instance().play(chip_asset_record->id, my->_blockchain, shared_from_this(), params, sign);
+       auto record =bts::game::rule_factory::instance().play(chip_asset_record->id, my->_blockchain, shared_from_this(), params, sign);
        
        return record;
        

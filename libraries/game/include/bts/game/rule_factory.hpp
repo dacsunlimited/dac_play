@@ -13,15 +13,15 @@ namespace bts { namespace game {
     using namespace bts::wallet;
 
    /**
-    * @class game_factory
+    * @class rule_factory
     *
-    *  Enables polymorphic creation and serialization of operation objects in
+    *  Enables polymorphic creation and serialization of rule objects in
     *  an manner that can be extended by derived chains.
     */
-   class game_factory
+   class rule_factory
    {
        public:
-          static game_factory& instance();
+          static rule_factory& instance();
           class rule_converter_base
           {
              public:

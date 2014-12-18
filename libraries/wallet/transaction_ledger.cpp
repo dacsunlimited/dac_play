@@ -7,7 +7,7 @@
 
 #include <bts/blockchain/time.hpp>
 
-#include <bts/game/game_factory.hpp>
+#include <bts/game/rule_factory.hpp>
 
 #include <sstream>
 
@@ -1602,5 +1602,5 @@ void wallet_impl::scan_game_transaction(const game_transaction& gtrx,
 
 bool wallet_impl::scan_game( const game_operation& op, wallet_transaction_record& trx_rec )
 {
-    return bts::game::game_factory::instance().scan(op.rule, trx_rec, self->shared_from_this() );
+    return bts::game::rule_factory::instance().scan(op.rule, trx_rec, self->shared_from_this() );
 }

@@ -44,13 +44,13 @@ namespace bts { namespace game {
     
     typedef rule_record< dice_data,                dice_rule_type >  rule_dice_record;
     
-    struct dice_game
+    struct dice_rule
     {
         static const uint8_t    type;
         
-        dice_game():amount(0), odds(1){}
+        dice_rule():amount(0), odds(1){}
         
-        dice_game( const bts::blockchain::address& owner, bts::blockchain::share_type amnt, uint32_t odds = 2, uint32_t g = 1 );
+        dice_rule( const bts::blockchain::address& owner, bts::blockchain::share_type amnt, uint32_t odds = 2, uint32_t g = 1 );
         
         bts::blockchain::address owner()const;
         
@@ -90,5 +90,5 @@ namespace bts { namespace game {
 } } // bts::game
 FC_REFLECT( bts::game::dice_data, (id)(owner)(amount)(odds)(guess) )
 
-FC_REFLECT( bts::game::dice_game, (amount)(odds)(guess)(condition) )
+FC_REFLECT( bts::game::dice_rule, (amount)(odds)(guess)(condition) )
 FC_REFLECT( bts::game::dice_input, (from_account_name)(amount)(odds)(guess) )

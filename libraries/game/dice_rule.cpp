@@ -1,4 +1,4 @@
-#include <bts/game/dice_game.hpp>
+#include <bts/game/dice_rule.hpp>
 #include <bts/game/game_operations.hpp>
 #include <bts/game/rule_record.hpp>
 #include <bts/blockchain/chain_interface.hpp>
@@ -10,12 +10,12 @@ namespace bts { namespace game {
     using namespace bts::blockchain;
     using namespace bts::wallet;
 
-    bts::blockchain::balance_id_type  dice_game::balance_id()const
+    bts::blockchain::balance_id_type  dice_rule::balance_id()const
     {
         return condition.get_address();
     }
     
-    bts::blockchain::address dice_game::owner()const
+    bts::blockchain::address dice_rule::owner()const
     {
         // TODO: Only support withdraw signature for now
         if( condition.type == bts::blockchain::withdraw_signature_type )
@@ -23,7 +23,7 @@ namespace bts { namespace game {
         return bts::blockchain::address();
     }
     
-    dice_game::dice_game( const bts::blockchain::address& owner, bts::blockchain::share_type amnt, uint32_t o , uint32_t g)
+    dice_rule::dice_rule( const bts::blockchain::address& owner, bts::blockchain::share_type amnt, uint32_t o , uint32_t g)
     {
         FC_ASSERT( amnt > 0 );
         amount = amnt;
@@ -33,7 +33,7 @@ namespace bts { namespace game {
         condition = bts::blockchain::withdraw_condition( bts::blockchain::withdraw_with_signature( owner ), 1);
     }
     
-    void dice_game::evaluate( transaction_evaluation_state& eval_state )
+    void dice_rule::evaluate( transaction_evaluation_state& eval_state )
     {
         if( this->odds < 1 || this->odds < this->guess || this->guess < 1)
             FC_CAPTURE_AND_THROW( invalid_dice_odds, (odds) );
@@ -67,7 +67,7 @@ namespace bts { namespace game {
         eval_state._current_state->store_rule_data_record(cur_data.id._hash[0], *cur_record );
     }
     
-    void dice_game::execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
+    void dice_rule::execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
     {
         // TODO: review that wether the jackpot should before update random seed or after that
         // do not need to claim for the first BTS_BLOCKCHAIN_NUM_DELEGATES + 1 blocks, no dice action in genesis
@@ -153,7 +153,7 @@ namespace bts { namespace game {
         pending_state->store_asset_record( *base_asset_record );
     }
     
-    bool dice_game::scan( wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w )
+    bool dice_rule::scan( wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w )
     {
          switch( (withdraw_condition_types) condition.type )
          {
@@ -212,7 +212,7 @@ namespace bts { namespace game {
         return false;
     }
     
-    wallet_transaction_record dice_game::play( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, const variant& params, bool sign )
+    wallet_transaction_record dice_rule::play( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, const variant& params, bool sign )
     {
         dice_input d_input;
         
@@ -268,7 +268,7 @@ namespace bts { namespace game {
         // TODO: Dice, specify to account, the receiver who can claim jackpot
         FC_ASSERT( amount_to_play > 0 );
         trx.operations.push_back(
-                                 game_operation(bts::game::dice_game(address( play_account->active_key() ), amount_to_play, d_input.odds, d_input.guess ))//slate_id 0
+                                 game_operation(bts::game::dice_rule(address( play_account->active_key() ), amount_to_play, d_input.odds, d_input.guess ))//slate_id 0
                                  );
         
         auto entry = bts::wallet::ledger_entry();
