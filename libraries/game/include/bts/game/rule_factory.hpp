@@ -33,6 +33,8 @@ namespace bts { namespace game {
                 virtual wallet_transaction_record play( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, const variant& var, bool sign ) = 0;
               
                 virtual bool scan( const rule& game, wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w ) = 0;
+              
+                virtual void execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state ) = 0;
           };
 
           template<typename RuleType>
@@ -71,6 +73,11 @@ namespace bts { namespace game {
               { try {
                   return g.as<RuleType>().scan(trx_rec, w);
               } FC_CAPTURE_AND_RETHROW( (g) ) }
+              
+              virtual void execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
+              { try {
+                  return RuleType::execute(blockchain, block_num, pending_state);
+              } FC_CAPTURE_AND_RETHROW( ) }
           };
 
           template<typename RuleType>
@@ -78,11 +85,7 @@ namespace bts { namespace game {
           {
              FC_ASSERT( _converters.find( RuleType::type ) == _converters.end(),
                         "Rule ID already Registered ${id}", ("id", RuleType::type) );
-            _converters[RuleType::type] = std::make_shared< rule_converter<RuleType> >();
-
-            game_executors::instance().register_game_executor(
-                std::function<void( chain_database_ptr, uint32_t, const pending_chain_state_ptr&)>(RuleType::execute)
-            );
+             _converters[RuleType::type] = std::make_shared< rule_converter<RuleType> >();
           }
 
           void evaluate( transaction_evaluation_state& eval_state, const rule& g )
@@ -108,6 +111,8 @@ namespace bts { namespace game {
           void from_variant( const fc::variant& in, bts::game::rule& output );
        
           bool scan( const rule& g, wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w );
+       
+          void execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state );
 
        private:
           std::unordered_map<int, std::shared_ptr<rule_converter_base> > _converters;
