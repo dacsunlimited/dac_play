@@ -104,7 +104,9 @@ namespace bts { namespace blockchain {
        const share_type max_total_pay_per_two_weeks = blocks_per_two_weeks * get_max_delegate_pay_issued_per_block();
        const share_type max_pay_per_two_weeks = max_total_pay_per_two_weeks / BTS_BLOCKCHAIN_NUM_DELEGATES;
        const share_type registration_fee = (max_pay_per_two_weeks * pay_rate) / 100;
-       FC_ASSERT( registration_fee > 0 );
+       
+       // The regitstration at first block could be zero
+       // FC_ASSERT( registration_fee > 0 );
        return registration_fee;
    }
 
