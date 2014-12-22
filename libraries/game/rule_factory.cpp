@@ -35,6 +35,21 @@ namespace bts { namespace game {
         FC_ASSERT( converter_itr != _converters.end() );
         return converter_itr->second->scan( g, trx_rec, w );
     }
+    
+    void rule_factory::execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
+    {
+        auto games = blockchain->get_games(-1);
+        
+        for ( const auto& g : games)
+        {
+            auto converter_itr = _converters.find( g.rule_id );
+            
+            if ( converter_itr != _converters.end() )
+            {
+                converter_itr->second->execute(blockchain, block_num, pending_state);
+            }
+        }
+    }
 
 } } // bts::blockchain
 

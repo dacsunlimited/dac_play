@@ -2406,6 +2406,18 @@ namespace bts { namespace blockchain {
        }
        return assets;
     } FC_RETHROW_EXCEPTIONS( warn, "", ("first_symbol",first_symbol)("limit",limit) )  }
+    
+    vector<game_record>        chain_database::get_games(uint32_t limit)const
+    { try {
+        auto itr = my->_game_db.begin();
+        std::vector<game_record> games;
+        while( itr.valid() && games.size() < limit )
+        {
+            games.push_back( itr.value() );
+            ++itr;
+        }
+        return games;
+    } FC_RETHROW_EXCEPTIONS( warn, "", ("limit",limit) )  }
 
     std::string chain_database::export_fork_graph( uint32_t start_block, uint32_t end_block, const fc::path& filename )const
     {

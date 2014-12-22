@@ -221,6 +221,8 @@ namespace bts { namespace blockchain {
 
          vector<asset_record>                     get_assets( const string& first_symbol,
                                                               uint32_t limit )const;
+       
+         vector<game_record>                     get_games(uint32_t limit)const;
 
          std::vector<slot_record> get_delegate_slot_records( const account_id_type& delegate_id,
                                                              int64_t start_block_num, uint32_t count )const;

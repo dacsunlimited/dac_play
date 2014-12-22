@@ -16,6 +16,10 @@ namespace bts { namespace game {
         bts::game::rule_factory::instance().register_rule<dice_rule>();
         
         bts::blockchain::operation_factory::instance().register_operation<game_operation>();
+        
+        game_executors::instance().register_game_executor(
+                                                          std::function<void( chain_database_ptr, uint32_t, const pending_chain_state_ptr&)>(std::bind(&rule_factory::execute, rule_factory::instance(), std::placeholders::_1, std::placeholders::_2, std::placeholders::_3))
+                                                          );
     
         return true;
     }();
