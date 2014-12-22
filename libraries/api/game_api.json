@@ -1,0 +1,89 @@
+{
+  "category": "Game Methods",
+  "methods" : [
+      {
+          "method_name" : "game_buy_chips",
+          "description" : "Exchange lto for chips",
+          "return_type" : "transaction_record",
+          "parameters"  : [
+          {
+              "name" : "from_account_name",
+              "type" : "account_name",
+              "description" : "the account that will provide funds for the bid"
+          },
+          {
+              "name" : "quantity",
+              "type" : "real_amount",
+              "description" : "the quantity of items you would like to buy"
+          },
+          {
+              "name" : "quantity_symbol",
+              "type" : "asset_symbol",
+              "description" : "the type of chips you would like to buy"
+          }
+          ],
+          "prerequisites" : ["wallet_unlocked"],
+          "aliases" : [ "buy_chips" ]
+      },
+      {
+          "method_name" : "game_create",
+          "description" : "Creates a new game and binding to an asset",
+          "return_type" : "transaction_record",
+          "parameters"  : [
+          {
+              "name" : "symbol",
+              "type" : "game_symbol",
+              "description" : "the ticker symbol for the new game"
+          },
+          {
+              "name" : "game_name",
+              "type" : "string",
+              "description" : "the name of the game"
+          },
+          {
+              "name" : "issuer_name",
+              "type" : "string",
+              "description" : "the name of the issuer of the game"
+          },
+          {
+              "name" : "asset_symbol",
+              "type" : "asset_symbol",
+              "description" : "the ticker symbol for the new asset"
+          },
+          {
+              "name" : "rule_id",
+              "type" : "uint32_t",
+              "description" : "the id of the rule binding to this game"
+          },
+          {
+              "name" : "description",
+              "type" : "string",
+              "description" : "a description of the asset"
+          },
+          {
+              "name" : "public_data",
+              "type" : "json_variant",
+              "description" : "arbitrary data attached to the asset",
+              "default_value" : null
+          }
+          ],
+          "prerequisites" : ["wallet_unlocked"]
+      },
+      {
+          "method_name" : "game_play",
+          "description" : "Play game with param variant",
+          "return_type" : "transaction_record",
+          "parameters"  : [
+          {
+              "name" : "asset_symbol",
+              "type" : "asset_symbol",
+              "description" : "the asset of the game asset"
+          },
+          {   "name" : "param",
+              "type" : "json_variant",
+              "description" : "the param of the game action"
+          }
+          ],
+          "prerequisites" : ["wallet_unlocked"]
+      }
+] }
