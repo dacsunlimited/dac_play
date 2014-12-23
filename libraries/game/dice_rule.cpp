@@ -101,7 +101,7 @@ namespace bts { namespace game {
                 share_type jackpot = 0;
                 if ( lucky_number >= (guess - 1) * range && lucky_number < guess * range )
                 {
-                    jackpot = d_data.amount * (d_data.odds) * (100 - BTS_BLOCKCHAIN_HOUSE_EDGE) / 100;
+                    jackpot = d_data.amount * (d_data.odds) * (100 - BTS_BLOCKCHAIN_DICE_HOUSE_EDGE) / 100;
                     
                     // add the jackpot to the accout's balance, give the jackpot from virtul pool to winner
                     

@@ -24,6 +24,7 @@
 
 #define BTS_BLOCKCHAIN_NUM_DICE                             (BTS_BLOCKCHAIN_NUM_DELEGATES / 10)
 #define BTS_BLOCKCHAIN_DICE_RANGE                           (100000000)
+#define BTS_BLOCKCHAIN_DICE_HOUSE_EDGE                      (0) // 0% house edge
 
 namespace bts { namespace game {
     using namespace bts::blockchain;
