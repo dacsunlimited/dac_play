@@ -250,7 +250,10 @@ namespace bts { namespace blockchain {
                                    const fc::variant& data,
                                    account_id_type issuer_id,
                                    share_type max_share_supply,
-                                   uint64_t precision )
+                                   uint64_t precision,
+                                   share_type initial_supply,
+                                   share_type initial_collateral,
+                                   uint32_t flags)
    {
       FC_ASSERT( max_share_supply > 0 );
       FC_ASSERT( max_share_supply <= BTS_BLOCKCHAIN_MAX_SHARES );
@@ -262,6 +265,8 @@ namespace bts { namespace blockchain {
       op.issuer_account_id = issuer_id;
       op.maximum_share_supply = max_share_supply;
       op.precision = precision;
+      op.initial_supply = initial_supply;
+      op.initial_collateral = initial_collateral;
       operations.push_back( op );
    }
     

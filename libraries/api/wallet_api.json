@@ -1635,10 +1635,22 @@
                   "default_value" : null
                },
                {
-                  "name" : "is_market_issued",
+                  "name" : "is_chip_issued",
                   "type" : "bool",
-                  "description" : "creation of a new BitAsset that is created by shorting",
+                  "description" : "creation of a new game asset that is used in specific games",
                   "default_value": false
+               },
+               {
+                   "name" : "initial_supply",
+                   "type" : "real_amount",
+                   "description" : "the initial supply of the game asset",
+                   "default_value": 1
+               },
+               {
+                   "name" : "initial_collateral",
+                   "type" : "real_amount",
+                   "description" : "the initial supply of the game asset",
+                   "default_value": 1
                }
             ],
          "prerequisites" : ["wallet_unlocked"]

@@ -282,7 +282,8 @@ namespace bts { namespace blockchain {
          virtual void                       set_property( chain_property_enum property_id,
                                                           const variant& property_value )override;
 
-         bool                               is_valid_symbol( const string& asset_symbol )const;
+         bool                               is_valid_asset_symbol( const string& asset_symbol )const;
+         bool                               is_valid_game_symbol( const string& game_symbol )const;
          string                             get_asset_symbol( const asset_id_type& asset_id )const;
          asset_id_type                      get_asset_id( const string& asset_symbol )const;
          virtual oasset_record              get_asset_record( const asset_id_type& id )const override;

@@ -670,13 +670,16 @@ wallet_transaction_record detail::client_impl::wallet_asset_create(
         const string& asset_name,
         const string& issuer_name,
         const string& description,
-        double maximum_share_supply ,
+        double maximum_share_supply,
         uint64_t precision,
         const variant& public_data,
-        bool is_market_issued /* = false */ )
+        bool is_chip_issued /* = false */,
+        double initial_supply,
+        double initial_collateral
+    )
 {
   auto record = _wallet->create_asset( symbol, asset_name, description, public_data, issuer_name,
-                                             maximum_share_supply, precision, is_market_issued, true );
+                                             maximum_share_supply, precision, is_chip_issued, initial_supply, initial_collateral, true );
   _wallet->cache_transaction( record );
   network_broadcast_transaction( record.trx );
   return record;

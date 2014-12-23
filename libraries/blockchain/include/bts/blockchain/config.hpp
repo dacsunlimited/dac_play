@@ -18,9 +18,9 @@
  *
  *  Changing these parameters will result in a hard fork.
  */
-#define BTS_ADDRESS_PREFIX                                  "PLS"
-#define BTS_BLOCKCHAIN_SYMBOL                               "PLS"
-#define BTS_BLOCKCHAIN_NAME                                 "BitShares PLS"
+#define BTS_ADDRESS_PREFIX                                  "XTS"
+#define BTS_BLOCKCHAIN_SYMBOL                               "XTS"
+#define BTS_BLOCKCHAIN_NAME                                 "BitShares PLAY XTS"
 #define BTS_BLOCKCHAIN_DESCRIPTION                          "BitShares PLAY Dev Network"
 
 #define BTS_BLOCKCHAIN_PRECISION                            100000

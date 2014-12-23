@@ -2521,7 +2521,7 @@ namespace detail {
    {
       FC_ASSERT( is_open() );
       FC_ASSERT( is_unlocked() );
-      FC_ASSERT( my->_blockchain->is_valid_symbol( amount_to_transfer_symbol ) );
+      FC_ASSERT( my->_blockchain->is_valid_asset_symbol( amount_to_transfer_symbol ) );
       FC_ASSERT( my->is_receive_account( paying_account_name ) );
 
       const auto asset_rec = my->_blockchain->get_asset_record( amount_to_transfer_symbol );
@@ -2691,7 +2691,7 @@ namespace detail {
    { try {
       FC_ASSERT( is_open() );
       FC_ASSERT( is_unlocked() );
-      FC_ASSERT( my->_blockchain->is_valid_symbol( amount_to_transfer_symbol ) );
+      FC_ASSERT( my->_blockchain->is_valid_asset_symbol( amount_to_transfer_symbol ) );
       FC_ASSERT( my->is_receive_account( from_account_name ) );
 
       const auto asset_rec = my->_blockchain->get_asset_record( amount_to_transfer_symbol );
@@ -2765,7 +2765,7 @@ namespace detail {
    { try {
          FC_ASSERT( is_open() );
          FC_ASSERT( is_unlocked() );
-         FC_ASSERT( my->_blockchain->is_valid_symbol( amount_to_transfer_symbol ) );
+         FC_ASSERT( my->_blockchain->is_valid_asset_symbol( amount_to_transfer_symbol ) );
          FC_ASSERT( my->is_receive_account( from_account_name ) );
          FC_ASSERT( to_address_amounts.size() > 0 );
 
@@ -2956,13 +2956,23 @@ namespace detail {
            double max_share_supply,
            uint64_t precision,
            bool is_chip_issued,
+           double initial_supply,
+           double initial_collateral,
            bool sign )
    { try {
       FC_ASSERT( blockchain::is_power_of_ten( precision ) );
       FC_ASSERT( is_open() );
       FC_ASSERT( is_unlocked() );
       FC_ASSERT( my->_blockchain->is_valid_symbol_name( symbol ) ); // valid length and characters
-      FC_ASSERT( ! my->_blockchain->is_valid_symbol( symbol ) ); // not yet registered
+      FC_ASSERT( ! my->_blockchain->is_valid_asset_symbol( symbol ) ); // not yet registered
+       
+      FC_ASSERT( initial_collateral >= 0 );
+       
+      if ( is_chip_issued )
+      {
+          FC_ASSERT( initial_supply > 0 );
+          FC_ASSERT( initial_collateral > 0 );
+      }
 
       signed_transaction     trx;
       unordered_set<address> required_signatures;
@@ -2979,6 +2989,10 @@ namespace detail {
       auto oname_rec = my->_blockchain->get_account_record( issuer_account_name );
       if( !oname_rec.valid() )
           FC_THROW_EXCEPTION( account_not_registered, "Assets can only be created by registered accounts", ("issuer_account_name",issuer_account_name) );
+      
+      // add the initital collateral to the required fees
+      share_type initial_collateral_in_internal_units = initial_collateral * BTS_BLOCKCHAIN_PRECISION;
+      required_fees += asset(initial_collateral_in_internal_units, 0);
 
       my->withdraw_to_transaction( required_fees,
                                    issuer_account_name,
@@ -2989,19 +3003,41 @@ namespace detail {
 
       //check this way to avoid overflow
       FC_ASSERT(BTS_BLOCKCHAIN_MAX_SHARES / precision > max_share_supply);
+      FC_ASSERT(max_share_supply > initial_supply);
       share_type max_share_supply_in_internal_units = max_share_supply * precision;
-      if( NOT is_chip_issued )
+      share_type initial_supply_in_internal_units = initial_supply * precision;
+      
+      if (NOT is_chip_issued)
       {
-         trx.create_asset( symbol, asset_name,
+          trx.create_asset( symbol, asset_name,
                            description, data,
-                           oname_rec->id, max_share_supply_in_internal_units, precision );
+                           oname_rec->id, max_share_supply_in_internal_units, precision, initial_supply_in_internal_units, initial_collateral_in_internal_units, 0);
       }
       else
       {
-         trx.create_asset( symbol, asset_name,
+          trx.create_asset( symbol, asset_name,
                            description, data,
-                           asset_record::chip_issuer_id, max_share_supply_in_internal_units, precision );
+                           oname_rec->id, max_share_supply_in_internal_units, precision, initial_supply_in_internal_units, initial_collateral_in_internal_units, asset_permissions::game_chip);
       }
+      
+     
+      // TODO: There could be problem when two people create the same asset at the same time
+      // Or move the process of initializing supply and collateral to the action of creating game
+      asset inital_supply(initial_supply_in_internal_units, my->_blockchain->last_asset_id() + 1);
+       
+      owallet_key_record  issuer_key = my->_wallet_db.lookup_key( oname_rec->owner_address() );
+      FC_ASSERT( issuer_key && issuer_key->has_private_key() );
+      auto sender_private_key = issuer_key->decrypt_private_key( my->_wallet_password );
+       
+      trx.deposit_to_account( from_account_address,
+                              inital_supply,
+                              sender_private_key,
+                              "initial supply",
+                              0,
+                              sender_private_key.get_public_key(),
+                              my->get_new_private_key( oname_rec->name ),
+                              from_memo
+                              );
 
       auto entry = ledger_entry();
       entry.from_account = from_account_address;
@@ -3032,7 +3068,7 @@ namespace detail {
         FC_ASSERT( is_open() );
         FC_ASSERT( is_unlocked() );
         FC_ASSERT( my->_blockchain->is_valid_symbol_name( symbol ) ); // valid length and characters
-        FC_ASSERT( ! my->_blockchain->is_valid_symbol( symbol ) ); // not yet registered
+        FC_ASSERT( ! my->_blockchain->is_valid_game_symbol( symbol ) ); // not yet registered
         
         signed_transaction     trx;
         unordered_set<address> required_signatures;
@@ -3141,7 +3177,7 @@ namespace detail {
 
       FC_ASSERT( is_open() );
       FC_ASSERT( is_unlocked() );
-      FC_ASSERT( my->_blockchain->is_valid_symbol( symbol ) );
+      FC_ASSERT( my->_blockchain->is_valid_asset_symbol( symbol ) );
 
       signed_transaction         trx;
       unordered_set<address>     required_signatures;

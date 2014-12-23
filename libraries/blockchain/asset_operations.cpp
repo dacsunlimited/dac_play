@@ -61,9 +61,9 @@ namespace bts { namespace blockchain {
       oaccount_record issuer_account_record;
       if( issuer_account_id != asset_record::market_issuer_id )
       {
-         issuer_account_record = eval_state._current_state->get_account_record( this->issuer_account_id );
-         if( NOT issuer_account_record.valid() )
-             FC_CAPTURE_AND_THROW( unknown_account_id, (issuer_account_id) );
+          issuer_account_record = eval_state._current_state->get_account_record( this->issuer_account_id );
+          if( NOT issuer_account_record.valid() )
+              FC_CAPTURE_AND_THROW( unknown_account_id, (issuer_account_id) );
       }
 
       if( this->maximum_share_supply <= 0 || this->maximum_share_supply > BTS_BLOCKCHAIN_MAX_SHARES )
@@ -74,6 +74,9 @@ namespace bts { namespace blockchain {
 
       const asset reg_fee( eval_state._current_state->get_asset_registration_fee( this->symbol.size() ), 0 );
       eval_state.required_fees += reg_fee;
+      
+      const asset initial_collateral(this->initial_collateral, 0);
+      eval_state.required_fees += initial_collateral;
 
       asset_record new_record;
       new_record.id                     = eval_state._current_state->new_asset_id();
@@ -88,12 +91,14 @@ namespace bts { namespace blockchain {
       new_record.current_share_supply   = 0;
       new_record.maximum_share_supply   = this->maximum_share_supply;
       new_record.collected_fees         = 0;
+      new_record.current_share_supply   = this->initial_supply;
+      new_record.current_collateral     = this->initial_collateral;
       // Initialize flags and issuer_permissions here, instead of
       //   in the struct definition, so that the initialization value
       //   may depend on e.g. block number.  This supports future
       //   hardforks which may want to add new permissions for future
       //   assets without applying them to existing assets.
-      new_record.flags                  = 0;
+      new_record.flags                  = this->flags;
       new_record.issuer_permissions     = retractable | market_halt | balance_halt | supply_unlimit;
 
       if( issuer_account_record )
@@ -103,6 +108,9 @@ namespace bts { namespace blockchain {
       }
 
       eval_state._current_state->store_asset_record( new_record );
+       
+       const asset initial_supply(this->initial_collateral, new_record.id);
+       eval_state.add_balance( initial_supply );
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
    void update_asset_operation::evaluate( transaction_evaluation_state& eval_state )

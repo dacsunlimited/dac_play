@@ -433,6 +433,8 @@ namespace bts { namespace wallet {
                  double max_share_supply,
                  uint64_t precision,
                  bool is_market_issued,
+                 double initial_supply,
+                 double initial_collateral,
                  bool sign
                  );
          wallet_transaction_record update_asset(

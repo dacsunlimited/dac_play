@@ -13,7 +13,8 @@ namespace bts { namespace blockchain {
       restricted            = 1 << 1, ///<! The issuer whitelists public keys
       market_halt           = 1 << 2, ///<! The issuer can/did freeze all markets
       balance_halt          = 1 << 3, ///<! The issuer can/did freeze all balances
-      supply_unlimit        = 1 << 4  ///<! The issuer can change the supply at will
+      supply_unlimit        = 1 << 4,  ///<! The issuer can change the supply at will
+      game_chip             = 1 << 5   ///< ! The asset is for games
    };
 
    struct asset_record
@@ -22,16 +23,13 @@ namespace bts { namespace blockchain {
       {
           god_issuer_id     =  0,
           null_issuer_id    = -1,
-          market_issuer_id  = -2,
-          chip_issuer_id    = -3
+          market_issuer_id  = -2
       };
 
       asset_record make_null()const;
       bool is_null()const               { return issuer_account_id == null_issuer_id; };
 
       bool is_market_issued()const      { return issuer_account_id == market_issuer_id; };
-       
-      bool is_chip_issued()const        { return issuer_account_id == chip_issuer_id; };
       
       bool is_user_issued()const        { return issuer_account_id > god_issuer_id; };
 
@@ -40,6 +38,7 @@ namespace bts { namespace blockchain {
       bool is_market_frozen()const      { return is_user_issued() && (flags & market_halt); }
       bool is_balance_frozen()const     { return is_user_issued() && (flags & balance_halt); }
       bool is_supply_unlimited()const   { return is_user_issued() && (flags & supply_unlimit); }
+      bool is_game_chip()const          { return is_user_issued() && (flags & game_chip); }
 
       bool can_issue( const asset& amount )const;
       bool can_issue( const share_type& amount )const;
@@ -101,6 +100,7 @@ FC_REFLECT_ENUM( bts::blockchain::asset_permissions,
         (market_halt)
         (balance_halt)
         (supply_unlimit)
+        (game_chip)
         )
 FC_REFLECT( bts::blockchain::proposal_record,
         (asset_id)

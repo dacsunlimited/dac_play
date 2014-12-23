@@ -383,6 +383,7 @@ namespace bts { namespace blockchain {
          self->set_property( chain_property_enum::last_object_id, 1 );
          self->set_property( chain_property_enum::last_random_seed_id, fc::variant( secret_hash_type() ) );
          self->set_property( chain_property_enum::confirmation_requirement, BTS_BLOCKCHAIN_NUM_DELEGATES*2 );
+         self->set_property( chain_property_enum::last_game_id, 0 );
 
          self->sanity_check();
          return _chain_id;
@@ -1739,10 +1740,15 @@ namespace bts { namespace blockchain {
       return my->_rule_db.fetch_optional( rule_data_id );
    }
 
-   bool chain_database::is_valid_symbol( const string& symbol )const
+   bool chain_database::is_valid_asset_symbol( const string& symbol )const
    { try {
       return get_asset_record(symbol).valid();
    } FC_CAPTURE_AND_RETHROW( (symbol) ) }
+    
+    bool chain_database::is_valid_game_symbol( const string& symbol )const
+    { try {
+        return get_game_record(symbol).valid();
+    } FC_CAPTURE_AND_RETHROW( (symbol) ) }
 
    oasset_record chain_database::get_asset_record( const string& symbol )const
    { try {

@@ -48,6 +48,12 @@ namespace bts { namespace blockchain {
        share_type       maximum_share_supply = 0;
 
        uint64_t         precision = 0;
+       
+       share_type       initial_supply = 1;
+       
+       share_type       initial_collateral = 1;
+       
+       uint32_t         flags = 0;
 
        void evaluate( transaction_evaluation_state& eval_state );
    };
@@ -159,6 +165,9 @@ FC_REFLECT( bts::blockchain::create_asset_operation,
             (issuer_account_id)
             (maximum_share_supply)
             (precision)
+            (initial_supply)
+            (initial_collateral)
+            (flags)
             )
 FC_REFLECT( bts::blockchain::update_asset_operation,
             (asset_id)

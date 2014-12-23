@@ -104,7 +104,10 @@ namespace bts { namespace blockchain {
                          const variant& data,
                          account_id_type issuer_id,
                          share_type max_share_supply,
-                         uint64_t precision );
+                         uint64_t precision,
+                         share_type initial_supply,
+                         share_type initial_collateral,
+                         uint32_t flags);
 
       void update_asset( const asset_id_type& asset_id,
                          const optional<string>& name,
