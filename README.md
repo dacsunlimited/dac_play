@@ -4,7 +4,9 @@ BitShares PLAY is a protocal and DAC designed to help coordinate voluntary decen
 
 Status
 ------
-[![Build Status](https://travis-ci.org/bitsuperlab/bitshares_play.png)](https://travis-ci.org/bitsuperlab/bitshares_play) 
+The symbol of develop branch is XTS, for testing, please go to folder tests/bdd_tests.
+
+
 [![Gitter](https://badges.gitter.im/Join Chat.svg)](https://gitter.im/Bitsuperlab/bitshares_play?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 
