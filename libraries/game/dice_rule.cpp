@@ -213,7 +213,7 @@ namespace bts { namespace game {
     }
     
     wallet_transaction_record dice_rule::play( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, const variant& params, bool sign )
-    {
+    {   try {
         dice_input d_input;
         
         fc::from_variant(params, d_input);
@@ -285,7 +285,7 @@ namespace bts { namespace game {
         record.trx = trx;
         
         return record;
-    }
+    } FC_CAPTURE_AND_RETHROW( (params) )}
 
 } } // bts::game
 
