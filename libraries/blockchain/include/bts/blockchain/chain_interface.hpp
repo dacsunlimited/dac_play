@@ -119,7 +119,7 @@ namespace bts { namespace blockchain {
 
          virtual int64_t                    get_required_confirmations()const;
 
-         virtual void                       store_rule_data_record( uint32_t id, const rule_data_record& r )               = 0;
+         virtual void                       store_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id, const rule_data_record& r )               = 0;
          virtual fc::variant                get_property( chain_property_enum property_id )const            = 0;
          virtual void                       set_property( chain_property_enum property_id,
                                                           const fc::variant& property_value )               = 0;
@@ -131,7 +131,7 @@ namespace bts { namespace blockchain {
          virtual omarket_order              get_lowest_ask_record( const asset_id_type& quote_id,
                                                                    const asset_id_type& base_id )           = 0;
 
-         virtual orule_data_record          get_rule_data_record( uint32_t id )const                  = 0;
+         virtual orule_data_record          get_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id )const    = 0;
 
          virtual oorder_record              get_bid_record( const market_index_key& )const                  = 0;
          virtual oorder_record              get_ask_record( const market_index_key& )const                  = 0;
@@ -225,7 +225,7 @@ namespace bts { namespace blockchain {
          virtual void set_dirty_markets( const std::set<std::pair<asset_id_type, asset_id_type>>& );
          virtual std::set<std::pair<asset_id_type, asset_id_type>> get_dirty_markets()const;
 
-         virtual void                       set_game_transactions( vector<game_transaction> trxs ) = 0;
+         virtual void                       set_rule_result_transactions( vector<rule_result_transaction> trxs ) = 0;
          virtual void                       set_market_transactions( vector<market_transaction> trxs )      = 0;
 
          virtual void                       index_transaction( const address& addr, const transaction_id_type& trx_id ) = 0;

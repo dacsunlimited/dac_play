@@ -70,13 +70,6 @@ class wallet_impl : public chain_observer
               const time_point_sec& received_time
               );
 
-      void scan_game_transaction(
-              const game_transaction& gtrx,
-              uint32_t block_num,
-              const time_point_sec& block_time,
-              const time_point_sec& received_time,
-              const uint32_t trx_index);
-
       secret_hash_type get_secret( uint32_t block_num,
                                    const private_key_type& delegate_key )const;
 

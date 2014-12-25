@@ -290,7 +290,7 @@ namespace bts { namespace blockchain {
          virtual obalance_record            get_balance_record( const balance_id_type& id )const override;
          virtual oaccount_record            get_account_record( const account_id_type& id )const override;
          virtual oaccount_record            get_account_record( const address& owner )const override;
-         virtual orule_data_record          get_rule_data_record( uint32_t id )const override;
+         virtual orule_data_record          get_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id )const override;
 
          virtual oasset_record              get_asset_record( const string& symbol )const override;
          virtual oaccount_record            get_account_record( const string& name )const override;
@@ -303,7 +303,7 @@ namespace bts { namespace blockchain {
          virtual void                       store_account_record( const account_record& r )override;
          virtual void                       store_game_record( const game_record& r )override;
        
-         virtual void                       store_rule_data_record(uint32_t id, const rule_data_record& r )override;
+         virtual void                       store_rule_data_record(const rule_id_type& rule_id, const data_id_type& data_id, const rule_data_record& r )override;
 
          virtual vector<operation>          get_recent_operations( operation_type_enum t )override;
          virtual void                       store_recent_operation( const operation& o )override;
@@ -354,8 +354,8 @@ namespace bts { namespace blockchain {
 
          virtual void                       set_market_transactions( vector<market_transaction> trxs )override;
          vector<market_transaction>         get_market_transactions( uint32_t block_num  )const;
-         virtual void                       set_game_transactions( vector<game_transaction> trxs );
-         vector<game_transaction>           get_game_transactions( uint32_t block_num  )const;
+         virtual void                       set_rule_result_transactions( vector<rule_result_transaction> trxs );
+         vector<rule_result_transaction>    get_rule_result_transactions( uint32_t block_num  )const;
 
          vector<pair<asset_id_type, asset_id_type>> get_market_pairs()const;
 

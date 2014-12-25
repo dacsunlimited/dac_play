@@ -109,10 +109,6 @@ namespace bts { namespace blockchain {
             bts::db::level_map<uint32_t, std::vector<block_id_type>>                    _fork_number_db;
             bts::db::level_map<block_id_type,block_fork_data>                           _fork_db;
             bts::db::cached_level_map<uint32_t, fc::variant>                            _property_db;
-          
-            bts::db::level_map< int32_t, rule_data_record >                             _rule_db;
-
-            bts::db::level_map<uint32_t, std::vector<game_transaction> >                _game_transactions_db;
 
             bts::db::level_map<block_id_type,int32_t>                                    _revalidatable_future_blocks_db; //int32_t is unused, this is a set
             /** the data required to 'undo' the changes a block made to the database */
@@ -175,7 +171,11 @@ namespace bts { namespace blockchain {
             bts::db::cached_level_map<std::pair<asset_id_type,asset_id_type>, market_status> _market_status_db;
             bts::db::cached_level_map<market_history_key, market_history_record>        _market_history_db;
           
-            bts::db::cached_level_map<game_id_type, game_record>                      _game_db;
+            bts::db::cached_level_map<game_id_type, game_record>                        _game_db;
+          
+            bts::db::cached_level_map<std::pair<rule_id_type, data_id_type>, rule_data_record > _rule_data_db;
+          
+            bts::db::cached_level_map<data_id_type, std::vector<rule_result_transaction> >      _rule_result_transactions_db;
 
             std::map<operation_type_enum, std::deque<operation>>                        _recent_operations;
 

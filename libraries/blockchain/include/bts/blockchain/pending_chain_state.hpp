@@ -37,7 +37,7 @@ namespace bts { namespace blockchain {
          virtual oaccount_record        get_account_record( const account_id_type& id )const override;
          virtual oaccount_record        get_account_record( const address& owner )const override;
          virtual ogame_record           get_game_record( const game_id_type& id )const override;
-         virtual orule_data_record      get_rule_data_record( uint32_t id )const override;
+         virtual orule_data_record      get_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id )const override;
 
          virtual odelegate_slate        get_delegate_slate( slate_id_type id )const override;
          virtual void                   store_delegate_slate( slate_id_type id, const delegate_slate& slate ) override;
@@ -70,7 +70,7 @@ namespace bts { namespace blockchain {
          virtual void                   store_balance_record( const balance_record& r )override;
          virtual void                   store_account_record( const account_record& r )override;
          virtual void                   store_game_record( const game_record& r )override;
-         virtual void                   store_rule_data_record( uint32_t id, const rule_data_record& r )override;
+         virtual void                   store_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id, const rule_data_record& r )override;
 
          virtual vector<operation>      get_recent_operations( operation_type_enum t )override;
          virtual void                   store_recent_operation( const operation& o )override;
@@ -126,7 +126,7 @@ namespace bts { namespace blockchain {
          virtual uint32_t               get_head_block_num()const override;
 
          virtual void                   set_market_transactions( vector<market_transaction> trxs )override;
-         virtual void                   set_game_transactions( vector<game_transaction> trxs ) override;
+         virtual void                   set_rule_result_transactions( vector<rule_result_transaction> trxs ) override;
 
          /**
           *  This is a pass through method that goes stright to chain database whether or not transaction ID is valid
@@ -134,8 +134,8 @@ namespace bts { namespace blockchain {
          virtual void                  index_transaction( const address& addr, const transaction_id_type& trx_id ) override;
 
          // NOTE: this isn't really part of the chain state, but more part of the block state
-         vector<market_transaction>                                     market_transactions;
-         vector<game_transaction>                                       game_transactions;
+         vector<market_transaction>                                        market_transactions;
+         vector<rule_result_transaction>                                   rule_result_transactions;
 
          unordered_map< asset_id_type, asset_record>                       assets;
          unordered_map< slate_id_type, delegate_slate>                     slates;
@@ -172,7 +172,7 @@ namespace bts { namespace blockchain {
 
          chain_interface_weak_ptr                                          _prev_state;
 
-         unordered_map< uint32_t, rule_data_record>                        rules;
+         map< std::pair<rule_id_type,data_id_type>, rule_data_record>                        rules;
        
          unordered_map< game_id_type, game_record>                         games;
    };

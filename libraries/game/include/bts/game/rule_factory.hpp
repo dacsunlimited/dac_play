@@ -34,6 +34,12 @@ namespace bts { namespace game {
               
                 virtual bool scan( const rule& game, wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w ) = 0;
               
+                virtual bool scan_result( const rule_result_transaction& rtrx,
+                                       uint32_t block_num,
+                                       const time_point_sec& block_time,
+                                       const time_point_sec& received_time,
+                                         const uint32_t trx_index, bts::wallet::wallet_ptr w) = 0;
+              
                 virtual void execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state ) = 0;
           };
 
@@ -74,6 +80,15 @@ namespace bts { namespace game {
                   return g.as<RuleType>().scan(trx_rec, w);
               } FC_CAPTURE_AND_RETHROW( (g) ) }
               
+              virtual bool scan_result( const rule_result_transaction& rtrx,
+                               uint32_t block_num,
+                               const time_point_sec& block_time,
+                               const time_point_sec& received_time,
+                               const uint32_t trx_index, bts::wallet::wallet_ptr w)
+              { try {
+                  return RuleType::scan_result(rtrx, block_num, block_time, received_time, trx_index, w);
+              } FC_CAPTURE_AND_RETHROW( () ) }
+              
               virtual void execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
               { try {
                   return RuleType::execute(blockchain, block_num, pending_state);
@@ -111,6 +126,12 @@ namespace bts { namespace game {
           void from_variant( const fc::variant& in, bts::game::rule& output );
        
           bool scan( const rule& g, wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w );
+       
+          bool scan_result( const rule_result_transaction& rtrx,
+                        uint32_t block_num,
+                        const time_point_sec& block_time,
+                        const time_point_sec& received_time,
+                        const uint32_t trx_index, bts::wallet::wallet_ptr w);
        
           void execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state );
 

@@ -71,6 +71,12 @@ namespace bts { namespace game {
         
         bool scan( wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w );
         
+        static bool scan_result( const rule_result_transaction& rtrx,
+                                       uint32_t block_num,
+                                       const time_point_sec& block_time,
+                                       const time_point_sec& received_time,
+                         const uint32_t trx_index, bts::wallet::wallet_ptr w);
+        
         static wallet_transaction_record play( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, const variant& params, bool sign);
         
         static void execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state );
@@ -88,8 +94,23 @@ namespace bts { namespace game {
         uint32_t        guess;
     };
     
+    struct dice_transaction
+    {
+        static const uint8_t    type;
+        
+        dice_transaction(){}
+        
+        address                                   play_owner;
+        address                                   jackpot_owner;
+        share_type                                play_amount;
+        share_type                                jackpot_received;
+        uint32_t                                  odds;
+        uint32_t                                  lucky_number;
+    };
+    
 } } // bts::game
 FC_REFLECT( bts::game::dice_data, (id)(owner)(amount)(odds)(guess) )
 
 FC_REFLECT( bts::game::dice_rule, (amount)(odds)(guess)(condition) )
 FC_REFLECT( bts::game::dice_input, (from_account_name)(amount)(odds)(guess) )
+FC_REFLECT( bts::game::dice_transaction, (play_owner)(jackpot_owner)(play_amount)(jackpot_received)(odds)(lucky_number) )

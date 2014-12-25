@@ -81,14 +81,13 @@ namespace bts { namespace blockchain {
       for( const auto& item : burns ) prev_state->store_burn_record( burn_record(item.first,item.second) );
       for( const auto& item : objects ) prev_state->store_object_record( item.second );
        
-       for( const auto& item : games )          prev_state->store_game_record( item.second );
+      for( const auto& item : games )          prev_state->store_game_record( item.second );
       prev_state->set_market_transactions( market_transactions );
 
       prev_state->set_dirty_markets(_dirty_markets);
 
-      for ( const auto& item : rules )          prev_state->store_rule_data_record(item.first, item.second);
-      prev_state->set_market_transactions( market_transactions );
-      prev_state->set_game_transactions( game_transactions );
+      for ( const auto& item : rules )          prev_state->store_rule_data_record(item.first.first, item.first.second, item.second);
+      prev_state->set_rule_result_transactions( rule_result_transactions );
    }
 
    otransaction_record pending_chain_state::get_transaction( const transaction_id_type& trx_id,
@@ -240,9 +239,9 @@ namespace bts { namespace blockchain {
       /* NOTE: Recent operations are currently not rewound on undo */
 
       for ( const auto& item : rules ) {
-          auto prev_value = prev_state->get_rule_data_record(item.first);
-          if (prev_value) undo_state->store_rule_data_record(item.first, *prev_value);
-          else undo_state->store_rule_data_record(item.first, item.second.make_null() );
+          auto prev_value = prev_state->get_rule_data_record(item.first.first, item.first.second);
+          if (prev_value) undo_state->store_rule_data_record(item.first.first, item.first.second, *prev_value);
+          else undo_state->store_rule_data_record(item.first.first, item.first.second, item.second.make_null() );
       }
        
        for( const auto& item :  games)
@@ -367,14 +366,14 @@ namespace bts { namespace blockchain {
       return oaccount_record();
    }
     
-    orule_data_record pending_chain_state::get_rule_data_record( uint32_t id )const
+    orule_data_record pending_chain_state::get_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id )const
     {
         chain_interface_ptr prev_state = _prev_state.lock();
-        auto itr = rules.find( id );
+        auto itr = rules.find( std::make_pair(rule_id, data_id) );
         if( itr != rules.end() )
             return itr->second;
         else if( prev_state )
-            return prev_state->get_rule_data_record( id );
+            return prev_state->get_rule_data_record( rule_id, data_id );
         return orule_data_record();
     }
 
@@ -388,9 +387,9 @@ namespace bts { namespace blockchain {
         games[r.id] = r;
     }
     
-   void pending_chain_state::store_rule_data_record( uint32_t id, const rule_data_record& r )
+   void pending_chain_state::store_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id, const rule_data_record& r )
    {
-      rules[id] = r;
+       rules[std::make_pair(rule_id, data_id)] = r;
    }
 
    void pending_chain_state::store_balance_record( const balance_record& r )
@@ -667,9 +666,9 @@ namespace bts { namespace blockchain {
       market_transactions = std::move(trxs);
    }
     
-   void pending_chain_state::set_game_transactions( vector<game_transaction> trxs )
+   void pending_chain_state::set_rule_result_transactions( vector<rule_result_transaction> trxs )
    {
-      game_transactions = std::move(trxs);
+      rule_result_transactions = std::move(trxs);
    }
 
    omarket_status pending_chain_state::get_market_status( const asset_id_type& quote_id, const asset_id_type& base_id )

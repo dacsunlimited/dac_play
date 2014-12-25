@@ -70,16 +70,20 @@ namespace bts { namespace blockchain {
         fc::variant                                      data;
     };
     
-    struct game_transaction
+    struct rule_result_transaction
     {
-        game_transaction(){}
+        rule_result_transaction():type(0){}
         
-        address                                   play_owner;
-        address                                   jackpot_owner;
-        share_type                                play_amount;
-        share_type                                jackpot_received;
-        uint32_t                                  odds;
-        uint32_t                                  lucky_number;
+        template<typename RecordType>
+        rule_result_transaction( const RecordType& rec )
+        :type( int(RecordType::type) ),data(rec)
+        { }
+        
+        template<typename RecordType>
+        RecordType as()const;
+        
+        uint8_t                                          type;
+        fc::variant                                      data;
     };
     
     typedef fc::optional<rule_data_record> orule_data_record;
@@ -103,19 +107,23 @@ FC_REFLECT( bts::blockchain::rule_data_record,
            (type)
            (data)
            )
-FC_REFLECT_TYPENAME( std::vector<bts::blockchain::game_transaction> )
-FC_REFLECT( bts::blockchain::game_transaction,
-           (play_owner)
-           (jackpot_owner)
-           (play_amount)
-           (jackpot_received)
-           (odds)
-           (lucky_number)
+FC_REFLECT_TYPENAME( std::vector<bts::blockchain::rule_result_transaction> )
+FC_REFLECT( bts::blockchain::rule_result_transaction,
+           (type)(data)
            )
 
 namespace bts { namespace blockchain {
     template<typename RecordType>
     RecordType rule_data_record::as()const
+    {
+        FC_ASSERT( type == RecordType::type, "",
+                  ("type",type));
+        
+        return data.as<RecordType>();
+    }
+    
+    template<typename RecordType>
+    RecordType rule_result_transaction::as()const
     {
         FC_ASSERT( type == RecordType::type, "",
                   ("type",type));

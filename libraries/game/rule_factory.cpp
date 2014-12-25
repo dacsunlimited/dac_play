@@ -36,6 +36,17 @@ namespace bts { namespace game {
         return converter_itr->second->scan( g, trx_rec, w );
     }
     
+    bool rule_factory::scan_result( const rule_result_transaction& rtrx,
+                     uint32_t block_num,
+                     const time_point_sec& block_time,
+                     const time_point_sec& received_time,
+                     const uint32_t trx_index, bts::wallet::wallet_ptr w)
+    {
+        auto converter_itr = _converters.find( rtrx.type );
+        FC_ASSERT( converter_itr != _converters.end() );
+        return converter_itr->second->scan_result( rtrx, block_num, block_time, received_time, trx_index, w );
+    }
+    
     void rule_factory::execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
     {
         auto games = blockchain->get_games(-1);

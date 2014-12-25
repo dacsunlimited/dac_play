@@ -256,12 +256,12 @@ void wallet_impl::scan_block( uint32_t block_num, const vector<private_key_type>
         }
     }
     
-    const vector<game_transaction>& game_trxs = _blockchain->get_game_transactions( block_num );
-    for( uint32_t i = 0; i < game_trxs.size(); ++i )
+    const vector<rule_result_transaction>& rule_result_trxs = _blockchain->get_rule_result_transactions( block_num );
+    for( uint32_t i = 0; i < rule_result_trxs.size(); ++i )
     {
         try
         {
-            scan_game_transaction( game_trxs[i], block_num, block.timestamp, received_time, i);
+            rule_factory::instance().scan_result( rule_result_trxs[i], block_num, block.timestamp, received_time, i, self->shared_from_this());
         }
         catch( ... )
         {
@@ -1432,6 +1432,11 @@ void wallet::remove_transaction_record( const string& record_id )
     }
 }
 
+void wallet::store_transaction( const transaction_data& transaction )
+{
+    my->_wallet_db.store_transaction(transaction);
+}
+
 pretty_transaction wallet::to_pretty_trx( const wallet_transaction_record& trx_rec ) const
 {
    pretty_transaction pretty_trx;
@@ -1551,65 +1556,6 @@ wallet_transaction_record wallet::get_transaction( const string& transaction_id_
     FC_THROW_EXCEPTION( transaction_not_found, "Transaction not found!", ("transaction_id_prefix",transaction_id_prefix) );
 }
 
-void wallet_impl::scan_game_transaction(const game_transaction& gtrx,
-                                                 uint32_t block_num,
-                                                 const time_point_sec& block_time,
-                                                 const time_point_sec& received_time,
-                                                 const uint32_t trx_index)
-{ try {
-    const auto win = ( gtrx.jackpot_received != 0 );
-    const auto play_result = string( win ? "win" : "lose" );
-    
-    // TODO: Dice, play owner might be different with jackpot owner
-    auto okey_jackpot = _wallet_db.lookup_key( gtrx.jackpot_owner );
-    if( okey_jackpot && okey_jackpot->has_private_key() )
-    {
-        auto jackpot_account_key = _wallet_db.lookup_key( okey_jackpot->account_address );
-        
-        
-        auto bal_id = withdraw_condition(withdraw_with_signature(gtrx.jackpot_owner), 1 ).get_address();
-        auto bal_rec = _blockchain->get_balance_record( bal_id );
-        
-        /* What we paid */
-        /*
-        auto out_entry = ledger_entry();
-        out_entry.from_account = jackpot_account_key;
-        out_entry.amount = asset( trx.play_amount );
-        std::stringstream out_memo_ss;
-        out_memo_ss << "play dice with odds: " << trx.odds;
-        out_entry.memo = out_memo_ss.str();
-         */
-        
-        /* What we received */
-        auto in_entry = ledger_entry();
-        in_entry.to_account = jackpot_account_key->public_key;
-        in_entry.amount = asset(gtrx.jackpot_received, 1);
-        
-        std::stringstream in_memo_ss;
-        in_memo_ss << play_result << ", jackpot lucky number: " << gtrx.lucky_number;
-        in_entry.memo = in_memo_ss.str();
-        
-        /* Construct a unique record id */
-        std::stringstream id_ss;
-        id_ss << block_num << string(gtrx.jackpot_owner) << trx_index;
-        
-        // TODO: Don't blow away memo, etc.
-        auto record = wallet_transaction_record();
-        record.record_id = fc::ripemd160::hash( id_ss.str() );
-        record.block_num = block_num;
-        record.is_virtual = true;
-        record.is_confirmed = true;
-        record.is_market = true;
-        //record.ledger_entries.push_back( out_entry );
-        record.ledger_entries.push_back( in_entry );
-        record.fee = asset(0);    // TODO: Dice, do we need fee for claim jackpot? may be later we'll support part to delegates
-        record.created_time = block_time;
-        record.received_time = received_time;
-        
-        _wallet_db.store_transaction( record );
-    }
-     
-} FC_CAPTURE_AND_RETHROW() }
 
 bool wallet_impl::scan_game( const game_operation& op, wallet_transaction_record& trx_rec )
 {

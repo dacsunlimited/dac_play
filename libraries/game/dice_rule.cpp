@@ -6,6 +6,8 @@
 #include <bts/blockchain/time.hpp>
 #include <bts/wallet/exceptions.hpp>
 
+#include <sstream>
+
 namespace bts { namespace game {
     using namespace bts::blockchain;
     using namespace bts::wallet;
@@ -29,7 +31,7 @@ namespace bts { namespace game {
         amount = amnt;
         odds = o;
         guess = g;
-        // TODO: Dice specify the slate_id, if slate_id is added make sure the one in scan_game_transaction is updated too.
+        // TODO: Dice specify the slate_id, if slate_id is added make sure the one in scan_rule_resule_transaction is updated too.
         condition = bts::blockchain::withdraw_condition( bts::blockchain::withdraw_with_signature( owner ), 1);
     }
     
@@ -45,7 +47,7 @@ namespace bts { namespace game {
         /*
          * For each transaction, there must be only one dice operatiion exist
          */
-        auto cur_record = eval_state._current_state->get_rule_data_record( eval_state.trx.id()._hash[0] );
+        auto cur_record = eval_state._current_state->get_rule_data_record( type, eval_state.trx.id()._hash[0] );
         if( cur_record )
             FC_CAPTURE_AND_THROW( duplicate_dice_in_transaction, ( eval_state.trx.id() ) );
         
@@ -64,7 +66,7 @@ namespace bts { namespace game {
         
         cur_record = rule_data_record(cur_data);
         
-        eval_state._current_state->store_rule_data_record(cur_data.id._hash[0], *cur_record );
+        eval_state._current_state->store_rule_data_record(type, cur_data.id._hash[0], *cur_record );
     }
     
     void dice_rule::execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
@@ -84,11 +86,11 @@ namespace bts { namespace game {
         
         share_type shares_destroyed = 0;
         share_type shares_created = 0;
-        vector<game_transaction> game_transactions;
+        vector<rule_result_transaction> rule_result_transactions;
         for( const auto& trx : block_of_dice.user_transactions )
         {
             auto id = trx.id();
-            auto rule_record = blockchain->get_rule_data_record(id._hash[0]);
+            auto rule_record = blockchain->get_rule_data_record(type, id._hash[0]);
             
             if ( !!rule_record ) {
                 auto d_data = rule_record->as<rule_dice_record>();
@@ -125,20 +127,24 @@ namespace bts { namespace game {
                 // balance destroyed
                 shares_destroyed += d_data.amount;
                 // remove the dice_record from pending state after execute the jackpot
-                pending_state->store_rule_data_record(id._hash[0], rule_record->make_null());
+                pending_state->store_rule_data_record(type, id._hash[0], rule_record->make_null());
                 
-                game_transaction jackpot_trx;
-                jackpot_trx.play_owner = d_data.owner;
-                jackpot_trx.jackpot_owner = d_data.owner;
-                jackpot_trx.play_amount = d_data.amount;
-                jackpot_trx.jackpot_received = jackpot;
-                jackpot_trx.odds = d_data.odds;
-                jackpot_trx.lucky_number = (lucky_number / range) + 1;
-                game_transactions.push_back(jackpot_trx);
+                rule_result_transaction jackpot_trx;
+                
+                dice_transaction dice_trx;
+                dice_trx.play_owner = d_data.owner;
+                dice_trx.jackpot_owner = d_data.owner;
+                dice_trx.play_amount = d_data.amount;
+                dice_trx.jackpot_received = jackpot;
+                dice_trx.odds = d_data.odds;
+                dice_trx.lucky_number = (lucky_number / range) + 1;
+                
+                
+                rule_result_transactions.push_back(rule_result_transaction(dice_trx));
             }
         }
         
-        pending_state->set_game_transactions( std::move( game_transactions ) );
+        pending_state->set_rule_result_transactions( std::move( rule_result_transactions ) );
         
         // TODO: Dice what if the accumulated_fees become negetive which is possible in theory
         // const auto prev_accumulated_fees = pending_state->get_accumulated_fees();
@@ -152,6 +158,69 @@ namespace bts { namespace game {
         base_asset_record->current_share_supply += (shares_created - shares_destroyed);
         pending_state->store_asset_record( *base_asset_record );
     }
+    
+    bool dice_rule::scan_result( const rule_result_transaction& rtrx,
+                     uint32_t block_num,
+                     const time_point_sec& block_time,
+                     const time_point_sec& received_time,
+                     const uint32_t trx_index, bts::wallet::wallet_ptr w)
+    { try {
+        auto gtrx = rtrx.as<dice_transaction>();
+        const auto win = ( gtrx.jackpot_received != 0 );
+        const auto play_result = string( win ? "win" : "lose" );
+        
+        // TODO: Dice, play owner might be different with jackpot owner
+        auto okey_jackpot = w->get_wallet_key_for_address( gtrx.jackpot_owner );
+        if( okey_jackpot && okey_jackpot->has_private_key() )
+        {
+            auto jackpot_account_key = w->get_wallet_key_for_address( okey_jackpot->account_address );
+            
+            
+            // auto bal_id = withdraw_condition(withdraw_with_signature(gtrx.jackpot_owner), 1 ).get_address();
+            // auto bal_rec = _blockchain->get_balance_record( bal_id );
+            
+            /* What we paid */
+            /*
+             auto out_entry = ledger_entry();
+             out_entry.from_account = jackpot_account_key;
+             out_entry.amount = asset( trx.play_amount );
+             std::stringstream out_memo_ss;
+             out_memo_ss << "play dice with odds: " << trx.odds;
+             out_entry.memo = out_memo_ss.str();
+             */
+            
+            /* What we received */
+            auto in_entry = ledger_entry();
+            in_entry.to_account = jackpot_account_key->public_key;
+            in_entry.amount = asset(gtrx.jackpot_received, 1);
+            
+            std::stringstream in_memo_ss;
+            in_memo_ss << play_result << ", jackpot lucky number: " << gtrx.lucky_number;
+            in_entry.memo = in_memo_ss.str();
+            
+            /* Construct a unique record id */
+            std::stringstream id_ss;
+            id_ss << block_num << string(gtrx.jackpot_owner) << trx_index;
+            
+            // TODO: Don't blow away memo, etc.
+            auto record = wallet_transaction_record();
+            record.record_id = fc::ripemd160::hash( id_ss.str() );
+            record.block_num = block_num;
+            record.is_virtual = true;
+            record.is_confirmed = true;
+            record.is_market = true;
+            //record.ledger_entries.push_back( out_entry );
+            record.ledger_entries.push_back( in_entry );
+            record.fee = asset(0);    // TODO: Dice, do we need fee for claim jackpot? may be later we'll support part to delegates
+            record.created_time = block_time;
+            record.received_time = received_time;
+            
+            w->store_transaction( record );
+        }
+        
+        return true;
+        
+    } FC_CAPTURE_AND_RETHROW((rtrx)) }
     
     bool dice_rule::scan( wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w )
     {
