@@ -4,6 +4,8 @@
 #include <fc/io/raw_variant.hpp>
 #include <fc/reflect/variant.hpp>
 
+#include <bts/game/v8_game.hpp>
+
 namespace bts { namespace game {
 
    rule_factory& rule_factory::instance()
@@ -62,7 +64,7 @@ namespace bts { namespace game {
         }
     }
 
-} } // bts::blockchain
+} } // bts::game
 
 namespace fc {
    void to_variant( const bts::game::rule& var,  variant& vo )

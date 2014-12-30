@@ -129,8 +129,6 @@ namespace bts { namespace game {
                 // remove the dice_record from pending state after execute the jackpot
                 pending_state->store_rule_data_record(type, id._hash[0], rule_record->make_null());
                 
-                rule_result_transaction jackpot_trx;
-                
                 dice_transaction dice_trx;
                 dice_trx.play_owner = d_data.owner;
                 dice_trx.jackpot_owner = d_data.owner;
