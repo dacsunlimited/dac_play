@@ -4,7 +4,7 @@ var BTS_BLOCKCHAIN_NUM_DICE = X / 10;
 var BTS_BLOCKCHAIN_DICE_RANGE = 10000;
 var BTS_BLOCKCHAIN_DICE_HOUSE_EDGE = 0;
 
-global.execute = function (blockchain_context, block_num, pending_state) {
+global.execute = function (blockchain, block_num, pending_state) {
 	if (block_num <= BTS_BLOCKCHAIN_NUM_DICE)
 	{
    	 return
@@ -50,7 +50,7 @@ global.execute = function (blockchain_context, block_num, pending_state) {
                 jackpot_payout.balance += jackpot;
                 jackpot_payout.last_update = Date.now();
                    
-                pending_state->store_balance_record( *jackpot_payout );
+                pending_state.store_balance_record( jackpot_payout );
                    
                 // TODO: Dice, add the virtual transactions just like market transactions
                    
@@ -63,7 +63,7 @@ global.execute = function (blockchain_context, block_num, pending_state) {
             shares_destroyed += rule_data.amount;
             
 			// remove the dice_record from pending state after execute the jackpot
-            pending_state->store_rule_data_record(type, id._hash[0], rule_data->make_null());
+            pending_state.store_rule_data_record(type, id._hash[0], rule_data.make_null());
                
             var dice_trx = {};
             dice_trx.play_owner = d_data.owner;
@@ -78,10 +78,10 @@ global.execute = function (blockchain_context, block_num, pending_state) {
 		}
 	}
 	
-	pending_state->set_rule_result_transactions( std::move( rule_result_transactions ) );
+	pending_state.set_rule_result_transactions( rule_result_transactions );
         
-	auto base_asset_record = pending_state->get_asset_record( asset_id_type(1) );
-	FC_ASSERT( base_asset_record.valid() );
-	base_asset_record->current_share_supply += (shares_created - shares_destroyed);
-	pending_state->store_asset_record( *base_asset_record );
+	auto base_asset_record = pending_state.get_asset_record( asset_id_type(1) );
+	//FC_ASSERT( base_asset_record.valid() );
+	base_asset_record.current_share_supply += (shares_created - shares_destroyed);
+	pending_state.store_asset_record( base_asset_record );
 }
