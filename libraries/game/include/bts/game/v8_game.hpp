@@ -4,12 +4,16 @@
 #include <bts/blockchain/chain_interface.hpp>
 #include <bts/blockchain/game_executors.hpp>
 
+#include <bts/wallet/wallet.hpp>
+#include <bts/wallet/wallet_records.hpp>
+
 #include <v8.h>
 
 namespace bts { namespace game {
     
     using namespace v8;
     using namespace bts::blockchain;
+    using namespace bts::wallet;
     
     /**
      * @class v8_game_engine
@@ -26,6 +30,18 @@ namespace bts { namespace game {
          */
         bool init_class_template();
         
+        void evaluate( transaction_evaluation_state& eval_state);
+        
+        wallet_transaction_record play( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, const variant& var, bool sign );
+        
+        bool scan( wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w );
+        
+        bool scan_result( const rule_result_transaction& rtrx,
+                                 uint32_t block_num,
+                                 const time_point_sec& block_time,
+                                 const time_point_sec& received_time,
+                                 const uint32_t trx_index, bts::wallet::wallet_ptr w);
+        
         /**
          * wrapper to call the javascript stub defined by game developers
          */
@@ -36,7 +52,9 @@ namespace bts { namespace game {
         
         Handle<FunctionTemplate> blockchain_templ;
         
-        Handle<FunctionTemplate> pendingchainstate_templ;
+        Handle<FunctionTemplate> pendingstate_templ;
+        
+        Handle<FunctionTemplate> eval_state_templ;
         
         Handle<FunctionTemplate> block_templ;
         
@@ -55,6 +73,30 @@ namespace bts { namespace game {
             //variables
             chain_database_ptr _blockchain;
             uint32_t _block_num;
+        };
+        
+        /**
+         *  @class V8_PendingState
+         *  @brief wrappers pendingstate pointer to js object
+         */
+        class V8_ChainState
+        {
+        public:
+            V8_ChainState(chain_interface_ptr chain_state): _chain_state(chain_state){}
+            
+            chain_interface_ptr _chain_state;
+        };
+        
+        /**
+         *  @class V8_PendingState
+         *  @brief wrappers pendingstate pointer to js object
+         */
+        class V8_EvalState
+        {
+        public:
+            V8_EvalState(transaction_evaluation_state_ptr eval_state): _eval_state(eval_state){}
+            
+            transaction_evaluation_state_ptr _eval_state;
         };
         
         /**
@@ -81,18 +123,6 @@ namespace bts { namespace game {
             //return the value
             return Integer::New(value);
         }
-        
-        /**
-         *  @class V8_PendingChainState
-         *  @brief wrappers pendingchainstate pointer to js object
-         */
-        class V8_PendingState
-        {
-        public:
-            V8_PendingState(pending_chain_state_ptr pending_chain_state): _pending_chain_state(pending_chain_state){}
-            
-            pending_chain_state_ptr _pending_chain_state;
-        };
         
         /**
          * @brief Method for V8_Blockchain
@@ -137,10 +167,10 @@ namespace bts { namespace game {
         }
         
         /**
-         * @brief Method for V8_PendingChainState
+         * @brief Method for V8_ChainState
          *
          */
-        static Handle<Value> V8_Pending_State_Get_Blance_Record(const Arguments& args)
+        static Handle<Value> V8_Chain_State_Get_Blance_Record(const Arguments& args)
         {
             Local<Object> self = args.Holder();
             Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
@@ -148,16 +178,16 @@ namespace bts { namespace game {
             
             Local<External> wrap_addr = Local<External>::Cast(args[0]);
             
-            auto balance_record = static_cast<V8_PendingState*>(ptr)->_pending_chain_state->get_balance_record(* static_cast<address*>(wrap_addr->Value()));
+            auto balance_record = static_cast<V8_ChainState*>(ptr)->_chain_state->get_balance_record(* static_cast<address*>(wrap_addr->Value()));
             
             return External::New(&balance_record);
         }
         
         /**
-         * @brief Method for V8_PendingChainState
+         * @brief Method for V8_ChainState
          * @return TODO JS Object
          */
-        static Handle<Value> V8_Pending_State_Get_Asset_Record(const Arguments& args)
+        static Handle<Value> V8_Chain_State_Get_Asset_Record(const Arguments& args)
         {
             Local<Object> self = args.Holder();
             Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
@@ -165,16 +195,16 @@ namespace bts { namespace game {
             
             Local<Integer> wrapper_asset_id = Local<Integer>::Cast(args[0]);
             
-            auto asset_record = static_cast<V8_PendingState*>(ptr)->_pending_chain_state->get_asset_record(wrapper_asset_id->Int32Value());
+            auto asset_record = static_cast<V8_ChainState*>(ptr)->_chain_state->get_asset_record(wrapper_asset_id->Int32Value());
             
             return External::New(&asset_record);
         }
         
         /**
-         * @brief Method for V8_PendingChainState
+         * @brief Method for V8_ChainState
          * @return TODO JS Object
          */
-        static Handle<Value> V8_Pending_State_Get_Rule_Data_Record(const Arguments& args)
+        static Handle<Value> V8_Chain_State_Get_Rule_Data_Record(const Arguments& args)
         {
             Local<Object> self = args.Holder();
             Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
@@ -183,16 +213,16 @@ namespace bts { namespace game {
             Local<Integer> wrapper_type = Local<Integer>::Cast(args[0]);
             Local<Integer> wrapper_id = Local<Integer>::Cast(args[1]);
             
-            auto rule_data_record = static_cast<V8_PendingState*>(ptr)->_pending_chain_state->get_rule_data_record(wrapper_type->Int32Value(), wrapper_id->Int32Value() );
+            auto rule_data_record = static_cast<V8_ChainState*>(ptr)->_chain_state->get_rule_data_record(wrapper_type->Int32Value(), wrapper_id->Int32Value() );
             
             return External::New(&rule_data_record);
         }
         
         /**
-         * @brief Method for V8_PendingChainState
+         * @brief Method for V8_ChainState
          * @return undefine
          */
-        static Handle<Value> V8_Pending_State_Store_Blance_Record(const Arguments& args)
+        static Handle<Value> V8_Chain_State_Store_Blance_Record(const Arguments& args)
         {
             Local<Object> self = args.Holder();
             Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
@@ -201,16 +231,16 @@ namespace bts { namespace game {
             Local<External> wrap_addr = Local<External>::Cast(args[0]);
             
             // TODO: parse json to C++ struct, from variant
-            static_cast<V8_PendingState*>(ptr)->_pending_chain_state->store_balance_record(* static_cast<blockchain::balance_record*>(wrap_addr->Value()));
+            static_cast<V8_ChainState*>(ptr)->_chain_state->store_balance_record(* static_cast<blockchain::balance_record*>(wrap_addr->Value()));
             
             return Undefined();
         }
         
         /**
-         * @brief Method for V8_PendingChainState
+         * @brief Method for V8_ChainState
          * @return TODO JS Object
          */
-        static Handle<Value> V8_Pending_State_Store_Asset_Record(const Arguments& args)
+        static Handle<Value> V8_Chain_State_Store_Asset_Record(const Arguments& args)
         {
             Local<Object> self = args.Holder();
             Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
@@ -219,16 +249,16 @@ namespace bts { namespace game {
             Local<External> wrapper_asset = Local<External>::Cast(args[0]);
             
             // TODO: parse json to C++ struct, from variant
-            static_cast<V8_PendingState*>(ptr)->_pending_chain_state->store_asset_record(* static_cast<blockchain::asset_record*>(wrapper_asset->Value()));
+            static_cast<V8_ChainState*>(ptr)->_chain_state->store_asset_record(* static_cast<blockchain::asset_record*>(wrapper_asset->Value()));
             
             return Undefined();
         }
         
         /**
-         * @brief Method for V8_PendingChainState
+         * @brief Method for V8_ChainState
          * @return undefine
          */
-        static Handle<Value> V8_Pending_State_Store_Rule_Data_Record(const Arguments& args)
+        static Handle<Value> V8_Chain_State_Store_Rule_Data_Record(const Arguments& args)
         {
             Local<Object> self = args.Holder();
             Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
@@ -239,8 +269,27 @@ namespace bts { namespace game {
             Local<External> wrap_rule_data = Local<External>::Cast(args[2]);
             
             // TODO: parse json to C++ struct, from variant
-            static_cast<V8_PendingState*>(ptr)->_pending_chain_state->store_rule_data_record(wrapper_type->Int32Value(), wrapper_id->Int32Value(), * static_cast<blockchain::rule_data_record*>(wrap_rule_data->Value()) );
+            static_cast<V8_ChainState*>(ptr)->_chain_state->store_rule_data_record(wrapper_type->Int32Value(), wrapper_id->Int32Value(), * static_cast<blockchain::rule_data_record*>(wrap_rule_data->Value()) );
             
+            
+            return Undefined();
+        }
+        
+        /**
+         * @brief Method for V8_EvalState
+         * @return TODO JS Object
+         */
+        static Handle<Value> V8_Eval_State_Sub_Balance(const Arguments& args)
+        {
+            Local<Object> self = args.Holder();
+            Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+            void* ptr = wrap->Value();
+            
+            Local<External> wrapper_balance_id = Local<External>::Cast(args[0]);
+            Local<External> wrap_asset = Local<External>::Cast(args[1]);
+            
+            // TODO: parse json to C++ struct, from variant
+            static_cast<V8_EvalState*>(ptr)->_eval_state->sub_balance( * static_cast<address*>(wrapper_balance_id->Value()), * static_cast<asset*>(wrap_asset->Value() ) );
             
             return Undefined();
         }
