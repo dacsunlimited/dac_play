@@ -1,6 +1,7 @@
-require("play.js")
-	
-var BTS_BLOCKCHAIN_NUM_DICE = X / 10;
+// require("play.js")
+
+var BTS_BLOCKCHAIN_NUM_DELEGATES = 101	
+var BTS_BLOCKCHAIN_NUM_DICE = BTS_BLOCKCHAIN_NUM_DELEGATES / 10;
 var BTS_BLOCKCHAIN_DICE_RANGE = 10000;
 var BTS_BLOCKCHAIN_DICE_HOUSE_EDGE = 0;
 
@@ -30,6 +31,7 @@ global.execute = function (blockchain, block_num, pending_state) {
 		
 		if (rule_data)
 		{
+			// TODO hash to be defined in V8
 			var dice_random_num = id.hash(0);
 			
 			// win condition
@@ -43,7 +45,7 @@ global.execute = function (blockchain, block_num, pending_state) {
                 // add the jackpot to the accout's balance, give the jackpot from virtul pool to winner
                    
                 // TODO: Dice, what should be the slate_id for the withdraw_with_signature, if need, we can set to the jackpot owner?
-                var jackpot_balance_address = Get_Balance_ID_From_Address(rule_data.owner, 1);
+                var jackpot_balance_address = V8_Global_Get_Balance_ID_For_Owner(rule_data.owner, 1);
                 var jackpot_payout = pending_state.get_balance_record( jackpot_balance_address );
                 if( !jackpot_payout )
                     jackpot_payout = balance_record( rule_data.owner, asset(0, 1), 1);
@@ -52,10 +54,6 @@ global.execute = function (blockchain, block_num, pending_state) {
                    
                 pending_state.store_balance_record( jackpot_payout );
                    
-                // TODO: Dice, add the virtual transactions just like market transactions
-                   
-                // balance created
-                   
                 shares_created += jackpot;
             }
                
@@ -63,7 +61,7 @@ global.execute = function (blockchain, block_num, pending_state) {
             shares_destroyed += rule_data.amount;
             
 			// remove the dice_record from pending state after execute the jackpot
-            pending_state.store_rule_data_record(type, id._hash[0], rule_data.make_null());
+            pending_state.store_rule_data_record(type, id._hash[0], null);
                
             var dice_trx = {};
             dice_trx.play_owner = d_data.owner;
@@ -81,7 +79,7 @@ global.execute = function (blockchain, block_num, pending_state) {
 	pending_state.set_rule_result_transactions( rule_result_transactions );
         
 	auto base_asset_record = pending_state.get_asset_record( asset_id_type(1) );
-	//FC_ASSERT( base_asset_record.valid() );
+	// FC_ASSERT( base_asset_record.valid() );
 	base_asset_record.current_share_supply += (shares_created - shares_destroyed);
 	pending_state.store_asset_record( base_asset_record );
 }

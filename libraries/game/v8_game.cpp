@@ -29,7 +29,7 @@ namespace bts { namespace game {
             
             //associates the "method" string to the callback PointMethod in the class template
             //enabling point.method_a() constructions inside the javascript
-            blockchain_proto->Set("get_current_random_seed", FunctionTemplate::New(v8_game_engine::V8_Get_Current_Random_Seed_From_Blockchain));
+            blockchain_proto->Set("get_current_random_seed", FunctionTemplate::New(v8_game_engine::V8_Blockchain_Get_Current_Random_Seed));
             
             //access the instance pointer of our new class template
             Handle<ObjectTemplate> blockchain_inst = blockchain_templ->InstanceTemplate();
@@ -38,7 +38,7 @@ namespace bts { namespace game {
             blockchain_inst->SetInternalFieldCount(1);
             
             //associates the name "x" with its Get/Set functions
-            blockchain_inst->SetAccessor(String::New("block_num"), V8_Get_Block_Number);
+            blockchain_inst->SetAccessor(String::New("block_num"), V8_Blockchain_Get_Block_Number);
         }
         
         {
@@ -47,16 +47,16 @@ namespace bts { namespace game {
             
             //access the class template
             Handle<ObjectTemplate> block_proto = block_templ->PrototypeTemplate();
-            block_proto->Set("get_transactions", FunctionTemplate::New(V8_Get_Transactions_From_Block));
+            block_proto->Set("get_transactions", FunctionTemplate::New(V8_Block_Get_Transactions));
         }
         
         {
             pendingchainstate_templ = FunctionTemplate::New();
-            pendingchainstate_templ->SetClassName(String::New("PendingChainState"));
+            pendingchainstate_templ->SetClassName(String::New("PendingState"));
             
             //access the class template
             Handle<ObjectTemplate> pendingchainstate_proto = pendingchainstate_templ->PrototypeTemplate();
-            pendingchainstate_proto->Set("get_balance_record", FunctionTemplate::New(V8_Get_Blance_Record_From_Pending_State));
+            pendingchainstate_proto->Set("get_balance_record", FunctionTemplate::New(V8_Pending_State_Get_Blance_Record));
         }
         return true;
     }
@@ -67,7 +67,7 @@ namespace bts { namespace game {
         
         // initialize the context pointer and blocknum
         V8_Blockchain* v8_blockchain = new V8_Blockchain(blockchain, block_num);
-        V8_PendingChainState* v8_pendingchainstate = new V8_PendingChainState(pending_state);
+        V8_PendingState* v8_pendingchainstate = new V8_PendingState(pending_state);
         {
             //context "lock"
             Context::Scope context_scope(context);

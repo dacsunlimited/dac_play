@@ -12,19 +12,25 @@ namespace bts { namespace game {
     using namespace bts::blockchain;
     
     /**
-     * @class rule_factory
+     * @class v8_game_engine
      *
-     *  Enables polymorphic creation and serialization of rule objects in
-     *  an manner that can be extended by derived chains.
+     *  script context for javascript running
      */
     class v8_game_engine
     {
     public:
         static v8_game_engine& instance();
         
+        /**
+         * init the javascript classes
+         */
         bool init_class_template();
         
+        /**
+         * wrapper to call the javascript stub defined by game developers
+         */
         void execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state );
+        
         
         v8::Handle<v8::ObjectTemplate> global;
         
@@ -53,9 +59,9 @@ namespace bts { namespace game {
         
         /**
          *  @method V8_Get_Block_Number
-         *  @brief
+         *  @brief Getter method for V8_Blockchain
          */
-        static Handle<Value> V8_Get_Block_Number(Local<String> property, const AccessorInfo& info)
+        static Handle<Value> V8_Blockchain_Get_Block_Number(Local<String> property, const AccessorInfo& info)
         {
             /*
              //this only shows information on what object is being used... just for fun
@@ -80,16 +86,19 @@ namespace bts { namespace game {
          *  @class V8_PendingChainState
          *  @brief wrappers pendingchainstate pointer to js object
          */
-        class V8_PendingChainState
+        class V8_PendingState
         {
         public:
-            V8_PendingChainState(pending_chain_state_ptr pending_chain_state): _pending_chain_state(pending_chain_state){}
+            V8_PendingState(pending_chain_state_ptr pending_chain_state): _pending_chain_state(pending_chain_state){}
             
             pending_chain_state_ptr _pending_chain_state;
         };
         
-        // binding to blockchain to get block
-        static Handle<Value> V8_Get_Block_From_Blockchain(const Arguments& args)
+        /**
+         * @brief Method for V8_Blockchain
+         *
+         */
+        static Handle<Value> V8_Blockchain_Get_Block(const Arguments& args)
         {
             Local<Object> self = args.Holder();
             Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
@@ -112,7 +121,11 @@ namespace bts { namespace game {
             return obj;
         }
         
-        static Handle<Value> V8_Get_Current_Random_Seed_From_Blockchain(const Arguments& args)
+        /**
+         * @brief Method for V8_Blockchain
+         *
+         */
+        static Handle<Value> V8_Blockchain_Get_Current_Random_Seed(const Arguments& args)
         {
             Local<Object> self = args.Holder();
             Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
@@ -123,7 +136,11 @@ namespace bts { namespace game {
             return Integer::New(value);
         }
         
-        static Handle<Value> V8_Get_Blance_Record_From_Pending_State(const Arguments& args)
+        /**
+         * @brief Method for V8_PendingChainState
+         *
+         */
+        static Handle<Value> V8_Pending_State_Get_Blance_Record(const Arguments& args)
         {
             Local<Object> self = args.Holder();
             Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
@@ -131,12 +148,108 @@ namespace bts { namespace game {
             
             Local<External> wrap_addr = Local<External>::Cast(args[0]);
             
-            auto balance_record = static_cast<V8_PendingChainState*>(ptr)->_pending_chain_state->get_balance_record(* static_cast<address*>(wrap_addr->Value()));
+            auto balance_record = static_cast<V8_PendingState*>(ptr)->_pending_chain_state->get_balance_record(* static_cast<address*>(wrap_addr->Value()));
             
             return External::New(&balance_record);
         }
         
-        static Handle<Value> V8_Get_Balance_ID_From_Address(const Arguments& args)
+        /**
+         * @brief Method for V8_PendingChainState
+         * @return TODO JS Object
+         */
+        static Handle<Value> V8_Pending_State_Get_Asset_Record(const Arguments& args)
+        {
+            Local<Object> self = args.Holder();
+            Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+            void* ptr = wrap->Value();
+            
+            Local<Integer> wrapper_asset_id = Local<Integer>::Cast(args[0]);
+            
+            auto asset_record = static_cast<V8_PendingState*>(ptr)->_pending_chain_state->get_asset_record(wrapper_asset_id->Int32Value());
+            
+            return External::New(&asset_record);
+        }
+        
+        /**
+         * @brief Method for V8_PendingChainState
+         * @return TODO JS Object
+         */
+        static Handle<Value> V8_Pending_State_Get_Rule_Data_Record(const Arguments& args)
+        {
+            Local<Object> self = args.Holder();
+            Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+            void* ptr = wrap->Value();
+            
+            Local<Integer> wrapper_type = Local<Integer>::Cast(args[0]);
+            Local<Integer> wrapper_id = Local<Integer>::Cast(args[1]);
+            
+            auto rule_data_record = static_cast<V8_PendingState*>(ptr)->_pending_chain_state->get_rule_data_record(wrapper_type->Int32Value(), wrapper_id->Int32Value() );
+            
+            return External::New(&rule_data_record);
+        }
+        
+        /**
+         * @brief Method for V8_PendingChainState
+         * @return undefine
+         */
+        static Handle<Value> V8_Pending_State_Store_Blance_Record(const Arguments& args)
+        {
+            Local<Object> self = args.Holder();
+            Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+            void* ptr = wrap->Value();
+            
+            Local<External> wrap_addr = Local<External>::Cast(args[0]);
+            
+            // TODO: parse json to C++ struct, from variant
+            static_cast<V8_PendingState*>(ptr)->_pending_chain_state->store_balance_record(* static_cast<blockchain::balance_record*>(wrap_addr->Value()));
+            
+            return Undefined();
+        }
+        
+        /**
+         * @brief Method for V8_PendingChainState
+         * @return TODO JS Object
+         */
+        static Handle<Value> V8_Pending_State_Store_Asset_Record(const Arguments& args)
+        {
+            Local<Object> self = args.Holder();
+            Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+            void* ptr = wrap->Value();
+            
+            Local<External> wrapper_asset = Local<External>::Cast(args[0]);
+            
+            // TODO: parse json to C++ struct, from variant
+            static_cast<V8_PendingState*>(ptr)->_pending_chain_state->store_asset_record(* static_cast<blockchain::asset_record*>(wrapper_asset->Value()));
+            
+            return Undefined();
+        }
+        
+        /**
+         * @brief Method for V8_PendingChainState
+         * @return undefine
+         */
+        static Handle<Value> V8_Pending_State_Store_Rule_Data_Record(const Arguments& args)
+        {
+            Local<Object> self = args.Holder();
+            Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+            void* ptr = wrap->Value();
+            
+            Local<Integer> wrapper_type = Local<Integer>::Cast(args[0]);
+            Local<Integer> wrapper_id = Local<Integer>::Cast(args[1]);
+            Local<External> wrap_rule_data = Local<External>::Cast(args[2]);
+            
+            // TODO: parse json to C++ struct, from variant
+            static_cast<V8_PendingState*>(ptr)->_pending_chain_state->store_rule_data_record(wrapper_type->Int32Value(), wrapper_id->Int32Value(), * static_cast<blockchain::rule_data_record*>(wrap_rule_data->Value()) );
+            
+            
+            return Undefined();
+        }
+        
+        /**
+         * @brief Global method for create balance id for the owner of balance
+         *
+         */
+        static Handle<Value> V8_Global_Get_Balance_ID_For_Owner(const Arguments& args)
         {
             auto owner = * static_cast<address*> (Local<External>::Cast(args[0])->Value());
             
@@ -147,8 +260,11 @@ namespace bts { namespace game {
             return External::New(&addr);
         }
         
-        // binding to blockchain to get block
-        static Handle<Value> V8_Get_Transactions_From_Block(const Arguments& args)
+        /**
+         * @brief Method for getting transactions from full block
+         *
+         */
+        static Handle<Value> V8_Block_Get_Transactions(const Arguments& args)
         {
             Local<Object> self = args.Holder();
             Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
