@@ -4,18 +4,8 @@ set(SOURCES game_operations.cpp rule_factory.cpp dice_rule.cpp game_config.cpp v
 
 add_library( bts_game ${SOURCES} ${HEADERS} )
 
-find_library(V8_LIBRARY_BASE
-NAMES  v8_base
-PATHS "${CMAKE_CURRENT_SOURCE_DIR}/../../vendor/v8/lib"
-)
-
-find_library(V8_LIBRARY_SNAPSHOT
-NAMES v8_snapshot
-PATHS "${CMAKE_CURRENT_SOURCE_DIR}/../../vendor/v8/lib"
-)
-
 target_link_libraries( bts_game
-PUBLIC fc bts_wallet bts_db bts_utilities leveldb bts_api bts_rpc_stubs upnpc-static ${V8_LIBRARY_BASE} ${V8_LIBRARY_SNAPSHOT})
+PUBLIC fc bts_wallet bts_db bts_utilities leveldb bts_api bts_rpc_stubs upnpc-static v8)
 
 target_include_directories( bts_game 
   PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include"
@@ -26,5 +16,5 @@ target_include_directories( bts_game
           "${CMAKE_CURRENT_SOURCE_DIR}/../wallet/include"
 # later, move upnp include into target_include_directories for upnp
 "${CMAKE_CURRENT_SOURCE_DIR}/../../vendor/miniupnp"
-"${CMAKE_CURRENT_SOURCE_DIR}/../../vendor/v8/include"
+"${CMAKE_CURRENT_SOURCE_DIR}/../../vendor/v8-fibjs/v8"
 )

@@ -177,6 +177,8 @@ set( CUSTOM_URL_SCHEME "bts" )
 
 add_subdirectory( libraries )
 add_subdirectory( vendor/miniupnp/miniupnpc )
+add_subdirectory( vendor/v8-fibjs/exlib )
+add_subdirectory( vendor/v8-fibjs/v8 )
 add_subdirectory( programs )
 add_subdirectory( tests )
 
