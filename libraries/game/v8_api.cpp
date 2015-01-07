@@ -2,6 +2,18 @@
 
 namespace bts { namespace game {
     
+    v8::Handle<v8::ObjectTemplate> global;
+    
+    Handle<FunctionTemplate> blockchain_templ;
+    
+    Handle<FunctionTemplate> pendingstate_templ;
+    
+    Handle<FunctionTemplate> eval_state_templ;
+    
+    Handle<FunctionTemplate> block_templ;
+    
+    Handle<FunctionTemplate> transaction_templ;
+    
     bool init_class_template(v8::Isolate* isolate)
     {
         {

@@ -1,3 +1,5 @@
+#pragma once
+
 #include <bts/blockchain/exceptions.hpp>
 #include <bts/game/rule_record.hpp>
 #include <bts/blockchain/transaction_evaluation_state.hpp>

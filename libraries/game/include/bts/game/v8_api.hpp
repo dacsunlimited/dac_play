@@ -1,3 +1,5 @@
+#pragma once
+
 #include <bts/blockchain/exceptions.hpp>
 #include <bts/game/rule_record.hpp>
 #include <bts/blockchain/transaction_evaluation_state.hpp>
@@ -15,18 +17,6 @@ namespace bts { namespace game {
     using namespace v8;
     using namespace bts::blockchain;
     using namespace bts::wallet;
-    
-    v8::Handle<v8::ObjectTemplate> global;
-    
-    Handle<FunctionTemplate> blockchain_templ;
-    
-    Handle<FunctionTemplate> pendingstate_templ;
-    
-    Handle<FunctionTemplate> eval_state_templ;
-    
-    Handle<FunctionTemplate> block_templ;
-    
-    Handle<FunctionTemplate> transaction_templ;
     
     /**
      *  @class v8_blockchain
