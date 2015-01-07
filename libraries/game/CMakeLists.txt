@@ -1,6 +1,6 @@
 file(GLOB HEADERS "include/bts/game/*.hpp")
 
-set(SOURCES game_operations.cpp rule_factory.cpp dice_rule.cpp game_config.cpp v8_game.cpp)
+set(SOURCES game_operations.cpp rule_factory.cpp dice_rule.cpp game_config.cpp v8_api.cpp v8_game.cpp)
 
 add_library( bts_game ${SOURCES} ${HEADERS} )
 

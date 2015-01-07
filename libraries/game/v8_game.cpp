@@ -1,12 +1,15 @@
 #include <bts/game/v8_game.hpp>
-
+#include <bts/game/v8_api.hpp>
 #include <bts/blockchain/time.hpp>
+
+#include <include/v8.h>
+#include <include/libplatform/libplatform.h>
 
 namespace bts { namespace game {
     using namespace v8;
     
     static bool first_engine = []()->bool{
-        
+        init_class_template(v8::Isolate::GetCurrent());
         
         return true;
     }();
@@ -14,7 +17,6 @@ namespace bts { namespace game {
     v8_game_engine& v8_game_engine::instance()
     {
         static std::unique_ptr<v8_game_engine> inst( new v8_game_engine() );
-        inst->init_class_template(v8::Isolate::GetCurrent());
         return *inst;
     }
     
@@ -82,9 +84,6 @@ namespace bts { namespace game {
         v8::V8::Initialize();
         v8::Isolate* isolate = v8::Isolate::New();
         
-        // initialize the context pointer and blocknum
-        V8_Blockchain* v8_blockchain = new V8_Blockchain(blockchain, block_num);
-        V8_ChainState* v8_pendingstate = new V8_ChainState(pending_state);
         int result = 0;
         {
             v8::Isolate::Scope isolate_scope(isolate);
@@ -95,34 +94,19 @@ namespace bts { namespace game {
                 return 1;
             }
             v8::Context::Scope context_scope(context);
-            {
-                //get class template
-                Handle<Function> blockchain_ctor = blockchain_templ->GetFunction();
-                
-                //get class instance
-                Local<Object> g_blockchain = blockchain_ctor->NewInstance();
-                
-                //build the "bridge" between c++ and javascript by associating the 'p' pointer to the first internal
-                //field of the object
-                g_blockchain->SetInternalField(0, External::New(isolate, v8_blockchain));
-                
-                //associates our internal field pointing to 'p' with the "point" name inside the context
-                //this enable usage of point inside this context without need to create a new one
-                context->Global()->Set(String::NewFromUtf8(isolate, "g_blockchain"), g_blockchain);
-            }
+            
+            //associates our internal field pointing to 'p' with the "point" name inside the context
+            //this enable usage of point inside this context without need to create a new one
+            context->Global()->Set(String::NewFromUtf8(isolate, "g_blockchain"), v8_blockchain::New(isolate, blockchain, block_num));
             
             context->Global()->Set(String::NewFromUtf8(isolate, "g_block_num"), Integer::New(isolate, block_num));
-            {
-                Handle<Function> pendingstate_ctor = pendingstate_templ->GetFunction();
-                Local<Object> g_pendingstate = pendingstate_ctor->NewInstance();
-                g_pendingstate->SetInternalField(0, External::New(isolate, v8_pendingstate));
-                context->Global()->Set(String::NewFromUtf8(isolate, "g_pendingstate"), g_pendingstate);
-            }
+            
+            context->Global()->Set(String::NewFromUtf8(isolate, "g_pendingstate"), v8_chainstate::New(isolate, pending_state));
             
             // TODO: get rule execute
             
             // begin script execution
-            ExecuteString(isolate, String::NewFromUtf8(isolate, "'defined rule';execute(g_blockchain, g_block_num, g_pendingstate);"), String::NewFromUtf8(isolate, "rule.execute"), true, true);
+            ExecuteString(isolate, String::NewFromUtf8(isolate, "'TODO, defined rule';execute(g_blockchain, g_block_num, g_pendingstate);"), String::NewFromUtf8(isolate, "rule.execute"), true, true);
             
             // result = RunMain(isolate, argc, argv);
         }
@@ -130,104 +114,7 @@ namespace bts { namespace game {
         v8::V8::Dispose();
         v8::V8::ShutdownPlatform();
         delete platform;
-        
-        delete v8_blockchain;
-        delete v8_pendingstate;
-        
         return result;
-    }
-    
-    /*
-    int main(int argc, char* argv[]) {
-        v8::V8::InitializeICU();
-        v8::Platform* platform = v8::platform::CreateDefaultPlatform();
-        v8::V8::InitializePlatform(platform);
-        v8::V8::Initialize();
-        v8::V8::SetFlagsFromCommandLine(&argc, argv, true);
-        ShellArrayBufferAllocator array_buffer_allocator;
-        v8::V8::SetArrayBufferAllocator(&array_buffer_allocator);
-        v8::Isolate* isolate = v8::Isolate::New();
-        run_shell = (argc == 1);
-        int result;
-        {
-            v8::Isolate::Scope isolate_scope(isolate);
-            v8::HandleScope handle_scope(isolate);
-            v8::Handle<v8::Context> context = CreateShellContext(isolate);
-            if (context.IsEmpty()) {
-                fprintf(stderr, "Error creating context\n");
-                return 1;
-            }
-            v8::Context::Scope context_scope(context);
-            result = RunMain(isolate, argc, argv);
-            if (run_shell) RunShell(context);
-        }
-        v8::V8::Dispose();
-        v8::V8::ShutdownPlatform();
-        delete platform;
-        return result;
-    }
-     */
-    
-    bool v8_game_engine::init_class_template(v8::Isolate* isolate)
-    {
-        {
-            //create a pointer to a class template
-            blockchain_templ = FunctionTemplate::New(isolate);
-            
-            //assign the "BlockchainContext" name to the new class template
-            blockchain_templ->SetClassName(String::NewFromUtf8(isolate, "Blockchain"));
-            
-            //access the class template
-            Handle<ObjectTemplate> blockchain_proto = blockchain_templ->PrototypeTemplate();
-            
-            //associates the "method" string to the callback PointMethod in the class template
-            //enabling point.method_a() constructions inside the javascript
-            blockchain_proto->Set(isolate, "get_current_random_seed", FunctionTemplate::New(isolate, v8_game_engine::V8_Blockchain_Get_Current_Random_Seed));
-            
-            //access the instance pointer of our new class template
-            Handle<ObjectTemplate> blockchain_inst = blockchain_templ->InstanceTemplate();
-            
-            //set the internal fields of the class as we have the Point class internally
-            blockchain_inst->SetInternalFieldCount(1);
-            
-            //associates the name "x" with its Get/Set functions
-            blockchain_inst->SetAccessor(String::NewFromUtf8(isolate, "block_num"), V8_Blockchain_Get_Block_Number);
-        }
-        
-        {
-            block_templ = FunctionTemplate::New(isolate);
-            block_templ->SetClassName(String::NewFromUtf8(isolate, "Block"));
-            
-            //access the class template
-            Handle<ObjectTemplate> block_proto = block_templ->PrototypeTemplate();
-            block_proto->Set(isolate, "get_transactions", FunctionTemplate::New(isolate, V8_Block_Get_Transactions));
-        }
-        
-        {
-            pendingstate_templ = FunctionTemplate::New(isolate);
-            pendingstate_templ->SetClassName(String::NewFromUtf8(isolate, "PendingState"));
-            
-            //access the class template
-            Handle<ObjectTemplate> pendingstate_proto = pendingstate_templ->PrototypeTemplate();
-            pendingstate_proto->Set(isolate, "get_balance_record", FunctionTemplate::New(isolate, V8_Chain_State_Get_Blance_Record));
-            pendingstate_proto->Set(isolate, "get_asset_record", FunctionTemplate::New(isolate, V8_Chain_State_Get_Asset_Record));
-            pendingstate_proto->Set(isolate, "get_rule_data_record", FunctionTemplate::New(isolate, V8_Chain_State_Get_Rule_Data_Record));
-            
-            pendingstate_proto->Set(isolate, "set_balance_record", FunctionTemplate::New(isolate, V8_Chain_State_Store_Blance_Record));
-            pendingstate_proto->Set(isolate, "set_asset_record", FunctionTemplate::New(isolate, V8_Chain_State_Store_Asset_Record));
-            pendingstate_proto->Set(isolate, "set_rule_data_record", FunctionTemplate::New(isolate, V8_Chain_State_Store_Rule_Data_Record));
-        }
-        
-        {
-            eval_state_templ = FunctionTemplate::New(isolate);
-            eval_state_templ->SetClassName(String::NewFromUtf8(isolate, "EvalState"));
-            
-            Handle<ObjectTemplate> eval_state_proto = eval_state_templ->PrototypeTemplate();
-            
-            eval_state_proto->Set(isolate, "sub_balance", FunctionTemplate::New(isolate, V8_Eval_State_Sub_Balance));
-        }
-        
-        return true;
     }
     
 } } // bts::game
