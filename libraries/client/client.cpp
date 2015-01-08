@@ -1353,6 +1353,7 @@ void client::open( const path& data_dir, fc::optional<fc::path> genesis_file_pat
     my->_p2p_node->set_node_delegate(my.get());
 
     my->start_rebroadcast_pending_loop();
+    
 } FC_CAPTURE_AND_RETHROW( (data_dir) ) }
 
 client::~client()
