@@ -9,9 +9,6 @@
 #include <bts/wallet/wallet.hpp>
 #include <bts/wallet/wallet_records.hpp>
 
-#include <include/v8.h>
-#include <include/libplatform/libplatform.h>
-
 namespace bts { namespace game {
     using namespace bts::blockchain;
     using namespace bts::wallet;
@@ -25,12 +22,6 @@ namespace bts { namespace game {
     {
     public:
         static v8_game_engine& instance();
-        
-        v8_game_engine()
-        {
-            isolate = v8::Isolate::New();
-            isolate->Enter();
-        }
         
         void evaluate( transaction_evaluation_state& eval_state);
         
@@ -47,9 +38,6 @@ namespace bts { namespace game {
         /**
          * wrapper to call the javascript stub defined by game developers
          */
-        int execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state );
-   
-    private:
-        v8::Isolate* isolate;
+        void execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state );
    };
 } } // bts::game

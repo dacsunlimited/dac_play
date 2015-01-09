@@ -6,7 +6,14 @@ namespace bts { namespace game {
     using namespace v8;
     
     static bool first_engine = []()->bool{
-        init_class_template(v8::Isolate::GetCurrent());
+        v8::Isolate* isolate = Isolate::GetCurrent();
+        if ( isolate == NULL )
+        {
+            isolate = v8::Isolate::New();
+            isolate->Enter();
+        }
+        
+        init_class_template( isolate );
         
         return true;
     }();
@@ -19,8 +26,23 @@ namespace bts { namespace game {
     
     void v8_game_engine::evaluate( transaction_evaluation_state& eval_state)
     {
+        v8::Isolate* isolate = Isolate::GetCurrent();
+        v8::Isolate::Scope isolate_scope(isolate);
+        v8::HandleScope handle_scope(isolate);
         
-        // TODO
+        v8::Handle<v8::Context> context = CreateShellContext(isolate);
+        if (context.IsEmpty()) {
+            fprintf(stderr, "Error creating context\n");
+        }
+        v8::Context::Scope context_scope(context);
+        
+        //context->Global()->Set(String::NewFromUtf8(isolate, "scan_result_trx"), External::New(isolate, rtrx));
+        
+        context->Global()->Set(String::NewFromUtf8(isolate, "evaluate_block_num"), v8_evalstate::New(isolate, eval_state.shared_from_this()));
+        
+        v8::TryCatch try_catch;
+        v8::Handle<v8::Script> script = v8::Script::Compile(String::NewFromUtf8(isolate, "'TODO';scan_result(scan_rtx, scan_result_block_num, scan_result_block_time, scan_result_received_time, scan_result_trx_index, scan_w);"), String::NewFromUtf8(isolate, "rule.execute"));
+        script->Run();
     }
     
     wallet_transaction_record v8_game_engine::play( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, const variant& var, bool sign )
@@ -70,37 +92,84 @@ namespace bts { namespace game {
                      const time_point_sec& received_time,
                      const uint32_t trx_index, bts::wallet::wallet_ptr w)
     {
-        
-    }
-    
-    int v8_game_engine::execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
-    {
-        int result = 0;
+        v8::Isolate* isolate = Isolate::GetCurrent();
         v8::Isolate::Scope isolate_scope(isolate);
         v8::HandleScope handle_scope(isolate);
+        
         v8::Handle<v8::Context> context = CreateShellContext(isolate);
         if (context.IsEmpty()) {
             fprintf(stderr, "Error creating context\n");
-            return 1;
+            // TODO: throw errors
+            return false;
+        }
+        v8::Context::Scope context_scope(context);
+        
+        //context->Global()->Set(String::NewFromUtf8(isolate, "scan_result_trx"), External::New(isolate, rtrx));
+        
+        context->Global()->Set(String::NewFromUtf8(isolate, "scan_result_block_num"), Integer::New(isolate, block_num));
+        
+        //associates our internal field pointing to 'p' with the "point" name inside the context
+        //this enable usage of point inside this context without need to create a new one
+        context->Global()->Set(String::NewFromUtf8(isolate, "scan_result_block_time"), String::NewFromUtf8(isolate, block_time.to_iso_string().c_str()));
+        
+        context->Global()->Set(String::NewFromUtf8(isolate, "scan_result_received_time"), String::NewFromUtf8(isolate, received_time.to_iso_string().c_str()));
+        
+        context->Global()->Set(String::NewFromUtf8(isolate, "scan_result_trx_index"), Integer::New(isolate, trx_index));
+        v8::TryCatch try_catch;
+        v8::Handle<v8::Script> script = v8::Script::Compile(String::NewFromUtf8(isolate, "'TODO';scan_result(scan_rtx, scan_result_block_num, scan_result_block_time, scan_result_received_time, scan_result_trx_index, scan_w);"), String::NewFromUtf8(isolate, "rule.execute"));
+        v8::Handle<v8::Value> result = script->Run();
+        
+        return result->ToBoolean(isolate)->BooleanValue();
+    }
+    
+    void v8_game_engine::execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
+    {
+        v8::Isolate* isolate = Isolate::GetCurrent();
+        v8::Isolate::Scope isolate_scope(isolate);
+        v8::HandleScope handle_scope(isolate);
+        
+        v8::Handle<v8::Context> context = CreateShellContext(isolate);
+        if (context.IsEmpty()) {
+            fprintf(stderr, "Error creating context\n");
         }
         v8::Context::Scope context_scope(context);
         
         //associates our internal field pointing to 'p' with the "point" name inside the context
         //this enable usage of point inside this context without need to create a new one
-        context->Global()->Set(String::NewFromUtf8(isolate, "g_blockchain"), v8_blockchain::New(isolate, blockchain, block_num));
+        context->Global()->Set(String::NewFromUtf8(isolate, "execute_blockchain"), v8_blockchain::New(isolate, blockchain, block_num));
         
-        context->Global()->Set(String::NewFromUtf8(isolate, "g_block_num"), Integer::New(isolate, block_num));
+        context->Global()->Set(String::NewFromUtf8(isolate, "execute_block_num"), Integer::New(isolate, block_num));
         
-        context->Global()->Set(String::NewFromUtf8(isolate, "g_pendingstate"), v8_chainstate::New(isolate, pending_state));
+        context->Global()->Set(String::NewFromUtf8(isolate, "execute_pendingstate"), v8_chainstate::New(isolate, pending_state));
         
         // TODO: get rule execute
         
         // begin script execution
-        ExecuteString(isolate, String::NewFromUtf8(isolate, "'TODO, defined rule';execute(g_blockchain, g_block_num, g_pendingstate);"), String::NewFromUtf8(isolate, "rule.execute"), true, true);
+        v8::TryCatch try_catch;
+        v8::Handle<v8::Script> script = v8::Script::Compile(String::NewFromUtf8(isolate, "'TODO';execute(execute_blockchain, execute_block_num, execute_pendingstate);"), String::NewFromUtf8(isolate, "rule.execute"));
+        script->Run();
         
-        // result = RunMain(isolate, argc, argv);
-        
-        return result;
+        /*
+        if (script.IsEmpty())
+        {
+            // TODO: throw exception
+        }
+        else
+        {
+            v8::Handle<v8::Value> result = script->Run();
+            if (result.IsEmpty())
+            {
+                assert(try_catch.HasCaught());
+                // TODO: throw exception
+            }
+            else
+            {
+                assert(!try_catch.HasCaught());
+                if (!result->IsUndefined()) {
+                    // TOOD: return the result
+                }
+            }
+        }*/
     }
     
 } } // bts::game

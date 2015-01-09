@@ -79,7 +79,7 @@ namespace bts { namespace game {
     Local<Object> v8_blockchain::New(v8::Isolate* isolate, chain_database_ptr blockchain, uint32_t block_num)
     {
         // FIXME TODO: Delete this.
-        v8_blockchain* v8_blockchain = new class v8_blockchain(blockchain, block_num);
+        v8_blockchain* local_v8_blockchain = new v8_blockchain(blockchain, block_num);
         //get class template
         Handle<Function> blockchain_ctor = blockchain_templ->GetFunction();
         
@@ -88,7 +88,7 @@ namespace bts { namespace game {
         
         //build the "bridge" between c++ and javascript by associating the 'p' pointer to the first internal
         //field of the object
-        g_blockchain->SetInternalField(0, External::New(isolate, v8_blockchain));
+        g_blockchain->SetInternalField(0, External::New(isolate, local_v8_blockchain));
         
         // delete v8_blockchain;
         
@@ -243,6 +243,15 @@ namespace bts { namespace game {
         
         // TODO: parse json to C++ struct, from variant
         static_cast<v8_chainstate*>(ptr)->_chain_state->store_rule_data_record(wrapper_type->Int32Value(), wrapper_id->Int32Value(), * static_cast<blockchain::rule_data_record*>(wrap_rule_data->Value()) );
+    }
+    
+    Local<Object> v8_evalstate::New(v8::Isolate* isolate, transaction_evaluation_state_ptr eval_state)
+    {
+        v8_evalstate* local_v8_evalstate = new v8_evalstate(eval_state);
+        Handle<Function> evalstate_ctor = eval_state_templ->GetFunction();
+        Local<Object> g_evalstate = evalstate_ctor->NewInstance();
+        g_evalstate->SetInternalField(0, External::New(isolate, local_v8_evalstate));
+        return g_evalstate;
     }
     
     /**

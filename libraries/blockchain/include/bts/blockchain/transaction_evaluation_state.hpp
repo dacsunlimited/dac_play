@@ -20,7 +20,7 @@ namespace bts { namespace blockchain {
     *  compared against payments required.
     *
     */
-   class transaction_evaluation_state
+    class transaction_evaluation_state : public std::enable_shared_from_this<transaction_evaluation_state>
    {
       public:
          transaction_evaluation_state( chain_interface* blockchain, digest_type chain_id );

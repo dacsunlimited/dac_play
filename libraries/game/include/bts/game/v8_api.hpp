@@ -77,6 +77,8 @@ namespace bts { namespace game {
         
         transaction_evaluation_state_ptr _eval_state;
         
+        static Local<Object> New(v8::Isolate* isolate, transaction_evaluation_state_ptr eval_state);
+        
         /**
          * @brief Method for v8_evalstate
          * @return TODO JS Object
