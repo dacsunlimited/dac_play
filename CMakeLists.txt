@@ -2,8 +2,7 @@
 project( BitShares )
 cmake_minimum_required( VERSION 2.8.12 )
 
-#place the executable programs and libraries in one specific path,to avoid building output be placed everywhere
-#and mix with the source code
+#place the executable programs and libraries in one specific path to prevent them being placed everywhere and mix with the source code
 SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 SET(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
 
