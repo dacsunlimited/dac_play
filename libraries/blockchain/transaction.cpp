@@ -23,13 +23,6 @@ namespace bts { namespace blockchain {
       return enc.result();
    }
 
-   size_t signed_transaction::data_size()const
-   {
-      fc::datastream<size_t> ds;
-      fc::raw::pack(ds,*this);
-      return ds.tellp();
-   }
-
    transaction_id_type signed_transaction::id()const
    {
       fc::sha512::encoder enc;
@@ -37,10 +30,22 @@ namespace bts { namespace blockchain {
       return fc::ripemd160::hash( enc.result() );
    }
 
+   size_t signed_transaction::data_size()const
+   {
+      fc::datastream<size_t> ds;
+      fc::raw::pack(ds,*this);
+      return ds.tellp();
+   }
+
    void signed_transaction::sign( const fc::ecc::private_key& signer, const digest_type& chain_id )
    {
       signatures.push_back( signer.sign_compact( digest(chain_id) ) );
    }
+
+   public_key_type signed_transaction::get_signing_key( const size_t sig_index, const digest_type& chain_id )const
+   { try {
+       return fc::ecc::public_key( signatures.at( sig_index ), this->digest( chain_id ), false );
+   } FC_CAPTURE_AND_RETHROW( (sig_index)(chain_id) ) }
 
    void transaction::set_object( const object_record& obj )
    {
@@ -123,7 +128,7 @@ namespace bts { namespace blockchain {
       operations.push_back( withdraw_operation( account, amount ) );
    } FC_RETHROW_EXCEPTIONS( warn, "", ("account",account)("amount",amount) ) }
 
-   void transaction::withdraw_pay( const account_id_type& account,
+   void transaction::withdraw_pay( const account_id_type account,
                                    share_type             amount )
    {
       FC_ASSERT( amount > 0, "amount: ${amount}", ("amount",amount) );
@@ -150,22 +155,23 @@ namespace bts { namespace blockchain {
 
 
    public_key_type transaction::deposit_to_account( fc::ecc::public_key receiver_key,
-                                         asset amount,
-                                         fc::ecc::private_key from_key,
-                                         const std::string& memo_message,
-                                         slate_id_type slate_id,
-                                         const fc::ecc::public_key& memo_pub_key,
-                                         fc::ecc::private_key one_time_private_key,
-                                         memo_flags_enum memo_type
-                                         )
+                                                    asset amount,
+                                                    fc::ecc::private_key from_key,
+                                                    const std::string& memo_message,
+                                                    slate_id_type slate_id,
+                                                    const fc::ecc::public_key& memo_pub_key,
+                                                    fc::ecc::private_key one_time_private_key,
+                                                    memo_flags_enum memo_type,
+                                                    bool use_stealth_address )
    {
       withdraw_with_signature by_account;
       auto receiver_address_key = by_account.encrypt_memo_data( one_time_private_key,
-                                 receiver_key,
-                                 from_key,
-                                 memo_message,
-                                 memo_pub_key,
-                                 memo_type );
+                                                                receiver_key,
+                                                                from_key,
+                                                                memo_message,
+                                                                memo_pub_key,
+                                                                memo_type,
+                                                                use_stealth_address );
 
       deposit_operation op;
       op.amount = amount.amount;
@@ -280,7 +286,7 @@ namespace bts { namespace blockchain {
         operations.push_back( op );
     }
 
-   void transaction::update_asset( const asset_id_type& asset_id,
+   void transaction::update_asset( const asset_id_type asset_id,
                                    const optional<string>& name,
                                    const optional<string>& description,
                                    const optional<variant>& public_data,
@@ -289,13 +295,13 @@ namespace bts { namespace blockchain {
    {
        operations.push_back( update_asset_operation{ asset_id, name, description, public_data, maximum_share_supply, precision } );
    }
-   void transaction::update_asset_ext( const asset_id_type& asset_id,
+   void transaction::update_asset_ext( const asset_id_type asset_id,
                                    const optional<string>& name,
                                    const optional<string>& description,
                                    const optional<variant>& public_data,
                                    const optional<double>& maximum_share_supply,
                                    const optional<uint64_t>& precision,
-                                   const share_type& issuer_fee,
+                                   const share_type issuer_fee,
                                    uint32_t  flags,
                                    uint32_t issuer_permissions,
                                    account_id_type issuer_account_id,
@@ -339,16 +345,16 @@ namespace bts { namespace blockchain {
         operations.push_back( op );
    }
 
-   void transaction::publish_feed( feed_id_type feed_id,
+   void transaction::publish_feed( asset_id_type feed_id,
                                    account_id_type delegate_id,
                                    fc::variant value )
    {
       operations.push_back( update_feed_operation{ feed_index{feed_id,delegate_id}, value } );
    }
 
-   void transaction::update_signing_key( const account_id_type& account_id, const public_key_type& block_signing_key )
+   void transaction::update_signing_key( const account_id_type account_id, const public_key_type& signing_key )
    {
-       operations.push_back( update_block_signing_key{ account_id, block_signing_key } );
+       operations.push_back( update_signing_key_operation{ account_id, signing_key } );
    }
 
    bool transaction::is_cancel()const

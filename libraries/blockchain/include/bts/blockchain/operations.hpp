@@ -60,7 +60,7 @@ namespace bts { namespace blockchain {
 
       release_escrow_op_type        = 23,
 
-      update_block_signing_key_type = 24,
+      update_signing_key_op_type    = 24,
 
       // relative orders
       relative_bid_op_type          = 25,
@@ -100,11 +100,13 @@ namespace bts { namespace blockchain {
       redeem_lsmr_share             = 43
       */
 
+      pay_fee_op_type               = 44,
+
       // assets
-      game_op_type                  = 39,
-      buy_chips_type                = 40,
+      game_op_type                  = 45,
+      buy_chips_type                = 46,
        
-      create_game_operation_type    = 41
+      create_game_operation_type    = 47
    };
 
    /**
@@ -182,7 +184,7 @@ FC_REFLECT_ENUM( bts::blockchain::operation_type_enum,
                  (reserved_op_4_type)
                  (reserved_op_5_type)
                  (release_escrow_op_type)
-                 (update_block_signing_key_type)
+                 (update_signing_key_op_type)
                  (relative_bid_op_type)
                  (relative_ask_op_type)
                  (update_balance_vote_op_type)
@@ -197,6 +199,8 @@ FC_REFLECT_ENUM( bts::blockchain::operation_type_enum,
                  (auction_bid_op_type)
                  (make_sale_op_type)
                  (buy_sale_op_type)
+
+                 (pay_fee_op_type)
 
                  (game_op_type)
                  (buy_chips_type)

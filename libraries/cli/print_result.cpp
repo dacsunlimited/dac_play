@@ -295,7 +295,7 @@ namespace bts { namespace cli {
     const string& quote_symbol = arguments[ 0 ].as_string();
     const oasset_record quote_asset_record = client->get_chain()->get_asset_record( quote_symbol );
     FC_ASSERT( quote_asset_record.valid() );
-    const asset_id_type& quote_id = quote_asset_record->id;
+    const asset_id_type quote_id = quote_asset_record->id;
 
     const omarket_status status = client->get_chain()->get_market_status( quote_id, asset_id_type( 0 ) );
 
@@ -658,13 +658,13 @@ namespace bts { namespace cli {
       {
         if(FILTER_OUTPUT_FOR_TESTS)
         {
-          out << std::setw(15) << "<d-ign>" << transaction.digest(client->get_chain()->chain_id()).str().substr(0, 8) << "</d-ign>";
-          out << std::setw(20) << "<d-ign>" << string(transaction.expiration) << "</d-ign>";
+          out << std::setw(15) << "<d-ign>" << string( transaction.id() ).substr( 0, 8 ) << "</d-ign>";
+          out << std::setw(20) << "<d-ign>" << string( transaction.expiration ) << "</d-ign>";
         }
         else
         {
-          out << std::setw(15) << transaction.digest(client->get_chain()->chain_id()).str().substr(0, 8);
-          out << std::setw(20) << string(transaction.expiration);
+          out << std::setw(15) << string( transaction.id() ).substr( 0, 8 );
+          out << std::setw(20) << string( transaction.expiration );
         }
 
         out << std::setw(10) << transaction.data_size()
@@ -697,9 +697,9 @@ namespace bts { namespace cli {
     const oasset_record base_asset_record = client->get_chain()->get_asset_record( base_symbol );
     FC_ASSERT( base_asset_record.valid() );
 
-    const asset_id_type& quote_id = quote_asset_record->id;
-    const asset_id_type& base_id = base_asset_record->id;
-      
+    const asset_id_type quote_id = quote_asset_record->id;
+    const asset_id_type base_id = base_asset_record->id;
+
     price feed_price;
     {
         const omarket_status status = client->get_chain()->get_market_status( quote_id, base_id );
@@ -798,7 +798,7 @@ namespace bts { namespace cli {
              else
                out << "+";
           }
-          else 
+          else
             out << " ";
           out << std::left << std::setw(30) << (fc::to_string(client->get_chain()->to_pretty_price_double(abs_price)) + " " + quote_asset_record->symbol)
             << std::right << std::setw(23) << client->get_chain()->to_pretty_asset(ask_itr->get_quantity( feed_price ))
@@ -999,6 +999,8 @@ namespace bts { namespace cli {
       block["next_secret_hash"] = "<d-ign>" + block["next_secret_hash"].as_string() + "</d-ign>";
     if(!block["delegate_signature"].is_null() && FILTER_OUTPUT_FOR_TESTS)
       block["delegate_signature"] = "<d-ign>" + block["delegate_signature"].as_string() + "</d-ign>";
+    if(!block["random_seed"].is_null() && FILTER_OUTPUT_FOR_TESTS)
+      block["random_seed"] = "<d-ign>" + block["random_seed"].as_string() + "</d-ign>";
     if(!block["processing_time"].is_null() && FILTER_OUTPUT_FOR_TESTS)
       block["processing_time"] = "<d-ign>" + block["processing_time"].as_string() + "</d-ign>";
     out << fc::json::to_pretty_string(block) << "\n";

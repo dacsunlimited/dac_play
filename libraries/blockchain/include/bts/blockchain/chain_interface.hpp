@@ -3,27 +3,31 @@
 #include <bts/blockchain/account_record.hpp>
 #include <bts/blockchain/asset_record.hpp>
 #include <bts/blockchain/balance_record.hpp>
-#include <bts/blockchain/object_record.hpp>
-#include <bts/blockchain/edge_record.hpp>
-#include <bts/blockchain/site_record.hpp>
-#include <bts/blockchain/withdraw_types.hpp>
 #include <bts/blockchain/block_record.hpp>
+#include <bts/blockchain/condition.hpp>
 #include <bts/blockchain/delegate_slate.hpp>
+#include <bts/blockchain/edge_record.hpp>
+#include <bts/blockchain/feed_record.hpp>
 #include <bts/blockchain/market_records.hpp>
 #include <bts/blockchain/game_record.hpp>
-#include <bts/blockchain/feed_operations.hpp>
+#include <bts/blockchain/object_record.hpp>
+#include <bts/blockchain/site_record.hpp>
+#include <bts/blockchain/slot_record.hpp>
+#include <bts/blockchain/transaction_record.hpp>
 #include <bts/blockchain/types.hpp>
-#include <bts/blockchain/condition.hpp>
+#include <bts/blockchain/withdraw_types.hpp>
 
 namespace bts { namespace blockchain {
 
    enum chain_property_enum
    {
-      last_asset_id            = 0,
-      last_account_id          = 1,
-      last_random_seed_id      = 2,
-      active_delegate_list_id  = 3,
-      chain_id                 = 4, // hash of initial state
+      database_version         = 0,
+      chain_id                 = 1,
+      last_asset_id            = 2,
+      last_account_id          = 3,
+      active_delegate_list_id  = 4,
+      last_random_seed_id      = 5,
+      statistics_enabled       = 6,
       /**
        *  N = num delegates
        *  Initial condition = 2N
@@ -37,16 +41,12 @@ namespace bts { namespace blockchain {
        *  are present. Less than 60% and you
        *  are on the minority chain.
        */
-      confirmation_requirement = 5,
-      database_version         = 6, // database version, to know when we need to upgrade
-      dirty_markets            = 7,
-      last_feed_id             = 8, // used for allocating new data feeds
-      last_object_id           = 9,  // all object types that aren't legacy
+      confirmation_requirement = 7,
+      dirty_markets            = 8,
+      last_object_id           = 9,
       last_game_id             = 10
    };
    typedef uint32_t chain_property_type;
-
-   const static short MAX_RECENT_OPERATIONS = 20;
 
    /**
     *  @class chain_interface
@@ -57,30 +57,22 @@ namespace bts { namespace blockchain {
    {
       public:
          virtual ~chain_interface(){};
-         /** return the timestamp from the most recent block */
-         virtual fc::time_point_sec         now()const                                                      = 0;
+
+         virtual fc::time_point_sec now()const = 0;
 
          optional<string>                   get_parent_account_name( const string& account_name )const;
          bool                               is_valid_account_name( const string& name )const;
          bool                               is_valid_symbol_name( const string& symbol )const;
 
+         time_point_sec                     get_genesis_timestamp()const;
+
          share_type                         get_max_delegate_pay_issued_per_block()const;
          share_type                         get_delegate_registration_fee( uint8_t pay_rate )const;
          share_type                         get_asset_registration_fee( uint8_t symbol_length )const;
 
-         balance_id_type                    get_multisig_balance_id( uint32_t m,
-                                                                     const vector<address>& addrs )const
-         {
-             withdraw_with_multisig condition;
-             condition.required = m;
-             condition.owners = set<address>(addrs.begin(), addrs.end());
-             auto balance = balance_record(condition);
-             return balance.id();
-         }
-
-         std::vector<account_id_type>       get_active_delegates()const;
+         vector<account_id_type>            get_active_delegates()const;
          void                               set_active_delegates( const std::vector<account_id_type>& id );
-         bool                               is_active_delegate( const account_id_type& id )const;
+         bool                               is_active_delegate( const account_id_type id )const;
 
          virtual void                       authorize( asset_id_type asset_id, const address& owner, object_id_type oid = 0 ) = 0;
          void                               deauthorize( asset_id_type asset_id, const address& owner ) { authorize( asset_id, owner, -1 ); }
@@ -101,15 +93,20 @@ namespace bts { namespace blockchain {
                                                            const string& quote_symbol,
                                                            bool do_precision_dance = true )const;
 
+         void                               set_chain_id( const digest_type& id );
+         digest_type                        get_chain_id()const;
+
+         void                               set_statistics_enabled( const bool enabled );
+         bool                               get_statistics_enabled()const;
+
          virtual void                       store_burn_record( const burn_record& br ) = 0;
          virtual oburn_record               fetch_burn_record( const burn_record_key& key )const = 0;
 
-         virtual oprice                     get_median_delegate_price( const asset_id_type& quote_id,
-                                                                       const asset_id_type& base_id )const  = 0;
-         virtual void                       set_feed( const feed_record&  )                                 = 0;
-         virtual ofeed_record               get_feed( const feed_index& )const                              = 0;
-         virtual void                       set_market_dirty( const asset_id_type& quote_id,
-                                                              const asset_id_type& base_id )                = 0;
+         virtual oprice                     get_active_feed_price( const asset_id_type quote_id,
+                                                                   const asset_id_type base_id = 0 )const = 0;
+
+         virtual void                       set_market_dirty( const asset_id_type quote_id,
+                                                              const asset_id_type base_id )                = 0;
 
          virtual fc::ripemd160              get_current_random_seed()const                                  = 0;
 
@@ -117,22 +114,23 @@ namespace bts { namespace blockchain {
          virtual void                       store_delegate_slate( slate_id_type id,
                                                                   const delegate_slate& slate )             = 0;
 
-         virtual int64_t                    get_required_confirmations()const;
-
          virtual void                       store_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id, const rule_data_record& r )               = 0;
-         virtual fc::variant                get_property( chain_property_enum property_id )const            = 0;
+         virtual optional<variant>          get_property( chain_property_enum property_id )const            = 0;
+
          virtual void                       set_property( chain_property_enum property_id,
                                                           const fc::variant& property_value )               = 0;
 
-         virtual omarket_status             get_market_status( const asset_id_type& quote_id,
-                                                               const asset_id_type& base_id )               = 0;
-         virtual void                       store_market_status( const market_status& s )                   = 0;
+         virtual void                       set_required_confirmations( uint64_t );
+         virtual uint64_t                   get_required_confirmations()const;
 
-         virtual omarket_order              get_lowest_ask_record( const asset_id_type& quote_id,
-                                                                   const asset_id_type& base_id )           = 0;
+         virtual omarket_status             get_market_status( const asset_id_type quote_id,
+                                                               const asset_id_type base_id )               = 0;
+         virtual void                       store_market_status( const market_status& s )                   = 0;
 
          virtual orule_data_record          get_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id )const    = 0;
 
+         virtual omarket_order              get_lowest_ask_record( const asset_id_type quote_id,
+                                                                   const asset_id_type base_id )           = 0;
          virtual oorder_record              get_bid_record( const market_index_key& )const                  = 0;
          virtual oorder_record              get_ask_record( const market_index_key& )const                  = 0;
          virtual oorder_record              get_relative_bid_record( const market_index_key& )const         = 0;
@@ -150,14 +148,9 @@ namespace bts { namespace blockchain {
          virtual void                       store_relative_ask_record( const market_index_key& key,
                                                                        const order_record& )                = 0;
 
-         virtual oasset_record              get_asset_record( const asset_id_type& id )const                = 0;
-         virtual obalance_record            get_balance_record( const balance_id_type& id )const            = 0;
-         virtual oaccount_record            get_account_record( const account_id_type& id )const            = 0;
-         virtual oaccount_record            get_account_record( const address& owner )const                 = 0;
          virtual ogame_record               get_game_record( const game_id_type& id )const                = 0;
 
-         virtual bool                       is_known_transaction( const fc::time_point_sec&,
-                                                                  const digest_type& trx_id )const          = 0;
+         virtual bool                       is_known_transaction( const transaction& trx )const             = 0;
 
          virtual otransaction_record        get_transaction( const transaction_id_type& trx_id,
                                                              bool exact = true )const                       = 0;
@@ -165,37 +158,26 @@ namespace bts { namespace blockchain {
          virtual void                       store_transaction( const transaction_id_type&,
                                                                 const transaction_record&  )                = 0;
 
-         virtual oasset_record              get_asset_record( const std::string& symbol )const              = 0;
-         virtual oaccount_record            get_account_record( const std::string& name )const              = 0;
          virtual ogame_record              get_game_record( const std::string& symbol )const              = 0;
-
-         virtual void                       store_asset_record( const asset_record& r )                     = 0;
-         virtual void                       store_balance_record( const balance_record& r )                 = 0;
-         virtual void                       store_account_record( const account_record& r )                 = 0;
          virtual void                       store_game_record( const game_record& r )                       = 0;
 
-         virtual void                       store_recent_operation( const operation& o )                    = 0;
-         virtual vector<operation>          get_recent_operations( operation_type_enum t )                  = 0;
-
          virtual void                       store_object_record( const object_record& obj )                 = 0;
-         virtual oobject_record             get_object_record( const object_id_type& id )const              = 0;
+         virtual oobject_record             get_object_record( const object_id_type id )const              = 0;
 
          virtual void                       store_edge_record( const object_record& edge )                  = 0;
 
          virtual void                       store_site_record( const site_record& edge )                    = 0;
 
-         oobject_record                       get_edge( const object_id_type& id );
-         virtual oobject_record               get_edge( const object_id_type& from,
-                                                      const object_id_type& to,
+         oobject_record                       get_edge( const object_id_type id );
+         virtual oobject_record               get_edge( const object_id_type from,
+                                                      const object_id_type to,
                                                       const string& name )const                             = 0;
-         virtual map<string, object_record>   get_edges( const object_id_type& from,
-                                                       const object_id_type& to )const                      = 0;
+         virtual map<string, object_record>   get_edges( const object_id_type from,
+                                                       const object_id_type to )const                      = 0;
          virtual map<object_id_type, map<string, object_record>>
-                                            get_edges( const object_id_type& from )const                    = 0;
+                                            get_edges( const object_id_type from )const                    = 0;
 
          virtual osite_record               lookup_site( const string& site_name) const                    = 0;
-
-         virtual void                       apply_deterministic_updates(){}
 
          virtual asset_id_type              last_asset_id()const;
          virtual asset_id_type              new_asset_id();
@@ -209,14 +191,11 @@ namespace bts { namespace blockchain {
          virtual object_id_type             last_object_id()const;
          virtual object_id_type             new_object_id( obj_type type );
 
-         virtual multisig_condition         get_object_condition( const object_id_type& id, int depth = 0 );
+         virtual multisig_condition         get_object_condition( const object_id_type id, int depth = 0 );
          virtual multisig_condition         get_object_condition( const object_record& obj, int depth = 0 );
-         virtual object_id_type             get_owner_object( const object_id_type& obj );
+         virtual object_id_type             get_owner_object( const object_id_type obj );
 
          virtual uint32_t                   get_head_block_num()const                                       = 0;
-
-         virtual void                       store_slot_record( const slot_record& r )                       = 0;
-         virtual oslot_record               get_slot_record( const time_point_sec& start_time )const        = 0;
 
          virtual void                       store_market_history_record( const market_history_key& key,
                                                                          const market_history_record& record ) = 0;
@@ -228,22 +207,82 @@ namespace bts { namespace blockchain {
          virtual void                       set_rule_result_transactions( vector<rule_result_transaction> trxs ) = 0;
          virtual void                       set_market_transactions( vector<market_transaction> trxs )      = 0;
 
-         virtual void                       index_transaction( const address& addr, const transaction_id_type& trx_id ) = 0;
+         oaccount_record                    get_account_record( const account_id_type id )const;
+         oaccount_record                    get_account_record( const string& name )const;
+         oaccount_record                    get_account_record( const address& addr )const;
+         void                               store_account_record( const account_record& record );
+
+         oasset_record                      get_asset_record( const asset_id_type id )const;
+         oasset_record                      get_asset_record( const string& symbol )const;
+         void                               store_asset_record( const asset_record& record );
+
+         obalance_record                    get_balance_record( const balance_id_type& id )const;
+         void                               store_balance_record( const balance_record& record );
+
+         ofeed_record                       get_feed_record( const feed_index index )const;
+         void                               store_feed_record( const feed_record& record );
+
+         oslot_record                       get_slot_record( const slot_index index )const;
+         oslot_record                       get_slot_record( const time_point_sec timestamp )const;
+         void                               store_slot_record( const slot_record& record );
+
+         template<typename T, typename U>
+         optional<T> lookup( const U& key )const
+         { try {
+             return T::db_interface( *this ).lookup( key );
+         } FC_CAPTURE_AND_RETHROW( (key) ) }
+
+         template<typename T>
+         void store( const T& record )
+         { try {
+             T::db_interface( *this ).store( record );
+         } FC_CAPTURE_AND_RETHROW( (record) ) }
+
+         template<typename T, typename U>
+         void remove( const U& key )
+         { try {
+             T::db_interface( *this ).remove( key );
+         } FC_CAPTURE_AND_RETHROW( (key) ) }
+
+      protected:
+         friend struct account_record;
+         account_db_interface _account_db_interface;
+         virtual void init_account_db_interface() = 0;
+
+         friend struct asset_record;
+         asset_db_interface _asset_db_interface;
+         virtual void init_asset_db_interface() = 0;
+
+         friend struct balance_record;
+         balance_db_interface _balance_db_interface;
+         virtual void init_balance_db_interface() = 0;
+
+         friend struct transaction_record;
+         transaction_db_interface _transaction_db_interface;
+         virtual void init_transaction_db_interface() = 0;
+
+         friend struct feed_record;
+         feed_db_interface _feed_db_interface;
+         virtual void init_feed_db_interface() = 0;
+
+         friend struct slot_record;
+         slot_db_interface _slot_db_interface;
+         virtual void init_slot_db_interface() = 0;
    };
    typedef std::shared_ptr<chain_interface> chain_interface_ptr;
 
 } } // bts::blockchain
 
 FC_REFLECT_ENUM( bts::blockchain::chain_property_enum,
-                 (last_asset_id)
-                 (last_account_id)
-                 (last_random_seed_id)
-                 (last_object_id)
-                 (active_delegate_list_id)
-                 (chain_id)
-                 (confirmation_requirement)
-                 (database_version)
-                 (dirty_markets)
-                 (last_feed_id)
-                 (last_game_id)
-                 )
+        (database_version)
+        (chain_id)
+        (last_asset_id)
+        (last_account_id)
+        (active_delegate_list_id)
+        (last_random_seed_id)
+        (statistics_enabled)
+        (confirmation_requirement)
+        (dirty_markets)
+        (last_object_id)
+        (last_game_id)
+        )

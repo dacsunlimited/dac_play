@@ -6,6 +6,31 @@ cmake_minimum_required( VERSION 2.8.12 )
 SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 SET(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
 
+# this variable is set to different values in each git branch:
+# develop branch                => BitSharesTestNet
+# devshares branch              => DevShares
+# bitshares and master branches => BitShares
+set( BLOCKCHAIN_NAME "BitSharesTestNet" )
+
+if( BLOCKCHAIN_NAME STREQUAL BitShares )
+  set( CLI_CLIENT_EXECUTABLE_NAME bitshares_client )
+  set( GUI_CLIENT_EXECUTABLE_NAME BitShares )
+  set( CUSTOM_URL_SCHEME "bts" )
+  set( INSTALLER_APP_ID "68ad7005-8eee-49c9-95ce-9eed97e5b347" )
+elseif( BLOCKCHAIN_NAME STREQUAL DevShares )
+  set( CLI_CLIENT_EXECUTABLE_NAME devshares_client )
+  set( GUI_CLIENT_EXECUTABLE_NAME DevShares )
+  set( CUSTOM_URL_SCHEME "dvs" )
+  set( INSTALLER_APP_ID "6bc47c81-1c8a-461d-ae7b-d14f974b1846" )
+elseif(BLOCKCHAIN_NAME STREQUAL BitSharesTestNet )
+  set( CLI_CLIENT_EXECUTABLE_NAME bitsharestestnet_client )
+  set( GUI_CLIENT_EXECUTABLE_NAME BitSharesTestNet )
+  set( CUSTOM_URL_SCHEME "xts" )
+  set( INSTALLER_APP_ID "3f87ba55-e899-4bcf-ad92-0a8074c931e6" )
+else()
+  message( FATAL_ERROR "Expected BLOCKCHAIN_NAME to be set to BitShares, DevShares, or BitSharesTestNet" )
+endif()
+
 # http://stackoverflow.com/a/18369825
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.8)
@@ -149,14 +174,18 @@ else( WIN32 ) # Apple AND Linux
         set( CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -std=c++11 -Wall" )
         set( rt_library rt )
         set( pthread_library pthread)
-        set( crypto_library crypto)
+        if ( NOT DEFINED crypto_library )
+          # I'm not sure why this is here, I guess someone has openssl and can't detect it with find_package()?
+          # if you have a normal install, you can define crypto_library to the empty string to avoid a build error
+          set( crypto_library crypto)
+        endif ()
         if ( FULL_STATIC_BUILD )
           set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libstdc++ -static-libgcc")
         endif ( FULL_STATIC_BUILD )
     endif( APPLE )
 
     if( "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" )
-        set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-builtin-memcmp -Wstack-usage=6144" )
+        set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-builtin-memcmp" )
     endif()
 
     if( "${CMAKE_GENERATOR}" STREQUAL "Ninja" )
@@ -176,8 +205,6 @@ target_include_directories( leveldb PRIVATE ${LEVELDB_BUILD_PRIVATE_INCLUDES}
 set_target_properties(leveldb PROPERTIES COMPILE_DEFINITIONS "${LEVELDB_BUILD_DEFINES}")
 
 find_package( BerkeleyDB )
-
-set( CUSTOM_URL_SCHEME "bts" )
 
 add_subdirectory( libraries )
 add_subdirectory( vendor/miniupnp/miniupnpc )
