@@ -409,6 +409,7 @@ void detail::wallet_impl::scan_transaction_experimental( const transaction_evalu
         return key_record.valid() && key_record->has_private_key();
     };
 
+    /*
     const auto scan_short = [&]( const short_operation& op ) -> bool
     {
         const market_order order( short_order, op.short_index, op.amount );
@@ -488,6 +489,7 @@ void detail::wallet_impl::scan_transaction_experimental( const transaction_evalu
         const owallet_key_record& key_record = _wallet_db.lookup_key( op.cover_index.owner );
         return key_record.valid() && key_record->has_private_key();
     };
+     */
 
     const auto scan_update_feed = [&]( const update_feed_operation& op ) -> bool
     {

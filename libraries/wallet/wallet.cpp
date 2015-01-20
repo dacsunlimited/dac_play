@@ -357,7 +357,8 @@ namespace detail {
       // is_rel_ba : is relative bid or relative ask
       const bool is_ba       = ((order_type ==          bid_order) | (order_type ==          ask_order));
       const bool is_rel_ba   = ((order_type == relative_bid_order) | (order_type == relative_ask_order));
-      const bool is_short    =  (order_type ==        short_order);
+      //const bool is_short    =  (order_type ==        short_order);
+       const bool is_short = false;
 
 	  if( !(is_ba | is_rel_ba | is_short) )
          FC_THROW_EXCEPTION( invalid_operation, "This function only supports bids, asks and shorts." );

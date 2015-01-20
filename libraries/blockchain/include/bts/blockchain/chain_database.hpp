@@ -205,7 +205,7 @@ namespace bts { namespace blockchain {
          vector<asset_record>                     get_assets( const string& first_symbol,
                                                               uint32_t limit )const;
        
-         vector<game_record>                     get_games(uint32_t limit)const;
+         vector<game_record>                     get_games(const string& first, uint32_t limit)const;
 
          std::vector<slot_record> get_delegate_slot_records( const account_id_type delegate_id, uint32_t count )const;
 
@@ -267,15 +267,12 @@ namespace bts { namespace blockchain {
                                                           const variant& property_value )override;
 
          virtual orule_data_record          get_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id )const override;
-
-         virtual ogame_record               get_game_record( const game_id_type& id )const override;
-         virtual ogame_record               get_game_record( const string& symbol )const override;
-
-         virtual void                       store_game_record( const game_record& r )override;
        
          virtual void                       store_rule_data_record(const rule_id_type& rule_id, const data_id_type& data_id, const rule_data_record& r )override;
 
-         bool                               is_valid_symbol( const string& asset_symbol )const;
+         bool                               is_valid_asset_symbol( const string& asset_symbol )const;
+       
+         bool                               is_valid_game_symbol( const string& game_symbol )const;
          string                             get_asset_symbol( const asset_id_type asset_id )const;
          asset_id_type                      get_asset_id( const string& asset_symbol )const;
 
@@ -355,6 +352,7 @@ namespace bts { namespace blockchain {
 
          virtual void init_account_db_interface()override;
          virtual void init_asset_db_interface()override;
+         virtual void init_game_db_interface()override;
          virtual void init_balance_db_interface()override;
          virtual void init_transaction_db_interface()override;
          virtual void init_feed_db_interface()override;

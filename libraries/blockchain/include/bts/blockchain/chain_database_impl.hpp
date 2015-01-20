@@ -118,7 +118,8 @@ namespace bts { namespace blockchain {
 
             bts::db::fast_level_map<uint32_t, fc::variant>                              _property_db;
 
-            bts::db::cached_level_map<string, game_id_type>                             _game_symbol_index_db;
+            bts::db::fast_level_map<game_id_type, game_record>                          _game_id_to_record;
+            bts::db::fast_level_map<string, game_id_type>                               _game_symbol_to_id;
             bts::db::fast_level_map<account_id_type, account_record>                    _account_id_to_record;
             bts::db::fast_level_map<string, account_id_type>                            _account_name_to_id;
             bts::db::fast_level_map<address, account_id_type>                           _account_address_to_id;
@@ -169,8 +170,6 @@ namespace bts { namespace blockchain {
 
             bts::db::level_map<pair<asset_id_type,address>, object_id_type>             _auth_db;
             bts::db::level_map<pair<asset_id_type,proposal_id_type>, proposal_record>   _asset_proposal_db;
-
-            bts::db::cached_level_map<game_id_type, game_record>                        _game_db;
           
             bts::db::cached_level_map<std::pair<rule_id_type, data_id_type>, rule_data_record > _rule_data_db;
           

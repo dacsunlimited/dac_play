@@ -315,6 +315,7 @@ namespace bts { namespace blockchain { namespace detail {
       //   orders!
 
       // if we have no feed, no shorts will execute.
+      /*
       if( _feed_price && _short_itr.valid() )
       {
         market_order short_bid = market_order( short_order,
@@ -332,6 +333,7 @@ namespace bts { namespace blockchain { namespace detail {
                bid = short_bid;
         }
       }
+    */
       
       if( bid )
       {
@@ -353,41 +355,119 @@ namespace bts { namespace blockchain { namespace detail {
       return _current_bid.valid();
   } FC_CAPTURE_AND_RETHROW() }
 
-  bool market_engine::get_next_ask()
-  { try {
-      if( _current_ask && _current_ask->state.balance > 0 )
+    bool market_engine::get_next_ask()
+    { try {
+        if( _current_ask && _current_ask->state.balance > 0 )
+            return _current_ask.valid();
+        
+        _current_ask.reset();
+        ++_orders_filled;
+        
+        /**
+         *  Margin calls take priority over all other ask orders
+         */
+        /*
+        while( _current_bid && _collateral_itr.valid() )
+        {
+            const auto cover_ask = market_order( cover_order,
+                                                _collateral_itr.key(),
+                                                order_record(_collateral_itr.value().payoff_balance),
+                                                _collateral_itr.value().collateral_balance,
+                                                _collateral_itr.value().interest_rate,
+                                                _collateral_itr.value().expiration);
+            
+            if( cover_ask.get_price().quote_asset_id == _quote_id &&
+               cover_ask.get_price().base_asset_id == _base_id )
+            {
+                _current_collat_record = _collateral_itr.value();
+                // Don't cover unless the price is below the feed price or margin position is expired
+                if( (_feed_price.valid() && cover_ask.get_price() > *_feed_price) )
+                {
+                    _current_ask = cover_ask;
+                    --_collateral_itr;
+                    return _current_ask.valid();
+                }
+                --_collateral_itr;
+                break;
+            }
+            _collateral_itr.reset();
+            break;
+        }
+         */
+        
+        /**
+         *  Process expired collateral positions.
+         *  Expired margin positions take second priority based upon age
+         */
+        /*
+        while( _collateral_expiration_itr != _db_impl._collateral_expiration_index.end() )
+        {
+            if( _collateral_expiration_itr->quote_id != _quote_id )
+                break;
+            
+            if( _collateral_expiration_itr->expiration > fc::time_point(_pending_state->now()) )
+                break;
+            
+            auto val = _db_impl._collateral_db.fetch( _collateral_expiration_itr->key );
+            const auto cover_ask = market_order( cover_order,
+                                                _collateral_expiration_itr->key,
+                                                order_record(val.payoff_balance),
+                                                val.collateral_balance,
+                                                val.interest_rate,
+                                                val.expiration);
+            
+            ++_collateral_expiration_itr;
+            
+            // if we have a feed price and margin was called above then don't process it
+            if( !(_feed_price.valid() && cover_ask.get_price() > *_feed_price) )
+            {
+                _current_ask = cover_ask;
+                return true;
+            } // else continue to next item
+        }
+         */
+        
+        /**
+         *  Process normal and relative asks.
+         */
+        
+        optional<market_order> ask;
+        
+        if( _feed_price && _relative_ask_itr.valid() )
+        {
+            ask = market_order( relative_ask_order, _relative_ask_itr.key(), _relative_ask_itr.value() );
+            // in case of overflow, underflow, or undefined, the result will be price(), which will fail the following check.
+            if( (ask->get_price(*_feed_price).quote_asset_id != _quote_id || ask->get_price(*_feed_price).base_asset_id != _base_id) )
+                ask.reset();
+        }
+        
+        if( _ask_itr.valid() )
+        {
+            market_order abs_ask = market_order( ask_order, _ask_itr.key(), _ask_itr.value() );
+            if( (abs_ask.get_price().quote_asset_id == _quote_id && abs_ask.get_price().base_asset_id == _base_id)
+               && ((!ask.valid()) || (abs_ask.get_price() < ask->get_price( *_feed_price))) )
+                ask = abs_ask;
+        }
+        
+        if( ask )
+        {
+            _current_ask = ask;
+            switch( uint8_t(ask->type) )
+            {
+                case ask_order:
+                    ++_ask_itr;
+                    break;
+                case relative_ask_order:
+                    ++_relative_ask_itr;
+                    break;
+                default:
+                    // TODO:  Warning or something goes here?
+                    ;
+            }
+        }
+        
         return _current_ask.valid();
-
-      _current_ask.reset();
-      ++_orders_filled;
-
-      if( _ask_itr.valid() )
-      {
-        market_order abs_ask = market_order( ask_order, _ask_itr.key(), _ask_itr.value() );
-        if( (abs_ask.get_price().quote_asset_id == _quote_id && abs_ask.get_price().base_asset_id == _base_id)
-            && ((!ask.valid()) || (abs_ask.get_price() < ask->get_price( *_feed_price))) )
-            ask = abs_ask;
-      }
-
-      if( ask )
-      {
-          _current_ask = ask;
-          switch( uint8_t(ask->type) )
-          {
-              case ask_order:
-                  ++_ask_itr;
-                  break;
-              case relative_ask_order:
-                  ++_relative_ask_itr;
-                  break;
-              default:
-                  // TODO:  Warning or something goes here?
-                  ;
-          }
-      }
-
-      return _current_ask.valid();
-  } FC_CAPTURE_AND_RETHROW() }
+    } FC_CAPTURE_AND_RETHROW() }
 
 
   /**
@@ -504,26 +584,6 @@ namespace bts { namespace blockchain { namespace detail {
       return get_interest_owed( _current_ask->get_balance(),
                                 _current_collat_record.interest_rate,
                                 get_current_cover_age() ) + _current_ask->get_balance();
-  }
-
-  void market_engine::cancel_all_shorts()
-  {
-      for( auto short_itr = _db_impl._short_db.begin(); short_itr.valid(); ++short_itr )
-      {
-          const market_index_key market_idx = short_itr.key();
-          const order_record order_rec = short_itr.value();
-          _current_bid = market_order( short_order, market_idx, order_rec );
-
-          // Initialize the market transaction
-          market_transaction mtrx;
-          mtrx.bid_owner = _current_bid->get_owner();
-          mtrx.bid_type = short_order;
-
-          cancel_current_short( mtrx, market_idx.order_price.quote_asset_id );
-          push_market_transaction( mtrx );
-      }
-
-      _pending_state->apply_changes();
   }
 
 

@@ -148,8 +148,6 @@ namespace bts { namespace blockchain {
          virtual void                       store_relative_ask_record( const market_index_key& key,
                                                                        const order_record& )                = 0;
 
-         virtual ogame_record               get_game_record( const game_id_type& id )const                = 0;
-
          virtual bool                       is_known_transaction( const transaction& trx )const             = 0;
 
          virtual otransaction_record        get_transaction( const transaction_id_type& trx_id,
@@ -157,9 +155,6 @@ namespace bts { namespace blockchain {
 
          virtual void                       store_transaction( const transaction_id_type&,
                                                                 const transaction_record&  )                = 0;
-
-         virtual ogame_record              get_game_record( const std::string& symbol )const              = 0;
-         virtual void                       store_game_record( const game_record& r )                       = 0;
 
          virtual void                       store_object_record( const object_record& obj )                 = 0;
          virtual oobject_record             get_object_record( const object_id_type id )const              = 0;
@@ -215,6 +210,10 @@ namespace bts { namespace blockchain {
          oasset_record                      get_asset_record( const asset_id_type id )const;
          oasset_record                      get_asset_record( const string& symbol )const;
          void                               store_asset_record( const asset_record& record );
+       
+         ogame_record                       get_game_record( const game_id_type id )const;
+         ogame_record                       get_game_record( const std::string& symbol )const;
+         void                               store_game_record( const game_record& record );
 
          obalance_record                    get_balance_record( const balance_id_type& id )const;
          void                               store_balance_record( const balance_record& record );
@@ -252,6 +251,10 @@ namespace bts { namespace blockchain {
          friend struct asset_record;
          asset_db_interface _asset_db_interface;
          virtual void init_asset_db_interface() = 0;
+       
+         friend struct game_record;
+         game_db_interface _game_db_interface;
+         virtual void init_game_db_interface() = 0;
 
          friend struct balance_record;
          balance_db_interface _balance_db_interface;

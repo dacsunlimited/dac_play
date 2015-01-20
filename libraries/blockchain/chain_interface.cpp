@@ -173,9 +173,11 @@ namespace bts { namespace blockchain {
    }
     
     game_id_type chain_interface::last_game_id()const
-    {
-        return get_property( chain_property_enum::last_game_id ).as<game_id_type>();
-    }
+    { try {
+        const optional<variant> result = get_property( chain_property_enum::last_game_id );
+        FC_ASSERT( result.valid() );
+        return result->as<game_id_type>();
+    } FC_CAPTURE_AND_RETHROW() }
     
     game_id_type chain_interface::new_game_id()
     {
@@ -505,6 +507,21 @@ namespace bts { namespace blockchain {
    { try {
        store( record );
    } FC_CAPTURE_AND_RETHROW( (record) ) }
+    
+    ogame_record chain_interface::get_game_record( const game_id_type id )const
+    { try {
+        return lookup<game_record>( id );
+    } FC_CAPTURE_AND_RETHROW( (id) ) }
+    
+    ogame_record chain_interface::get_game_record( const string& symbol )const
+    { try {
+        return lookup<asset_record>( symbol );
+    } FC_CAPTURE_AND_RETHROW( (symbol) ) }
+    
+    void chain_interface::store_game_record( const game_record& record )
+    { try {
+        store( record );
+    } FC_CAPTURE_AND_RETHROW( (record) ) }
 
    obalance_record chain_interface::get_balance_record( const balance_id_type& id )const
    { try {

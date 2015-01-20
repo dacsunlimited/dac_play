@@ -9,6 +9,7 @@ namespace bts { namespace blockchain {
    {
       init_account_db_interface();
       init_asset_db_interface();
+       init_game_db_interface();
       init_balance_db_interface();
       init_transaction_db_interface();
       init_feed_db_interface();
@@ -64,6 +65,7 @@ namespace bts { namespace blockchain {
       apply_records( prev_state, _transaction_id_to_record, _transaction_id_remove );
       apply_records( prev_state, _feed_index_to_record, _feed_index_remove );
       apply_records( prev_state, _slot_index_to_record, _slot_index_remove );
+      apply_records( prev_state, _game_id_to_record, _game_id_remove );
 
       for( const auto& item : properties )      prev_state->set_property( (chain_property_enum)item.first, item.second );
       for( const auto& item : authorizations )  prev_state->authorize( item.first.first, item.first.second, item.second );
@@ -78,8 +80,6 @@ namespace bts { namespace blockchain {
       for( const auto& item : asset_proposals ) prev_state->store_asset_proposal( item.second );
       for( const auto& item : burns ) prev_state->store_burn_record( burn_record(item.first,item.second) );
       for( const auto& item : objects ) prev_state->store_object_record( item.second );
-
-      for( const auto& item : games )          prev_state->store_game_record( item.second );
 
       prev_state->set_market_transactions( market_transactions );
 
@@ -119,6 +119,7 @@ namespace bts { namespace blockchain {
       populate_undo_state( undo_state, prev_state, _transaction_id_to_record, _transaction_id_remove );
       populate_undo_state( undo_state, prev_state, _feed_index_to_record, _feed_index_remove );
       populate_undo_state( undo_state, prev_state, _slot_index_to_record, _slot_index_remove );
+      populate_undo_state( undo_state, prev_state, _game_id_to_record, _game_id_remove);
 
       for( const auto& item : properties )
       {
@@ -198,13 +199,6 @@ namespace bts { namespace blockchain {
           if (prev_value) undo_state->store_rule_data_record(item.first.first, item.first.second, *prev_value);
           else undo_state->store_rule_data_record(item.first.first, item.first.second, item.second.make_null() );
       }
-       
-      for( const auto& item :  games)
-      {
-          auto prev_value = prev_state->get_game_record( item.first );
-          if( !!prev_value ) undo_state->store_game_record( *prev_value );
-          else undo_state->store_game_record( item.second.make_null() );
-      }
    }
 
    /** load the state from a variant */
@@ -220,28 +214,6 @@ namespace bts { namespace blockchain {
       fc::to_variant( *this, v );
       return v;
    }
-
-   ogame_record pending_chain_state::get_game_record( const game_id_type& game_id )const
-    {
-        chain_interface_ptr prev_state = _prev_state.lock();
-        auto itr = games.find( game_id );
-        if( itr != games.end() )
-            return itr->second;
-        else if( prev_state )
-            return prev_state->get_game_record( game_id );
-        return ogame_record();
-    }
-    
-    ogame_record pending_chain_state::get_game_record( const std::string& symbol )const
-    {
-        chain_interface_ptr prev_state = _prev_state.lock();
-        auto itr = game_symbol_id_index.find( symbol );
-        if( itr != game_symbol_id_index.end() )
-            return get_game_record( itr->second );
-        else if( prev_state )
-            return prev_state->get_game_record( symbol );
-        return ogame_record();
-    }
 
    odelegate_slate pending_chain_state::get_delegate_slate( slate_id_type id )const
    {
@@ -271,11 +243,6 @@ namespace bts { namespace blockchain {
    void pending_chain_state::store_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id, const rule_data_record& r )
    {
        rules[std::make_pair(rule_id, data_id)] = r;
-   }
-
-   void pending_chain_state::store_balance_record( const balance_record& r )
-   {
-      balances[r.id()] = r;
    }
 
    oobject_record pending_chain_state::get_object_record(const object_id_type id)const
@@ -694,6 +661,54 @@ namespace bts { namespace blockchain {
            _asset_symbol_to_id.erase( symbol );
        };
    }
+    
+    void pending_chain_state::init_game_db_interface()
+    {
+        game_db_interface& interface = _game_db_interface;
+        
+        interface.lookup_by_id = [&]( const game_id_type id ) -> ogame_record
+        {
+            const auto iter = _game_id_to_record.find( id );
+            if( iter != _game_id_to_record.end() ) return iter->second;
+            if( _game_id_remove.count( id ) > 0 ) return ogame_record();
+            const chain_interface_ptr prev_state = _prev_state.lock();
+            FC_ASSERT( prev_state );
+            return prev_state->lookup<game_record>( id );
+        };
+        
+        interface.lookup_by_symbol = [&]( const string& symbol ) -> ogame_record
+        {
+            const auto iter = _game_symbol_to_id.find( symbol );
+            if( iter != _game_symbol_to_id.end() ) return _game_id_to_record.at( iter->second );
+            const chain_interface_ptr prev_state = _prev_state.lock();
+            FC_ASSERT( prev_state );
+            const ogame_record record = prev_state->lookup<game_record>( symbol );
+            if( record.valid() && _game_id_remove.count( record->id ) == 0 ) return *record;
+            return ogame_record();
+        };
+        
+        interface.insert_into_id_map = [&]( const game_id_type id, const game_record& record )
+        {
+            _game_id_remove.erase( id );
+            _game_id_to_record[ id ] = record;
+        };
+        
+        interface.insert_into_symbol_map = [&]( const string& symbol, const game_id_type id )
+        {
+            _game_symbol_to_id[ symbol ] = id;
+        };
+        
+        interface.erase_from_id_map = [&]( const game_id_type id )
+        {
+            _game_id_to_record.erase( id );
+            _game_id_remove.insert( id );
+        };
+        
+        interface.erase_from_symbol_map = [&]( const string& symbol )
+        {
+            _game_symbol_to_id.erase( symbol );
+        };
+    }
 
    void pending_chain_state::init_balance_db_interface()
    {

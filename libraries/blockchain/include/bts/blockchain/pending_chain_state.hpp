@@ -27,8 +27,7 @@ namespace bts { namespace blockchain {
 
          virtual void                   store_burn_record( const burn_record& br ) override;
          virtual oburn_record           fetch_burn_record( const burn_record_key& key )const override;
-
-         virtual ogame_record           get_game_record( const game_id_type& id )const override;
+       
          virtual orule_data_record      get_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id )const override;
          virtual oprice                 get_active_feed_price( const asset_id_type quote_id,
                                                                const asset_id_type base_id = 0 )const override;
@@ -57,7 +56,6 @@ namespace bts { namespace blockchain {
          virtual void                   store_relative_bid_record( const market_index_key& key, const order_record& ) override;
          virtual void                   store_relative_ask_record( const market_index_key& key, const order_record& ) override;
 
-         virtual void                   store_game_record( const game_record& r )override;
          virtual void                   store_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id, const rule_data_record& r )override;
 
          virtual void                   store_object_record( const object_record& obj )override;
@@ -128,11 +126,10 @@ namespace bts { namespace blockchain {
 
          map< std::pair<rule_id_type,data_id_type>, rule_data_record>                        rules;
        
-         unordered_map< game_id_type, game_record>                         games;
+       
 
          vector<rule_result_transaction>                                   rule_result_transactions;
 
-         unordered_map< string, game_id_type>                              game_symbol_id_index;
          unordered_map< chain_property_type, variant>                       properties;
 
          unordered_map<account_id_type, account_record>                     _account_id_to_record;
@@ -143,6 +140,10 @@ namespace bts { namespace blockchain {
          unordered_map<asset_id_type, asset_record>                         _asset_id_to_record;
          unordered_set<asset_id_type>                                       _asset_id_remove;
          unordered_map<string, asset_id_type>                               _asset_symbol_to_id;
+       
+         unordered_map< game_id_type, game_record>                          _game_id_to_record;
+         unordered_set<game_id_type>                                        _game_id_remove;
+         unordered_map<string, game_id_type>                                _game_symbol_to_id;
 
          unordered_map<balance_id_type, balance_record>                     _balance_id_to_record;
          unordered_set<balance_id_type>                                     _balance_id_remove;
@@ -190,6 +191,7 @@ namespace bts { namespace blockchain {
 
          virtual void init_account_db_interface()override;
          virtual void init_asset_db_interface()override;
+         virtual void init_game_db_interface()override;
          virtual void init_balance_db_interface()override;
          virtual void init_transaction_db_interface()override;
          virtual void init_feed_db_interface()override;
