@@ -6,14 +6,14 @@ These instructions worked on a fresh Ubuntu 14.04 LTS image.
     cd bitshares
     git submodule init
     git submodule update
-    cmake .
+    mkdir build&&cd build&&cmake ..
     export LC_ALL="en_US.UTF-8"
     make
 
 For the Qt Wallet, some extra steps are required:
 
 	sudo apt-get install npm qt5-default libqt5webkit5-dev qttools5-dev qttools5-dev-tools nodejs-legacy
-	cd programs/web_wallet
+	cd bitshares/programs/web_wallet
 	sudo npm install -g lineman
 	npm install
 	cd ../../build
