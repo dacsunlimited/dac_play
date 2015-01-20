@@ -1,4 +1,5 @@
 #include <bts/blockchain/game_record.hpp>
+#include <bts/blockchain/chain_interface.hpp>
 
 namespace bts { namespace blockchain {
 

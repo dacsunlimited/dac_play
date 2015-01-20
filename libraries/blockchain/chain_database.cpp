@@ -2459,6 +2459,11 @@ namespace bts { namespace blockchain {
     { try {
         return get_asset_record(symbol).valid();
     } FC_CAPTURE_AND_RETHROW( (symbol) ) }
+    
+    bool chain_database::is_valid_game_symbol( const string& symbol )const
+    { try {
+        return get_game_record(symbol).valid();
+    } FC_CAPTURE_AND_RETHROW( (symbol) ) }
 
    string chain_database::get_asset_symbol( const asset_id_type asset_id )const
    { try {

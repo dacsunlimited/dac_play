@@ -515,7 +515,7 @@ namespace bts { namespace blockchain {
     
     ogame_record chain_interface::get_game_record( const string& symbol )const
     { try {
-        return lookup<asset_record>( symbol );
+        return lookup<game_record>( symbol );
     } FC_CAPTURE_AND_RETHROW( (symbol) ) }
     
     void chain_interface::store_game_record( const game_record& record )
