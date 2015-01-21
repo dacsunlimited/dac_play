@@ -77,7 +77,7 @@ module BitShares
       # end
       @delegate_node.exec 'wallet_delegate_set_block_production', 'ALL', true
 
-      #@delegate_node.exec 'wallet_backup_create', td('delegate_wallet_backup.json')
+      @delegate_node.exec 'wallet_backup_create', td('delegate_wallet_backup.json')
 
       @alice_node.exec 'wallet_import_private_key', balancekeys[2], 'angel', true, true
       @alice_node.exec 'wallet_backup_create', td('alice_wallet_backup.json')
