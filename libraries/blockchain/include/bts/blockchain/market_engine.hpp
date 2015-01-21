@@ -7,7 +7,7 @@ namespace bts { namespace blockchain { namespace detail {
   public:
     market_engine( pending_chain_state_ptr ps, chain_database_impl& cdi );
     /** return true if execute was successful and applied */
-    bool execute( asset_id_type quote_id, asset_id_type base_id, const fc::time_point_sec& timestamp );
+    bool execute( asset_id_type quote_id, asset_id_type base_id, const fc::time_point_sec timestamp );
 
     static asset get_interest_paid(const asset& total_amount_paid, const price& apr, uint32_t age_seconds);
     static asset get_interest_owed(const asset& principle, const price& apr, uint32_t age_seconds);
@@ -43,7 +43,7 @@ namespace bts { namespace blockchain { namespace detail {
     void update_market_history( const asset& trading_volume,
                                 const price& opening_price,
                                 const price& closing_price,
-                                const fc::time_point_sec& timestamp );
+                                const fc::time_point_sec timestamp );
 
     pending_chain_state_ptr       _pending_state;
     pending_chain_state_ptr       _prior_state;
@@ -67,9 +67,6 @@ namespace bts { namespace blockchain { namespace detail {
     bts::db::cached_level_map< market_index_key, order_record >::iterator         _ask_itr;
     bts::db::cached_level_map< market_index_key, order_record >::iterator         _relative_bid_itr;
     bts::db::cached_level_map< market_index_key, order_record >::iterator         _relative_ask_itr;
-    bts::db::cached_level_map< market_index_key, order_record >::iterator         _short_itr;
-    bts::db::cached_level_map< market_index_key, collateral_record >::iterator    _collateral_itr;
-    std::set< expiration_index >::iterator                   _collateral_expiration_itr;
   };
 
 } } } // end namespace bts::blockchain::detail

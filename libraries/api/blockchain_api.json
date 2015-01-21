@@ -12,6 +12,21 @@
         "aliases" : ["getconfig","get_config", "config", "blockchain_get_config"]
       },
       {
+        "method_name": "blockchain_generate_snapshot",
+        "description": "Save snapshot of current base asset balances to specified file",
+        "return_type": "void",
+        "parameters" : [
+            {
+              "name" : "filename",
+              "type" : "string",
+              "description" : "filename to save snapshot to"
+            }
+        ],
+        "is_const"   : true,
+        "prerequisites" : ["no_prerequisites"],
+        "aliases" : []
+      },
+      {
         "method_name": "blockchain_calculate_supply",
         "description": "Calculate the total supply of an asset from the current blockchain database state",
         "return_type": "asset",
@@ -78,16 +93,24 @@
             {
               "name" : "first_account_name",
               "type" : "account_name",
-              "description" : "the first account name to include. May be either a name or an index",
+              "description" : "the first account name to include",
               "default_value" : ""
             },
             {
               "name" : "limit",
-              "type" : "int32_t",
+              "type" : "uint32_t",
               "description" : "the maximum number of items to list",
-              "default_value" : -1
+              "default_value" : 20
             }
         ],
+        "is_const" : true,
+        "prerequisites" : ["no_prerequisites"]
+      },
+      {
+        "method_name": "blockchain_list_recently_updated_accounts",
+        "description": "Returns a list of recently updated accounts",
+        "return_type": "account_record_array",
+        "parameters" : [],
         "is_const" : true,
         "prerequisites" : ["no_prerequisites"]
       },
@@ -112,9 +135,9 @@
             },
             {
               "name" : "limit",
-              "type" : "int32_t",
+              "type" : "uint32_t",
               "description" : "the maximum number of items to list",
-              "default_value" : -1
+              "default_value" : 20
             }
         ],
         "is_const" : true,
@@ -218,6 +241,21 @@
         "aliases" : ["get_account"]
       },
       {
+        "method_name": "blockchain_get_slate",
+        "description": "Retrieves a map of delegate IDs and names defined by the given slate ID or recommending account",
+        "return_type": "map<account_id_type, string>",
+        "parameters" : [
+            {
+              "name" : "slate",
+              "type" : "string",
+              "description" : "slate ID or recommending account name for which to retrieve the slate of delegates"
+            }
+        ],
+        "is_const" : true,
+        "prerequisites" : ["no_prerequisites"],
+        "aliases" : ["get_slate"]
+      },
+      {
         "method_name": "blockchain_get_balance",
         "description": "Retrieves the balance record for the given address",
         "return_type": "balance_record",
@@ -240,14 +278,14 @@
             {
               "name" : "first_balance_id",
               "type" : "string",
-              "description" : "prefix of the first balance id to start at",
+              "description" : "the first balance id to start at",
               "default_value" : ""
             },
             {
               "name" : "limit",
               "type" : "uint32_t",
               "description" : "the maximum number of items to list",
-              "default_value" : 4
+              "default_value" : 20
             }
         ],
         "is_const" : true,
@@ -278,7 +316,7 @@
       {
         "method_name": "blockchain_list_address_transactions",
         "description": "Lists all transactions that involve the provided address after the specified time",
-        "return_type": "transaction_record_map",
+        "return_type": "timestamped_transaction_record_map",
         "parameters" : [
             {
               "name" : "addr",
@@ -287,9 +325,9 @@
             },
             {
                "name" : "filter_before",
-               "type" : "timestamp",
-               "description" : "Filter all transactions that occured prior to the specified timestamp",
-               "default_value" : ""
+               "type" : "uint32_t",
+               "description" : "Filter all transactions that occured prior to the specified block number",
+               "default_value" : "0"
             }
         ],
         "is_const" : true,
@@ -646,7 +684,7 @@
       },
       {
         "method_name": "blockchain_get_delegate_slot_records",
-        "description": "Query the block production slot records for a particular delegate",
+        "description": "Query the most recent block production slot records for a particular delegate",
         "return_type": "slot_records_list",
         "parameters" : [
             {
@@ -655,19 +693,14 @@
               "description" : "Delegate whose block production slot records to query"
             },
             {
-              "name" : "start_block_num",
-              "type" : "int64_t",
-              "description" : "Only return slot records after the specified block's timestamp; negative to start backwards from the current head block",
-              "default_value" : "-1000"
-            },
-            {
               "name" : "count",
               "type" : "uint32_t",
-              "description" : "Return at most count slot records",
+              "description" : "The number of most recent slot records to return",
               "default_value" : "10"
             }
         ],
         "is_const" : true,
+         "aliases" : ["get_slot"],
         "prerequisites" : ["no_prerequisites"]
       },
       {

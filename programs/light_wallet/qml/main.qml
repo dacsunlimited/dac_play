@@ -1,81 +1,147 @@
 import QtQuick 2.4
-import QtQuick.Controls 1.3
-import QtQuick.Controls.Styles 1.3
 import QtQuick.Window 2.2
 import QtQuick.Layouts 1.1
 
+import "utils.js" as Utils
 import org.BitShares.Types 1.0
+
+import Material 0.1
 
 ApplicationWindow {
    id: window
    visible: true
    width: 540
    height: 960
-   color: visuals.backgroundColor
+   initialPage: mainPage
 
    readonly property int orientation: window.width < window.height? Qt.PortraitOrientation : Qt.LandscapeOrientation
+   property bool needsOnboarding: !( wallet.account && wallet.account.isRegistered )
 
+   function connectToServer() {
+      if( !wallet.connected )
+         wallet.connectToServer("localhost", 6691, "user", "pass")
+   }
+   function showError(error) {
+      errorText.text = qsTr("Error: ") + error
+      return d.currentError = d.errorSerial++
+   }
+   function clearError(errorId) {
+      if( d.currentError === errorId )
+         errorText.text = ""
+   }
+
+   Component.onCompleted: {
+      if( wallet.walletExists )
+         wallet.openWallet()
+      if( needsOnboarding )
+         onboardLoader.sourceComponent = onboardingUi
+
+      connectToServer()
+   }
+   pageStack.onPopped: if( pageStack.count === 1 ) wallet.lockWallet()
+
+   theme {
+      primaryColor: "#2196F3"
+      backgroundColor: "#BBDEFB"
+      accentColor: "#80D8FF"
+   }
+
+   QtObject {
+      id: d
+      property int errorSerial: 0
+      property int currentError: -1
+   }
    QtObject {
       id: visuals
 
-      property color backgroundColor: "white"
-      property color textColor: "#535353"
-      property color lightTextColor: "#757575"
-      property color buttonColor: "#28A9F6"
-      property color buttonHoverColor: "#2BB4FF"
-      property color buttonPressedColor: "#264D87"
-      property color buttonTextColor: "white"
-
-      property real spacing: 40
       property real margins: 20
-
-      property real textBaseSize: window.orientation === Qt.PortraitOrientation?
-                                     window.height * .02 : window.width * .03
    }
-
+   Timer {
+      id: refreshPoller
+      running: wallet.unlocked
+      triggeredOnStart: true
+      interval: 10000
+      repeat: true
+      onTriggered: {
+         if( !wallet.connected )
+            connectToServer()
+         else
+            wallet.sync()
+      }
+   }
    LightWallet {
       id: wallet
+
+      function runWhenConnected(fn) {
+         Utils.connectOnce(wallet.onConnectedChanged, fn, function() { return connected })
+      }
+
+      onErrorConnecting: {
+         var errorId = showError(error)
+
+         runWhenConnected(function() {
+            clearError(errorId)
+         })
+      }
    }
 
-   ColumnLayout {
-      anchors.fill: parent
-      anchors.margins: visuals.margins
-      spacing: visuals.spacing
+   WelcomeLayout {
+      id: mainPage
+      title: qsTr("Welcome to BitShares")
+      onPasswordEntered: {
+         if( wallet.unlocked )
+            return proceedIfUnlocked()
 
-      Item {
-         Layout.preferredHeight: window.orientation === Qt.PortraitOrientation?
-                                    window.height / 4 : window.height / 6
+         Utils.connectOnce(wallet.onUnlockedChanged, proceedIfUnlocked)
+         wallet.unlockWallet(password)
       }
-      Label {
-         anchors.horizontalCenter: parent.horizontalCenter
-         horizontalAlignment: Text.AlignHCenter
-         text: "Welcome to BitShares"
-         color: visuals.textColor
-         font.pixelSize: visuals.textBaseSize * 1.5
-         wrapMode: Text.WrapAtWordBoundaryOrAnywhere
+
+      function proceedIfUnlocked() {
+         if( !wallet.unlocked )
+            return
+
+         console.log("Finished welcome screen.")
+         clearPassword()
+         window.pageStack.push(assetsUi)
       }
-      Label {
-         anchors.horizontalCenter: parent.horizontalCenter
-         visible: !wallet.walletExists
-         text: "To get started, create a password below"
-         color: visuals.lightTextColor
-         font.pixelSize: visuals.textBaseSize
-         wrapMode: Text.WrapAtWordBoundaryOrAnywhere
-      }
-      ColumnLayout {
-         Layout.fillWidth: true
-         PasswordField {
-            Layout.fillWidth: true
-            id: passwordField
-            placeholderText: qsTr("Create a Password")
-         }
-         Button {
-            style: WalletButtonStyle {}
-            text: "Begin"
-            Layout.fillWidth: true
-            Layout.preferredHeight: passwordField.height
+   }
+   Component {
+      id: onboardingUi
+
+      OnboardingLayout {
+         onFinished: {
+            pageStack.push(assetsUi)
+            onboardLoader.sourceComponent = null
          }
       }
-      Item { Layout.fillHeight: true }
+   }
+   Component {
+      id: assetsUi
+
+      AssetsLayout {
+         onLockRequested: {
+            wallet.lockWallet()
+            uiStack.pop()
+         }
+         onOpenHistory: window.pageStack.push(historyUi, {"accountName": account, "assetSymbol": symbol})
+         onOpenTransfer: window.pageStack.push(transferUi)
+      }
+   }
+   Component {
+      id: historyUi
+
+      HistoryLayout {
+      }
+   }
+   Component {
+      id: transferUi
+
+      TransferLayout {
+      }
+   }
+   Loader {
+      id: onboardLoader
+      anchors.fill: parent
+      z: 20
    }
 }

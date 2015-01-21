@@ -47,7 +47,7 @@ public:
       elog("storing error in database: ${e}", ("e", e));
       _db.store(fc::time_point::now(), e);
    }
-   exception_leveldb_type::iterator lower_bound(const fc::time_point& time) const
+   exception_leveldb_type::iterator lower_bound(const fc::time_point time) const
    {
       return _db.lower_bound(time);
    }
@@ -55,7 +55,7 @@ public:
    {
       return _db.begin();
    }
-   void remove(const fc::time_point& key)
+   void remove(const fc::time_point key)
    {
       _db.remove(key);
    }
@@ -219,7 +219,7 @@ public:
    virtual fc::sha256 get_chain_id() const override
    {
       FC_ASSERT( _chain_db != nullptr );
-      return _chain_db->chain_id();
+      return _chain_db->get_chain_id();
    }
    virtual std::vector<bts::net::item_hash_t> get_blockchain_synopsis(uint32_t item_type,
                                                                       const bts::net::item_hash_t& reference_point = bts::net::item_hash_t(),
@@ -283,20 +283,17 @@ public:
    // Delegate block production
    fc::future<void>                                        _delegate_loop_complete;
    bool                                                    _delegate_loop_first_run = true;
-   uint32_t                                                _min_delegate_connection_count = BTS_MIN_DELEGATE_CONNECTION_COUNT;
-
-   size_t                                                  _max_block_transaction_count = -1;
-   size_t                                                  _max_block_size = BTS_BLOCKCHAIN_MAX_BLOCK_SIZE;
-   size_t                                                  _max_transaction_size = -1;
-   share_type                                              _min_transaction_fee = BTS_BLOCKCHAIN_DEFAULT_RELAY_FEE;
-   fc::microseconds                                        _max_block_production_time = fc::seconds( 3 );
+   delegate_config                                         _delegate_config;
 
    //start by assuming not syncing, network won't send us a msg if we start synced and stay synched.
    //at worst this means we might briefly sending some pending transactions while not synched.
    bool                                                    _sync_mode = false;
 
    rpc_server_config                                       _tmp_rpc_config;
+
    bts::net::node_ptr                                      _p2p_node = nullptr;
+   bool                                                    _simulated_network = false;
+
    bts_gntp_notifier_ptr                                   _notifier;
    fc::future<void>                                        _blocks_too_old_monitor_done;
 

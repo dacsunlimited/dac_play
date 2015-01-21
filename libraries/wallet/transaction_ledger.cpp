@@ -18,8 +18,7 @@ using namespace bts::game;
 void wallet_impl::scan_market_transaction(
         const market_transaction& mtrx,
         uint32_t block_num,
-        const time_point_sec& block_time,
-        const time_point_sec& received_time
+        const time_point_sec block_time
         )
 { try {
     auto okey_bid = _wallet_db.lookup_key( mtrx.bid_owner );
@@ -45,7 +44,7 @@ void wallet_impl::scan_market_transaction(
         record.is_confirmed = true;
         record.is_market = true;
         record.created_time = block_time;
-        record.received_time = received_time;
+        record.received_time = block_time;
 
         if( mtrx.bid_type == bid_order )
         {
@@ -91,6 +90,7 @@ void wallet_impl::scan_market_transaction(
         }
 
         _wallet_db.store_transaction( record );
+        _dirty_balances = true;
     }
 
     auto okey_ask = _wallet_db.lookup_key( mtrx.ask_owner );
@@ -116,7 +116,7 @@ void wallet_impl::scan_market_transaction(
         record.is_confirmed = true;
         record.is_market = true;
         record.created_time = block_time;
-        record.received_time = received_time;
+        record.received_time = block_time;
 
         if( mtrx.ask_type == ask_order )
         {
@@ -144,12 +144,15 @@ void wallet_impl::scan_market_transaction(
         }
 
         _wallet_db.store_transaction( record );
+        _dirty_balances = true;
     }
 } FC_CAPTURE_AND_RETHROW() }
 
 // TODO: No longer needed with scan_genesis_experimental and get_account_balance_records
 void wallet_impl::scan_balances()
 {
+    scan_balances_experimental();
+
    /* Delete ledger entries for any genesis balances before we can reconstruct them */
    const auto my_accounts = self->list_my_accounts();
    for( const auto& account : my_accounts )
@@ -172,7 +175,11 @@ void wallet_impl::scan_balances()
        if( bal_rec.condition.type != withdraw_signature_type )
            return;
 
-       const auto key_rec = _wallet_db.lookup_key( bal_rec.owner() );
+       const auto owner = bal_rec.owner();
+       if( !owner.valid() )
+           return;
+
+       const auto key_rec = _wallet_db.lookup_key( *owner );
        if( !key_rec.valid() || !key_rec->has_private_key() )
            return;
 
@@ -203,41 +210,46 @@ void wallet_impl::scan_balances()
    _blockchain->scan_balances( scan_balance );
 }
 
-void wallet_impl::scan_registered_accounts()
-{
-   _blockchain->scan_accounts( [&]( const blockchain::account_record& scanned_account_record )
-   {
-        const auto account_record = _wallet_db.lookup_account( scanned_account_record.name );
-        if( account_record.valid() )
-        {
-            _wallet_db.store_account( scanned_account_record );
-            return;
-        }
+void wallet_impl::scan_accounts()
+{ try {
+    const auto check_address = [&]( const address& addr ) -> bool
+    {
+        if( _wallet_db.lookup_account( addr ).valid() ) return true;
+        const owallet_key_record& key_record = _wallet_db.lookup_key( addr );
+        return key_record.valid() && key_record->has_private_key();
+    };
 
-        auto key_record = _wallet_db.lookup_key( scanned_account_record.owner_address() );
-        if( !key_record.valid() || !key_record->has_private_key() )
-        {
-            key_record = _wallet_db.lookup_key( scanned_account_record.active_address() );
-            if( !key_record.valid() || !key_record->has_private_key() )
-            {
-                if( scanned_account_record.is_delegate() )
-                    key_record = _wallet_db.lookup_key( scanned_account_record.signing_address() );
-            }
-        }
+    const auto scan_account = [&]( const account_record& blockchain_record )
+    {
+        bool store_account = check_address( blockchain_record.owner_address() );
+        if( !store_account ) store_account = check_address( blockchain_record.active_address() );
+        if( !store_account && blockchain_record.is_delegate() ) store_account = check_address( blockchain_record.signing_address() );
+        if( !store_account ) return;
+        _wallet_db.store_account( blockchain_record );
+    };
 
-        if( key_record.valid() && key_record->has_private_key() )
-            _wallet_db.store_account( scanned_account_record );
-   } );
-}
+    _blockchain->scan_unordered_accounts( scan_account );
 
-void wallet_impl::scan_block( uint32_t block_num, const vector<private_key_type>& keys, const time_point_sec& received_time )
+    if( self->is_unlocked() )
+    {
+        _stealth_private_keys.clear();
+        const auto& account_keys = _wallet_db.get_account_private_keys( _wallet_password );
+        _stealth_private_keys.reserve( account_keys.size() );
+        for( const auto& item : account_keys )
+           _stealth_private_keys.push_back( item.first );
+    }
+
+    _dirty_accounts = false;
+} FC_CAPTURE_AND_RETHROW() }
+
+void wallet_impl::scan_block( uint32_t block_num )
 { try {
     const full_block& block = _blockchain->get_block( block_num );
     for( const signed_transaction& transaction : block.user_transactions )
     {
         try
         {
-            scan_transaction( transaction, block_num, block.timestamp, keys, received_time );
+            scan_transaction( transaction, block_num, block.timestamp );
         }
         catch( ... )
         {
@@ -249,7 +261,7 @@ void wallet_impl::scan_block( uint32_t block_num, const vector<private_key_type>
     {
         try
         {
-            scan_market_transaction( market_trx, block_num, block.timestamp, received_time );
+            scan_market_transaction( market_trx, block_num, block.timestamp );
         }
         catch( ... )
         {
@@ -261,20 +273,18 @@ void wallet_impl::scan_block( uint32_t block_num, const vector<private_key_type>
     {
         try
         {
-            rule_factory::instance().scan_result( rule_result_trxs[i], block_num, block.timestamp, received_time, i, self->shared_from_this());
+            rule_factory::instance().scan_result( rule_result_trxs[i], block_num, block.timestamp, i, self->shared_from_this());
         }
         catch( ... )
         {
         }
     }
-} FC_CAPTURE_AND_RETHROW( (block_num)(received_time) ) }
+} FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
 wallet_transaction_record wallet_impl::scan_transaction(
         const signed_transaction& transaction,
         uint32_t block_num,
-        const time_point_sec& block_timestamp,
-        const vector<private_key_type>& keys,
-        const time_point_sec& received_time,
+        const time_point_sec block_timestamp,
         bool overwrite_existing )
 { try {
     const transaction_id_type transaction_id = transaction.id();
@@ -286,7 +296,7 @@ wallet_transaction_record wallet_impl::scan_transaction(
         transaction_record = wallet_transaction_record();
         transaction_record->record_id = record_id;
         transaction_record->created_time = block_timestamp;
-        transaction_record->received_time = received_time;
+        transaction_record->received_time = block_timestamp;
         transaction_record->trx = transaction;
     }
 
@@ -368,7 +378,7 @@ wallet_transaction_record wallet_impl::scan_transaction(
         {
             case deposit_op_type:
             {
-                is_deposit = scan_deposit( op.as<deposit_operation>(), keys, *transaction_record, total_fee );
+                is_deposit = scan_deposit( op.as<deposit_operation>(), *transaction_record, total_fee );
                 has_deposit |= is_deposit;
                 break;
             }
@@ -509,6 +519,8 @@ wallet_transaction_record wallet_impl::scan_transaction(
     if( store_record && ( !already_exists || overwrite_existing ) )
         _wallet_db.store_transaction( *transaction_record );
 
+    _dirty_balances |= store_record;
+
     return *transaction_record;
 } FC_CAPTURE_AND_RETHROW() }
 
@@ -524,8 +536,11 @@ bool wallet_impl::scan_withdraw( const withdraw_operation& op,
    if( amount.asset_id == total_fee.asset_id )
       total_fee += amount;
 
-   // TODO: Only if withdraw by signature or by name
-   const auto key_rec =_wallet_db.lookup_key( bal_rec->owner() );
+   const auto owner = bal_rec->owner();
+   if( !owner.valid() )
+       return false;
+
+   const auto key_rec =_wallet_db.lookup_key( *owner );
    if( key_rec.valid() && key_rec->has_private_key() ) /* If we own this balance */
    {
        auto new_entry = true;
@@ -547,7 +562,8 @@ bool wallet_impl::scan_withdraw( const withdraw_operation& op,
            }
            else if( entry.amount.amount == 0 )
            {
-               entry.amount = amount;
+               if( amount != trx_rec.fee )
+                   entry.amount = amount;
                new_entry = false;
                break;
            }
@@ -637,8 +653,6 @@ bool wallet_impl::scan_register_account( const register_account_operation& op, w
     auto account_name_rec = _blockchain->get_account_record( op.name );
     FC_ASSERT( account_name_rec.valid() );
 
-    _wallet_db.store_account( *account_name_rec );
-
     for( auto& entry : trx_rec.ledger_entries )
     {
         if( !entry.to_account.valid() )
@@ -655,6 +669,7 @@ bool wallet_impl::scan_register_account( const register_account_operation& op, w
         }
     }
 
+    _dirty_accounts = true;
     return true;
 }
 
@@ -676,8 +691,6 @@ bool wallet_impl::scan_update_account( const update_account_operation& op, walle
     auto account_name_rec = _blockchain->get_account_record( oaccount->name );
     FC_ASSERT( account_name_rec.valid() );
 
-    _wallet_db.store_account( *account_name_rec );
-
     if( !opt_account->is_my_account )
       return false;
 
@@ -697,6 +710,7 @@ bool wallet_impl::scan_update_account( const update_account_operation& op, walle
         }
     }
 
+    _dirty_accounts = true;
     return true;
 } FC_CAPTURE_AND_RETHROW() }
 
@@ -1004,8 +1018,7 @@ bool wallet_impl::scan_burn( const burn_operation& op, wallet_transaction_record
 }
 
 // TODO: optimize
-bool wallet_impl::scan_deposit( const deposit_operation& op, const vector<private_key_type>& keys,
-                                wallet_transaction_record& trx_rec, asset& total_fee )
+bool wallet_impl::scan_deposit( const deposit_operation& op, wallet_transaction_record& trx_rec, asset& total_fee )
 { try {
     auto amount = asset( op.amount, op.condition.asset_id );
     if( amount.asset_id == total_fee.asset_id )
@@ -1022,7 +1035,7 @@ bool wallet_impl::scan_deposit( const deposit_operation& op, const vector<privat
        case withdraw_escrow_type:
        {
           auto deposit = op.condition.as<withdraw_with_escrow>();
-          cache_deposit = scan_condition( deposit, amount, trx_rec, total_fee, keys );
+          cache_deposit = scan_condition( deposit, amount, trx_rec, total_fee, _stealth_private_keys );
           break;
        }
        case withdraw_signature_type:
@@ -1033,10 +1046,10 @@ bool wallet_impl::scan_deposit( const deposit_operation& op, const vector<privat
           if( deposit.memo ) /* titan transfer */
           {
              vector< fc::future<void> > scan_key_progress;
-             scan_key_progress.resize( keys.size() );
-             for( uint32_t i = 0; i < keys.size(); ++i )
+             scan_key_progress.resize( _stealth_private_keys.size() );
+             for( uint32_t i = 0; i < _stealth_private_keys.size(); ++i )
              {
-                const auto& key = keys[i];
+                const auto& key = _stealth_private_keys[i];
                 scan_key_progress[i] = fc::async([&,i](){
                    omemo_status status;
                    _scanner_threads[ i % _num_scanner_threads ]->async( [&]()
@@ -1115,7 +1128,6 @@ bool wallet_impl::scan_deposit( const deposit_operation& op, const vector<privat
                 }
                 catch ( const fc::exception& e )
                 {
-                   elog( "unexpected exception ${e}", ("e",e.to_detail_string()) );
                 }
              }
              break;
@@ -1173,15 +1185,16 @@ wallet_transaction_record wallet::scan_transaction( const string& transaction_id
    if( !transaction_record.valid() )
        FC_THROW_EXCEPTION( transaction_not_found, "Transaction not found!", ("transaction_id_prefix",transaction_id_prefix) );
 
+   my->scan_accounts();
+
    const auto block_num = transaction_record->chain_location.block_num;
    const auto block = my->_blockchain->get_block_header( block_num );
-   const auto keys = my->_wallet_db.get_account_private_keys( my->_wallet_password );
-   vector<private_key_type> private_keys;
-   private_keys.reserve( keys.size() );
-   for( const auto& item : keys )
-       private_keys.push_back( item.first );
-   const auto now = blockchain::now();
-   return my->scan_transaction( transaction_record->trx, block_num, block.timestamp, private_keys, now, overwrite_existing );
+   const auto record = my->scan_transaction( transaction_record->trx, block_num, block.timestamp, overwrite_existing );
+
+   if( my->_dirty_balances ) my->scan_balances_experimental();
+   if( my->_dirty_accounts ) my->scan_accounts();
+
+   return record;
 } FC_CAPTURE_AND_RETHROW() }
 
 vector<wallet_transaction_record> wallet::get_transactions( const string& transaction_id_prefix )
@@ -1209,7 +1222,7 @@ void wallet::sign_transaction( signed_transaction& transaction, const unordered_
 
 void wallet_impl::sign_transaction( signed_transaction& transaction, const unordered_set<address>& required_signatures )const
 { try {
-   const auto chain_id = _blockchain->chain_id();
+   const auto chain_id = _blockchain->get_chain_id();
    for( const auto& addr : required_signatures )
        transaction.sign( self->get_private_key( addr ), chain_id );
 } FC_CAPTURE_AND_RETHROW() }
@@ -1217,6 +1230,7 @@ void wallet_impl::sign_transaction( signed_transaction& transaction, const unord
 void wallet::cache_transaction( wallet_transaction_record& transaction_record )
 { try {
    my->_blockchain->store_pending_transaction( transaction_record.trx, true );
+   my->scan_balances_experimental();
 
    transaction_record.record_id = transaction_record.trx.id();
    transaction_record.created_time = blockchain::now();

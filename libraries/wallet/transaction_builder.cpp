@@ -25,6 +25,7 @@ public_key_type transaction_builder::order_key_for_account(const address& accoun
    }
    return order_key;
 }
+
 transaction_builder& transaction_builder::release_escrow( const account_record& payer,
                                                           const address& escrow_account,
                                                           const address& released_by_address,
@@ -61,6 +62,31 @@ transaction_builder& transaction_builder::release_escrow( const account_record& 
    transaction_record.received_time = transaction_record.created_time;
    return *this;
 } FC_CAPTURE_AND_RETHROW( (payer)(escrow_account)(released_by_address)(amount_to_sender)(amount_to_receiver) ) }
+
+transaction_builder&transaction_builder::register_account(const string& name,
+                                                          optional<variant> public_data,
+                                                          public_key_type owner_key,
+                                                          optional<public_key_type> active_key,
+                                                          optional<uint8_t> delegate_pay,
+                                                          optional<account_meta_info> meta_info,
+                                                          optional<wallet_account_record> paying_account)
+{ try {
+   if( !public_data ) public_data = variant(fc::variant_object());
+   if( !active_key ) active_key = owner_key;
+   if( !delegate_pay ) delegate_pay = -1;
+
+   if( paying_account ) deduct_balance(paying_account->owner_address(), asset());
+
+   trx.register_account(name, *public_data, owner_key, *active_key, *delegate_pay, meta_info);
+
+   ledger_entry entry;
+   entry.from_account = paying_account->owner_key;
+   entry.to_account = owner_key;
+   entry.memo = "Register account: " + name;
+   transaction_record.ledger_entries.push_back(entry);
+
+   return *this;
+} FC_CAPTURE_AND_RETHROW( (name)(public_data)(owner_key)(active_key)(delegate_pay)(paying_account) ) }
 
 transaction_builder& transaction_builder::update_account_registration(const wallet_account_record& account,
                                                                       optional<variant> public_data,
@@ -148,8 +174,9 @@ transaction_builder& transaction_builder::update_account_registration(const wall
 transaction_builder& transaction_builder::deposit_asset(const bts::wallet::wallet_account_record& payer,
                                                         const bts::blockchain::account_record& recipient,
                                                         const asset& amount,
-                                                        const string& memo, vote_selection_method vote_method,
-                                                        fc::optional<public_key_type> memo_sender)
+                                                        const string& memo,
+                                                        vote_selection_method vote_method,
+                                                        fc::optional<string> memo_sender)
 { try {
    if( recipient.is_retracted() )
        FC_CAPTURE_AND_THROW( account_retracted, (recipient) );
@@ -162,24 +189,21 @@ transaction_builder& transaction_builder::deposit_asset(const bts::wallet::walle
        FC_CAPTURE_AND_THROW( memo_too_long, (memo) );
 
    if( !memo_sender.valid() )
-       memo_sender = payer.active_key();
+       memo_sender = payer.name;
+   const owallet_account_record memo_account = _wimpl->_wallet_db.lookup_account( *memo_sender );
+   FC_ASSERT( memo_account.valid() && memo_account->is_my_account );
+
+   public_key_type memo_key = memo_account->owner_key;
+   if( !_wimpl->_wallet_db.has_private_key( memo_key ) )
+       memo_key = memo_account->active_key();
+   FC_ASSERT( _wimpl->_wallet_db.has_private_key( memo_key ) );
 
    optional<public_key_type> titan_one_time_key;
-   if( recipient.is_public_account() )
-   {
-      trx.deposit(recipient.active_key(), amount, _wimpl->select_slate(trx, amount.asset_id, vote_method));
-   } else {
-      auto one_time_key = _wimpl->get_new_private_key(payer.name);
-      titan_one_time_key = one_time_key.get_public_key();
-      trx.deposit_to_account(recipient.active_key(),
-                             amount,
-                             _wimpl->self->get_private_key(*memo_sender),
-                             memo,
-                             _wimpl->select_slate(trx, amount.asset_id, vote_method),
-                             *memo_sender,
-                             one_time_key,
-                             from_memo);
-   }
+   auto one_time_key = _wimpl->get_new_private_key(payer.name);
+   titan_one_time_key = one_time_key.get_public_key();
+   trx.deposit_to_account(recipient.active_key(), amount, _wimpl->self->get_private_key(memo_key), memo,
+                          _wimpl->select_slate(trx, amount.asset_id, vote_method),
+                          memo_key, one_time_key, from_memo, !recipient.is_public_account());
 
    deduct_balance(payer.owner_key, amount);
 
@@ -188,11 +212,11 @@ transaction_builder& transaction_builder::deposit_asset(const bts::wallet::walle
    entry.to_account = recipient.owner_key;
    entry.amount = amount;
    entry.memo = memo;
-   if( *memo_sender != payer.active_key() )
+   if( *memo_sender != payer.name )
       entry.memo_from_account = *memo_sender;
    transaction_record.ledger_entries.push_back(std::move(entry));
 
-   auto memo_signature = _wimpl->self->get_private_key(*memo_sender).sign_compact(fc::sha256::hash(memo.data(),
+   auto memo_signature = _wimpl->self->get_private_key(memo_key).sign_compact(fc::sha256::hash(memo.data(),
                                                                                                    memo.size()));
    notices.emplace_back(std::make_pair(mail::transaction_notice_message(string(memo),
                                                                         std::move(titan_one_time_key),
@@ -277,7 +301,8 @@ transaction_builder& transaction_builder::set_edge(const string& payer_name,
     auto payer = _wimpl->self->get_account( payer_name );
     deduct_balance( payer.owner_address(), asset() );
     trx.set_edge( edge );
-    for( auto addr : _wimpl->_blockchain->get_object_condition( object_record( edge, 0 ) ).owners )
+    auto obj = object_record( edge, edge_object, 0 );
+    for( auto addr : _wimpl->_blockchain->get_object_condition( obj ).owners )
         required_signatures.insert( addr );
     return *this;
 } FC_CAPTURE_AND_RETHROW( (payer_name)(edge) ) }
@@ -354,9 +379,7 @@ transaction_builder& transaction_builder::deposit_asset_with_escrow(const bts::w
    return *this;
 } FC_CAPTURE_AND_RETHROW( (recipient)(amount)(memo) ) }
 
-
-
-transaction_builder& transaction_builder::cancel_market_order(const order_id_type& order_id)
+transaction_builder& transaction_builder::cancel_market_order( const order_id_type& order_id )
 { try {
    const auto order = _wimpl->_blockchain->get_market_order( order_id );
    if( !order.valid() )
@@ -367,10 +390,7 @@ transaction_builder& transaction_builder::cancel_market_order(const order_id_typ
    if( !owner_key_record.valid() || !owner_key_record->has_private_key() )
        FC_THROW_EXCEPTION( private_key_not_found, "Cannot find the private key for that market order!" );
 
-   const auto account_key_record = _wimpl->_wallet_db.lookup_key( owner_key_record->account_address );
-   FC_ASSERT( account_key_record.valid() && account_key_record->has_private_key() );
-
-   const auto account_record = _wimpl->_wallet_db.lookup_account( account_key_record->public_key );
+   const auto account_record = _wimpl->_wallet_db.lookup_account( owner_key_record->account_address );
    FC_ASSERT( account_record.valid() );
 
    asset balance = order->get_balance();
@@ -403,7 +423,7 @@ transaction_builder& transaction_builder::cancel_market_order(const order_id_typ
 
    auto entry = ledger_entry();
    entry.from_account = owner_key_record->public_key;
-   entry.to_account = account_key_record->public_key;
+   entry.to_account = account_record->owner_key;
    entry.amount = balance;
    entry.memo = "cancel " + order->get_small_id();
 
@@ -446,24 +466,24 @@ transaction_builder& transaction_builder::submit_bid(const wallet_account_record
 
 transaction_builder& transaction_builder::submit_relative_bid(const wallet_account_record& from_account,
                                                      const asset& real_quantity,
+                                                     const asset& funding,
                                                      const price& quote_price,
                                                      const optional<price>& limit )
 { try {
    validate_market(quote_price.quote_asset_id, quote_price.base_asset_id);
 
-   asset cost = real_quantity * quote_price;
-   FC_ASSERT(cost.asset_id == quote_price.quote_asset_id);
+   FC_ASSERT(funding.asset_id == quote_price.quote_asset_id);
 
    auto order_key = order_key_for_account(from_account.owner_address(), from_account.name);
 
    //Charge this account for the bid
-   deduct_balance(from_account.owner_address(), cost);
-   trx.relative_bid(cost, quote_price, limit, order_key);
+   deduct_balance(from_account.owner_address(), funding);
+   trx.relative_bid(funding, quote_price, limit, order_key);
 
    auto entry = ledger_entry();
    entry.from_account = from_account.owner_key;
    entry.to_account = order_key;
-   entry.amount = cost;
+   entry.amount = funding;
    entry.memo = "relative buy " + _wimpl->_blockchain->get_asset_symbol(quote_price.base_asset_id) +
                 " @ delta " + _wimpl->_blockchain->to_pretty_price(quote_price);
 
@@ -472,7 +492,7 @@ transaction_builder& transaction_builder::submit_relative_bid(const wallet_accou
 
    required_signatures.insert(order_key);
    return *this;
-} FC_CAPTURE_AND_RETHROW( (from_account.name)(real_quantity)(quote_price) ) }
+} FC_CAPTURE_AND_RETHROW( (from_account.name)(funding)(quote_price) ) }
 
 transaction_builder& transaction_builder::submit_ask(const wallet_account_record& from_account,
                                                      const asset& cost,
@@ -511,7 +531,9 @@ transaction_builder& transaction_builder::submit_relative_ask(const wallet_accou
    validate_market(quote_price.quote_asset_id, quote_price.base_asset_id);
    FC_ASSERT(cost.asset_id == quote_price.base_asset_id);
 
-   auto order_key = order_key_for_account(from_account.owner_address(), from_account.name);
+   public_key_type order_key;
+
+   order_key = order_key_for_account(from_account.owner_address(), from_account.name);
 
    //Charge this account for the ask
    deduct_balance(from_account.owner_address(), cost);
@@ -531,9 +553,9 @@ transaction_builder& transaction_builder::submit_relative_ask(const wallet_accou
    return *this;
 } FC_CAPTURE_AND_RETHROW( (from_account.name)(cost)(quote_price) ) }
 
-transaction_builder& transaction_builder::update_block_signing_key( const string& authorizing_account_name,
-                                                                    const string& delegate_name,
-                                                                    const public_key_type& block_signing_key )
+transaction_builder& transaction_builder::update_signing_key( const string& authorizing_account_name,
+                                                              const string& delegate_name,
+                                                              const public_key_type& signing_key )
 { try {
     const owallet_account_record authorizing_account_record = _wimpl->_wallet_db.lookup_account( authorizing_account_name );
     if( !authorizing_account_record.valid() )
@@ -543,7 +565,7 @@ transaction_builder& transaction_builder::update_block_signing_key( const string
     if( !delegate_record.valid() )
         FC_THROW_EXCEPTION( unknown_account, "Unknown delegate account name!" );
 
-    trx.update_signing_key( delegate_record->id, block_signing_key );
+    trx.update_signing_key( delegate_record->id, signing_key );
     deduct_balance( authorizing_account_record->owner_address(), asset() );
 
     ledger_entry entry;
@@ -555,7 +577,7 @@ transaction_builder& transaction_builder::update_block_signing_key( const string
 
     required_signatures.insert( authorizing_account_record->active_key() );
     return *this;
-} FC_CAPTURE_AND_RETHROW( (authorizing_account_name)(delegate_name)(block_signing_key) ) }
+} FC_CAPTURE_AND_RETHROW( (authorizing_account_name)(delegate_name)(signing_key) ) }
 
 transaction_builder& transaction_builder::update_asset( const string& symbol,
                                                         const optional<string>& name,
@@ -563,12 +585,12 @@ transaction_builder& transaction_builder::update_asset( const string& symbol,
                                                         const optional<variant>& public_data,
                                                         const optional<double>& maximum_share_supply,
                                                         const optional<uint64_t>& precision,
-                                                        const share_type& issuer_fee,
+                                                        const share_type issuer_fee,
                                                         uint32_t flags,
                                                         uint32_t issuer_perms,
                                                         const optional<account_id_type> issuer_account_id,
                                                         uint32_t required_sigs,
-                                                        const vector<address>& authority 
+                                                        const vector<address>& authority
                                                         )
 { try {
     const oasset_record asset_record = _wimpl->_blockchain->get_asset_record( symbol );
@@ -577,7 +599,7 @@ transaction_builder& transaction_builder::update_asset( const string& symbol,
     const oaccount_record issuer_account_record = _wimpl->_blockchain->get_account_record( asset_record->issuer_account_id );
     if( !issuer_account_record.valid() )
         FC_THROW_EXCEPTION( unknown_account, "Unknown issuer account id!" );
-    
+
     account_id_type new_issuer_account_id;
     if( issuer_account_id.valid() )
         new_issuer_account_id = *issuer_account_id;
@@ -639,7 +661,7 @@ transaction_builder& transaction_builder::finalize( bool pay_fee )
 
 wallet_transaction_record& transaction_builder::sign()
 { try {
-   auto chain_id = _wimpl->_blockchain->chain_id();
+   const auto chain_id = _wimpl->_blockchain->get_chain_id();
 
    for( const auto& address : required_signatures )
    {
@@ -671,7 +693,8 @@ std::vector<bts::mail::message> transaction_builder::encrypted_notifications()
    }
    return messages;
 }
-
+// First handles a margin position close and the collateral is returned.  Calls withdraw_fee() to
+// to handle the more common cases.
 void transaction_builder::pay_fee()
 { try {
    auto available_balances = all_positive_balances();
@@ -714,7 +737,7 @@ void transaction_builder::pay_fee()
 } FC_RETHROW_EXCEPTIONS( warn, "All balances: ${bals}", ("bals", outstanding_balances) ) }
 
 
-transaction_builder& transaction_builder::withdraw_from_balance(const balance_id_type& from, const share_type& amount)
+transaction_builder& transaction_builder::withdraw_from_balance(const balance_id_type& from, const share_type amount)
 { try {
     // TODO ledger entries
     auto obalance = _wimpl->_blockchain->get_balance_record( from );
@@ -744,20 +767,21 @@ transaction_builder& transaction_builder::deposit_to_balance(const balance_id_ty
     return *this;
 }
 
-transaction_builder& transaction_builder::asset_authorize_key( const string& symbol, 
-                                                               const address& owner,  
+transaction_builder& transaction_builder::asset_authorize_key( const string& symbol,
+                                                               const address& owner,
                                                                object_id_type meta )
 { try {
    const oasset_record asset_record = _wimpl->_blockchain->get_asset_record( symbol );
    FC_ASSERT( asset_record.valid() );
-   trx.authorize_key( asset_record->id, owner, meta ); 
+   trx.authorize_key( asset_record->id, owner, meta );
    return *this;
 } FC_CAPTURE_AND_RETHROW( (symbol)(owner)(meta) ) }
 
-//Time to get desperate
+//Most common case where the fee gets paid
+//Called when pay_fee doesn't find a positive balance in the trx to pay the fee with
 bool transaction_builder::withdraw_fee()
 {
-   const auto balances = _wimpl->self->get_account_balances( "", false );
+   const auto balances = _wimpl->self->get_spendable_account_balances();
 
    //Shake 'em down
    for( const auto& item : outstanding_balances )
@@ -776,8 +800,10 @@ bool transaction_builder::withdraw_fee()
           const asset balance( balance_item.second, balance_item.first );
           const asset fee = _wimpl->self->get_transaction_fee( balance.asset_id );
           if( fee.asset_id != balance.asset_id || fee > balance )
-              continue;
+             //Forget this cheapskate
+             continue;
 
+          //Got some money, do ya? Not anymore!
           deduct_balance(bag_holder, fee);
           transaction_record.fee = fee;
           return true;

@@ -172,6 +172,32 @@
           "prerequisites" : ["wallet_unlocked"]
       },
       {
+        "method_name": "wallet_import_keys_from_json",
+        "description": "Imports anything that looks like a private key from the given JSON file.",
+        "return_type": "void",
+        "parameters" :
+          [
+            {
+              "name" : "json_filename",
+              "type" : "filename",
+              "description" : "the full path and filename of JSON wallet to import",
+              "example" : "/path/to/exported_wallet.json"
+            },
+            {
+              "name" : "imported_wallet_passphrase",
+              "type" : "passphrase",
+              "description" : "passphrase for encrypted keys"
+            },
+            {
+              "name" : "account",
+              "type" : "account_name",
+              "description" : "Account into which to import keys."
+            }
+          ],
+        "prerequisites" : ["json_authenticated"],
+        "aliases" : ["import_keys_from_json"]
+      },
+      {
         "method_name": "wallet_close",
         "description": "Closes the curent wallet if one is open",
         "return_type": "void",
@@ -462,14 +488,6 @@
         "prerequisites" : ["wallet_unlocked"],
         "is_const": true,
         "aliases" : ["hx"]
-      },
-      {
-        "method_name": "wallet_check_sharedrop",
-        "description": "",
-        "return_type": "snapshot_record_list",
-        "parameters" : [],
-        "prerequisites" : ["wallet_open"],
-        "is_const": true
       },
       {
         "method_name": "wallet_remove_transaction",
@@ -913,6 +931,11 @@
         "parameters":
         [
             {
+              "name": "symbol",
+              "type": "string",
+              "description": "which asset"
+            },
+            {
               "name": "m",
               "type": "uint32_t",
               "description": "Required number of signatures"
@@ -1056,7 +1079,14 @@
                 "type": "bool",
                 "description": "",
                 "default_value": true
+            },
+            {
+              "name" : "builder_path",
+              "type" : "string",
+              "description" : "If specified, will write builder here instead of to DATA_DIR/transactions/latest.trx",
+              "default_value" : ""
             }
+
         ],
         "prerequisites": ["json_authenticated"],
         "aliases": ["withdraw_from_legacy_address"],
@@ -1116,18 +1146,47 @@
             {
                 "name": "builder",
                 "type": "transaction_builder",
-                "description": "A transaction builder object created by a wallet."
+                "description": "A transaction builder object created by a wallet. If null, tries to use builder in file."
             },
             {
                 "name": "broadcast",
                 "type": "bool",
                 "description": "Try to broadcast this transaction?",
                 "default_value": false
+            },
+            {
+              "name" : "builder_path",
+              "type" : "string",
+              "description" : "If specified, will write builder here instead of to DATA_DIR/transactions/latest.trx",
+              "default_value" : ""
             }
         ],
         "prerequisites": ["json_authenticated"],
         "aliases": ["add_signature"]
       },
+    {
+        "method_name": "wallet_builder_file_add_signature",
+        "description": "Review a transaction in a builder file and add a signature.",
+        "return_type": "transaction_builder",
+        "parameters":
+        [
+            {
+                "name": "broadcast",
+                "type": "bool",
+                "description": "Try to broadcast this transaction?",
+                "default_value": false
+            },
+            {
+              "name" : "builder_path",
+              "type" : "string",
+              "description" : "If specified, will write builder here instead of to DATA_DIR/transactions/latest.trx",
+              "default_value" : ""
+            }
+        ],
+        "prerequisites": ["json_authenticated"],
+        "aliases": ["add_signature_to_file"]
+      },
+
     {
         "method_name": "wallet_release_escrow",
         "description": "Releases escrow balance to third parties",
@@ -1151,13 +1210,13 @@
             },
             {
                 "name": "amount_to_sender",
-                "type": "share_type",
+                "type": "real_amount",
                 "description": "Amount to release back to the sender.",
                 "default_value": 0
             },
             {
                 "name": "amount_to_receiver",
-                "type": "share_type",
+                "type": "real_amount",
                 "description": "Amount to release to receiver.",
                 "default_value": 0
             }
@@ -1275,26 +1334,28 @@
         "parameters" :
           [
             {
-              "name" : "first_block_number",
+              "name" : "start_block_num",
               "type" : "uint32_t",
               "description" : "the first block to scan",
               "default_value" : 0
             },
             {
-              "name" : "num_blocks",
+              "name" : "limit",
               "type" : "uint32_t",
-              "description" : "the number of blocks to scan",
+              "description" : "the maximum number of blocks to scan",
               "default_value" : -1
-            },
-            {
-              "name" : "fast_scan",
-              "type" : "bool",
-              "description" : "true to scan as fast as possible but freeze the rest of your computer, and false otherwise",
-              "default_value" : false
             }
           ],
         "prerequisites" : ["wallet_unlocked"],
         "aliases" : ["scan", "rescan"]
+      },
+      {
+        "method_name": "wallet_cancel_scan",
+        "description": "Cancel any current scan task",
+        "return_type": "void",
+        "parameters" : [],
+        "prerequisites" : ["wallet_unlocked"],
+        "aliases" : []
       },
       {
         "method_name": "wallet_get_transaction",
@@ -1813,20 +1874,20 @@
          "aliases" : []
       },
       {
-         "method_name"    : "wallet_account_balance_ids",
-         "description"    : "Lists the balance record ids for the specified account",
-         "return_type"    : "account_balance_id_summary_type",
+         "method_name"    : "wallet_account_vesting_balances",
+         "description"    : "List the vesting balances available to the specified account",
+         "return_type"    : "account_vesting_balance_summary_type",
          "parameters"     : [
          {
             "name" : "account_name",
             "type" : "account_name",
-            "description" : "the account to list balance ids for, or leave empty for all accounts",
+            "description" : "the account name to list vesting balances for, or leave empty for all accounts",
             "default_value" : ""
          }
          ],
          "is_const" : true,
          "prerequisites" : ["wallet_open"],
-         "aliases" : []
+         "aliases" : [ "vesting" ]
       },
       {
          "method_name"    : "wallet_account_yield",
@@ -1964,7 +2025,7 @@
             {
                "name" : "quantity",
                "type" : "string",
-               "description" : "the quantity of items you would like to buy"
+               "description" : "the maximum quantity of items you would like to buy"
             },
             {
                "name" : "quantity_symbol",
@@ -1984,7 +2045,13 @@
             {
                "name" : "limit_price",
                "type" : "string",
-               "description" : "the limit on what you are willing to pay",
+               "description" : "the maximum unit price you are willing to pay",
+               "default_value" : ""
+            },
+            {
+               "name" : "funding",
+               "type" : "string",
+               "description" : "max total cost of this order (defaults to qty x limit_price or current feed)",
                "default_value" : ""
             }
          ],
@@ -2177,17 +2244,38 @@
       },
       {
          "method_name" : "wallet_dump_private_key",
-         "description" : "Reveals the private key corresponding to an account, public key, or address",
-         "return_type"  : "string",
+         "description" : "Reveals the private key corresponding to the specified public key or address; use with caution",
+         "return_type"  : "optional_string",
          "parameters" : [
              {
                 "name" : "input",
                 "type" : "string",
-                "description" : "an account name, public key, or address (quoted hash of public key)"
+                "description" : "public key or address to dump private key for"
              }
          ],
+         "is_const" : true,
          "prerequisites" : ["wallet_unlocked"],
          "aliases" : [ "dump_private_key", "dumpprivkey" ]
+      },
+      {
+         "method_name" : "wallet_dump_account_private_key",
+         "description" : "Reveals the specified account private key; use with caution",
+         "return_type"  : "optional_string",
+         "parameters" : [
+             {
+                "name" : "account_name",
+                "type" : "string",
+                "description" : "account name to dump private key for"
+             },
+             {
+                "name" : "key_type",
+                "type" : "account_key_type",
+                "description" : "which account private key to dump; one of {owner_key, active_key, signing_key}"
+             }
+         ],
+         "is_const" : true,
+         "prerequisites" : ["wallet_unlocked"],
+         "aliases" : []
       },
       {
          "method_name" : "wallet_account_vote_summary",
@@ -2206,8 +2294,8 @@
          "aliases" : ["votes"]
       },
       {
-         "method_name" : "wallet_check_vote_proportion",
-         "description" : "Check how much this account is utilizing its voting power",
+         "method_name" : "wallet_check_vote_status",
+         "description" : "Get info about the votes of balances controlled by this account",
          "return_type" : "vote_summary",
          "parameters"  : [
              {
@@ -2361,6 +2449,12 @@
                   "type" : "bool",
                   "description" : "",
                   "default_value" : "true"
+               },
+               {
+                  "name" : "builder_path",
+                  "type" : "string",
+                  "description" : "If specified, will write builder here instead of to DATA_DIR/transactions/latest.trx",
+                  "default_value" : ""
                }
             ],
          "prerequisites" : ["wallet_open"],
@@ -2405,6 +2499,19 @@
          "prerequisites" : ["wallet_unlocked"]
       },
       {
+         "method_name" : "wallet_collect_genesis_balances",
+         "description" : "Collect specified account's genesis balances",
+         "return_type" : "transaction_record",
+         "parameters"  : [
+            {
+                "name" : "account_name",
+                "type" : "account_name",
+                "description" : "account to collect genesis balances for"
+            }
+         ],
+         "prerequisites" : ["wallet_unlocked"]
+      },
+      {
          "method_name" : "wallet_collect_vested_balances",
          "description" : "Collect specified account's vested balances",
          "return_type" : "transaction_record",
@@ -2418,7 +2525,7 @@
          "prerequisites" : ["wallet_unlocked"]
       },
       {
-         "method_name" : "wallet_delegate_update_block_signing_key",
+         "method_name" : "wallet_delegate_update_signing_key",
          "description" : "Update a delegate's block signing and feed publishing key",
          "return_type" : "transaction_record",
          "parameters"  : [
@@ -2433,7 +2540,7 @@
                 "description" : "The delegate account which will have its block signing key changed"
             },
             {
-                "name" : "block_signing_key",
+                "name" : "signing_key",
                 "type" : "public_key",
                 "description" : "The new key that will be used for block signing"
             }
@@ -2692,6 +2799,6 @@
          ],
          "is_const" : true,
          "prerequisites" : []
-      },
+      }
     ]
 }

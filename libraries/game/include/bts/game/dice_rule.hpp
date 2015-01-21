@@ -74,7 +74,6 @@ namespace bts { namespace game {
         static bool scan_result( const rule_result_transaction& rtrx,
                                        uint32_t block_num,
                                        const time_point_sec& block_time,
-                                       const time_point_sec& received_time,
                          const uint32_t trx_index, bts::wallet::wallet_ptr w);
         
         static wallet_transaction_record play( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, const variant& params, bool sign);

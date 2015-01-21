@@ -87,14 +87,21 @@ namespace bts { namespace blockchain {
    FC_DECLARE_DERIVED_EXCEPTION( insufficient_collateral,           bts::blockchain::evaluation_error, 37004, "insufficient collateral" );
    FC_DECLARE_DERIVED_EXCEPTION( insufficient_depth,                bts::blockchain::evaluation_error, 37005, "insufficient depth" );
    FC_DECLARE_DERIVED_EXCEPTION( insufficient_feeds,                bts::blockchain::evaluation_error, 37006, "insufficient feeds" );
+
+   FC_DECLARE_DERIVED_EXCEPTION( invalid_feed_price,                bts::blockchain::evaluation_error, 37007, "invalid feed price" );
+
+   FC_DECLARE_DERIVED_EXCEPTION( price_multiplication_overflow,     bts::blockchain::evaluation_error, 38001, "price multiplication overflow" );
+   FC_DECLARE_DERIVED_EXCEPTION( price_multiplication_underflow,    bts::blockchain::evaluation_error, 38002, "price multiplication underflow" );
+   FC_DECLARE_DERIVED_EXCEPTION( price_multiplication_undefined,    bts::blockchain::evaluation_error, 38003, "price multiplication undefined product 0*inf" );
+
    FC_DECLARE_DERIVED_EXCEPTION( invalid_dice_odds,                 bts::blockchain::evaluation_error, 100000, "invalid dice odds" );
    FC_DECLARE_DERIVED_EXCEPTION( duplicate_dice_in_transaction,     bts::blockchain::evaluation_error, 100001, "duplicate dice in transactions" );
    FC_DECLARE_DERIVED_EXCEPTION( invalid_chip_symbol,               bts::blockchain::evaluation_error, 100002, "invalid chip symbol" );
    FC_DECLARE_DERIVED_EXCEPTION( game_symbol_in_use,                bts::blockchain::evaluation_error, 100003,
        "game symbol in use" );
-    FC_DECLARE_DERIVED_EXCEPTION( invalid_game_name,                bts::blockchain::evaluation_error, 100004,
-                                 "invalid game name" );
-    FC_DECLARE_DERIVED_EXCEPTION( game_id_in_use,                   bts::blockchain::evaluation_error, 100005,
+   FC_DECLARE_DERIVED_EXCEPTION( invalid_game_name,                 bts::blockchain::evaluation_error, 100004,
+                                "invalid game name" );
+   FC_DECLARE_DERIVED_EXCEPTION( game_id_in_use,                    bts::blockchain::evaluation_error, 100005,
                                  "game id in use" );
 
 } } // bts::blockchain

@@ -1,6 +1,6 @@
 #include <bts/blockchain/balance_operations.hpp>
-#include <bts/blockchain/chain_interface.hpp>
 #include <bts/blockchain/exceptions.hpp>
+#include <bts/blockchain/pending_chain_state.hpp>
 
 namespace bts { namespace blockchain {
 
@@ -82,7 +82,6 @@ namespace bts { namespace blockchain {
       if( this->slate.supported_delegates.size() > BTS_BLOCKCHAIN_MAX_SLATE_SIZE )
          FC_CAPTURE_AND_THROW( too_may_delegates_in_slate, (slate.supported_delegates.size()) );
 
-
       const slate_id_type slate_id = this->slate.id();
       const odelegate_slate current_slate = eval_state._current_state->get_delegate_slate( slate_id );
       if( NOT current_slate.valid() )
@@ -116,6 +115,8 @@ namespace bts { namespace blockchain {
        if( !cur_record.valid() )
        {
           cur_record = balance_record( this->condition );
+          if( this->condition.type == withdraw_escrow_type )
+             cur_record->meta_data = variant_object("creating_transaction_id", eval_state.trx.id() );
        }
 
        if( cur_record->balance == 0 )
@@ -141,16 +142,16 @@ namespace bts { namespace blockchain {
 
        cur_record->last_update = eval_state._current_state->now();
 
-       auto asset_rec = eval_state._current_state->get_asset_record( cur_record->condition.asset_id );
+       const oasset_record asset_rec = eval_state._current_state->get_asset_record( cur_record->condition.asset_id );
+       FC_ASSERT( asset_rec.valid() );
 
        if( asset_rec->is_market_issued() ) FC_ASSERT( cur_record->condition.slate_id == 0 );
 
-       FC_ASSERT( asset_rec.valid() );
        if( asset_rec->is_restricted() )
        {
-         for(auto owner : cur_record->owners())
+         for( const auto& owner : cur_record->owners() )
          {
-           FC_ASSERT(eval_state._current_state->get_authorization(asset_rec->id, owner));
+           FC_ASSERT( eval_state._current_state->get_authorization(asset_rec->id, owner) );
          }
        }
 
@@ -313,7 +314,7 @@ namespace bts { namespace blockchain {
       FC_ASSERT( escrow_balance_record.valid() );
 
       if( !eval_state.check_signature( this->released_by ) )
-         FC_ASSERT( !"transaction not signed by releasor" );
+         FC_ASSERT( false, "transaction not signed by releasor" );
 
       auto escrow_condition = escrow_balance_record->condition.as<withdraw_with_escrow>();
       auto total_released = amount_to_sender + amount_to_receiver;
@@ -441,12 +442,11 @@ namespace bts { namespace blockchain {
       }
       else
       {
-          FC_ASSERT( !"not released by a party to the escrow transaction" );
+          FC_ASSERT( false, "not released by a party to the escrow transaction" );
       }
 
       eval_state._current_state->store_balance_record( *escrow_balance_record );
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
-
 
    void update_balance_vote_operation::evaluate( transaction_evaluation_state& eval_state )
    { try {
@@ -464,6 +464,8 @@ namespace bts { namespace blockchain {
 #ifndef WIN32
 #warning figure out how to set the real fee here
 #endif
+
+      FC_ASSERT( balance > fee );
 
       auto asset_rec = eval_state._current_state->get_asset_record( current_balance_record->condition.asset_id );
       if( asset_rec->is_market_issued() ) FC_ASSERT( current_balance_record->condition.slate_id == 0 );
@@ -509,14 +511,17 @@ namespace bts { namespace blockchain {
           if( NOT eval_state.check_signature( *restricted_owner ) )
           {
               for( const auto& owner : current_balance_record->owners() ) //eventually maybe multisig can delegate vote
+              {
                   if( NOT eval_state.check_signature( owner ) )
                       FC_CAPTURE_AND_THROW( missing_signature, (owner) );
+              }
           }
           new_slate = this->new_slate;
       }
 
-      withdraw_condition new_condition(withdraw_with_signature(current_balance_record->owner()),
-                                       0, new_slate);
+      const auto owner = current_balance_record->owner();
+      FC_ASSERT( owner.valid() );
+      withdraw_condition new_condition( withdraw_with_signature( *owner ), 0, new_slate );
       balance_record newer_balance_record( new_condition );
       auto new_balance_record = eval_state._current_state->get_balance_record( newer_balance_record.id() );
       if( !new_balance_record.valid() )
@@ -553,6 +558,9 @@ namespace bts { namespace blockchain {
 
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
-
+   void pay_fee_operation::evaluate( transaction_evaluation_state& eval_state )
+   { try {
+      eval_state._max_fee[this->amount.asset_id] += this->amount.amount;
+   } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
 } } // bts::blockchain

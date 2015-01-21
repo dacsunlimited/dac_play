@@ -38,7 +38,7 @@ namespace bts { namespace blockchain {
 
    const operation_type_enum release_escrow_operation::type         = release_escrow_op_type;
 
-   const operation_type_enum update_block_signing_key::type         = update_block_signing_key_type;
+   const operation_type_enum update_signing_key_operation::type     = update_signing_key_op_type;
 
    const operation_type_enum buy_chips_operation::type              = buy_chips_type;
    const operation_type_enum relative_bid_operation::type           = relative_bid_op_type;
@@ -54,6 +54,7 @@ namespace bts { namespace blockchain {
     const operation_type_enum create_game_operation::type       = create_game_operation_type;
 
    const operation_type_enum set_edge_operation::type               = set_edge_op_type;
+   const operation_type_enum pay_fee_operation::type               = pay_fee_op_type;
 
    static bool first_chain = []()->bool{
       bts::blockchain::operation_factory::instance().register_operation<withdraw_operation>();
@@ -77,7 +78,7 @@ namespace bts { namespace blockchain {
 
       bts::blockchain::operation_factory::instance().register_operation<release_escrow_operation>();
 
-      bts::blockchain::operation_factory::instance().register_operation<update_block_signing_key>();
+      bts::blockchain::operation_factory::instance().register_operation<update_signing_key_operation>();
 
       bts::blockchain::operation_factory::instance().register_operation<relative_bid_operation>();
       bts::blockchain::operation_factory::instance().register_operation<relative_ask_operation>();
@@ -94,6 +95,7 @@ namespace bts { namespace blockchain {
        bts::blockchain::operation_factory::instance().register_operation<create_game_operation>();
 
       bts::blockchain::operation_factory::instance().register_operation<set_edge_operation>();
+      bts::blockchain::operation_factory::instance().register_operation<pay_fee_operation>();
 
       return true;
    }();

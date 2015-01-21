@@ -44,8 +44,10 @@ namespace bts { namespace blockchain {
          return fc::raw::unpack<WithdrawType>(data);
       }
 
-      balance_id_type get_address()const;
-      string type_label()const;
+      balance_id_type   get_address()const;
+      set<address>      owners()const;
+      optional<address> owner()const;
+      string            type_label()const;
 
       asset_id_type                                     asset_id;
       slate_id_type                                     slate_id = 0;
@@ -86,6 +88,27 @@ namespace bts { namespace blockchain {
    };
    typedef fc::optional<memo_data>         omemo_data;
 
+   /** The purpose of the extended memo data is to support extra
+    * message data beyond the 19 bytes afforded by the default
+    * message.
+    */
+   struct extended_memo_data
+   {
+      public_key_type                      from;
+      uint64_t                             from_signature = 0;
+
+      void        set_message( const std::string& message );
+      std::string get_message()const;
+
+      /** messages are a constant length to preven analysis of
+       * transactions with the same length memo_data
+       */
+      fc::array<char,BTS_BLOCKCHAIN_MAX_MEMO_SIZE>  message;
+      fc::enum_type<uint8_t,memo_flags_enum>        memo_flags;
+      fc::array<char,32>                            extra_message;
+   };
+   typedef fc::optional<extended_memo_data> oextended_memo_data;
+
    struct memo_status : public memo_data
    {
       memo_status(){}
@@ -107,14 +130,16 @@ namespace bts { namespace blockchain {
 
       omemo_status     decrypt_memo_data( const fc::ecc::private_key& receiver_key, bool ignore_owner = false )const;
       public_key_type  encrypt_memo_data( const fc::ecc::private_key& one_time_private_key,
-                                      const fc::ecc::public_key&  to_public_key,
-                                      const fc::ecc::private_key& from_private_key,
-                                      const std::string& memo_message,
-                                      const fc::ecc::public_key&  memo_pub_key,
-                                      memo_flags_enum memo_type = from_memo);
+                                          const fc::ecc::public_key&  to_public_key,
+                                          const fc::ecc::private_key& from_private_key,
+                                          const std::string& memo_message,
+                                          const fc::ecc::public_key&  memo_pub_key,
+                                          memo_flags_enum memo_type = from_memo,
+                                          bool use_stealth_address = true);
 
       memo_data    decrypt_memo_data( const fc::sha512& secret )const;
       void         encrypt_memo_data( const fc::sha512& secret, const memo_data& );
+      void         encrypt_memo_data( const fc::sha512& secret, const extended_memo_data& );
 
       address                 owner;
       optional<titan_memo>    memo;
@@ -224,6 +249,14 @@ FC_REFLECT( bts::blockchain::memo_data,
         (from_signature)
         (message)
         (memo_flags)
+        )
+
+FC_REFLECT( bts::blockchain::extended_memo_data,
+        (from)
+        (from_signature)
+        (message)
+        (memo_flags)
+        (extra_message)
         )
 FC_REFLECT_DERIVED( bts::blockchain::memo_status,
         (bts::blockchain::memo_data),

@@ -4,7 +4,8 @@
 #include <bts/blockchain/transaction.hpp>
 
 namespace bts { namespace blockchain {
-    
+    class chain_interface;
+    struct game_db_interface;
     struct game_record
     {
         enum
@@ -16,7 +17,7 @@ namespace bts { namespace blockchain {
         game_record make_null()const;
         bool is_null()const               { return issuer_account_id == null_issuer_id; };
         
-        bool is_user_issued()const        { return issuer_account_id > god_issuer_id; };
+        bool is_user_issued()const        { return issuer_account_id > god_issuer_id;};
         
         game_id_type        id;
         std::string         symbol;
@@ -31,8 +32,27 @@ namespace bts { namespace blockchain {
         
         /** reserved for future extensions */
         vector<char>        reserved;
+        
+        static const game_db_interface& db_interface( const chain_interface& );
     };
     typedef fc::optional<game_record> ogame_record;
+    
+    struct game_db_interface
+    {
+        std::function<ogame_record( const game_id_type )>               lookup_by_id;
+        std::function<ogame_record( const string& )>                    lookup_by_symbol;
+        
+        std::function<void( const game_id_type, const game_record& )>  insert_into_id_map;
+        std::function<void( const string&, const game_id_type )>        insert_into_symbol_map;
+        
+        std::function<void( const game_id_type )>                       erase_from_id_map;
+        std::function<void( const string& )>                            erase_from_symbol_map;
+        
+        ogame_record lookup( const game_id_type )const;
+        ogame_record lookup( const string& )const;
+        void store( const game_record& )const;
+        void remove( const game_id_type )const;
+    };
     
     struct rule_data_record
     {
