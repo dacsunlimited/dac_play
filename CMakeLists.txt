@@ -10,12 +10,12 @@ cmake_minimum_required( VERSION 2.8.12 )
 # develop branch                => BitSharesTestNet
 # devshares branch              => DevShares
 # bitshares and master branches => BitShares
-set( BLOCKCHAIN_NAME "BitSharesTestNet" )
+set( BLOCKCHAIN_NAME "DACPLAY" )
 
-if( BLOCKCHAIN_NAME STREQUAL BitShares )
+if( BLOCKCHAIN_NAME STREQUAL DACPLAY )
   set( CLI_CLIENT_EXECUTABLE_NAME bitshares_client )
-  set( GUI_CLIENT_EXECUTABLE_NAME BitShares )
-  set( CUSTOM_URL_SCHEME "bts" )
+  set( GUI_CLIENT_EXECUTABLE_NAME DACPLAY )
+  set( CUSTOM_URL_SCHEME "pls" )
   set( INSTALLER_APP_ID "68ad7005-8eee-49c9-95ce-9eed97e5b347" )
 elseif( BLOCKCHAIN_NAME STREQUAL DevShares )
   set( CLI_CLIENT_EXECUTABLE_NAME devshares_client )
