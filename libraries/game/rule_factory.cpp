@@ -49,7 +49,7 @@ namespace bts { namespace game {
     void rule_factory::execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
     {
         // TODO: FIXME
-        auto games = blockchain->get_games(0, -1);
+        auto games = blockchain->get_games("", -1);
         
         for ( const auto& g : games)
         {
