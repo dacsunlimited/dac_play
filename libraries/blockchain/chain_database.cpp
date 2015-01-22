@@ -1093,6 +1093,7 @@ namespace bts { namespace blockchain {
 
       init_account_db_interface();
       init_asset_db_interface();
+       init_game_db_interface();
       init_balance_db_interface();
       init_transaction_db_interface();
       init_feed_db_interface();
