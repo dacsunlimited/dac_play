@@ -365,6 +365,8 @@ namespace bts { namespace blockchain {
          self->set_property( chain_property_enum::active_delegate_list_id, fc::variant( self->next_round_active_delegates() ) );
          self->set_statistics_enabled( statistics_enabled );
          self->set_property( chain_property_enum::last_object_id, 0 );
+         // No game in genesis for now
+         self->set_property( chain_property_enum::last_game_id, 0 );
 
          self->sanity_check();
          return chain_id;
