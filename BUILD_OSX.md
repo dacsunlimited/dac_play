@@ -28,6 +28,8 @@ BitShares OS X Build Instructions
    ```
    brew install google-perftools
    ```
+   Tip: For those who can not download the file with curl due to gfw, refer https://github.com/shadowsocks/shadowsocks/wiki/Using-Shadowsocks-with-Command-Line-Tools
+   and http://www.v2ex.com/t/138697
 
 7. Clone the BitShares repository:
    ```
