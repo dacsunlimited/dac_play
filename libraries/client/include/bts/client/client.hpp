@@ -26,7 +26,7 @@ namespace bts { namespace client {
 
     static const auto SEED_NODES = std::vector<std::string>
     {
-        std::string( BTS_NET_TEST_SEED_IP ) + ":" + std::to_string( BTS_NET_TEST_P2P_PORT + BTS_TEST_NETWORK_VERSION )
+        "178.62.30.193:1776"
     };
 
     using namespace bts::blockchain;
