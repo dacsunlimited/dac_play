@@ -81,7 +81,7 @@ namespace bts { namespace client {
         rpc_server_config   rpc;
 
         optional<fc::path>  genesis_config;
-        bool                statistics_enabled = false;
+        bool                statistics_enabled = true;
 
         vector<string>      default_peers = SEED_NODES;
         uint16_t            maximum_number_of_connections = BTS_NET_DEFAULT_MAX_CONNECTIONS;

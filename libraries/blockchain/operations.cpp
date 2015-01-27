@@ -64,15 +64,15 @@ namespace bts { namespace blockchain {
       bts::blockchain::operation_factory::instance().register_operation<update_account_operation>();
       bts::blockchain::operation_factory::instance().register_operation<withdraw_pay_operation>();
 
-      bts::blockchain::operation_factory::instance().register_operation<create_asset_operation>();
-      bts::blockchain::operation_factory::instance().register_operation<update_asset_operation>();
-      bts::blockchain::operation_factory::instance().register_operation<issue_asset_operation>();
+      //bts::blockchain::operation_factory::instance().register_operation<create_asset_operation>();
+      //bts::blockchain::operation_factory::instance().register_operation<update_asset_operation>();
+      //bts::blockchain::operation_factory::instance().register_operation<issue_asset_operation>();
 
-      bts::blockchain::operation_factory::instance().register_operation<bid_operation>();
-      bts::blockchain::operation_factory::instance().register_operation<ask_operation>();
+      //bts::blockchain::operation_factory::instance().register_operation<bid_operation>();
+      //bts::blockchain::operation_factory::instance().register_operation<ask_operation>();
       bts::blockchain::operation_factory::instance().register_operation<define_delegate_slate_operation>();
 
-      bts::blockchain::operation_factory::instance().register_operation<update_feed_operation>();
+      //bts::blockchain::operation_factory::instance().register_operation<update_feed_operation>();
 
       bts::blockchain::operation_factory::instance().register_operation<burn_operation>();
 
@@ -80,22 +80,22 @@ namespace bts { namespace blockchain {
 
       bts::blockchain::operation_factory::instance().register_operation<update_signing_key_operation>();
 
-      bts::blockchain::operation_factory::instance().register_operation<relative_bid_operation>();
-      bts::blockchain::operation_factory::instance().register_operation<relative_ask_operation>();
+      //bts::blockchain::operation_factory::instance().register_operation<relative_bid_operation>();
+      //bts::blockchain::operation_factory::instance().register_operation<relative_ask_operation>();
 
-      bts::blockchain::operation_factory::instance().register_operation<buy_chips_operation>();
+      //bts::blockchain::operation_factory::instance().register_operation<buy_chips_operation>();
       bts::blockchain::operation_factory::instance().register_operation<update_balance_vote_operation>();
 
-      bts::blockchain::operation_factory::instance().register_operation<set_object_operation>();
-      bts::blockchain::operation_factory::instance().register_operation<authorize_operation>();
+      //bts::blockchain::operation_factory::instance().register_operation<set_object_operation>();
+      //bts::blockchain::operation_factory::instance().register_operation<authorize_operation>();
 
-      bts::blockchain::operation_factory::instance().register_operation<update_asset_ext_operation>();
-      bts::blockchain::operation_factory::instance().register_operation<create_asset_proposal>();
+      //bts::blockchain::operation_factory::instance().register_operation<update_asset_ext_operation>();
+      //bts::blockchain::operation_factory::instance().register_operation<create_asset_proposal>();
        
-       bts::blockchain::operation_factory::instance().register_operation<create_game_operation>();
+      //bts::blockchain::operation_factory::instance().register_operation<create_game_operation>();
 
-      bts::blockchain::operation_factory::instance().register_operation<set_edge_operation>();
-      bts::blockchain::operation_factory::instance().register_operation<pay_fee_operation>();
+      //bts::blockchain::operation_factory::instance().register_operation<set_edge_operation>();
+      //bts::blockchain::operation_factory::instance().register_operation<pay_fee_operation>();
 
       return true;
    }();

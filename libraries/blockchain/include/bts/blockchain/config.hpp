@@ -21,7 +21,7 @@
 #define BTS_ADDRESS_PREFIX                                  "PLS"
 #define BTS_BLOCKCHAIN_SYMBOL                               "PLS"
 #define BTS_BLOCKCHAIN_NAME                                 "BitShares PLAY"
-#define BTS_BLOCKCHAIN_DESCRIPTION                          "BitShares PLAY TestNet Network"
+#define BTS_BLOCKCHAIN_DESCRIPTION                          "BitShares PLAY DryRun Network"
 
 #define BTS_BLOCKCHAIN_PRECISION                            100000
 
