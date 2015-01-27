@@ -149,7 +149,12 @@ else( WIN32 ) # Apple AND Linux
         list(APPEND LEVELDB_BUILD_LIBRARIES pthread)
     endif()
 
-    find_package( Gperftools QUIET )
+    if(CMAKE_GENERATOR STREQUAL Xcode)
+        message( STATUS "gperftools is disabled when using Xcode generator")
+    else()
+        find_package( Gperftools QUIET )
+    endif()
+
     if( GPERFTOOLS_FOUND )
         message( STATUS "Found gperftools; compiling LevelDB with TCMalloc")
         list(APPEND LEVELDB_BUILD_LIBRARIES tcmalloc)
