@@ -93,19 +93,19 @@ void read_keys( const fc::variant& vo, vector<private_key_type>& keys, const str
     fc::sha512 password_bytes;
     bool skip_me = false;
     try {
-        auto bytes = vo.as<vector<char>>();
+        bytes = vo.as<vector<char>>();
         password_bytes = fc::sha512::hash( password.c_str(), password.size() );
     }
     catch (...)
     {
-        ulog("error, setting skip_me=true");
+        ilog("error, setting skip_me=true");
         ilog("@n I couldn't parse that as a byte array: ${vo}", ("vo", vo));
         skip_me = true;
 
     }
     if( NOT skip_me )
     {
-        ulog("not skipping");
+        ilog("not skipping");
         try {
             plain_text = fc::aes_decrypt( password_bytes, bytes );
             keys.push_back( fc::raw::unpack<private_key_type>( plain_text ) );
