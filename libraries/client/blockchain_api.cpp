@@ -1,5 +1,6 @@
 #include <bts/blockchain/exceptions.hpp>
 #include <bts/blockchain/account_operations.hpp>
+#include <bts/blockchain/balance_operations.hpp>
 #include <bts/blockchain/time.hpp>
 #include <bts/client/client.hpp>
 #include <bts/client/client_impl.hpp>
@@ -137,9 +138,13 @@ oaccount_record detail::client_impl::blockchain_get_account( const string& accou
       ASSERT_TASK_NOT_PREEMPTED(); // make sure no cancel gets swallowed by catch(...)
       if( std::all_of( account.begin(), account.end(), ::isdigit) )
          return _chain_db->get_account_record( std::stoi( account ) );
-      else if( account.substr( 0, string( BTS_ADDRESS_PREFIX ).size() ) == BTS_ADDRESS_PREFIX )
-         return _chain_db->get_account_record( address( public_key_type( account ) ) );
-      else
+      else if( account.substr( 0, string( BTS_ADDRESS_PREFIX ).size() ) == BTS_ADDRESS_PREFIX ) {
+         //Magic number 39 is hopefully longer than the longest address and shorter than the shortest key. Hopefully.
+         if( account.length() < 39 )
+            return _chain_db->get_account_record( address( account ) );
+         else
+            return _chain_db->get_account_record( address( blockchain::public_key_type( account ) ) );
+      } else
          return _chain_db->get_account_record( account );
    }
    catch( ... )
@@ -175,14 +180,14 @@ map<account_id_type, string> detail::client_impl::blockchain_get_slate( const st
         slate_id = std::stoi( slate );
     }
 
-    const odelegate_slate slate_record = _chain_db->get_delegate_slate( slate_id );
+    const oslate_record slate_record = _chain_db->get_slate_record( slate_id );
     FC_ASSERT( slate_record.valid() );
 
-    for( const account_id_type delegate_id : slate_record->supported_delegates )
+    for( const account_id_type id : slate_record->slate )
     {
-        const oaccount_record delegate_record = _chain_db->get_account_record( delegate_id );
-        FC_ASSERT( delegate_record.valid() );
-        delegates[ delegate_id ] = delegate_record->name;
+        const oaccount_record delegate_record = _chain_db->get_account_record( id );
+        if( delegate_record.valid() ) delegates[ id ] = delegate_record->name;
+        else delegates[ id ] = std::to_string( id );
     }
 
     return delegates;
@@ -332,17 +337,17 @@ map<balance_id_type, balance_record> detail::client_impl::blockchain_list_addres
     auto result =  _chain_db->get_balances_for_address( addr );
     for( auto itr = result.begin(); itr != result.end(); )
     {
-       if( fc::time_point(itr->second.last_update) < after )
+       if( fc::time_point(itr->second.last_update) <= after )
           itr = result.erase(itr);
        else
           ++itr;
     }
     return result;
 }
-map<transaction_id_type, pair<fc::time_point_sec, transaction_record>> detail::client_impl::blockchain_list_address_transactions( const string& raw_addr,
-                                                                                                                                  uint32_t after_block )const
+fc::variant_object detail::client_impl::blockchain_list_address_transactions( const string& raw_addr,
+                                                                              uint32_t after_block )const
 {
-   map<transaction_id_type,pair<fc::time_point_sec, transaction_record>> results;
+   fc::mutable_variant_object results;
 
    address addr;
    try {
@@ -361,7 +366,11 @@ map<transaction_id_type, pair<fc::time_point_sec, transaction_record>> detail::c
    ilog("Found ${num} transactions after block ${after_block}", ("num", transactions.size())("after_block", after_block));
 
    for( const auto& trx : transactions )
-      results[trx.trx.id()] = std::make_pair(_chain_db->get_block(trx.chain_location.block_num).timestamp, trx);
+   {
+      fc::mutable_variant_object bundle("timestamp", _chain_db->get_block(trx.chain_location.block_num).timestamp);
+      bundle["trx"] = trx;
+      results[string(trx.trx.id())] = bundle;
+   }
 
    return results;
 }
@@ -595,13 +604,13 @@ std::map<uint32_t, vector<fork_record>> client_impl::blockchain_list_forks()cons
    return _chain_db->get_forks_list();
 }
 
-vector<slot_record> client_impl::blockchain_get_delegate_slot_records( const string& delegate_name, uint32_t count )const
-{
-    FC_ASSERT( count > 0 );
+vector<slot_record> client_impl::blockchain_get_delegate_slot_records( const string& delegate_name, uint32_t limit )const
+{ try {
+    FC_ASSERT( limit > 0 );
     const oaccount_record delegate_record = _chain_db->get_account_record( delegate_name );
     FC_ASSERT( delegate_record.valid() && delegate_record->is_delegate(), "${n} is not a delegate!", ("n",delegate_name) );
-    return _chain_db->get_delegate_slot_records( delegate_record->id, count );
-}
+    return _chain_db->get_delegate_slot_records( delegate_record->id, limit );
+} FC_CAPTURE_AND_RETHROW( (delegate_name)(limit) ) }
 
 string client_impl::blockchain_get_block_signee( const string& block )const
 {
@@ -715,6 +724,26 @@ vector<burn_record> client_impl::blockchain_get_account_wall( const string& acco
 
 void client_impl::blockchain_broadcast_transaction(const signed_transaction& trx)
 {
+   auto collector = _chain_db->get_account_record(_config.faucet_account_name);
+   if( collector && _config.light_relay_fee )
+   {
+      for( operation op : trx.operations )
+         if( op.type == deposit_op_type )
+         {
+            deposit_operation deposit = op.as<deposit_operation>();
+            ilog("Checking if deposit ${d} is to ${c}", ("d", deposit)("c", collector->active_address()));
+            if( deposit.condition.owner() && *deposit.condition.owner() == collector->active_address() &&
+                ( (deposit.condition.asset_id == 0 && deposit.amount >= _config.light_relay_fee) ||
+                  // Sshhhhh, don't tell! TODO: figure out minimum MIA fee
+                  deposit.amount > 0 ) )
+            {
+               network_broadcast_transaction(trx);
+               return;
+            }
+         }
+
+      FC_THROW("Do I look like some kind of charity? You want your transactions sent, you pay like everyone else!");
+   }
    network_broadcast_transaction(trx);
 }
 

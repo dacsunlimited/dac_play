@@ -141,6 +141,7 @@ namespace bts { namespace blockchain {
 
          fc::ripemd160               get_current_random_seed()const override;
 
+
          account_record              get_delegate_record_for_signee( const public_key_type& block_signee )const;
          account_record              get_block_signee( const block_id_type& block_id )const;
          account_record              get_block_signee( uint32_t block_num )const;
@@ -176,10 +177,6 @@ namespace bts { namespace blockchain {
          vector<feed_record>         get_feeds_for_asset( const asset_id_type quote_id, const asset_id_type base_id )const;
          vector<feed_record>         get_feeds_from_delegate( const account_id_type delegate_id )const;
 
-         virtual odelegate_slate     get_delegate_slate( slate_id_type id )const override;
-         virtual void                store_delegate_slate( slate_id_type id,
-                                                            const delegate_slate& slate ) override;
-
          virtual otransaction_record get_transaction( const transaction_id_type& trx_id,
                                                       bool exact = true )const override;
 
@@ -190,6 +187,8 @@ namespace bts { namespace blockchain {
          virtual void                store_burn_record( const burn_record& br ) override;
          virtual oburn_record        fetch_burn_record( const burn_record_key& key )const override;
          vector<burn_record>         fetch_burn_records( const string& account_name )const;
+
+         virtual void                       store_feed_record( const feed_record& r ) override;
 
          virtual void                       store_asset_proposal( const proposal_record& r ) override;
          virtual optional<proposal_record>  fetch_asset_proposal( asset_id_type asset_id, proposal_id_type proposal_id )const override;
@@ -207,7 +206,7 @@ namespace bts { namespace blockchain {
        
          vector<game_record>                     get_games(const string& first, uint32_t limit)const;
 
-         std::vector<slot_record> get_delegate_slot_records( const account_id_type delegate_id, uint32_t count )const;
+         std::vector<slot_record> get_delegate_slot_records( const account_id_type delegate_id, uint32_t limit )const;
 
          std::map<uint32_t, std::vector<fork_record> > get_forks_list()const;
          std::string export_fork_graph( uint32_t start_block = 1, uint32_t end_block = -1, const fc::path& filename = "" )const;
@@ -355,6 +354,7 @@ namespace bts { namespace blockchain {
          virtual void init_game_db_interface()override;
          virtual void init_balance_db_interface()override;
          virtual void init_transaction_db_interface()override;
+         virtual void init_slate_db_interface()override;
          virtual void init_feed_db_interface()override;
          virtual void init_slot_db_interface()override;
    };

@@ -5,13 +5,13 @@
 #include <bts/blockchain/balance_record.hpp>
 #include <bts/blockchain/block_record.hpp>
 #include <bts/blockchain/condition.hpp>
-#include <bts/blockchain/delegate_slate.hpp>
 #include <bts/blockchain/edge_record.hpp>
 #include <bts/blockchain/feed_record.hpp>
 #include <bts/blockchain/market_records.hpp>
 #include <bts/blockchain/game_record.hpp>
 #include <bts/blockchain/object_record.hpp>
 #include <bts/blockchain/site_record.hpp>
+#include <bts/blockchain/slate_record.hpp>
 #include <bts/blockchain/slot_record.hpp>
 #include <bts/blockchain/transaction_record.hpp>
 #include <bts/blockchain/types.hpp>
@@ -60,8 +60,14 @@ namespace bts { namespace blockchain {
 
          virtual fc::time_point_sec now()const = 0;
 
+         chain_interface(){}
+
+         // don't copy member variables
+         chain_interface( const chain_interface& ){} 
+         chain_interface& operator=(const chain_interface&){ return *this; }; 
+
          optional<string>                   get_parent_account_name( const string& account_name )const;
-         bool                               is_valid_account_name( const string& name )const;
+         static bool                        is_valid_account_name( const string& name );
          bool                               is_valid_symbol_name( const string& symbol )const;
 
          time_point_sec                     get_genesis_timestamp()const;
@@ -110,11 +116,8 @@ namespace bts { namespace blockchain {
 
          virtual fc::ripemd160              get_current_random_seed()const                                  = 0;
 
-         virtual odelegate_slate            get_delegate_slate( slate_id_type id )const                     = 0;
-         virtual void                       store_delegate_slate( slate_id_type id,
-                                                                  const delegate_slate& slate )             = 0;
-
          virtual void                       store_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id, const rule_data_record& r )               = 0;
+
          virtual optional<variant>          get_property( chain_property_enum property_id )const            = 0;
 
          virtual void                       set_property( chain_property_enum property_id,
@@ -218,8 +221,11 @@ namespace bts { namespace blockchain {
          obalance_record                    get_balance_record( const balance_id_type& id )const;
          void                               store_balance_record( const balance_record& record );
 
+         oslate_record                      get_slate_record( const slate_id_type id )const;
+         void                               store_slate_record( const slate_record& record );
+
          ofeed_record                       get_feed_record( const feed_index index )const;
-         void                               store_feed_record( const feed_record& record );
+         virtual void                       store_feed_record( const feed_record& record );
 
          oslot_record                       get_slot_record( const slot_index index )const;
          oslot_record                       get_slot_record( const time_point_sec timestamp )const;
@@ -231,11 +237,11 @@ namespace bts { namespace blockchain {
              return T::db_interface( *this ).lookup( key );
          } FC_CAPTURE_AND_RETHROW( (key) ) }
 
-         template<typename T>
-         void store( const T& record )
+         template<typename T, typename U>
+         void store( const U& key, const T& record )
          { try {
-             T::db_interface( *this ).store( record );
-         } FC_CAPTURE_AND_RETHROW( (record) ) }
+             T::db_interface( *this ).store( key, record );
+         } FC_CAPTURE_AND_RETHROW( (key)(record) ) }
 
          template<typename T, typename U>
          void remove( const U& key )
@@ -263,6 +269,10 @@ namespace bts { namespace blockchain {
          friend struct transaction_record;
          transaction_db_interface _transaction_db_interface;
          virtual void init_transaction_db_interface() = 0;
+
+         friend struct slate_record;
+         slate_db_interface _slate_db_interface;
+         virtual void init_slate_db_interface() = 0;
 
          friend struct feed_record;
          feed_db_interface _feed_db_interface;

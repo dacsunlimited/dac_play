@@ -20,24 +20,29 @@ class LightWallet : public QObject
    Q_PROPERTY(bool connected READ isConnected NOTIFY connectedChanged)
    Q_PROPERTY(bool open READ isOpen NOTIFY openChanged)
    Q_PROPERTY(bool unlocked READ isUnlocked NOTIFY unlockedChanged)
-   Q_PROPERTY(Account* account READ account NOTIFY accountChanged)
+   Q_PROPERTY(QStringList accountNames READ accountNames NOTIFY accountsChanged)
+   Q_PROPERTY(QVariantMap accounts READ accounts NOTIFY accountsChanged)
    Q_PROPERTY(QString connectionError READ connectionError NOTIFY errorConnecting)
    Q_PROPERTY(QString openError READ openError NOTIFY errorOpening)
    Q_PROPERTY(QString unlockError READ unlockError NOTIFY errorUnlocking)
    Q_PROPERTY(QString brainKey READ brainKey NOTIFY brainKeyChanged)
 
+   Q_PROPERTY(qint16 maxMemoSize READ maxMemoSize CONSTANT)
+   Q_PROPERTY(QString baseAssetSymbol READ baseAssetSymbol CONSTANT)
+
 public:
    LightWallet()
-      : m_walletThread("Wallet Implementation Thread")
+      : m_walletThread("Wallet Implementation Thread"),
+        m_wallet(QStandardPaths::writableLocation(QStandardPaths::DataLocation).toStdWString())
    {
       auto path = QStandardPaths::writableLocation(QStandardPaths::DataLocation);
-      qDebug() << "Creating data directory:" << path;
       QDir(path).mkpath(".");
    }
    virtual ~LightWallet()
    {
       m_walletThread.quit();
-      m_wallet.save();
+      if( walletExists() )
+         m_wallet.save();
    }
 
    bool walletExists() const;
@@ -69,15 +74,44 @@ public:
    {
       return m_brainKey;
    }
-   Account* account() const
+   qint16 maxMemoSize() const
    {
-      return m_account;
+      return BTS_BLOCKCHAIN_MAX_EXTENDED_MEMO_SIZE;
+   }
+
+   Q_INVOKABLE Balance* getFee(QString assetSymbol);
+   Q_INVOKABLE bool accountExists(QString name);
+   Q_INVOKABLE bool isValidAccountName(QString name)
+   {
+      return bts::blockchain::chain_database::is_valid_account_name(convert(name));
+   }
+
+   QString baseAssetSymbol() const
+   {
+      return QStringLiteral(BTS_BLOCKCHAIN_SYMBOL);
+   }
+
+   Q_INVOKABLE bool verifyBrainKey(QString key) const;
+
+   QStringList accountNames()
+   {
+      QStringList results;
+      if( !isOpen() )
+         return results;
+      for( auto account : m_wallet.account_records() )
+         results.append(convert(account->name));
+      return results;
+   }
+   QVariantMap accounts() const
+   {
+      return m_accounts;
    }
 
 public Q_SLOTS:
-   void connectToServer( QString host, quint16 port,
-                         QString user = QString("any"),
-                         QString password = QString("none") );
+   void connectToServer(QString host, quint16 port,
+                        QString serverKey = QString(),
+                        QString user = QString("any"),
+                        QString password = QString("none"));
    void disconnectFromServer();
 
    void createWallet(QString accountName, QString password);
@@ -87,11 +121,12 @@ public Q_SLOTS:
    void unlockWallet(QString password);
    void lockWallet();
 
-   void registerAccount();
+   void registerAccount(QString accountName);
 
    void clearBrainKey();
 
    void sync();
+   void syncAllBalances();
 
 Q_SIGNALS:
    void walletExistsChanged(bool exists);
@@ -103,9 +138,12 @@ Q_SIGNALS:
    void openChanged(bool open);
    void unlockedChanged(bool unlocked);
    void brainKeyChanged(QString key);
-   void accountChanged(Account* arg);
 
    void synced();
+
+   void notification(QString message);
+
+   void accountsChanged(QVariantMap arg);
 
 private:
    fc::thread m_walletThread;
@@ -117,7 +155,7 @@ private:
    QString m_openError;
    QString m_unlockError;
    QString m_brainKey;
-   Account* m_account = nullptr;
+   QVariantMap m_accounts;
 
    void generateBrainKey();
    void updateAccount(const bts::light_wallet::account_record& account);

@@ -587,7 +587,7 @@ void detail::wallet_impl::scan_transaction_experimental( const transaction_evalu
             case ask_op_type:
                 relevant_to_me |= scan_ask( op.as<ask_operation>() );
                 break;
-            case define_delegate_slate_op_type:
+            case define_slate_op_type:
                 // Don't care; do nothing
                 break;
             case update_feed_op_type:

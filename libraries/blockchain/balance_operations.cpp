@@ -6,59 +6,65 @@ namespace bts { namespace blockchain {
 
    asset balance_record::calculate_yield( fc::time_point_sec now, share_type amount, share_type yield_pool, share_type share_supply )const
    {
-      if( amount <= 0 )       return asset(0,condition.asset_id);
-      if( share_supply <= 0 ) return asset(0,condition.asset_id);
-      if( yield_pool <= 0 )   return asset(0,condition.asset_id);
+      if( amount <= 0 )       return asset(0, condition.asset_id);
+      if( share_supply <= 0 ) return asset(0, condition.asset_id);
+      if( yield_pool <= 0 )   return asset(0, condition.asset_id);
 
       auto elapsed_time = (now - deposit_date);
-      if(  elapsed_time > fc::seconds( BTS_BLOCKCHAIN_MIN_YIELD_PERIOD_SEC ) )
+      if( elapsed_time <= fc::seconds( BTS_BLOCKCHAIN_MIN_YIELD_PERIOD_SEC ) )
+          return asset(0, condition.asset_id);
+
+      fc::uint128 current_supply( share_supply - yield_pool );
+      if( current_supply <= 0)
+          return asset(0, condition.asset_id);
+
+      fc::uint128 fee_fund( yield_pool );
+      fc::uint128 amount_withdrawn( amount );
+      amount_withdrawn *= 1000000;
+
+      //
+      // numerator in the following expression is at most
+      // BTS_BLOCKCHAIN_MAX_SHARES * 1000000 * BTS_BLOCKCHAIN_MAX_SHARES
+      // thus it cannot overflow
+      //
+      fc::uint128 yield = (amount_withdrawn * fee_fund) / current_supply;
+
+      /**
+       *  If less than 1 year, the 80% of yield are scaled linearly with time and 20% scaled by time^2,
+       *  this should produce a yield curve that is "80% simple interest" and 20% simulating compound
+       *  interest.
+       */
+      if( elapsed_time < fc::seconds( BTS_BLOCKCHAIN_MAX_YIELD_PERIOD_SEC ) )
       {
-         if( yield_pool > 0 && share_supply > 0 )
-         {
-            fc::uint128 amount_withdrawn( amount );
-            amount_withdrawn *= 1000000;
+         fc::uint128 original_yield = yield;
+         // discount the yield by 80%
+         yield *= 8;
+         yield /= 10;
+         //
+         // yield largest value in preceding multiplication is at most
+         // BTS_BLOCKCHAIN_MAX_SHARES * 1000000 * BTS_BLOCKCHAIN_MAX_SHARES * 8
+         // thus it cannot overflow
+         //
 
-            fc::uint128 current_supply( share_supply - yield_pool );
-            fc::uint128 fee_fund( yield_pool );
+         fc::uint128 delta_yield = original_yield - yield;
 
-            auto yield = (amount_withdrawn * fee_fund) / current_supply;
+         // yield == amount withdrawn / total usd  *  fee fund * fraction_of_year
+         yield *= elapsed_time.to_seconds();
+         yield /= BTS_BLOCKCHAIN_MAX_YIELD_PERIOD_SEC;
 
-            /**
-             *  If less than 1 year, the 80% of yield are scaled linearly with time and 20% scaled by time^2,
-             *  this should produce a yield curve that is "80% simple interest" and 20% simulating compound
-             *  interest.
-             */
-            if( elapsed_time < fc::seconds( BTS_BLOCKCHAIN_BLOCKS_PER_YEAR * BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC ) )
-            {
-               auto original_yield = yield;
-               // discount the yield by 80%
-               yield *= 8;
-               yield /= 10;
+         delta_yield *= elapsed_time.to_seconds();
+         delta_yield /= BTS_BLOCKCHAIN_MAX_YIELD_PERIOD_SEC;
 
-               auto delta_yield = original_yield - yield;
+         delta_yield *= elapsed_time.to_seconds();
+         delta_yield /= BTS_BLOCKCHAIN_MAX_YIELD_PERIOD_SEC;
 
-               // yield == amount withdrawn / total usd  *  fee fund * fraction_of_year
-               yield *= elapsed_time.to_seconds();
-               yield /= (BTS_BLOCKCHAIN_BLOCKS_PER_YEAR * BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC);
-
-               delta_yield *= elapsed_time.to_seconds();
-               delta_yield /= (BTS_BLOCKCHAIN_BLOCKS_PER_YEAR * BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC);
-
-               delta_yield *= elapsed_time.to_seconds();
-               delta_yield /= (BTS_BLOCKCHAIN_BLOCKS_PER_YEAR * BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC);
-
-               yield += delta_yield;
-            }
-
-            yield /= 1000000;
-            auto yield_amount = yield.to_uint64();
-
-            if( yield_amount > 0 && yield_amount < yield_pool )
-            {
-               return asset( yield_amount, condition.asset_id );
-            }
-         }
+         yield += delta_yield;
       }
+
+      yield /= 1000000;
+
+      if((yield > 0) && (yield < fc::uint128_t(yield_pool)))
+         return asset( yield.to_uint64(), condition.asset_id );
       return asset( 0, condition.asset_id );
    }
 
@@ -77,23 +83,7 @@ namespace bts { namespace blockchain {
                                       amnt.asset_id, slate_id );
    }
 
-   void define_delegate_slate_operation::evaluate( transaction_evaluation_state& eval_state )
-   { try {
-      if( this->slate.supported_delegates.size() > BTS_BLOCKCHAIN_MAX_SLATE_SIZE )
-         FC_CAPTURE_AND_THROW( too_may_delegates_in_slate, (slate.supported_delegates.size()) );
-
-      const slate_id_type slate_id = this->slate.id();
-      const odelegate_slate current_slate = eval_state._current_state->get_delegate_slate( slate_id );
-      if( NOT current_slate.valid() )
-      {
-         for( const signed_int& delegate_id : this->slate.supported_delegates )
-            eval_state.verify_delegate_id( abs( delegate_id ) );
-
-         eval_state._current_state->store_delegate_slate( slate_id, slate );
-      }
-   } FC_CAPTURE_AND_RETHROW( (*this) ) }
-
-   void deposit_operation::evaluate( transaction_evaluation_state& eval_state )
+   void deposit_operation::evaluate( transaction_evaluation_state& eval_state )const
    { try {
        if( this->amount <= 0 )
           FC_CAPTURE_AND_THROW( negative_deposit, (amount) );
@@ -158,7 +148,7 @@ namespace bts { namespace blockchain {
        eval_state._current_state->store_balance_record( *cur_record );
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
-   void withdraw_operation::evaluate( transaction_evaluation_state& eval_state )
+   void withdraw_operation::evaluate( transaction_evaluation_state& eval_state )const
    { try {
        if( this->amount <= 0 )
           FC_CAPTURE_AND_THROW( negative_withdraw, (amount) );
@@ -166,7 +156,6 @@ namespace bts { namespace blockchain {
       obalance_record current_balance_record = eval_state._current_state->get_balance_record( this->balance_id );
       if( !current_balance_record.valid() )
          FC_CAPTURE_AND_THROW( unknown_balance_record, (balance_id) );
-
 
       if( this->amount > current_balance_record->get_spendable_balance( eval_state._current_state->now() ).amount )
          FC_CAPTURE_AND_THROW( insufficient_funds, (current_balance_record)(amount) );
@@ -277,8 +266,11 @@ namespace bts { namespace blockchain {
       eval_state._current_state->store_balance_record( *current_balance_record );
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
-   void burn_operation::evaluate( transaction_evaluation_state& eval_state )
+   void burn_operation::evaluate( transaction_evaluation_state& eval_state )const
    { try {
+      if( this->amount.amount < 0 )
+         FC_CAPTURE_AND_THROW( negative_deposit, (amount) );
+
       if( message.size() )
           FC_ASSERT( amount.asset_id == 0 );
 
@@ -308,19 +300,26 @@ namespace bts { namespace blockchain {
                                                                  burn_record_value( {amount,message,message_signature} ) ) );
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
-   void release_escrow_operation::evaluate( transaction_evaluation_state& eval_state )
+   void release_escrow_operation::evaluate( transaction_evaluation_state& eval_state )const
    { try {
       auto escrow_balance_record = eval_state._current_state->get_balance_record( this->escrow_id );
       FC_ASSERT( escrow_balance_record.valid() );
+
+      if( this->amount_to_receiver < 0 )
+         FC_CAPTURE_AND_THROW( negative_withdraw, (amount_to_receiver) );
+
+      if( this->amount_to_sender < 0 )
+         FC_CAPTURE_AND_THROW( negative_withdraw, (amount_to_sender) );
 
       if( !eval_state.check_signature( this->released_by ) )
          FC_ASSERT( false, "transaction not signed by releasor" );
 
       auto escrow_condition = escrow_balance_record->condition.as<withdraw_with_escrow>();
-      auto total_released = amount_to_sender + amount_to_receiver;
+      auto total_released = uint64_t(amount_to_sender) + uint64_t(amount_to_receiver);
 
       FC_ASSERT( total_released <= escrow_balance_record->balance );
       FC_ASSERT( total_released >= amount_to_sender ); // check for addition overflow
+      FC_ASSERT( total_released >= amount_to_receiver ); // check for addition overflow
 
       escrow_balance_record->balance -= total_released;
       auto asset_rec = eval_state._current_state->get_asset_record( escrow_balance_record->condition.asset_id );
@@ -448,7 +447,7 @@ namespace bts { namespace blockchain {
       eval_state._current_state->store_balance_record( *escrow_balance_record );
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
-   void update_balance_vote_operation::evaluate( transaction_evaluation_state& eval_state )
+   void update_balance_vote_operation::evaluate( transaction_evaluation_state& eval_state )const
    { try {
       auto current_balance_record = eval_state._current_state->get_balance_record( this->balance_id );
       FC_ASSERT( current_balance_record.valid(), "No such balance!" );
@@ -460,11 +459,7 @@ namespace bts { namespace blockchain {
       ilog("last_update_secs is: ${secs}", ("secs", last_update_secs) );
 
       auto balance = current_balance_record->balance;
-      auto fee = 50000; // TODO
-#ifndef WIN32
-#warning figure out how to set the real fee here
-#endif
-
+      auto fee = BTS_BLOCKCHAIN_PRECISION / 2;
       FC_ASSERT( balance > fee );
 
       auto asset_rec = eval_state._current_state->get_asset_record( current_balance_record->condition.asset_id );
@@ -558,7 +553,7 @@ namespace bts { namespace blockchain {
 
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
-   void pay_fee_operation::evaluate( transaction_evaluation_state& eval_state )
+   void pay_fee_operation::evaluate( transaction_evaluation_state& eval_state )const
    { try {
       eval_state._max_fee[this->amount.asset_id] += this->amount.amount;
    } FC_CAPTURE_AND_RETHROW( (*this) ) }

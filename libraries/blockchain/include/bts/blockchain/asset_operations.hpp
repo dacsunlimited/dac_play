@@ -55,7 +55,7 @@ namespace bts { namespace blockchain {
        
        uint32_t         flags = 0;
 
-       void evaluate( transaction_evaluation_state& eval_state );
+       void evaluate( transaction_evaluation_state& eval_state )const;
    };
 
    struct create_asset_proposal
@@ -65,7 +65,7 @@ namespace bts { namespace blockchain {
       asset_id_type  asset_id = 0;
       object_id_type info = 0;
 
-      void evaluate( transaction_evaluation_state& eval_state );
+      void evaluate( transaction_evaluation_state& eval_state )const;
    };
 
    /**
@@ -83,7 +83,7 @@ namespace bts { namespace blockchain {
        optional<share_type>         maximum_share_supply;
        optional<uint64_t>           precision;
 
-       void evaluate( transaction_evaluation_state& eval_state );
+       void evaluate( transaction_evaluation_state& eval_state )const;
    };
 
    /**
@@ -103,6 +103,7 @@ namespace bts { namespace blockchain {
        uint32_t           flags = 0;
        uint32_t           issuer_permissions = -1;
        account_id_type    issuer_account_id;
+       uint16_t           market_fee = 0;
        
        /**
         *  The issuer can specify a transaction fee (of the asset type) 
@@ -112,7 +113,7 @@ namespace bts { namespace blockchain {
        share_type          transaction_fee = 0;
        multisig_meta_info  authority;
 
-       void evaluate( transaction_evaluation_state& eval_state );
+       void evaluate( transaction_evaluation_state& eval_state )const;
    };
 
    /**
@@ -128,9 +129,9 @@ namespace bts { namespace blockchain {
 
        issue_asset_operation( asset a = asset() ):amount(a){}
 
-       asset            amount;
+       asset amount;
 
-       void evaluate( transaction_evaluation_state& eval_state );
+       void evaluate( transaction_evaluation_state& eval_state )const;
    };
 
    /**
@@ -147,7 +148,7 @@ namespace bts { namespace blockchain {
       address          owner;
       object_id_type   meta_id = 0; /// extra data about this authorization
 
-      void evaluate( transaction_evaluation_state& eval_state );
+      void evaluate( transaction_evaluation_state& eval_state )const;
    };
 
 } } // bts::blockchain
@@ -184,6 +185,7 @@ FC_REFLECT_DERIVED( bts::blockchain::update_asset_ext_operation,
                     (issuer_permissions)
                     (issuer_account_id)
                     (transaction_fee)
+                    (market_fee)
                     (authority) )
 
 FC_REFLECT( bts::blockchain::create_asset_proposal, (asset_id)(info) );

@@ -174,7 +174,7 @@
       {
         "method_name": "wallet_import_keys_from_json",
         "description": "Imports anything that looks like a private key from the given JSON file.",
-        "return_type": "void",
+        "return_type": "uint32_t",
         "parameters" :
           [
             {
@@ -792,8 +792,8 @@
               "default_value" : ""
             },
             {
-              "name" : "vote_method",
-              "type" : "vote_selection_method",
+              "name" : "strategy",
+              "type" : "vote_strategy",
               "description" : "enumeration [vote_none | vote_all | vote_random | vote_recommended] ",
               "default_value" : "vote_recommended"
             }
@@ -822,8 +822,8 @@
             },
             {
               "name" : "to_address",
-              "type" : "address",
-              "description" : "the address to transfer to"
+              "type" : "string",
+              "description" : "the address or pubkey to transfer to"
             },
             {
               "name" : "memo_message",
@@ -832,8 +832,8 @@
               "default_value" : ""
             },
             {
-              "name" : "vote_method",
-              "type" : "vote_selection_method",
+              "name" : "strategy",
+              "type" : "vote_strategy",
               "description" : "enumeration [vote_none | vote_all | vote_random | vote_recommended] ",
               "default_value" : "vote_recommended"
             }
@@ -873,8 +873,8 @@
               "default_value" : ""
             },
             {
-              "name" : "vote_method",
-              "type" : "vote_selection_method",
+              "name" : "strategy",
+              "type" : "vote_strategy",
               "description" : "enumeration [vote_none | vote_all | vote_random | vote_recommended] ",
               "default_value" : "vote_recommended"
             }
@@ -915,8 +915,8 @@
               "default_value" : ""
             },
             {
-              "name" : "vote_method",
-              "type" : "vote_selection_method",
+              "name" : "strategy",
+              "type" : "vote_strategy",
               "description" : "enumeration [vote_none | vote_all | vote_random | vote_recommended] ",
               "default_value" : "vote_recommended"
             }
@@ -982,8 +982,8 @@
               "description": "List of possible addresses for signatures"
             },
             {
-              "name" : "vote_method",
-              "type" : "vote_selection_method",
+              "name" : "strategy",
+              "type" : "vote_strategy",
               "description" : "enumeration [vote_none | vote_all | vote_random | vote_recommended] ",
               "default_value" : "vote_none"
             }
@@ -1019,8 +1019,8 @@
               "description": "address or account to receive funds"
             },
             {
-              "name" : "vote_method",
-              "type" : "vote_selection_method",
+              "name" : "strategy",
+              "type" : "vote_strategy",
               "description" : "enumeration [vote_none | vote_all | vote_random | vote_recommended] ",
               "default_value" : "vote_none"
             },
@@ -1069,8 +1069,8 @@
               "description": "address or account to receive funds"
             },
             {
-              "name" : "vote_method",
-              "type" : "vote_selection_method",
+              "name" : "strategy",
+              "type" : "vote_strategy",
               "description" : "enumeration [vote_none | vote_all | vote_random | vote_recommended] ",
               "default_value" : "vote_none"
             },
@@ -1121,8 +1121,8 @@
               "description": "address to receive funds"
             },
             {
-              "name" : "vote_method",
-              "type" : "vote_selection_method",
+              "name" : "strategy",
+              "type" : "vote_strategy",
               "description" : "enumeration [vote_none | vote_all | vote_random | vote_recommended] ",
               "default_value" : "vote_none"
             },
@@ -1154,12 +1154,6 @@
                 "description": "Try to broadcast this transaction?",
                 "default_value": false
             },
-            {
-              "name" : "builder_path",
-              "type" : "string",
-              "description" : "If specified, will write builder here instead of to DATA_DIR/transactions/latest.trx",
-              "default_value" : ""
-            }
         ],
         "prerequisites": ["json_authenticated"],
         "aliases": ["add_signature"]
@@ -1171,16 +1165,16 @@
         "parameters":
         [
             {
-                "name": "broadcast",
-                "type": "bool",
-                "description": "Try to broadcast this transaction?",
-                "default_value": false
-            },
-            {
               "name" : "builder_path",
               "type" : "string",
               "description" : "If specified, will write builder here instead of to DATA_DIR/transactions/latest.trx",
               "default_value" : ""
+            },
+            {
+                "name": "broadcast",
+                "type": "bool",
+                "description": "Try to broadcast this transaction?",
+                "default_value": false
             }
         ],
         "prerequisites": ["json_authenticated"],
@@ -1273,8 +1267,8 @@
               "default_value" : ""
             },
             {
-              "name" : "vote_method",
-              "type" : "vote_selection_method",
+              "name" : "strategy",
+              "type" : "vote_strategy",
               "description" : "enumeration [vote_none | vote_all | vote_random | vote_recommended] ",
               "default_value" : "vote_recommended"
             }
@@ -1319,8 +1313,8 @@
               "default_value" : ""
             },
             {
-              "name" : "vote_method",
-              "type" : "vote_selection_method",
+              "name" : "strategy",
+              "type" : "vote_strategy",
               "description" : "enumeration [vote_none | vote_all | vote_random | vote_recommended] ",
               "default_value" : "vote_recommended"
             }
@@ -1763,6 +1757,12 @@
                   "default_value" : 0
                },
                {
+                  "name" : "issuer_market_fee",
+                  "type" : "real_amount",
+                  "description" : "an additional fee (denominated in percent) charged by the issuer on every order that is matched",
+                  "default_value" : -1 
+               },
+               {
                   "name" : "flags",
                   "type" : "asset_permission_array",
                   "description" : "a set of flags set by the issuer (if they have permission to set them)",
@@ -1772,7 +1772,7 @@
                   "name" : "issuer_permissions",
                   "type" : "asset_permission_array",
                   "description" : "a set of permissions an issuer retains",
-                  "default_value" : ["retractable","market_halt","balance_halt","supply_limit"]
+                  "default_value" : ["restricted", "retractable","market_halt","balance_halt","supply_limit"]
                },
                {
                   "name" : "issuer_account_name",
@@ -1826,8 +1826,28 @@
          "prerequisites" : ["wallet_unlocked"]
       },
       {
+         "method_name" : "wallet_asset_issue_to_addresses",
+         "description" : "Issues new UIA shares to specific addresses.",
+         "return_type" : "transaction_record",
+         "parameters"  : [
+               {
+                  "name" : "symbol",
+                  "type" : "asset_symbol",
+                  "description" : "the ticker symbol for asset"
+               },
+               {
+                  "name" : "addresses",
+                  "type" : "snapshot_map",
+                  "description" : "A map of addresses-to-amounts to transfer the new shares to",
+               }
+            ],
+         "detailed_description" : "This is intended to be used with a helper script to break up snapshots. It will not do any magic for you.",
+         "prerequisites" : ["wallet_unlocked"]
+      },
+      {
          "method_name"    : "wallet_escrow_summary",
          "description"    : "Lists the total asset balances for all open escrows",
+         "cached"         : true,
          "return_type"    : "escrow_summary_array",
          "parameters"     : [
          {
@@ -1844,6 +1864,7 @@
       {
          "method_name"    : "wallet_account_balance",
          "description"    : "Lists the total asset balances for the specified account",
+         "cached"         : true,
          "return_type"    : "account_balance_summary_type",
          "parameters"     : [
          {
@@ -1858,8 +1879,25 @@
          "aliases" : ["balance", "getbalance"]
       },
       {
+         "method_name"    : "wallet_account_balance_ids",
+         "description"    : "Lists the balance IDs for the specified account",
+         "return_type"    : "account_balance_id_summary_type",
+         "parameters"     : [
+         {
+            "name" : "account_name",
+            "type" : "account_name",
+            "description" : "the account to get a balance IDs for, or leave empty for all accounts",
+            "default_value" : ""
+         }
+         ],
+         "is_const" : true,
+         "prerequisites" : ["wallet_open"],
+         "aliases" : []
+      },
+      {
          "method_name"    : "wallet_account_balance_extended",
          "description"    : "Lists the total asset balances across all withdraw condition types for the specified account",
+         "cached"         : true,
          "return_type"    : "account_extended_balance_type",
          "parameters"     : [
          {
@@ -1876,6 +1914,7 @@
       {
          "method_name"    : "wallet_account_vesting_balances",
          "description"    : "List the vesting balances available to the specified account",
+         "cached"         : true,
          "return_type"    : "account_vesting_balance_summary_type",
          "parameters"     : [
          {
@@ -1892,6 +1931,7 @@
       {
          "method_name"    : "wallet_account_yield",
          "description"    : "Lists the total accumulated yield for asset balances",
+         "cached"         : true,
          "return_type"    : "account_balance_summary_type",
          "parameters"     : [
          {
@@ -1908,6 +1948,7 @@
       {
          "method_name" : "wallet_account_list_public_keys",
          "description" : "Lists all public keys in this account",
+         "cached"      : true,
          "return_type" : "public_key_summary_array",
          "parameters"  : [
            {
@@ -1960,6 +2001,7 @@
       {
          "method_name"  : "wallet_get_transaction_fee",
          "description"  : "Returns ",
+         "cached"       : true,
          "return_type"  : "asset",
          "parameters"   : [
          {
@@ -1971,6 +2013,99 @@
          ],
          "prerequisites" : ["wallet_open"],
          "aliases" : ["wallet_get_priority_fee", "get_priority_fee", "gettrxfee", "getfee", "get_fee"]
+      },
+      {
+         "method_name" : "wallet_market_sell",
+         "description" : "Used to place a request to sell a quantity of assets at a price specified in another asset",
+         "return_type" : "transaction_record",
+         "parameters"  : [
+            {
+               "name" : "from_account_name",
+               "type" : "account_name",
+               "description" : "the account that will provide funds for the order"
+            },
+            {
+               "name" : "sell_quantity",
+               "type" : "string",
+               "description" : "the quantity of items you would like to sell"
+            },
+            {
+               "name" : "sell_quantity_symbol",
+               "type" : "asset_symbol",
+               "description" : "the type of items you would like to sell"
+            },
+            {
+               "name" : "price_limit",
+               "type" : "string",
+               "description" : "the lowest price you are willing to accept",
+               "default_value" : "0"
+            },
+            {
+               "name" : "price_symbol",
+               "type" : "asset_symbol",
+               "description" : "the type of asset you would like to be paid",
+               "default_value" : ""
+            },
+            {
+               "name" : "relative_price",
+               "type" : "string",
+               "description" : "a fraction of the price feed, e.g. 5% above is 1.05 or 105%",
+               "default_value" : "0"
+            },
+            {
+               "name" : "allow_stupid",
+               "type" : "bool",
+               "description" : "Allow user to sell at less than 5% below the current top of book",
+               "default_value" : "false"
+            }
+         ],
+         "prerequisites" : ["wallet_unlocked"],
+         "aliases" : [ "sell" ]
+      },
+      {
+         "method_name" : "wallet_market_sell2",
+         "description" : "Used to place most kinds of market order (bid,ask,relative)",
+         "return_type" : "transaction_record",
+         "parameters"  : [
+            {
+               "name" : "from_account_name",
+               "type" : "account_name",
+               "description" : "the account that will provide funds for the bid"
+            },
+            {
+               "name" : "quantity",
+               "type" : "real_amount",
+               "description" : "the quantity of items you would like to sell"
+            },
+            {
+               "name" : "quantity_symbol",
+               "type" : "asset_symbol",
+               "description" : "the type of items you would like to sell"
+            },
+            {
+               "name" : "base_price",
+               "type" : "real_amount",
+               "description" : "the price you would like to pay in *normalized form*. if relative order then base price will be the limit price. If 0 then order must be relative. "
+            },
+            {
+               "name" : "receive_symbol",
+               "type" : "asset_symbol",
+               "description" : "the type of asset you would like to receive in return"
+            },
+            {
+               "name" : "relative_percent",
+               "type" : "real_amount",
+               "description" : "0 to use base price, 1 to use feed price, .99 to use 99% of feed price.  If 0 is used, then base_price may not be 0"
+            },
+            {
+               "name" : "allow_stupid",
+               "type" : "bool",
+               "description" : "Allow user to place bid at more than 5% above the current sell price.",
+               "default_value" : "false"
+            }
+         ],
+         "prerequisites" : ["wallet_unlocked"],
+         "aliases" : [ "sell2" ]
       },
       {
          "method_name" : "wallet_market_submit_bid",
@@ -2011,52 +2146,6 @@
          ],
          "prerequisites" : ["wallet_unlocked"],
          "aliases" : [ "bid" ]
-      },
-      {
-         "method_name" : "wallet_market_submit_relative_bid",
-         "description" : "Used to place a request to buy a quantity of assets at a price specified in another asset",
-         "return_type" : "transaction_record",
-         "parameters"  : [
-            {
-               "name" : "from_account_name",
-               "type" : "account_name",
-               "description" : "the account that will provide funds for the bid"
-            },
-            {
-               "name" : "quantity",
-               "type" : "string",
-               "description" : "the maximum quantity of items you would like to buy"
-            },
-            {
-               "name" : "quantity_symbol",
-               "type" : "asset_symbol",
-               "description" : "the type of items you would like to buy"
-            },
-            {
-               "name" : "relative_price",
-               "type" : "string",
-               "description" : "the price relative to the feed you would like to pay"
-            },
-            {
-               "name" : "base_symbol",
-               "type" : "asset_symbol",
-               "description" : "the type of asset you would like to pay with"
-            },
-            {
-               "name" : "limit_price",
-               "type" : "string",
-               "description" : "the maximum unit price you are willing to pay",
-               "default_value" : ""
-            },
-            {
-               "name" : "funding",
-               "type" : "string",
-               "description" : "max total cost of this order (defaults to qty x limit_price or current feed)",
-               "default_value" : ""
-            }
-         ],
-         "prerequisites" : ["wallet_unlocked"],
-         "aliases" : [ "relative_bid" ]
       },
       {
          "method_name" : "wallet_market_submit_ask",
@@ -2439,8 +2528,8 @@
                   "default_value": ""
                },
                {
-                 "name" : "vote_method",
-                 "type" : "vote_selection_method",
+                 "name" : "strategy",
+                 "type" : "vote_strategy",
                  "description" : "enumeration [vote_none | vote_all | vote_random | vote_recommended] ",
                  "default_value" : "vote_all"
                },

@@ -3,6 +3,8 @@
 #include <bts/blockchain/market_operations.hpp>
 #include <bts/blockchain/pending_chain_state.hpp>
 
+#include <algorithm>
+
 namespace bts { namespace blockchain {
 
    /**
@@ -11,7 +13,7 @@ namespace bts { namespace blockchain {
     *
     *  If the amount is positive then it will add funds to the bid.
     */
-   void bid_operation::evaluate( transaction_evaluation_state& eval_state )
+   void bid_operation::evaluate( transaction_evaluation_state& eval_state )const
    { try {
       if( this->bid_index.order_price == price() )
          FC_CAPTURE_AND_THROW( zero_price, (bid_index.order_price) );
@@ -73,7 +75,7 @@ namespace bts { namespace blockchain {
     *
     *  If the amount is positive then it will add funds to the bid.
     */
-   void relative_bid_operation::evaluate( transaction_evaluation_state& eval_state )
+   void relative_bid_operation::evaluate( transaction_evaluation_state& eval_state )const
    { try {
       if( this->bid_index.order_price == price() )
          FC_CAPTURE_AND_THROW( zero_price, (bid_index.order_price) );
@@ -126,7 +128,7 @@ namespace bts { namespace blockchain {
     *
     *  If the amount is positive then it will add funds to the bid.
     */
-   void ask_operation::evaluate( transaction_evaluation_state& eval_state )
+   void ask_operation::evaluate( transaction_evaluation_state& eval_state )const
    { try {
       if( this->ask_index.order_price == price() )
          FC_CAPTURE_AND_THROW( zero_price, (ask_index.order_price) );
@@ -187,7 +189,7 @@ namespace bts { namespace blockchain {
     *
     *  If the amount is positive then it will add funds to the bid.
     */
-   void relative_ask_operation::evaluate( transaction_evaluation_state& eval_state )
+   void relative_ask_operation::evaluate( transaction_evaluation_state& eval_state )const
    { try {
       if( this->ask_index.order_price == price() )
          FC_CAPTURE_AND_THROW( zero_price, (ask_index.order_price) );
@@ -284,5 +286,35 @@ namespace bts { namespace blockchain {
        
        eval_state._current_state->store_asset_record( *asset_to_buy );
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
+
+   void update_call_price_operation::evaluate( transaction_evaluation_state& eval_state )const
+   {
+      if( this->cover_index.order_price == price() )
+         FC_CAPTURE_AND_THROW( zero_price, (cover_index.order_price) );
+
+      if( this->new_call_price == price() )
+         FC_CAPTURE_AND_THROW( zero_price, (new_call_price) );
+
+      FC_ASSERT( this->new_call_price.quote_asset_id == cover_index.order_price.quote_asset_id );
+      FC_ASSERT( this->new_call_price.base_asset_id == cover_index.order_price.base_asset_id );
+
+      // update collateral and call price
+      auto current_cover = eval_state._current_state->get_collateral_record( this->cover_index );
+      if( NOT current_cover )
+         FC_CAPTURE_AND_THROW( unknown_market_order, (cover_index) );
+
+      const auto min_call_price = asset( current_cover->payoff_balance, cover_index.order_price.quote_asset_id )
+                                  / asset( (current_cover->collateral_balance * BTS_BLOCKCHAIN_MCALL_D2C_NUMERATOR)
+                                  / BTS_BLOCKCHAIN_MCALL_D2C_DENOMINATOR, cover_index.order_price.base_asset_id );
+
+      FC_ASSERT( new_call_price >= min_call_price );
+
+
+      // changing the payoff balance changes the call price... so we need to remove the old record
+      // and insert a new one.
+      eval_state._current_state->store_collateral_record( this->cover_index, collateral_record() );
+      eval_state._current_state->store_collateral_record( market_index_key( new_call_price, this->cover_index.owner),
+                                                          *current_cover );
+   }
 
 } } // bts::blockchain

@@ -1,4 +1,4 @@
-import QtQuick 2.4
+import QtQuick 2.3
 import QtQuick.Controls 1.3
 import QtQuick.Layouts 1.1
 import QtGraphicalEffects 1.0
@@ -7,58 +7,35 @@ import Material 0.1
 
 RowLayout {
    id: passwordForm
-   transform: Translate {
-      id: passwordTransform
-      x: 0
+   transform: ShakeAnimation {
+      id: shaker
    }
 
    property alias placeholderText: passwordText.placeholderText
+   property alias floatingLabel: passwordText.floatingLabel
    property alias password: passwordText.text
-   property alias fontPixelSize: passwordText.font.pixelSize
+   property alias fontPixelSize: passwordInput.font.pixelSize
 
    onFocusChanged: if( focus ) passwordText.focus = true
 
    function shake() {
-      errorShake.restart()
+      shaker.shake()
    }
 
    signal accepted
 
-   SequentialAnimation {
-      id: errorShake
-      loops: 2
-      alwaysRunToEnd: true
-
-      PropertyAnimation {
-         target: passwordTransform
-         property: "x"
-         from: 0; to: units.dp(10)
-         easing.type: Easing.InQuad
-         duration: 25
-      }
-      PropertyAnimation {
-         target: passwordTransform
-         property: "x"
-         from: units.dp(10); to: units.dp(-10)
-         easing.type: Easing.OutInQuad
-         duration: 50
-      }
-      PropertyAnimation {
-         target: passwordTransform
-         property: "x"
-         from: units.dp(-10); to: 0
-         easing.type: Easing.OutQuad
-         duration: 25
-      }
-   }
-
    TextField {
       id: passwordText
       Layout.fillWidth: true
-      echoMode: button.pressed? TextInput.Normal : TextInput.Password
-      inputMethodHints: Qt.ImhSensitiveData | Qt.ImhHiddenText
-      readOnly: button.pressed
+      Layout.preferredHeight: implicitHeight
       floatingLabel: true
+      input {
+         id: passwordInput
+         color: "black"
+         echoMode: button.pressed? TextInput.Normal : TextInput.Password
+         inputMethodHints: Qt.ImhSensitiveData | Qt.ImhHiddenText
+         readOnly: button.pressed
+      }
 
       onAccepted: passwordForm.accepted()
 

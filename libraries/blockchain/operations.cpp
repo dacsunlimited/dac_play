@@ -1,14 +1,15 @@
 #include <bts/blockchain/account_operations.hpp>
 #include <bts/blockchain/asset_operations.hpp>
 #include <bts/blockchain/balance_operations.hpp>
+#include <bts/blockchain/edge_operations.hpp>
 #include <bts/blockchain/feed_operations.hpp>
 #include <bts/blockchain/market_operations.hpp>
 #include <bts/blockchain/object_operations.hpp>
-#include <bts/blockchain/edge_operations.hpp>
 #include <bts/blockchain/operation_factory.hpp>
 #include <bts/blockchain/game_executors.hpp>
 #include <bts/blockchain/meta_game_operations.hpp>
 #include <bts/blockchain/operations.hpp>
+#include <bts/blockchain/slate_operations.hpp>
 
 #include <fc/io/raw_variant.hpp>
 #include <fc/reflect/variant.hpp>
@@ -30,7 +31,7 @@ namespace bts { namespace blockchain {
    const operation_type_enum bid_operation::type                    = bid_op_type;
    const operation_type_enum ask_operation::type                    = ask_op_type;
 
-   const operation_type_enum define_delegate_slate_operation::type  = define_delegate_slate_op_type;
+   const operation_type_enum define_slate_operation::type           = define_slate_op_type;
 
    const operation_type_enum update_feed_operation::type            = update_feed_op_type;
 
@@ -70,7 +71,8 @@ namespace bts { namespace blockchain {
 
       bts::blockchain::operation_factory::instance().register_operation<bid_operation>();
       bts::blockchain::operation_factory::instance().register_operation<ask_operation>();
-      bts::blockchain::operation_factory::instance().register_operation<define_delegate_slate_operation>();
+
+      bts::blockchain::operation_factory::instance().register_operation<define_slate_operation>();
 
       bts::blockchain::operation_factory::instance().register_operation<update_feed_operation>();
 

@@ -34,14 +34,26 @@ namespace bts { namespace blockchain {
          void withdraw( const asset& amount );
 
 
-         public_key_type deposit( const asset&                      amount, 
-                                  const public_key_type&            to, 
+         public_key_type deposit( const asset&                      amount,
+                                  const public_key_type&            to,
                                   slate_id_type                     slate   = 0,
-                                  const optional<private_key_type>& one_time_key = nullptr,
-                                  const string&                     memo    = string(), 
-                                  const optional<private_key_type>& from    = nullptr,
+                                  const optional<private_key_type>& one_time_key = optional<private_key_type>(),
+                                  const string&                     memo    = string(),
+                                  const optional<private_key_type>& from    = optional<private_key_type>(),
                                   bool                              stealth = false );
 
+
+         void sell( const public_key_type& order_key,
+                    const asset& amount_to_sell,
+                    asset_id_type asset_to_receive,
+                    double base_price,
+                    double relative_percent );
+
+
+         /**
+          * Withdraws enough to pay a fee with the given asset, preferring existing
+          * withdraw balances first.  
+          */
          void pay_fee( const asset& amount );
 
          signed_transaction           trx;
