@@ -21,7 +21,7 @@ namespace bts { namespace game {
             rule = r;
         }
         
-        void evaluate( transaction_evaluation_state& eval_state );
+        void evaluate( transaction_evaluation_state& eval_state ) const;
     };
 } } // bts::game
 

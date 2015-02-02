@@ -10,7 +10,7 @@ namespace bts { namespace game {
      *  @note in this method we are using 'this->' to refer to member variables for
      *  clarity.
      */
-    void game_operation::evaluate( transaction_evaluation_state& eval_state )
+    void game_operation::evaluate( transaction_evaluation_state& eval_state ) const
     { try {
         
         rule_factory::instance().evaluate( eval_state, rule );

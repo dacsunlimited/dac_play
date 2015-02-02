@@ -244,7 +244,7 @@ namespace bts { namespace blockchain {
        return condition.get_address();
    }
    
-   void buy_chips_operation::evaluate( transaction_evaluation_state& eval_state )
+   void buy_chips_operation::evaluate( transaction_evaluation_state& eval_state ) const
    { try {
        if ( this->amount.amount == 0) {
            FC_CAPTURE_AND_THROW( zero_amount );

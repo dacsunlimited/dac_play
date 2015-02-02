@@ -67,7 +67,7 @@ namespace bts { namespace blockchain {
        asset           amount;
        address         owner;
        
-       void evaluate( transaction_evaluation_state& eval_state );
+       void evaluate( transaction_evaluation_state& eval_state ) const;
    };
 
 } } // bts::blockchain
