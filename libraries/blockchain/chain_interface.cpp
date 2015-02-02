@@ -478,7 +478,7 @@ namespace bts { namespace blockchain {
     
     void chain_interface::store_game_record( const game_record& record )
     { try {
-        store( record );
+        store(record.id, record );
     } FC_CAPTURE_AND_RETHROW( (record) ) }
 
    obalance_record chain_interface::get_balance_record( const balance_id_type& id )const

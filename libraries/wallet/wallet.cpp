@@ -3287,19 +3287,22 @@ namespace detail {
       // TODO: There could be problem when two people create the same asset at the same time
       // Or move the process of initializing supply and collateral to the action of creating game
       asset inital_supply(initial_supply_in_internal_units, my->_blockchain->last_asset_id() + 1);
-       
+      
+      const wallet_account_record receiver_account = get_account( issuer_account_name );
+      const string memo_message = "initial supply";
+      
       owallet_key_record  issuer_key = my->_wallet_db.lookup_key( oname_rec->owner_address() );
       FC_ASSERT( issuer_key && issuer_key->has_private_key() );
       auto sender_private_key = issuer_key->decrypt_private_key( my->_wallet_password );
        
-      trx.deposit_to_account( from_account_address,
+      trx.deposit_to_account( receiver_account.active_key(),
                               inital_supply,
                               sender_private_key,
-                              "initial supply",
-                              0,
+                              memo_message,
                               sender_private_key.get_public_key(),
                               my->get_new_private_key( oname_rec->name ),
-                              from_memo
+                              from_memo,
+                              !receiver_account.is_public_account()
                               );
 
       auto entry = ledger_entry();
@@ -3602,7 +3605,7 @@ namespace detail {
    { try {
       FC_ASSERT( is_open() );
       FC_ASSERT( is_unlocked() );
-      FC_ASSERT( my->_blockchain->is_valid_symbol( symbol ) );
+      FC_ASSERT( my->_blockchain->is_valid_asset_symbol( symbol ) );
 
       signed_transaction         trx;
       unordered_set<address>     required_signatures;

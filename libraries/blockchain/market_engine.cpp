@@ -84,30 +84,6 @@ namespace bts { namespace blockchain { namespace detail {
             mtrx.bid_type  = _current_bid->type;
             mtrx.ask_type  = _current_ask->type;
 
-            if( _current_bid->type == relative_bid_order )
-            {
-                if( _current_bid->state.limit_price.valid() )
-                {
-                  if( *_current_bid->state.limit_price <= mtrx.ask_price )
-                  {
-                      cancel_current_relative_bid( mtrx );
-                      push_market_transaction( mtrx );
-                      _current_bid.reset(); continue;
-                  }
-                }
-            }
-            if( _current_ask->type == relative_ask_order )
-            {
-                if( _current_ask->state.limit_price.valid() )
-                {
-                  if( *_current_ask->state.limit_price >= mtrx.ask_price )
-                  {
-                      cancel_current_relative_ask( mtrx );
-                      push_market_transaction( mtrx );
-                      _current_ask.reset(); continue;
-                  }
-                }
-            }
 
             if( (_current_ask->type == ask_order || _current_ask->type == relative_ask_order) && 
                      (_current_bid->type == bid_order || _current_bid->type == relative_bid_order ) )

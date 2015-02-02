@@ -726,12 +726,12 @@ namespace bts { namespace blockchain {
             pending_state->store_asset_record( *base_asset_record );
 
             // TODO: update the right suitable value for block record
-            oblock_record block_record = self->get_block_record( block_id );
-            FC_ASSERT( block_record.valid() );
-            block_record->signee_shares_issued = 0;
-            block_record->signee_fees_collected = max_available_paycheck;
-            block_record->signee_fees_destroyed = (max_available_paycheck - accepted_paycheck);
-            _block_id_to_block_record_db.store( block_id, *block_record );
+            if( record.valid() )
+            {
+                record->signee_shares_issued = 0;
+                record->signee_fees_collected = max_available_paycheck;
+                record->signee_fees_destroyed = (max_available_paycheck - accepted_paycheck);
+            }
       } FC_CAPTURE_AND_RETHROW( (block_id)(block_signee)(record) ) }
 
       void chain_database_impl::save_undo_state( const uint32_t block_num,
@@ -2479,6 +2479,24 @@ namespace bts { namespace blockchain {
       FC_ASSERT( asset_rec.valid(), "Unknown Asset ID: ${id}", ("asset_id",asset_id) );
       return asset_rec->symbol;
    } FC_RETHROW_EXCEPTIONS( warn, "", ("asset_id",asset_id) ) }
+    
+    void chain_database::store_feed_record( const feed_record& record )
+    {
+        chain_interface::store_feed_record(record);
+        auto quote_id = record.value.quote_asset_id;
+        auto base_id  = record.value.base_asset_id;
+        auto  new_feed                   = get_active_feed_price( quote_id, base_id );
+        omarket_status market_stat = get_market_status( quote_id, base_id );
+        if( !market_stat ) market_stat = market_status( quote_id, base_id );
+        auto  old_feed =  market_stat->current_feed_price;
+        market_stat->current_feed_price = new_feed;
+        if( old_feed == new_feed )
+            return;
+        
+        store_market_status( *market_stat );
+        
+        // TODO: All market related actions are removed, refer upstream code
+    }
 
    void chain_database::sanity_check()const
    { try {
