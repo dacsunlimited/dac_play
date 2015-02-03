@@ -966,6 +966,8 @@ namespace bts { namespace blockchain {
             apply_transactions( block_data, pending_state );
 
             update_active_delegate_list( block_data.block_num, pending_state );
+             
+            update_random_seed( block_data.previous_secret, pending_state, block_record );
 
             game_executors::instance().execute( self->shared_from_this(), block_data.block_num, pending_state);
 
