@@ -25,11 +25,6 @@ namespace bts { namespace cli {
 
 namespace bts { namespace client {
 
-    static const auto SEED_NODES = std::vector<std::string>
-    {
-        "178.62.30.193:1776"
-    };
-
     using namespace bts::blockchain;
     using namespace bts::wallet;
     using bts::mail::mail_client_ptr;
