@@ -10,7 +10,7 @@
  *  @brief Defines global constants that determine blockchain behavior
  */
 #define BTS_BLOCKCHAIN_VERSION                              4
-#define BTS_BLOCKCHAIN_DATABASE_VERSION                     9
+#define BTS_BLOCKCHAIN_DATABASE_VERSION                     10
 
 /**
  *  The address prepended to string representation of
@@ -25,6 +25,7 @@
 
 #define BTS_BLOCKCHAIN_PRECISION                            100000
 
+#define BTS_BLOCKCHAIN_MAX_UIA_MARKET_FEE                   10000
 #define BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC                   int64_t(10)
 #define BTS_BLOCKCHAIN_BLOCKS_PER_HOUR                      ((60*60)/BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC)
 #define BTS_BLOCKCHAIN_BLOCKS_PER_DAY                       (BTS_BLOCKCHAIN_BLOCKS_PER_HOUR*int64_t(24))
@@ -37,6 +38,8 @@
 #define BTS_BLOCKCHAIN_MAX_SLATE_SIZE                       (BTS_BLOCKCHAIN_NUM_DELEGATES + (BTS_BLOCKCHAIN_NUM_DELEGATES/10))
 #define BTS_BLOCKCHAIN_MAX_TRANSACTION_EXPIRATION_SEC       (60*60*24*2)
 #define BTS_BLOCKCHAIN_MAX_MEMO_SIZE                        19 // bytes
+#define BTS_BLOCKCHAIN_EXTENDED_MEMO_SIZE                   32 // bytes
+#define BTS_BLOCKCHAIN_MAX_EXTENDED_MEMO_SIZE               (BTS_BLOCKCHAIN_MAX_MEMO_SIZE + BTS_BLOCKCHAIN_EXTENDED_MEMO_SIZE)
 
 /**
  *  The maximum amount that can be issued for user assets.
@@ -59,7 +62,7 @@
 #define BTS_BLOCKCHAIN_MIN_BURN_FEE                         BTS_BLOCKCHAIN_PRECISION * 1 // 1 XTS
 
 #ifdef BTS_TEST_NETWORK
-#define BTS_BLOCKCHAIN_VOTE_UPDATE_PERIOD_SEC               40
+#define BTS_BLOCKCHAIN_VOTE_UPDATE_PERIOD_SEC               10
 #else
 #define BTS_BLOCKCHAIN_VOTE_UPDATE_PERIOD_SEC               (60*60) // 1 hour
 #endif
@@ -67,12 +70,16 @@
 #define BTS_BLOCKCHAIN_MIN_FEEDS                            ((BTS_BLOCKCHAIN_NUM_DELEGATES/2) + 1)
 #define BTS_BLOCKCHAIN_MINIMUM_SHORT_ORDER_SIZE             (BTS_BLOCKCHAIN_PRECISION*100)
 #define BTS_BLOCKCHAIN_MIN_YIELD_PERIOD_SEC                 (60*60*24) // 24 hours
+#define BTS_BLOCKCHAIN_MAX_YIELD_PERIOD_SEC                 (BTS_BLOCKCHAIN_BLOCKS_PER_YEAR * BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC) // 1 year
 
 #ifdef BTS_TEST_NETWORK
 #define BTS_BLOCKCHAIN_MAX_SHORT_PERIOD_SEC                 (2*60*60) // 2 hours
 #else
 #define BTS_BLOCKCHAIN_MAX_SHORT_PERIOD_SEC                 (30*24*60*60) // 1 month
 #endif
+
+#define BTS_BLOCKCHAIN_MCALL_D2C_NUMERATOR                  1
+#define BTS_BLOCKCHAIN_MCALL_D2C_DENOMINATOR                2
 
 // TODO: This stuff only matters for propagation throttling; should go somewhere else
 #define BTS_BLOCKCHAIN_DEFAULT_RELAY_FEE                    10000 // XTS

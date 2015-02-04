@@ -1,6 +1,7 @@
 #pragma once
 
 #include <bts/blockchain/chain_database.hpp>
+#include <bts/blockchain/transaction_creation_state.hpp>
 #include <bts/mail/message.hpp>
 #include <bts/wallet/pretty.hpp>
 #include <bts/wallet/transaction_builder.hpp>
@@ -14,7 +15,7 @@ namespace bts { namespace wallet {
    namespace detail { class wallet_impl; }
 
    typedef map<string, vector<balance_record>> account_balance_record_summary_type;
-   typedef map<string, vector<balance_id_type>> account_balance_id_summary_type;
+   typedef map<string, unordered_set<balance_id_type>> account_balance_id_summary_type;
    typedef map<string, map<asset_id_type, share_type>> account_balance_summary_type;
    typedef map<string, map<string, vector<asset>>> account_extended_balance_type;
 
@@ -33,11 +34,21 @@ namespace bts { namespace wallet {
        inactive_delegate_status = 1 << 3
    };
 
+   enum account_key_type
+   {
+       owner_key    = 0,
+       active_key   = 1,
+       signing_key  = 2
+   };
+
    class wallet : public std::enable_shared_from_this< wallet >
    {
       public:
          wallet( chain_database_ptr chain, bool enabled = true );
          virtual ~wallet();
+
+         void initialize_transaction_creator( transaction_creation_state& c, const string& account_name );
+         void sign_transaction_creator( transaction_creation_state& c );
 
          //Emitted when wallet is locked or unlocked. Argument is true if wallet is now locked; false otherwise.
          fc::signal<void( bool )>  wallet_lock_state_changed;
@@ -305,7 +316,7 @@ namespace bts { namespace wallet {
                  const string& from_account_name,
                  const address& to_address,
                  const string& memo_message,
-                 vote_selection_method selection_method,
+                 vote_strategy selection_method,
                  bool sign
                  );
          /*
@@ -315,7 +326,7 @@ namespace bts { namespace wallet {
                  const string& from_account_name,
                  const address& to_address,
                  const string& memo_message,
-                 vote_selection_method selection_method
+                 vote_strategy selection_method
                  );
          */
 
@@ -401,7 +412,7 @@ namespace bts { namespace wallet {
          transaction_builder set_vote_info(
                  const balance_id_type& balance_id,
                  const address& voter_address,
-                 vote_selection_method selection_method
+                 vote_strategy selection_method
                  );
          wallet_transaction_record publish_slate(
                  const string& account_to_publish_under,
@@ -453,6 +464,7 @@ namespace bts { namespace wallet {
                  const optional<double>& maximum_share_supply,
                  const optional<uint64_t>& precision,
                  const share_type issuer_fee,
+                 double market_fee,
                  uint32_t flags,
                  uint32_t issuer_perms,
                  const string& issuer_account_name,
@@ -467,6 +479,10 @@ namespace bts { namespace wallet {
                  const string& memo_message,
                  bool sign
                  );
+         wallet_transaction_record issue_asset_to_addresses(
+               const string& symbol,
+               const map<string, share_type>& addresses );
+
          /**
           *  ie: submit_bid( 10 BTC at 600.34 USD per BTC )
           *
@@ -484,15 +500,17 @@ namespace bts { namespace wallet {
           *
           *  Requires the user have 6003.4 USD
           */
-         wallet_transaction_record submit_relative_bid(const string& from_account_name,
-                 const string& real_quantity,
-                 const string& quantity_symbol,
-                 const string& relative_price_per_unit,
-                 const string& quote_symbol,
-                 const string& limit,
-                 const string& funding,
+         wallet_transaction_record sell(
+                 const string& from_account,
+                 const string& sell_quantity,
+                 const string& sell_quantity_symbol,
+                 const string& price_limit,
+                 const string& price_symbol,
+                 const string& relative_percent,
+                 bool allow_stupid,
                  bool sign
                  );
+
          /**
           *  ie: submit_ask( 10 BTC at 600.34 USD per BTC )
           *
@@ -576,6 +594,8 @@ namespace bts { namespace wallet {
          account_balance_record_summary_type get_spendable_account_balance_records( const string& account_name = "" )const;
          account_balance_summary_type       get_spendable_account_balances( const string& account_name = "" )const;
 
+         account_balance_id_summary_type    get_account_balance_ids( const string& account_name = "" )const;
+
          account_vesting_balance_summary_type get_account_vesting_balances( const string& account_name = "" )const;
 
          account_balance_summary_type       get_account_yield( const string& account_name = "" )const;
@@ -632,3 +652,9 @@ namespace bts { namespace wallet {
    typedef std::weak_ptr<wallet> wallet_weak_ptr;
 
 } } // bts::wallet
+
+FC_REFLECT_ENUM( bts::wallet::account_key_type,
+        (owner_key)
+        (active_key)
+        (signing_key)
+        )

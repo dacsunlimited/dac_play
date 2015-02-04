@@ -50,7 +50,7 @@ namespace bts { namespace blockchain {
         
         ogame_record lookup( const game_id_type )const;
         ogame_record lookup( const string& )const;
-        void store( const game_record& )const;
+        void store( const game_id_type, const game_record& )const;
         void remove( const game_id_type )const;
     };
     

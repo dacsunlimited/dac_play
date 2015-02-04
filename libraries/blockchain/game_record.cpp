@@ -25,7 +25,7 @@ namespace bts { namespace blockchain {
         return lookup_by_symbol( symbol );
     } FC_CAPTURE_AND_RETHROW( (symbol) ) }
     
-    void game_db_interface::store( const game_record& record )const
+    void game_db_interface::store(const game_id_type id,  const game_record& record )const
     { try {
         const ogame_record prev_record = lookup( record.id );
         if( prev_record.valid() )

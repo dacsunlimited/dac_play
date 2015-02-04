@@ -500,14 +500,10 @@ namespace bts { namespace cli {
                 }
                 string address_string = address_stream.str();
 
-                try
+                if( ! bts::blockchain::address::is_valid(address_string) )
                 {
-                  bts::blockchain::address::is_valid(address_string);
-                }
-                catch( fc::exception& e )
-                {
-                  FC_RETHROW_EXCEPTION(e, error, "Error parsing argument ${argument_number} of command \"${command}\": ${detail}",
-                                        ("argument_number", parameter_index + 1)("command", method_data.name)("detail", e.get_log()));
+                  FC_THROW_EXCEPTION(fc::parse_error_exception, "Error parsing argument ${argument_number} of command \"${command}\": ${detail}",
+                                        ("argument_number", parameter_index + 1)("command", method_data.name));
                 }
                 return fc::variant( bts::blockchain::address(address_string) );
               }
@@ -530,7 +526,7 @@ namespace bts { namespace cli {
                        this_parameter.type == "public_key" ||
                        this_parameter.type == "order_id" ||
                        this_parameter.type == "account_key_type" ||
-                       this_parameter.type == "vote_selection_method" ||
+                       this_parameter.type == "vote_strategy" ||
                        this_parameter.type == "transaction_id" ||
                        this_parameter.type == "operation_type" ||
                        this_parameter.type == "withdraw_condition_type" ||

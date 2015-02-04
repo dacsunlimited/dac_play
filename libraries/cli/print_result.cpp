@@ -712,16 +712,6 @@ namespace bts { namespace cli {
 
     auto status = client->get_chain()->get_market_status(quote_id, base_id);
 
-    std::sort( bids_asks.first.begin(), bids_asks.first.end(), [=]( const market_order& a, const market_order& b ) -> bool
-               {
-                  return a.get_price( feed_price ) > b.get_price( feed_price );
-               }
-             );
-    std::sort( bids_asks.second.begin(), bids_asks.second.end(), [=]( const market_order& a, const market_order& b ) -> bool
-               {
-                  return a.get_price( feed_price ) < b.get_price( feed_price );
-               }
-             );
 
     if(bids_asks.first.empty() && bids_asks.second.empty())
     {
@@ -736,14 +726,17 @@ namespace bts { namespace cli {
     {
       if(bid_itr != bids_asks.first.end())
       {
-        bool short_wall = (bid_itr->get_owner() == address());
-        // TODO: Fixed value, short orders already been removed.
+        //bool short_wall = (bid_itr->get_owner() == address());
         bool is_short_order = false;
 
         if (is_short_order)
         {
-          asset quantity(bid_itr->get_quote_quantity() * (*bid_itr->state.limit_price));
-          out << std::left << std::setw(26) << client->get_chain()->to_pretty_asset(bid_itr->get_quote_quantity( feed_price ))
+          //asset quantity(bid_itr->get_quote_quantity() * (*bid_itr->state.limit_price));
+          asset quantity = bid_itr->get_balance();
+          quantity.amount /= 2; // 2x collateral
+          FC_ASSERT( bid_itr->get_limit_price() );
+          asset usd_quantity = quantity * *bid_itr->get_limit_price();
+          out << std::left << std::setw(26) << client->get_chain()->to_pretty_asset( usd_quantity ) //bid_itr->get_quote_quantity( feed_price ))
               << std::setw(20) << client->get_chain()->to_pretty_asset(quantity)
               << std::right << std::setw(30) << (fc::to_string(client->get_chain()->to_pretty_price_double(*bid_itr->state.limit_price)) + " " + quote_asset_record->symbol)
               << "*";
@@ -771,7 +764,7 @@ namespace bts { namespace cli {
                  << std::setw(20) << client->get_chain()->to_pretty_asset(bid_itr->get_quantity( feed_price ))
                  << std::right << std::setw(30) <<
                      (fc::to_string(client->get_chain()->to_pretty_price_double(bid_itr->get_price( feed_price ))) + " " + quote_asset_record->symbol);
-             if(short_wall || is_short_order)
+             if(is_short_order)
                out << "*";
              else
                out << " ";
@@ -801,6 +794,8 @@ namespace bts { namespace cli {
           else
             out << " ";
           out << std::left << std::setw(30) << (fc::to_string(client->get_chain()->to_pretty_price_double(abs_price)) + " " + quote_asset_record->symbol)
+   //         << std::left << std::setw(30) << (fc::to_string(client->get_chain()->to_pretty_price_double(ask_itr->get_price(feed_price))) + " " + quote_asset_record->symbol)
+    //        << std::left << std::setw(30) << (fc::to_string(client->get_chain()->to_pretty_price_double(feed_price)) + " " + quote_asset_record->symbol)
             << std::right << std::setw(23) << client->get_chain()->to_pretty_asset(ask_itr->get_quantity( feed_price ))
             << std::right << std::setw(26) << client->get_chain()->to_pretty_asset(ask_itr->get_quote_quantity( feed_price ));
           ++ask_itr;

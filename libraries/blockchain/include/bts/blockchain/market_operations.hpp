@@ -15,7 +15,7 @@ namespace bts { namespace blockchain {
         share_type       amount;
         market_index_key bid_index;
 
-        void evaluate( transaction_evaluation_state& eval_state );
+        void evaluate( transaction_evaluation_state& eval_state )const;
    };
 
    struct ask_operation
@@ -27,7 +27,7 @@ namespace bts { namespace blockchain {
         share_type        amount;
         market_index_key  ask_index;
 
-        void evaluate( transaction_evaluation_state& eval_state );
+        void evaluate( transaction_evaluation_state& eval_state )const;
    };
 
    struct relative_bid_operation
@@ -41,7 +41,7 @@ namespace bts { namespace blockchain {
         market_index_key bid_index;
         optional<price>  limit_price;
 
-        void evaluate( transaction_evaluation_state& eval_state );
+        void evaluate( transaction_evaluation_state& eval_state )const;
    };
 
    struct relative_ask_operation
@@ -54,21 +54,21 @@ namespace bts { namespace blockchain {
         market_index_key  ask_index;
         optional<price>   limit_price;
 
-        void evaluate( transaction_evaluation_state& eval_state );
+        void evaluate( transaction_evaluation_state& eval_state )const;
    };
     
-    struct buy_chips_operation
-    {
-        static const operation_type_enum type;
-        buy_chips_operation(){}
-        
-        balance_id_type  balance_id()const;
-        
-        asset           amount;
-        address         owner;
-        
-        void evaluate( transaction_evaluation_state& eval_state );
-    };
+   struct buy_chips_operation
+   {
+       static const operation_type_enum type;
+       buy_chips_operation(){}
+       
+       balance_id_type  balance_id()const;
+       
+       asset           amount;
+       address         owner;
+       
+       void evaluate( transaction_evaluation_state& eval_state ) const;
+   };
 
 } } // bts::blockchain
 

@@ -140,6 +140,10 @@
         "cpp_return_type" : "fc::optional<fc::variant_object>"
       },
       {
+        "type_name" : "variant_object",
+        "cpp_return_type" : "fc::variant_object"
+      },
+      {
         "type_name" : "transaction_id",
         "cpp_return_type" : "bts::blockchain::transaction_id_type",
         "cpp_include_file" : "bts/blockchain/types.hpp",
@@ -276,10 +280,6 @@
       {
         "type_name" : "transaction_record_map",
         "cpp_return_type" : "std::map<bts::blockchain::transaction_id_type, bts::blockchain::transaction_record>"
-      },
-      {
-        "type_name" : "timestamped_transaction_record_map",
-        "cpp_return_type" : "std::map<bts::blockchain::transaction_id_type, std::pair<fc::time_point_sec, bts::blockchain::transaction_record>>"
       },
       {
         "type_name" : "transaction_record_pair",
@@ -695,8 +695,8 @@
         "contained_type": "market_status"
       },
       {
-        "type_name" : "vote_selection_method",
-        "cpp_return_type" : "bts::wallet::vote_selection_method"
+        "type_name" : "vote_strategy",
+        "cpp_return_type" : "bts::wallet::vote_strategy"
       },
       {
         "type_name" : "account_key_type",

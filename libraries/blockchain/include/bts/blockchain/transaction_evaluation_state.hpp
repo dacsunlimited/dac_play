@@ -101,15 +101,12 @@ namespace bts { namespace blockchain {
           */
          map<asset_id_type, share_type>                 balance;
 
-         /**
-          *  Tracks the votes for or against each delegate based upon
-          *  the deposits and withdraws to addresses.
-          */
-         unordered_map<account_id_type, int64_t>        net_delegate_votes;
+         unordered_map<account_id_type, share_type>     delta_votes;
 
          // Not serialized
          chain_interface*                               _current_state = nullptr;
          bool                                           _skip_signature_check = false;
+         bool                                           _skip_vote_adjustment = false;
          unordered_map<asset_id_type, share_type>       _max_fee;
          uint32_t                                       current_op_index = 0;
    };
@@ -118,15 +115,15 @@ namespace bts { namespace blockchain {
 } } // bts::blockchain
 
 FC_REFLECT( bts::blockchain::transaction_evaluation_state,
-           (trx)
-           (signed_keys)
-           (validation_error)
-           (deposits)
-           (withdraws)
-           (yield)
-           (deltas)
-           (required_fees)
-           (alt_fees_paid)
-           (balance)
-           (net_delegate_votes)
-          )
+        (trx)
+        (signed_keys)
+        (validation_error)
+        (deposits)
+        (withdraws)
+        (yield)
+        (deltas)
+        (required_fees)
+        (alt_fees_paid)
+        (balance)
+        (delta_votes)
+        )

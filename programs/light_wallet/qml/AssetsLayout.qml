@@ -1,4 +1,4 @@
-import QtQuick 2.4
+import QtQuick 2.3
 import QtQuick.Controls 1.3
 import QtQuick.Layouts 1.1
 
@@ -7,13 +7,14 @@ import Material 0.1
 import "utils.js" as Utils
 
 Page {
-   property real minimumWidth: assetsLayout.Layout.minimumWidth + visuals.margins * 2
-   property real minimumHeight: assetsLayout.Layout.minimumHeight + visuals.margins * 2
-   title: wallet.account.name + qsTr("'s Balances")
+   title: wallet.accounts[accountName].name + qsTr("'s Balances")
+   actions: [payAction, lockAction]
+
+
+   property string accountName
 
    signal lockRequested
    signal openHistory(string account, string symbol)
-   signal openTransfer()
 
    ColumnLayout {
       id: assetsLayout
@@ -31,7 +32,7 @@ Page {
          verticalScrollBarPolicy: Qt.platform.os in ["android", "ios"]? Qt.ScrollBarAsNeeded : Qt.ScrollBarAlwaysOff
 
          ListView {
-            model: wallet.account.balances
+            model: wallet.accounts[accountName].balances
             delegate: Rectangle {
                width: parent.width
                height: assetRow.height + visuals.margins
@@ -63,17 +64,12 @@ Page {
                Ink {
                   anchors.fill: parent
                   onClicked: {
-                     openHistory(wallet.account.name, symbol)
-                     console.log("Open trx history for " + wallet.account.name + "/" + symbol)
+                     openHistory(accountName, symbol)
+                     console.log("Open trx history for " + accountName + "/" + symbol)
                   }
                }
             }
          }
       }
-   }
-
-   FloatingActionButton {
-      iconName: "content/add"
-      onTriggered: openTransfer()
    }
 }

@@ -3,6 +3,8 @@
 #include <bts/blockchain/market_operations.hpp>
 #include <bts/blockchain/pending_chain_state.hpp>
 
+#include <algorithm>
+
 namespace bts { namespace blockchain {
 
    /**
@@ -11,7 +13,7 @@ namespace bts { namespace blockchain {
     *
     *  If the amount is positive then it will add funds to the bid.
     */
-   void bid_operation::evaluate( transaction_evaluation_state& eval_state )
+   void bid_operation::evaluate( transaction_evaluation_state& eval_state )const
    { try {
       if( this->bid_index.order_price == price() )
          FC_CAPTURE_AND_THROW( zero_price, (bid_index.order_price) );
@@ -73,7 +75,7 @@ namespace bts { namespace blockchain {
     *
     *  If the amount is positive then it will add funds to the bid.
     */
-   void relative_bid_operation::evaluate( transaction_evaluation_state& eval_state )
+   void relative_bid_operation::evaluate( transaction_evaluation_state& eval_state )const
    { try {
       if( this->bid_index.order_price == price() )
          FC_CAPTURE_AND_THROW( zero_price, (bid_index.order_price) );
@@ -126,7 +128,7 @@ namespace bts { namespace blockchain {
     *
     *  If the amount is positive then it will add funds to the bid.
     */
-   void ask_operation::evaluate( transaction_evaluation_state& eval_state )
+   void ask_operation::evaluate( transaction_evaluation_state& eval_state )const
    { try {
       if( this->ask_index.order_price == price() )
          FC_CAPTURE_AND_THROW( zero_price, (ask_index.order_price) );
@@ -187,7 +189,7 @@ namespace bts { namespace blockchain {
     *
     *  If the amount is positive then it will add funds to the bid.
     */
-   void relative_ask_operation::evaluate( transaction_evaluation_state& eval_state )
+   void relative_ask_operation::evaluate( transaction_evaluation_state& eval_state )const
    { try {
       if( this->ask_index.order_price == price() )
          FC_CAPTURE_AND_THROW( zero_price, (ask_index.order_price) );
@@ -242,7 +244,7 @@ namespace bts { namespace blockchain {
        return condition.get_address();
    }
    
-   void buy_chips_operation::evaluate( transaction_evaluation_state& eval_state )
+   void buy_chips_operation::evaluate( transaction_evaluation_state& eval_state ) const
    { try {
        if ( this->amount.amount == 0) {
            FC_CAPTURE_AND_THROW( zero_amount );
