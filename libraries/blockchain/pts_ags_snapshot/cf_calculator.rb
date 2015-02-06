@@ -32,6 +32,15 @@ class CFCalculator
   START_DATE = Time.utc('2015','01','05')
   END_DATE = Time.utc('2015','02','02')
 
+  # some users send fund from exchange, requested to substitute with address they control
+  # verified by @logxing
+  # [[old, new],...]
+  ADDR_SUB = [
+    ['1MPgmfBnbPPXi2iGz49znvud12UNmcpuQ','1PzDV53zJ3oaUHYvaez8QvL3mZu6WDKXa'],
+    ['14VRNC8ncvA1wGL2HzgoKxQhhV24SoZoZQ','1PmQSsw1VsXvmtWnByiiCGowr4ag3aL5am'],
+    ['1dLHXkugirKQE1THRv7XCpuWMzvzcWQj5','1PmQSsw1VsXvmtWnByiiCGowr4ag3aL5am']
+  ]
+
   def initialize(input_file = nil, output_file = nil)
     @input_file   = input_file
     @output_file  = output_file
@@ -80,6 +89,7 @@ class CFCalculator
 
     # output
     deal_remaining
+    substitute
     flush
   end
 
@@ -139,6 +149,21 @@ class CFCalculator
     @final_supply = @balance.inject(0){ |m,n| m+n[1] }
   end
 
+  def substitute
+    ADDR_SUB.each do |sub|
+      o_addr, n_addr = sub
+      next unless @balance[o_addr]
+
+      if @balance[n_addr]
+        @balance[n_addr] += @balance[o_addr]
+      else
+        @balance[n_addr] = @balance[o_addr]
+      end
+
+      @balance.delete(o_addr)
+    end
+  end
+
   # write to output file
   def flush
     result = {
@@ -148,6 +173,7 @@ class CFCalculator
     }
 
     File.open(@output_file, 'w'){ |f| f.puts JSON.pretty_generate(result) }
+    puts "#{@output_file} generated"
   end
 end
 
