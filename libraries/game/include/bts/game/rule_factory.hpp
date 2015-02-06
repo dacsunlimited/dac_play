@@ -85,7 +85,7 @@ namespace bts { namespace game {
                                const uint32_t trx_index, bts::wallet::wallet_ptr w)
               { try {
                   return RuleType::scan_result(rtrx, block_num, block_time, trx_index, w);
-              } FC_CAPTURE_AND_RETHROW( () ) }
+              } FC_CAPTURE_AND_RETHROW( ) }
               
               virtual void execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
               { try {

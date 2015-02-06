@@ -12,6 +12,7 @@ require 'json'
 COIN = 100_000
 
 [
+  { name: :presale, file: 'crowdfund_genesis.json', total_key: "total", totalsupply: 400_000_000 },
   { name: :bts, file: 'bts_20141208.json', total_key: "total", totalsupply: 700_000_000 },
   { name: :ags, file: 'ags_20140718.json', total_key: "moneysupply", totalsupply: 200_000_000 },
   { name: :pts, file: 'pts_20141105.json', total_key: "moneysupply", totalsupply: 200_000_000 }
