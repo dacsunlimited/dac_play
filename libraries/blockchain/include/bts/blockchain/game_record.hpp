@@ -34,6 +34,7 @@ namespace bts { namespace blockchain {
         vector<char>        reserved;
         
         static const game_db_interface& db_interface( const chain_interface& );
+        void sanity_check( const chain_interface& )const;
     };
     typedef fc::optional<game_record> ogame_record;
     

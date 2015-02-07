@@ -58,8 +58,10 @@ namespace bts { namespace blockchain { namespace detail {
           }
 
           // TODO: enable this
+          /*
           if( _feed_price )
              _short_at_limit_itr = decltype(_short_at_limit_itr)(_db_impl._short_limit_index.lower_bound( std::make_pair( *_feed_price, market_index_key( next_pair )) ));
+          */
 
 
           // prime the pump, to make sure that margin calls (asks) have a bid to check against.

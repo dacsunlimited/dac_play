@@ -14,6 +14,15 @@ namespace bts { namespace blockchain {
     { try {
         return db._game_db_interface;
     } FC_CAPTURE_AND_RETHROW() }
+
+    void game_record::sanity_check( const chain_interface& db )const
+    { try {
+        FC_ASSERT( id >= 0 );
+        FC_ASSERT( !symbol.empty() );
+        FC_ASSERT( !name.empty() );
+        FC_ASSERT( id == 0 || db.lookup<account_record>( issuer_account_id ).valid() );
+        // TODO: Check asset id and rule id
+    } FC_CAPTURE_AND_RETHROW( (*this) ) }
     
     ogame_record game_db_interface::lookup( const game_id_type id )const
     { try {

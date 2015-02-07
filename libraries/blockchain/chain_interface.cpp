@@ -176,14 +176,14 @@ namespace bts { namespace blockchain {
    game_id_type chain_interface::last_game_id()const
    { try {
        const oproperty_record record = get_property_record( property_id_type::last_game_id );
-       FC_ASSERT( result.valid() );
-       return result->value.as<game_id_type>();
+       FC_ASSERT( record.valid() );
+       return record->value.as<game_id_type>();
    } FC_CAPTURE_AND_RETHROW() }
    
    game_id_type chain_interface::new_game_id()
-   {
+   { try {
        const game_id_type next_id = last_game_id() + 1;
-       store_property_record( property_id_type::last_game_id, next_id );
+       store_property_record( property_id_type::last_game_id, variant( next_id ) );
        return next_id;
    } FC_CAPTURE_AND_RETHROW() }
 
