@@ -7,17 +7,26 @@ import Material 0.1
 Page {
    id: historyPage
    title: accountName + "'s " + assetSymbol + " " + qsTr("Transactions")
-   actions: [payAction, lockAction]
+   actions: [__payAction, lockAction]
    clip: true
+
+   Action {
+      id: __payAction
+      name: qsTr("Send Payment")
+      iconName: "action/payment"
+      onTriggered: openTransferPage({"accountName": accountName, "assetSymbol": assetSymbol})
+   }
 
    property string accountName
    property string assetSymbol
 
    ScrollView {
       id: historyScroller
-      anchors.fill: parent
+      anchors.top: parent.top
+      anchors.bottom: balanceBar.top
       anchors.topMargin: visuals.margins
-      anchors.bottomMargin: balanceBar.height + visuals.margins
+      anchors.bottomMargin: visuals.margins
+      width: parent.width
       flickableItem.interactive: true
       // @disable-check M16
       verticalScrollBarPolicy: Qt.platform.os in ["android", "ios"]? Qt.ScrollBarAsNeeded : Qt.ScrollBarAlwaysOff
@@ -27,6 +36,13 @@ Page {
          id: historyList
          model: wallet.accounts[accountName].transactionHistory(assetSymbol)
          spacing: visuals.margins / 2
+         onDragEnded: {
+            if( contentY < units.dp(-100) )
+            {
+               showError(qsTr("Refreshing transactions"))
+               wallet.syncAllTransactions()
+            }
+         }
 
          Connections {
             target: wallet
@@ -38,6 +54,13 @@ Page {
             anchors.horizontalCenter: parent.horizontalCenter
             trx: model.modelData
             accountName: historyPage.accountName
+         }
+
+         Label {
+            y: units.dp(-100) - height - parent.contentY
+            text: qsTr("Release to refresh transactions")
+            anchors.horizontalCenter: parent.horizontalCenter
+            style: "headline"
          }
       }
    }
@@ -63,13 +86,21 @@ Page {
          anchors.verticalCenter: parent.verticalCenter
          anchors.right: parent.right
          anchors.rightMargin: visuals.margins
-         text: wallet.accounts[accountName].balance(assetSymbol) + " " + assetSymbol
+         text: getLabel()
+
+         function getLabel() {
+            var balance = wallet.accounts[accountName].balance(assetSymbol)
+            return format(balance.amount, assetSymbol) + " " + assetSymbol +
+                  (balance.yield ? "\n+ " + format(balance.yield, assetSymbol) + qsTr(" yield")
+                                 : "")
+         }
+
          color: "white"
          font.pixelSize: units.dp(24)
 
          Connections {
             target: wallet
-            onSynced: balanceLabel.text = wallet.accounts[accountName].balance(assetSymbol) + " " + assetSymbol
+            onSynced: balanceLabel.text = balanceLabel.getLabel()
          }
       }
    }

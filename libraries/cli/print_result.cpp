@@ -712,7 +712,6 @@ namespace bts { namespace cli {
 
     auto status = client->get_chain()->get_market_status(quote_id, base_id);
 
-
     if(bids_asks.first.empty() && bids_asks.second.empty())
     {
       out << "No Orders\n";
@@ -805,8 +804,126 @@ namespace bts { namespace cli {
       }
       out << "\n";
     }
+<<<<<<< HEAD
       
     if(status->last_error)
+=======
+
+    if(quote_asset_record->is_market_issued() && base_id == 0)
+    {
+      out << std::string(175, '-') << "\n";
+      out << std::setw(39) << "SHORT WALL"
+        << std::string(38, ' ') << "| "
+        << std::string(34, ' ') << "MARGIN"
+        << std::string(34, ' ') << "\n"
+        << std::left << std::setw(26) << "TOTAL"
+        << std::setw(20) << "QUANTITY"
+        << std::right << std::setw(30) << "INTEREST RATE (APR)"
+        << " | " << std::left << std::setw(30) << "CALL PRICE" << std::right << std::setw(23) << "QUANTITY" << std::setw(26) << "TOTAL" << "   COLLATERAL    EXPIRES" << "\n"
+        << std::string(175, '-') << "\n";
+
+      {
+        const omarket_status status = client->get_chain()->get_market_status( quote_asset_record->id, asset_id_type( 0 ) );
+
+        auto ask_itr = bids_asks.second.rbegin();
+        auto bid_itr = shorts.begin();
+        while( ask_itr != bids_asks.second.rend() || bid_itr != shorts.end() )
+        {
+          if(bid_itr != shorts.end())
+          {
+              const auto& order = *bid_itr;
+              auto collateral = order.get_balance();
+              collateral.amount /= 2;
+
+              out << std::left << std::setw( 26 );
+              if( status.valid() && status->current_feed_price.valid() )
+                  out << client->get_chain()->to_pretty_asset( collateral * *status->current_feed_price );
+              else if( status.valid() && status->last_valid_feed_price.valid() )
+                  out << client->get_chain()->to_pretty_asset( collateral * *status->last_valid_feed_price );
+              else
+                  out << "N/A";
+
+              out << std::setw( 20 ) << client->get_chain()->to_pretty_asset( collateral );
+
+              out << std::right << std::setw( 30 ) << std::to_string(100 * atof(order.interest_rate->ratio_string().c_str())) + " %";
+
+              ++bid_itr;
+          }
+          else
+          {
+              out << string(76, ' ');
+          }
+
+          out << " | ";
+
+          while(ask_itr != bids_asks.second.rend() && !ask_itr->collateral)
+            ++ask_itr;
+          if(ask_itr != bids_asks.second.rend())
+          {
+            out << std::left << std::setw(30) << std::setprecision(8) << (fc::to_string(client->get_chain()->to_pretty_price_double(ask_itr->get_price( feed_price ))) + " " + quote_asset_record->symbol)
+              << std::right << std::setw(23) << client->get_chain()->to_pretty_asset(ask_itr->get_quantity())
+              << std::right << std::setw(26) << client->get_chain()->to_pretty_asset(ask_itr->get_quote_quantity());
+            if(FILTER_OUTPUT_FOR_TESTS)
+            {
+                  out << std::right << std::setw(26) << fc::string( *ask_itr->expiration );
+            }
+            else
+            {
+                  out << std::right << std::setw(26) << fc::get_approximate_relative_time_string( *ask_itr->expiration );
+            }
+            out << "   " << client->get_chain()->to_pretty_asset(asset(*ask_itr->collateral));
+            out << "\n";
+          }
+          else
+            out << "\n";
+
+          if(ask_itr != bids_asks.second.rend())
+            ++ask_itr;
+        }
+      }
+
+      auto status = client->get_chain()->get_market_status(quote_id, base_id);
+      if(status)
+      {
+        if( ! short_execution_price_valid )
+        {
+          if( status->last_error && (status->last_error->code() == bts::blockchain::insufficient_feeds::code_value) )
+            // this case is when launching a new BitAsset, the whole
+            // market is shut down until there are adequate feeds
+            out << "Warning: Market not open until feeds published   ";
+          else
+            // this case is when too many feeds have expired on
+            // a BitAsset that has already been launched; bid/ask still
+            // works but feed-dependent orders won't be processed until
+            // we have a feed
+            out << "Warning: Feeds expired, only bid+ask operate     ";
+        }
+        else
+        {
+          out << "Maximum Short Price: "
+              << client->get_chain()->to_pretty_price(short_execution_price)
+              << "     ";
+        }
+
+        if(status->last_error)
+        {
+          out << "Last Error:  ";
+          out << status->last_error->to_string() << "\n";
+          if(true || status->last_error->code() != 37005 /* insufficient funds */)
+          {
+            out << "Details:\n";
+            out << status->last_error->to_detail_string() << "\n";
+          }
+        } else {
+          out << "\n";
+        }
+      }
+
+      // TODO: print insurance fund for market issued assets
+
+    } // end call section that only applies to market issued assets vs XTS
+    else
+>>>>>>> upstream/develop
     {
         out << "Last Error:  ";
         out << status->last_error->to_string() << "\n";

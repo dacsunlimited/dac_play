@@ -1,16 +1,32 @@
 import QtQuick 2.3
 import QtQuick.Window 2.2
 import QtQuick.Layouts 1.1
+import QtQuick.Controls 1.3
 import QtGraphicalEffects 1.0
+
+import Qt.labs.settings 1.0
 
 import "utils.js" as Utils
 import org.BitShares.Types 1.0
 
 import Material 0.1
+import Material.ListItems 0.1
+import Material.Extras 0.1 as Extras
 
 Window {
    id: window
    visible: true
+   width: units.dp(1200)
+   height: units.dp(1000)
+   Settings {
+      id: persist
+
+      property alias width: window.width
+      property alias height: window.height
+      property alias x: window.x
+      property alias y: window.y
+      property string guid: Extras.Utils.generateID()
+   }
 
    property alias pageStack: __pageStack
    property alias lockAction: __lockAction
@@ -25,6 +41,7 @@ Window {
          pageStack.push({item: assetsUi, properties: {accountName: wallet.accountNames[0]}})
 
       window.connectToServer()
+      checkManifest()
    }
 
    function showError(error, buttonName, buttonCallback) {
@@ -51,20 +68,42 @@ Window {
          return "computer"
       }
    }
+   function format(amount, symbol) {
+      var l = Qt.locale()
+      var rx = new RegExp("(\\" + l.decimalPoint + ")?0*$")
+      return Number(amount).toLocaleString(l, 'f', wallet.getDigitsOfPrecision(symbol)).replace(rx, '')
+   }
    function connectToServer() {
       if( !wallet.connected )
          wallet.connectToServer("localhost", 5656, "XTS7pq7tZnghnrnYvQg8aktrSCLVHE5SGyHFeYJBRdcFVvNCBBDjd",
                                 "user", "pass")
    }
-   function openTransferPage() {
-      //TODO: Add arguments which prefill items in transfer page
-      if( wallet.accounts[wallet.accountNames[0]].availableAssets.length )
-         window.pageStack.push({item: transferUi, properties: {accountName: wallet.accountNames[0]}})
+   function checkManifest() {
+      if( AppName === "lw_xts" )
+         return;
+      var version = Qt.application.version
+      var platform = Qt.platform.os
+      if( PlatformName )
+         platform = PlatformName
+      var xhr = new XMLHttpRequest()
+      var url = encodeURI(ManifestUrl + "?uuid="+persist.guid+"&app="+AppName+"&version="+version+"&platform="+platform)
+      xhr.open("GET", url, true)
+      xhr.send()
+   }
+   function openTransferPage(args) {
+      if( wallet.accounts[args.accountName].availableAssets.length )
+         window.pageStack.push({item: transferUi, properties: args})
       else
          showError(qsTr("You don't have any assets, so you cannot make a transfer."), qsTr("Refresh Balances"),
                    wallet.syncAllBalances)
    }
-
+   function openOrderForm(args) {
+      if( wallet.accounts[args.accountName].availableAssets.length )
+         window.pageStack.push({item: orderUi, properties: args})
+      else
+         showError(qsTr("You don't have any assets, so you cannot place a market order."), qsTr("Refresh Balances"),
+                   wallet.syncAllBalances)
+   }
 
    AppTheme {
       id: theme
@@ -82,7 +121,7 @@ Window {
       id: __payAction
       name: qsTr("Send Payment")
       iconName: "action/payment"
-      onTriggered: openTransferPage()
+      onTriggered: openTransferPage({accountName: wallet.accountNames[0]})
    }
    QtObject {
       id: visuals
@@ -114,7 +153,23 @@ Window {
       onNotification: showError(message)
    }
 
-   WelcomeLayout {
+   Item {
+      id: overlayLayer
+      objectName: "overlayLayer"
+
+      anchors.fill: parent
+      z: 100
+
+      property Item currentOverlay
+
+      MouseArea {
+         anchors.fill: parent
+         enabled: overlayLayer.currentOverlay != null
+         hoverEnabled: enabled
+         onClicked: overlayLayer.currentOverlay.close()
+      }
+   }
+   LockScreen {
       id: lockScreen
       width: window.width
       height: window.height
@@ -274,7 +329,14 @@ Window {
             id: transferUi
 
             TransferLayout {
+               accountName: wallet.accountNames[0]
                onTransferComplete: window.pageStack.pop()
+            }
+         }
+         Component {
+            id: orderUi
+
+            OrderForm {
             }
          }
       }

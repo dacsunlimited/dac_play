@@ -60,6 +60,8 @@ Account::Account(bts::light_wallet::light_wallet* wallet,
    : QObject(parent),
      m_wallet(wallet),
      m_name(convert(account.name)),
+     m_ownerKey(convert(std::string(account.owner_key))),
+     m_activeKey(convert(std::string(account.active_key()))),
      m_isRegistered(account.registration_date != fc::time_point_sec()),
      m_registrationDate(convert(account.registration_date))
 {}
@@ -67,9 +69,13 @@ Account::Account(bts::light_wallet::light_wallet* wallet,
 Account& Account::operator=(const bts::blockchain::account_record& account)
 {
    m_name = convert(account.name);
+   m_ownerKey = convert(std::string(account.owner_key));
+   m_activeKey = convert(std::string(account.active_key()));
    m_isRegistered = (account.registration_date != fc::time_point_sec());
    m_registrationDate = convert(account.registration_date);
    Q_EMIT nameChanged(m_name);
+   Q_EMIT ownerKeyChanged(m_ownerKey);
+   Q_EMIT activeKeyChanged(m_activeKey);
    Q_EMIT isRegisteredChanged(m_isRegistered);
    Q_EMIT registrationDateChanged(m_registrationDate);
 
@@ -88,20 +94,20 @@ QQmlListProperty<Balance> Account::balances()
    while( !balanceList.empty() )
       balanceList.takeFirst()->deleteLater();
    for( auto balance : m_wallet->balance(convert(m_name)) )
-      balanceList.append(new Balance(convert(balance.first), balance.second, this));
+      balanceList.append(new Balance(convert(balance.first), balance.second.first, balance.second.second, this));
    return QQmlListProperty<Balance>(this, &balanceList, count, at);
 }
 
-qreal Account::balance(QString symbol)
+Balance* Account::balance(QString symbol)
 {
-   return m_wallet->balance(convert(m_name))[convert(symbol)];
+   return new Balance(symbol, m_wallet->balance(convert(m_name))[convert(symbol)]);
 }
 
 QStringList Account::availableAssets()
 {
    QStringList assets;
    for( auto balance : m_wallet->balance(convert(m_name)) )
-      if( balance.second > 0 )
+      if( balance.second.first > 0 || balance.second.second > 0 )
          assets.append(convert(balance.first));
    return assets;
 }

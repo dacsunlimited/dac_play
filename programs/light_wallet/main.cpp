@@ -1,5 +1,6 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
+#include <QSysInfo>
 #include <QQmlContext>
 #include <QQmlDebuggingEnabler>
 #include <QtQml>
@@ -15,11 +16,14 @@ int main(int argc, char *argv[])
    app.setApplicationName(QStringLiteral("BitShares %1 Light Wallet").arg(BTS_BLOCKCHAIN_SYMBOL));
    app.setOrganizationName(BTS_BLOCKCHAIN_NAME);
    app.setOrganizationDomain("bitshares.org");
+   app.setApplicationVersion("1.0 Beta");
 
    //Fire up the NTP system
    bts::blockchain::now();
 
+#ifdef BTS_TEST_NETWORK
    QQmlDebuggingEnabler enabler;
+#endif
 
    qmlRegisterType<LightWallet>("org.BitShares.Types", 1, 0, "LightWallet");
    qmlRegisterUncreatableType<Account>("org.BitShares.Types", 1, 0, "Account",
@@ -39,6 +43,11 @@ int main(int argc, char *argv[])
       cache->setCacheDirectory(QStandardPaths::writableLocation(QStandardPaths::DataLocation) + "/cache");
       nam->setCache(cache);
    }
+#if QT_VERSION >= 0x050400
+   engine.rootContext()->setContextProperty("PlatformName", QSysInfo::prettyProductName());
+#endif
+   engine.rootContext()->setContextProperty("ManifestUrl", QStringLiteral("http://bitshares.org/manifest.json"));
+   engine.rootContext()->setContextProperty("AppName", QStringLiteral("lw_%1").arg(BTS_BLOCKCHAIN_SYMBOL).toLower());
    engine.load(QUrl(QStringLiteral("qml/main.qml")));
 
    return app.exec();

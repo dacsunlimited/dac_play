@@ -59,15 +59,15 @@ namespace bts { namespace blockchain {
     
    struct buy_chips_operation
    {
-       static const operation_type_enum type;
-       buy_chips_operation(){}
-       
-       balance_id_type  balance_id()const;
-       
-       asset           amount;
-       address         owner;
-       
-       void evaluate( transaction_evaluation_state& eval_state ) const;
+        static const operation_type_enum type;
+        buy_chips_operation(){}
+        
+        balance_id_type  balance_id()const;
+        
+        asset           amount;
+        address         owner;
+        
+        void evaluate( transaction_evaluation_state& eval_state ) const;
    };
 
 } } // bts::blockchain

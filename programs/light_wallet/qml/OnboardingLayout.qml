@@ -9,29 +9,40 @@ import "utils.js" as Utils
 MainView {
    id: onboarder
 
-   property real minimumWidth: layout.Layout.minimumWidth + visuals.margins * 2
-   property real minimumHeight: layout.Layout.minimumHeight + visuals.margins * 2
    property alias username: nameField.text
    property string errorMessage
+   property string faucetUrl: "http://faucet.bitshares.org"
 
    signal finished
 
+   function useFaucet() {
+      return ["ios","android"].indexOf(Qt.platform.os) < 0 && AppName !== "lw_xts"
+   }
    function registerAccount() {
       onboarder.state = "REGISTERING"
       Utils.connectOnce(wallet.accounts[username].isRegisteredChanged, finished,
                         function() { return wallet.accounts[username].isRegistered })
       Utils.connectOnce(wallet.onErrorRegistering, function(reason) {
-         //FIXME: Do something much, much better here...
+         showError("Registration failed: " + reason)
          console.log("Can't register: " + reason)
       })
 
-      if( wallet.connected ) {
-         wallet.registerAccount(username)
-      } else {
-         // Not connected. Schedule for when we reconnect.
-         wallet.runWhenConnected(function() {
+      if( !useFaucet() ) {
+         if( wallet.connected ) {
+            registrationProgressAnimation.start()
             wallet.registerAccount(username)
-         })
+         } else {
+            // Not connected. Schedule for when we reconnect.
+            wallet.runWhenConnected(function() {
+               registrationProgressAnimation.start()
+               wallet.registerAccount(username)
+            })
+         }
+      } else {
+         var account = wallet.accounts[username]
+         Qt.openUrlExternally(encodeURI(faucetUrl+"?owner_key="+account.ownerKey+"&active_key="+account.activeKey+
+                                        "&account_name="+username+"&app_id="+persist.guid))
+         wallet.pollForRegistration(username);
       }
    }
    function passwordEntered(password) {
@@ -49,17 +60,24 @@ MainView {
       color: Theme.backgroundColor
    }
    Column {
-      id: layout
-      anchors.centerIn: parent
-      width: parent.width - visuals.margins * 2
+      id: baseLayoutColumn
+      anchors.verticalCenter: parent.verticalCenter
+      anchors.horizontalCenter: parent.horizontalCenter
+      width: Math.min(parent.width - visuals.margins * 2, units.dp(600))
       spacing: visuals.margins
 
       Label {
          anchors.horizontalCenter: parent.horizontalCenter
          horizontalAlignment: Text.AlignHCenter
-         text: qsTr("Welcome to BitShares")
+         text: qsTr("Welcome to %1").arg(Qt.application.organization)
          style: "headline"
          wrapMode: Text.WrapAtWordBoundaryOrAnywhere
+      }
+      Label {
+         anchors.horizontalCenter: parent.horizontalCenter
+         text: qsTr("Version %1").arg(Qt.application.version)
+         color: Theme.light.hintColor
+         style: "caption"
       }
       Label {
          id: statusText
@@ -67,8 +85,10 @@ MainView {
                     "This password can be short and easy to remember — we'll make a better one later.")
          anchors.horizontalCenter: parent.horizontalCenter
          width: parent.width
+         height: units.dp(50)
          style: "subheading"
          wrapMode: Text.WrapAtWordBoundaryOrAnywhere
+         verticalAlignment: Text.AlignVCenter
       }
       ProgressBar {
          id: registrationProgress
@@ -76,20 +96,17 @@ MainView {
          width: units.dp(400)
          progress: 0
 
-         property var startTime
-
-         Timer {
-            id: registrationProgressTimer
-            repeat: true
-            interval: 100
-            running: onboarder.state === "REGISTERING"
+         NumberAnimation {
+            id: registrationProgressAnimation
+            target: registrationProgress
+            property: "progress"
+            from: 0; to: 1
+            duration: 15000
+            easing.type: Easing.OutQuart
             onRunningChanged: {
-               if( running ){
-                  registrationProgress.startTime = Date.now()
+               if( !running ) {
+                  registrationProgress.progress = 0
                }
-            }
-            onTriggered: {
-               registrationProgress.progress = Math.min((Date.now() - registrationProgress.startTime) / 15000, 1)
             }
          }
       }
@@ -143,7 +160,7 @@ MainView {
          }
          Button {
             id: openButton
-            text: qsTr("Begin")
+            text: qsTr("Register Account")
             Layout.fillWidth: true
             Layout.preferredHeight: passwordField.height
 
@@ -153,7 +170,7 @@ MainView {
                   return
                }
 
-               if( !nameField.nameAvailable() )
+               if( nameField.text.length === 0 || !nameField.nameAvailable() )
                   return nameShaker.shake()
 
                if( passwordField.password.length < 1 ) {
@@ -162,6 +179,85 @@ MainView {
                   passwordEntered(passwordField.password)
                }
             }
+         }
+      }
+      RowLayout {
+         spacing: visuals.margins
+         width: parent.width
+         Rectangle {
+            color: Theme.light.hintColor
+            height: 1
+            anchors.verticalCenter: parent.verticalCenter
+            Layout.fillWidth: true
+         }
+         Label {
+            text: qsTr("OR")
+            style: "headline"
+            color: Theme.light.hintColor
+         }
+         Rectangle {
+            color: Theme.light.hintColor
+            height: 1
+            anchors.verticalCenter: parent.verticalCenter
+            Layout.fillWidth: true
+         }
+      }
+      Button {
+         id: importButton
+         width: parent.width
+         text: qsTr("Import Account")
+         onClicked: onboarder.state = "IMPORTING"
+      }
+   }
+
+   Column {
+      id: importLayout
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.top: parent.bottom
+      width: Math.min(parent.width, units.dp(600))
+
+      TextField {
+         id: importNameField
+         anchors.horizontalCenter: parent.horizontalCenter
+         width: parent.width - visuals.margins*2
+         placeholderText: qsTr("Account Name")
+         helperText: qsTr("Must be the same as when you originally created your account.")
+         floatingLabel: true
+      }
+      TextField {
+         id: importBrainKeyField
+         anchors.horizontalCenter: parent.horizontalCenter
+         width: parent.width - visuals.margins*2
+         placeholderText: qsTr("Recovery Password")
+         helperText: qsTr("This is the password you were asked to write down when you backed up your account.")
+         floatingLabel: true
+      }
+      PasswordField {
+         id: importPasswordField
+         anchors.horizontalCenter: parent.horizontalCenter
+         width: parent.width - visuals.margins*2
+         placeholderText: qsTr("Unlocking Password")
+         helperText: qsTr("This password can be short and easy to remember.")
+         onAccepted: finishImportButton.clicked()
+      }
+      Item {
+         anchors.horizontalCenter: parent.horizontalCenter
+         width: parent.width - visuals.margins*2
+         height: childrenRect.height
+
+         Button {
+            anchors.right: finishImportButton.left
+            anchors.rightMargin: units.dp(16)
+            text: qsTr("Go Back")
+            onClicked: onboarder.state = ""
+         }
+         Button {
+            id: finishImportButton
+            anchors.right: parent.right
+            anchors.rightMargin: units.dp(16)
+            text: qsTr("Import Account")
+            onClicked: if( wallet.recoverWallet(importNameField.text, importPasswordField.password, importBrainKeyField.text) )
+                          onboarder.finished()
          }
       }
    }
@@ -175,7 +271,8 @@ MainView {
          }
          PropertyChanges {
             target: statusText
-            text: qsTr("OK! Now registering your BitShares Account. Just a moment...")
+            text: useFaucet? qsTr("Please complete your registration in the browser window. Your wallet will open shortly after you finish.")
+                           : qsTr("OK! Now registering your BitShares Account. Just a moment...")
          }
          PropertyChanges {
             target: wallet
@@ -184,6 +281,27 @@ MainView {
                state = "ERROR"
             }
          }
+         PropertyChanges {
+            target: importButton
+            enabled: false
+         }
+      },
+      State {
+         name: "IMPORTING"
+         AnchorChanges {
+            target: baseLayoutColumn
+            anchors.bottom: onboarder.top
+            anchors.verticalCenter: undefined
+         }
+         AnchorChanges {
+            target: importLayout
+            anchors.top: undefined
+            anchors.verticalCenter: onboarder.verticalCenter
+         }
+         PropertyChanges {
+            target: importNameField
+            focus: true
+         }
       },
       State {
          name: "ERROR"
@@ -191,6 +309,48 @@ MainView {
             target: statusText
             text: errorMessage
             color: "red"
+         }
+      }
+   ]
+   transitions: [
+      Transition {
+         from: ""
+         to: "IMPORTING"
+         AnchorAnimation {
+            duration: 500
+            easing.type: Easing.OutQuad
+         }
+         PropertyAnimation {
+            duration: 200
+            target: importLayout
+            property: "opacity"
+            from: 0; to: 1
+         }
+         PropertyAnimation {
+            duration: 200
+            target: baseLayoutColumn
+            property: "opacity"
+            from: 1; to: 0
+         }
+      },
+      Transition {
+         from: "IMPORTING"
+         to: ""
+         AnchorAnimation {
+            duration: 500
+            easing.type: Easing.OutQuad
+         }
+         PropertyAnimation {
+            duration: 200
+            target: importLayout
+            property: "opacity"
+            from: 1; to: 0
+         }
+         PropertyAnimation {
+            duration: 200
+            target: baseLayoutColumn
+            property: "opacity"
+            from: 0; to: 1
          }
       }
    ]

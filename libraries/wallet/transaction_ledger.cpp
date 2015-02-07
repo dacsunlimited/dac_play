@@ -210,38 +210,6 @@ void wallet_impl::scan_balances()
    _blockchain->scan_balances( scan_balance );
 }
 
-void wallet_impl::scan_accounts()
-{ try {
-    const auto check_address = [&]( const address& addr ) -> bool
-    {
-        if( _wallet_db.lookup_account( addr ).valid() ) return true;
-        const owallet_key_record& key_record = _wallet_db.lookup_key( addr );
-        return key_record.valid() && key_record->has_private_key();
-    };
-
-    const auto scan_account = [&]( const account_record& blockchain_record )
-    {
-        bool store_account = check_address( blockchain_record.owner_address() );
-        if( !store_account ) store_account = check_address( blockchain_record.active_address() );
-        if( !store_account && blockchain_record.is_delegate() ) store_account = check_address( blockchain_record.signing_address() );
-        if( !store_account ) return;
-        _wallet_db.store_account( blockchain_record );
-    };
-
-    _blockchain->scan_unordered_accounts( scan_account );
-
-    if( self->is_unlocked() )
-    {
-        _stealth_private_keys.clear();
-        const auto& account_keys = _wallet_db.get_account_private_keys( _wallet_password );
-        _stealth_private_keys.reserve( account_keys.size() );
-        for( const auto& item : account_keys )
-           _stealth_private_keys.push_back( item.first );
-    }
-
-    _dirty_accounts = false;
-} FC_CAPTURE_AND_RETHROW() }
-
 void wallet_impl::scan_block( uint32_t block_num )
 { try {
     const full_block& block = _blockchain->get_block( block_num );
@@ -1017,7 +985,6 @@ bool wallet_impl::scan_burn( const burn_operation& op, wallet_transaction_record
     return false;
 }
 
-// TODO: optimize
 bool wallet_impl::scan_deposit( const deposit_operation& op, wallet_transaction_record& trx_rec, asset& total_fee )
 { try {
     auto amount = asset( op.amount, op.condition.asset_id );
@@ -1576,6 +1543,36 @@ pretty_transaction wallet::to_pretty_trx( const wallet_transaction_record& trx_r
        pretty_entry.memo = entry.memo;
 
        pretty_trx.ledger_entries.push_back( pretty_entry );
+   }
+
+   if( !pretty_trx.is_virtual && !pretty_trx.is_market )
+   {
+       uint16_t unknown_count = 0;
+       uint16_t from_name_count = 0;
+       string from_name;
+       for( const pretty_ledger_entry& entry : pretty_trx.ledger_entries )
+       {
+           if( entry.from_account == "UNKNOWN" )
+           {
+               ++unknown_count;
+           }
+           else if( chain_interface::is_valid_account_name( entry.from_account ) )
+           {
+               ++from_name_count;
+               if( !from_name.empty() && entry.from_account != from_name )
+               {
+                   from_name_count = 0;
+                   break;
+               }
+               from_name = entry.from_account;
+           }
+       }
+
+       if( from_name_count > 0 && unknown_count > 0 && from_name_count + unknown_count == pretty_trx.ledger_entries.size() )
+       {
+           for( pretty_ledger_entry& entry : pretty_trx.ledger_entries )
+               entry.from_account = from_name;
+       }
    }
 
    pretty_trx.fee = trx_rec.fee;

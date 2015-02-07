@@ -186,8 +186,15 @@ map<account_id_type, string> detail::client_impl::blockchain_get_slate( const st
     for( const account_id_type id : slate_record->slate )
     {
         const oaccount_record delegate_record = _chain_db->get_account_record( id );
-        if( delegate_record.valid() ) delegates[ id ] = delegate_record->name;
-        else delegates[ id ] = std::to_string( id );
+        if( delegate_record.valid() )
+        {
+            if( delegate_record->is_delegate() ) delegates[ id ] = delegate_record->name;
+            else delegates[ id ] = '(' + delegate_record->name + ')';
+        }
+        else
+        {
+            delegates[ id ] = std::to_string( id );
+        }
     }
 
     return delegates;
@@ -448,7 +455,6 @@ variant_object client_impl::blockchain_get_info()const
    info["name"]                                 = BTS_BLOCKCHAIN_NAME;
    info["symbol"]                               = BTS_BLOCKCHAIN_SYMBOL;
    info["address_prefix"]                       = BTS_ADDRESS_PREFIX;
-   info["version"]                              = BTS_BLOCKCHAIN_VERSION;
    info["db_version"]                           = BTS_BLOCKCHAIN_DATABASE_VERSION;
    info["genesis_timestamp"]                    = _chain_db->get_genesis_timestamp();
 
@@ -458,7 +464,7 @@ variant_object client_impl::blockchain_get_info()const
    info["max_delegate_reg_fee"]                 = _chain_db->get_delegate_registration_fee( 100 );
 
    info["name_size_max"]                        = BTS_BLOCKCHAIN_MAX_NAME_SIZE;
-   info["memo_size_max"]                        = BTS_BLOCKCHAIN_MAX_MEMO_SIZE;
+   info["memo_size_max"]                        = BTS_BLOCKCHAIN_MAX_EXTENDED_MEMO_SIZE;
    info["data_size_max"]                        = BTS_BLOCKCHAIN_MAX_NAME_DATA_SIZE;
 
    info["symbol_size_max"]                      = BTS_BLOCKCHAIN_MAX_SUB_SYMBOL_SIZE;
@@ -480,6 +486,12 @@ void client_impl::blockchain_generate_snapshot( const string& filename )const
 { try {
     _chain_db->generate_snapshot( fc::path( filename ) );
 } FC_CAPTURE_AND_RETHROW( (filename) ) }
+
+void client_impl::blockchain_generate_issuance_map( const string& symbol, const string& filename )const
+{ try {
+    _chain_db->generate_issuance_map( symbol, fc::path( filename ) );
+} FC_CAPTURE_AND_RETHROW( (filename) ) }
+
 
 asset client_impl::blockchain_calculate_supply( const string& asset )const
 {
@@ -646,11 +658,6 @@ bool client_impl::blockchain_verify_signature(const string& signer, const fc::sh
     }
 }
 
-void client_impl::blockchain_dump_state( const string& path )const
-{
-   _chain_db->dump_state( fc::path( path ) );
-}
-
 vector<bts::blockchain::api_market_status> client_impl::blockchain_list_markets()const
 {
    const vector<pair<asset_id_type, asset_id_type>> pairs = _chain_db->get_market_pairs();
@@ -724,7 +731,16 @@ vector<burn_record> client_impl::blockchain_get_account_wall( const string& acco
 
 void client_impl::blockchain_broadcast_transaction(const signed_transaction& trx)
 {
-   auto collector = _chain_db->get_account_record(_config.faucet_account_name);
+   auto collector = _chain_db->get_account_record(_config.relay_account_name);
+   auto accept_fee = [this](const asset& fee) -> bool {
+      auto feed_price = _chain_db->get_active_feed_price(fee.asset_id);
+      if( !feed_price ) return false;
+
+      //Forgive up to a 5% change in price from the last sync by the lightwallet
+      asset required = asset(_config.light_relay_fee * .95) * *feed_price;
+      return fee >= required;
+   };
+
    if( collector && _config.light_relay_fee )
    {
       for( operation op : trx.operations )
@@ -734,8 +750,7 @@ void client_impl::blockchain_broadcast_transaction(const signed_transaction& trx
             ilog("Checking if deposit ${d} is to ${c}", ("d", deposit)("c", collector->active_address()));
             if( deposit.condition.owner() && *deposit.condition.owner() == collector->active_address() &&
                 ( (deposit.condition.asset_id == 0 && deposit.amount >= _config.light_relay_fee) ||
-                  // Sshhhhh, don't tell! TODO: figure out minimum MIA fee
-                  deposit.amount > 0 ) )
+                  accept_fee(asset(deposit.amount, deposit.condition.asset_id)) ) )
             {
                network_broadcast_transaction(trx);
                return;

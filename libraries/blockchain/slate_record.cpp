@@ -10,7 +10,7 @@ slate_id_type slate_record::id()const
 {
     if( slate.empty() ) return 0;
     fc::sha256::encoder enc;
-    fc::raw::pack( enc, this->slate );
+    fc::raw::pack( enc, slate );
     return enc.result()._hash[ 0 ];
 }
 
@@ -18,6 +18,11 @@ const slate_db_interface& slate_record::db_interface( const chain_interface& db 
 { try {
     return db._slate_db_interface;
 } FC_CAPTURE_AND_RETHROW() }
+
+void slate_record::sanity_check( const chain_interface& db )const
+{ try {
+    FC_ASSERT( !slate.empty() );
+} FC_CAPTURE_AND_RETHROW( (*this) ) }
 
 oslate_record slate_db_interface::lookup( const slate_id_type id )const
 { try {

@@ -13,9 +13,10 @@ struct slate_record
     slate_id_type id()const;
 
     static const slate_db_interface& db_interface( const chain_interface& );
+    void sanity_check( const chain_interface& )const;
 };
 typedef optional<slate_record> oslate_record;
- 
+
 struct slate_db_interface
 {
     std::function<oslate_record( const slate_id_type )>             lookup_by_id;

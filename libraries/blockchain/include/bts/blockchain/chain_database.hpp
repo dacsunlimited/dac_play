@@ -102,16 +102,7 @@ namespace bts { namespace blockchain {
          void set_relay_fee( share_type shares );
          share_type get_relay_fee();
 
-         void sanity_check()const;
-
          double get_average_delegate_participation()const;
-
-         /**
-          *  When evaluating blocks, you only need to validate the delegate signature assuming you
-          *  trust the other delegates to check up on eachother (which everyone should).  This
-          *  should greatly reduce processing time for non-delegate nodes.
-          */
-         void skip_signature_verification( bool state );
 
          /**
           * The state of the blockchain after applying all pending transactions.
@@ -138,9 +129,6 @@ namespace bts { namespace blockchain {
          optional<block_fork_data>   get_block_fork_data( const block_id_type& )const;
          bool                        is_known_block( const block_id_type& id )const;
          bool                        is_included_block( const block_id_type& id )const;
-
-         fc::ripemd160               get_current_random_seed()const override;
-
 
          account_record              get_delegate_record_for_signee( const public_key_type& block_signee )const;
          account_record              get_block_signee( const block_id_type& block_id )const;
@@ -259,11 +247,8 @@ namespace bts { namespace blockchain {
          void                               scan_unordered_assets( const function<void( const asset_record& )> )const;
          void                               scan_ordered_assets( const function<void( const asset_record& )> )const;
          void                               scan_balances( const function<void( const balance_record& )> callback )const;
+         void                               scan_transactions( const function<void( const transaction_record& )> callback )const;
          void                               scan_objects( const function<void( const object_record& )> callback )const;
-
-         virtual optional<variant>          get_property( chain_property_enum property_id )const override;
-         virtual void                       set_property( chain_property_enum property_id,
-                                                          const variant& property_value )override;
 
          virtual orule_data_record          get_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id )const override;
        
@@ -272,6 +257,7 @@ namespace bts { namespace blockchain {
          bool                               is_valid_asset_symbol( const string& asset_symbol )const;
        
          bool                               is_valid_game_symbol( const string& game_symbol )const;
+
          string                             get_asset_symbol( const asset_id_type asset_id )const;
          asset_id_type                      get_asset_id( const string& asset_symbol )const;
 
@@ -333,11 +319,11 @@ namespace bts { namespace blockchain {
                                                                   const address& owner );
 
          void                               generate_snapshot( const fc::path& filename )const;
+         void                               generate_issuance_map( const string& symbol, const fc::path& filename )const;
          asset                              calculate_supply( const asset_id_type asset_id )const;
 
          asset                              unclaimed_genesis();
 
-         void                               dump_state( const fc::path& path )const;
          fc::variant_object                 get_stats() const;
 
          // XXX: Only call on pending chain state
@@ -346,9 +332,13 @@ namespace bts { namespace blockchain {
              FC_ASSERT( false, "this shouldn't be called directly" );
          }
 
+         // Applies only when pushing new blocks; gets enabled in delegate loop
+         bool                               _verify_transaction_signatures = false;
+
       private:
          unique_ptr<detail::chain_database_impl> my;
 
+         virtual void init_property_db_interface()override;
          virtual void init_account_db_interface()override;
          virtual void init_asset_db_interface()override;
          virtual void init_game_db_interface()override;

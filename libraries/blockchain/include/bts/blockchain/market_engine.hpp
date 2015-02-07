@@ -1,4 +1,5 @@
 #include <bts/blockchain/chain_database_impl.hpp>
+#include <bts/blockchain/transaction_evaluation_state.hpp>
 
 namespace bts { namespace blockchain { namespace detail {
 
@@ -51,6 +52,8 @@ namespace bts { namespace blockchain { namespace detail {
                                 const price& opening_price,
                                 const price& closing_price,
                                 const fc::time_point_sec timestamp );
+
+    transaction_evaluation_state  _eval_state;
 
     pending_chain_state_ptr       _pending_state;
     pending_chain_state_ptr       _prior_state;
