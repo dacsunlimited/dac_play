@@ -201,6 +201,7 @@ transaction_builder& transaction_builder::deposit_asset(const bts::wallet::walle
    optional<public_key_type> titan_one_time_key;
    auto one_time_key = _wimpl->get_new_private_key(payer.name);
    titan_one_time_key = one_time_key.get_public_key();
+   /* auto receiver_address_key = */ // receiver_address_key could be different from recipient.active_key() depend on the titan/public account type, and will become to_account value for receiver's wallet ledger after scanning.
    trx.deposit_to_account(recipient.active_key(), amount, _wimpl->self->get_private_key(memo_key), memo,
                           memo_key, one_time_key, from_memo, !recipient.is_public_account());
 
@@ -208,7 +209,7 @@ transaction_builder& transaction_builder::deposit_asset(const bts::wallet::walle
 
    ledger_entry entry;
    entry.from_account = payer.owner_key;
-   entry.to_account = recipient.owner_key;
+   entry.to_account = recipient.active_key();
    entry.amount = amount;
    entry.memo = memo;
    if( *memo_sender != payer.name ) entry.memo_from_account = memo_account->owner_key;

@@ -1473,8 +1473,8 @@
                {
                   "name" : "account_type",
                   "type" : "string",
-                  "description" : "titan_account | public_account - public accounts do not receive memos and all payments are made to the active key",
-                  "default_value" : "titan_account"
+                  "description" : "titan_account | public_account - public accounts receive memos too but all payments are made to the active key",
+                  "default_value" : "public_account"
                }
             ],
          "prerequisites" : ["wallet_unlocked"],
