@@ -472,6 +472,8 @@ variant_object client_impl::blockchain_get_info()const
    info["asset_shares_max"]                     = BTS_BLOCKCHAIN_MAX_SHARES;
    info["short_symbol_asset_reg_fee"]           = _chain_db->get_asset_registration_fee( BTS_BLOCKCHAIN_MIN_SYMBOL_SIZE );
    info["long_symbol_asset_reg_fee"]            = _chain_db->get_asset_registration_fee( BTS_BLOCKCHAIN_MAX_SUB_SYMBOL_SIZE );
+   info["short_name_reg_fee"]                   = _chain_db->get_account_registration_fee( BTS_BLOCKCHAIN_MIN_NAME_SIZE );
+   info["long_name_reg_fee"]                    = _chain_db->get_account_registration_fee( BTS_BLOCKCHAIN_MAX_NAME_SIZE );
 
    info["statistics_enabled"]                   = _chain_db->get_statistics_enabled();
 

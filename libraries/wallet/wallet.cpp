@@ -3081,6 +3081,9 @@ namespace detail {
    { try {
       if( !my->_blockchain->is_valid_account_name( account_to_register ) )
           FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("account_to_register",account_to_register) );
+      
+      if( bts::blockchain::address::is_valid( account_to_register ) )
+         FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("account_to_register",account_to_register) );
 
       FC_ASSERT( is_open() );
       FC_ASSERT( is_unlocked() );
@@ -3163,6 +3166,8 @@ namespace detail {
       }
 
       auto required_fees = get_transaction_fee();
+       
+      required_fees += asset( my->_blockchain->get_account_registration_fee( account_to_register.size() ), 0 );
 
       bool as_delegate = false;
       if( delegate_pay_rate <= 100  )

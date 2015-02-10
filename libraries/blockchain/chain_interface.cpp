@@ -158,6 +158,27 @@ namespace bts { namespace blockchain {
        FC_ASSERT( short_symbol_price > long_symbol_price );
        return symbol_length <= 5 ? short_symbol_price : long_symbol_price;
    }
+    
+   share_type chain_interface::get_account_registration_fee( uint8_t name_length )const
+   {
+       // names with length >= 6 will cost extra 1 PLS, but for names less than 6 length
+       // 1 character will cost 100000 PLS, 2 cost 10000 PLS etc.
+       if ( name_length > 6 )
+       {
+           return 1 * BTS_BLOCKCHAIN_PRECISION;
+       } else
+       {
+           uint8_t len = 7 - name_length;
+           share_type short_name_price = 1 * BTS_BLOCKCHAIN_PRECISION;
+           
+           while (len != 0) {
+               short_name_price *= 10;
+               --len;
+           }
+           
+           return short_name_price;
+       }
+   }
 
    asset_id_type chain_interface::last_asset_id()const
    { try {

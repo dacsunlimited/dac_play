@@ -15,6 +15,10 @@ namespace bts { namespace blockchain {
    { try {
       if( !eval_state._current_state->is_valid_account_name( this->name ) )
          FC_CAPTURE_AND_THROW( invalid_account_name, (name) );
+      
+      // names which is valid public key is invalid as account names
+      if( bts::blockchain::address::is_valid( this->name ) )
+         FC_CAPTURE_AND_THROW( invalid_account_name, (name) );
 
       oaccount_record current_account = eval_state._current_state->get_account_record( this->name );
       if( current_account.valid() )
@@ -46,6 +50,9 @@ namespace bts { namespace blockchain {
       new_record.last_update       = now;
       new_record.meta_data         = this->meta_data;
 
+      const asset name_fee( eval_state._current_state->get_account_registration_fee( this->name.size() ), 0 );
+      eval_state.required_fees += name_fee;
+      
       if( this->is_delegate() )
       {
           new_record.delegate_info = delegate_stats();
