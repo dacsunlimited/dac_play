@@ -242,7 +242,7 @@ void wallet_impl::scan_block( uint32_t block_num )
     {
         try
         {
-            rule_factory::instance().scan_result( rule_result_trxs[i], block_num, block.timestamp, i, self->shared_from_this());
+            rule_factory::instance().scan_result( rule_result_trxs[i], block_num, block_header.timestamp, i, self->shared_from_this());
         }
         catch( ... )
         {
