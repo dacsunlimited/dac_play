@@ -16,27 +16,13 @@
 namespace bts { namespace wallet {
    using namespace bts::blockchain;
 
-   /**
-    *  The vote selection method helps enhance user privacy by
-    *  not tying their accounts together.
-    */
-   enum vote_selection_method
-   {
-      vote_none        = 0,
-      vote_all         = 1,
-      vote_random      = 2,
-      vote_recommended = 3
-   };
-
    enum wallet_record_type_enum
    {
       master_key_record_type     = 0,
       account_record_type        = 1,
       key_record_type            = 2,
       transaction_record_type    = 3,
-      balance_record_type        = 6,
       property_record_type       = 7,
-      market_order_record_type   = 8, /* No longer used for now */
       setting_record_type        = 9
    };
 
@@ -192,56 +178,39 @@ namespace bts { namespace wallet {
    // don't use -- work in progress
    struct transaction_ledger_entry
    {
-       transaction_id_type                          id;
-       uint32_t                                     block_num = -1;
-       time_point_sec                               timestamp = time_point_sec( -1 );
+       transaction_id_type              id;
+
+       uint32_t                         block_num = uint32_t( -1 );
+       block_id_type                    block_id;
+       
+       time_point_sec                   timestamp = time_point_sec( -1 );
 
        // e.g. { name, INCOME-name, ISSUER-name, `snapshot address`, {ASK,BID,SHORT,MARGIN}-id, FEE }
-       map<string, map<asset_id_type, share_type>>  delta_amounts;
+       map<string, vector<asset>>       delta_amounts;
 
-       optional<transaction_id_type>                transaction_id;
+       optional<transaction_id_type>    transaction_id;
 
        // only really useful for titan transfers
-       map<uint16_t, string>                        delta_labels;
+       map<uint16_t, string>            delta_labels;
 
-       map<uint16_t, string>                        operation_notes;
+       map<uint16_t, string>            operation_notes;
 
-       bool is_confirmed()const { return block_num != -1; }
+       bool is_confirmed()const { return block_num != uint32_t( -1 ); }
        bool is_virtual()const   { return !transaction_id.valid(); }
 
        friend bool operator < ( const transaction_ledger_entry& a, const transaction_ledger_entry& b )
        {
-           if( a.is_confirmed() == b.is_confirmed() )
-               return std::tie( a.block_num, a.timestamp, a.id ) < std::tie( b.block_num, b.timestamp, b.id );
-           else
-               return std::tie( a.timestamp, a.id ) < std::tie( b.timestamp, b.id );
+           return std::tie( a.block_num, a.timestamp, a.id ) < std::tie( b.block_num, b.timestamp, b.id );
        }
    };
 
    struct pretty_transaction_experimental : transaction_ledger_entry
    {
-       vector<std::pair<string, asset>> inputs;
-       vector<std::pair<string, asset>> outputs;
+       vector<std::pair<string, asset>>         inputs;
+       vector<std::pair<string, asset>>         outputs;
        mutable vector<std::pair<string, asset>> balances;
-       vector<string>                   notes;
+       vector<string>                           notes;
    };
-
-#if 0
-   struct market_order_status
-   {
-      order_type_enum get_type()const;
-      order_id_type   get_id()const;
-
-      asset           get_balance()const; // funds available for this order
-      price           get_price()const;
-      asset           get_quantity()const;
-      asset           get_proceeds()const;
-
-      bts::blockchain::market_order        order;
-      share_type                           proceeds = 0;
-      unordered_set<transaction_id_type>   transactions;
-   };
-#endif
 
    /* Used to store GUI preferences and such */
    struct setting
@@ -252,28 +221,20 @@ namespace bts { namespace wallet {
       variant      value;
    };
 
-   /** cached blockchain data */
-   // TODO: Only cache balance ids
-   typedef wallet_record< bts::blockchain::balance_record, balance_record_type     >  wallet_balance_record;
 
-   /** records unique to the wallet */
-   typedef wallet_record< transaction_data,                transaction_record_type >  wallet_transaction_record;
-   typedef wallet_record< master_key,                      master_key_record_type  >  wallet_master_key_record;
-   typedef wallet_record< key_data,                        key_record_type         >  wallet_key_record;
-   // TODO: Do not derive from blockchain account record
-   typedef wallet_record< account_data,                    account_record_type     >  wallet_account_record;
-   typedef wallet_record< wallet_property,                 property_record_type    >  wallet_property_record;
-   //typedef wallet_record< market_order_status,             market_order_record_type>  wallet_market_order_status_record;
-   typedef wallet_record< setting,                         setting_record_type     >  wallet_setting_record;
+   typedef wallet_record<master_key,        master_key_record_type>     wallet_master_key_record;
+   typedef wallet_record<account_data,      account_record_type>        wallet_account_record;
+   typedef wallet_record<key_data,          key_record_type>            wallet_key_record;
+   typedef wallet_record<transaction_data,  transaction_record_type>    wallet_transaction_record;
+   typedef wallet_record<wallet_property,   property_record_type>       wallet_property_record;
+   typedef wallet_record<setting,           setting_record_type>        wallet_setting_record;
 
-   typedef optional< wallet_transaction_record >            owallet_transaction_record;
-   typedef optional< wallet_master_key_record >             owallet_master_key_record;
-   typedef optional< wallet_key_record >                    owallet_key_record;
-   typedef optional< wallet_account_record >                owallet_account_record;
-   typedef optional< wallet_property_record >               owallet_property_record;
-   typedef optional< wallet_balance_record >                owallet_balance_record;
-   //typedef optional< wallet_market_order_status_record >    owallet_market_order_record;
-   typedef optional< wallet_setting_record >                owallet_setting_record;
+   typedef optional<wallet_master_key_record>   owallet_master_key_record;
+   typedef optional<wallet_account_record>      owallet_account_record;
+   typedef optional<wallet_key_record>          owallet_key_record;
+   typedef optional<wallet_transaction_record>  owallet_transaction_record;
+   typedef optional<wallet_property_record>     owallet_property_record;
+   typedef optional<wallet_setting_record>      owallet_setting_record;
 
 } } // bts::wallet
 
@@ -292,9 +253,7 @@ FC_REFLECT_ENUM( bts::wallet::wallet_record_type_enum,
         (account_record_type)
         (key_record_type)
         (transaction_record_type)
-        (balance_record_type)
         (property_record_type)
-        (market_order_record_type)
         (setting_record_type)
         )
 
@@ -364,8 +323,6 @@ FC_REFLECT( bts::wallet::transaction_data,
         (extra_addresses)
         )
 
-//FC_REFLECT( bts::wallet::market_order_status, (order)(proceeds)(transactions) )
-
 FC_REFLECT( bts::wallet::setting,
         (name)
         (value)
@@ -375,6 +332,7 @@ FC_REFLECT( bts::wallet::setting,
 FC_REFLECT( bts::wallet::transaction_ledger_entry,
         (id)
         (block_num)
+        (block_id)
         (timestamp)
         (delta_amounts)
         (transaction_id)

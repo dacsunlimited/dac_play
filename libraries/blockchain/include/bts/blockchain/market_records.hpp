@@ -12,22 +12,63 @@
 
 namespace bts { namespace blockchain {
 
+   /** 
+    *  Note: this data structure is used for operation serialization, modifications
+    *        will break existing operations.
+    */
    struct market_index_key
    {
       market_index_key( const price& price_arg = price(),
                         const address& owner_arg = address() )
       :order_price(price_arg),owner(owner_arg){}
 
-      price   order_price;
-      address owner;
+      price                 order_price;
+      address               owner;
 
       friend bool operator == ( const market_index_key& a, const market_index_key& b )
       {
-         return a.order_price == b.order_price && a.owner == b.owner;
+        return std::tie(a.order_price, a.owner) == std::tie(b.order_price, b.owner);
       }
       friend bool operator < ( const market_index_key& a, const market_index_key& b )
       {
         return std::tie(a.order_price, a.owner) < std::tie(b.order_price, b.owner);
+      }
+   };
+
+   struct market_index_key_ext : public market_index_key
+   {
+      market_index_key_ext( const market_index_key b = market_index_key(), 
+                            optional<price> limit = optional<price>() )
+      :market_index_key(b),limit_price(limit){}
+
+      optional<price> limit_price;
+
+      friend bool operator == ( const market_index_key_ext& a, const market_index_key_ext& b )
+      {
+          if( a.limit_price.valid() != b.limit_price.valid() ) return false;
+          if( !a.limit_price.valid() ) return market_index_key( a ) == market_index_key( b );
+          return std::tie( a.order_price, a.owner, *a.limit_price ) == std::tie( b.order_price, b.owner, *b.limit_price );
+      }
+
+      friend bool operator < ( const market_index_key_ext& a, const market_index_key_ext& b )
+      {
+          FC_ASSERT( a.limit_price.valid() == b.limit_price.valid() );
+          if( !a.limit_price.valid() ) return market_index_key( a ) < market_index_key( b );
+          return std::tie( a.order_price, a.owner, *a.limit_price ) < std::tie( b.order_price, b.owner, *b.limit_price );
+      }
+   };
+
+   struct short_price_index_key
+   {
+      price             order_price;    // min(feed,limit)
+      market_index_key  index;
+      friend bool operator < ( const short_price_index_key& a, const short_price_index_key& b )
+      {
+        return std::tie(a.order_price, a.index ) < std::tie( b.order_price, b.index );
+      }
+      friend bool operator == ( const short_price_index_key& a, const short_price_index_key& b )
+      {
+        return std::tie(a.order_price, a.index ) == std::tie( b.order_price, b.index );
       }
    };
 
@@ -170,6 +211,7 @@ namespace bts { namespace blockchain {
       asset         get_quantity( const price& base = price() )const;
       asset         get_quote_quantity( const price& base = price() )const;
       address       get_owner()const { return market_index.owner; }
+      optional<price>  get_limit_price()const { return state.limit_price; }
 
       fc::enum_type<uint8_t, order_type_enum>   type = null_order;
       market_index_key                          market_index;
@@ -218,10 +260,11 @@ namespace bts { namespace blockchain {
           :collateral_balance(c),payoff_balance(p),interest_rate(apr),expiration(exp){}
       bool is_null() const { return 0 == payoff_balance && 0 == collateral_balance; }
 
-      share_type      collateral_balance;
-      share_type      payoff_balance;
+      share_type      collateral_balance = 0;
+      share_type      payoff_balance = 0;
       price           interest_rate;
       time_point_sec  expiration; // after expiration the collateral is forced to be called.
+      slate_id_type   slate_id = 0;
    };
    typedef fc::optional<collateral_record> ocollateral_record;
 
@@ -272,11 +315,12 @@ FC_REFLECT_ENUM( bts::blockchain::market_history_key::time_granularity_enum, (ea
 FC_REFLECT( bts::blockchain::market_status, (quote_id)(base_id)(current_feed_price)(last_valid_feed_price)(last_error) )
 FC_REFLECT_DERIVED( bts::blockchain::api_market_status, (bts::blockchain::market_status), (current_feed_price)(last_valid_feed_price) )
 FC_REFLECT( bts::blockchain::market_index_key, (order_price)(owner) )
+FC_REFLECT_DERIVED( bts::blockchain::market_index_key_ext, (bts::blockchain::market_index_key), (limit_price) )
 FC_REFLECT( bts::blockchain::market_history_record, (highest_bid)(lowest_ask)(opening_price)(closing_price)(volume) )
 FC_REFLECT( bts::blockchain::market_history_key, (quote_id)(base_id)(granularity)(timestamp) )
 FC_REFLECT( bts::blockchain::market_history_point, (timestamp)(highest_bid)(lowest_ask)(opening_price)(closing_price)(volume) )
 FC_REFLECT( bts::blockchain::order_record, (balance)(limit_price)(last_update) )
-FC_REFLECT( bts::blockchain::collateral_record, (collateral_balance)(payoff_balance)(interest_rate)(expiration) )
+FC_REFLECT( bts::blockchain::collateral_record, (collateral_balance)(payoff_balance)(interest_rate)(expiration)(slate_id) )
 FC_REFLECT( bts::blockchain::market_order, (type)(market_index)(state)(collateral)(interest_rate)(expiration) )
 FC_REFLECT_TYPENAME( std::vector<bts::blockchain::market_transaction> )
 FC_REFLECT_TYPENAME( bts::blockchain::market_history_key::time_granularity_enum ) // http://en.wikipedia.org/wiki/Voodoo_programminqg

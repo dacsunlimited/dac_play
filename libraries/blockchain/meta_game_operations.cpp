@@ -4,7 +4,7 @@
 
 namespace bts { namespace blockchain {
 
-   void create_game_operation::evaluate( transaction_evaluation_state& eval_state )
+   void create_game_operation::evaluate( transaction_evaluation_state& eval_state ) const
    { try {
       if( NOT eval_state._current_state->is_valid_symbol_name( this->symbol ) )
           FC_CAPTURE_AND_THROW( invalid_asset_symbol, (symbol) );

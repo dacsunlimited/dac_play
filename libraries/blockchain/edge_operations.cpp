@@ -1,19 +1,19 @@
-#include <bts/blockchain/chain_interface.hpp>
 #include <bts/blockchain/edge_operations.hpp>
 #include <bts/blockchain/edge_record.hpp>
 #include <bts/blockchain/exceptions.hpp>
+#include <bts/blockchain/pending_chain_state.hpp>
 #include <fc/io/raw_variant.hpp>
 
 namespace bts { namespace blockchain {
 
     // If ID is zero, make a new object (get a new ID)
     // if ID is positive, update the existing object
-    void set_edge_operation::evaluate( transaction_evaluation_state& eval_state )
+    void set_edge_operation::evaluate( transaction_evaluation_state& eval_state )const
     { try {
         ilog("@n set_edge operation with edge: ${e}", ("e", this->edge));
         auto edge_data = edge.as<edge_record>();
 
-        ilog("@n edge's basic object properties:");
+        ilog("@n edge's properties:");
         ilog("@n   _id: ${id}, type: ${type}, short_id: ${short}",
                 ("id", edge._id)("type", edge.type())("short", edge.short_id()));
 
@@ -33,7 +33,7 @@ namespace bts { namespace blockchain {
         if( !existing_edge.valid() )
         {
             ilog("@n edge exists, synchronizing object IDs");
-            existing_edge = object_record(edge_record(), 0);
+            existing_edge = object_record(edge_data, edge_object, 0);
             auto next_id = eval_state._current_state->new_object_id( edge_object );
             existing_edge->_id = next_id;
         }

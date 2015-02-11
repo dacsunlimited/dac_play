@@ -15,6 +15,7 @@
         ],
         "is_const" : false,
         "prerequisites" : ["json_authenticated"],
+        "cached"  : false,
         "aliases" : ["start_simulated_time"]
       },
       {
@@ -35,8 +36,19 @@
             }
         ],
         "is_const" : false,
+        "cached"  : false,
         "prerequisites" : ["json_authenticated"],
         "aliases" : ["advance_time"]
+      },
+      {
+        "method_name": "debug_trap",
+        "description": "Break into debugger (UNIX: SIGINT, win32: __debugbreak)",
+        "return_type": "void",
+        "parameters" : [],
+        "is_const" : true,
+        "cached"  : false,
+        "prerequisites" : ["json_authenticated"],
+        "aliases" : []
       },
       {
         "method_name": "debug_wait",
@@ -51,6 +63,7 @@
             }
           ],
         "is_const"   : true,
+        "cached"  : false,
         "prerequisites" : ["no_prerequisites"],
         "aliases" : ["wait"]
       },
@@ -72,6 +85,7 @@
             }
         ],
         "is_const" : false,
+        "cached"  : false,
         "prerequisites" : ["json_authenticated"],
         "aliases" : ["wait_for_block_by_number"]
       },
@@ -88,6 +102,7 @@
             }
           ],
         "is_const"   : true,
+        "cached"  : false,
         "prerequisites" : ["no_prerequisites"],
         "aliases" : ["wait_block_interval"]
       },
@@ -104,6 +119,7 @@
             }
           ],
         "is_const"   : false,
+        "cached"  : false,
         "prerequisites" : ["no_prerequisites"],
         "aliases" : ["enable_output"]
       },
@@ -120,6 +136,7 @@
             }
           ],
         "is_const"   : false,
+        "cached"  : false,
         "prerequisites" : ["no_prerequisites"],
         "aliases" : ["filter_output_for_tests"]
       },
@@ -148,6 +165,7 @@
                }
         ],
         "is_const"   : true,
+        "cached"  : false,
         "prerequisites" : ["no_prerequisites"],
         "aliases" : ["errors", "list_errors"]
       },

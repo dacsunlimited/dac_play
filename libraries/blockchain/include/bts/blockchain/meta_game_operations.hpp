@@ -45,7 +45,7 @@ namespace bts { namespace blockchain {
 
        rule_id_type     rule_id;
 
-       void evaluate( transaction_evaluation_state& eval_state );
+       void evaluate( transaction_evaluation_state& eval_state ) const;
    };
 
 } } // bts::blockchain

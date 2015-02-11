@@ -295,7 +295,7 @@ namespace bts { namespace cli {
     const string& quote_symbol = arguments[ 0 ].as_string();
     const oasset_record quote_asset_record = client->get_chain()->get_asset_record( quote_symbol );
     FC_ASSERT( quote_asset_record.valid() );
-    const asset_id_type& quote_id = quote_asset_record->id;
+    const asset_id_type quote_id = quote_asset_record->id;
 
     const omarket_status status = client->get_chain()->get_market_status( quote_id, asset_id_type( 0 ) );
 
@@ -658,13 +658,13 @@ namespace bts { namespace cli {
       {
         if(FILTER_OUTPUT_FOR_TESTS)
         {
-          out << std::setw(15) << "<d-ign>" << transaction.digest(client->get_chain()->chain_id()).str().substr(0, 8) << "</d-ign>";
-          out << std::setw(20) << "<d-ign>" << string(transaction.expiration) << "</d-ign>";
+          out << std::setw(15) << "<d-ign>" << string( transaction.id() ).substr( 0, 8 ) << "</d-ign>";
+          out << std::setw(20) << "<d-ign>" << string( transaction.expiration ) << "</d-ign>";
         }
         else
         {
-          out << std::setw(15) << transaction.digest(client->get_chain()->chain_id()).str().substr(0, 8);
-          out << std::setw(20) << string(transaction.expiration);
+          out << std::setw(15) << string( transaction.id() ).substr( 0, 8 );
+          out << std::setw(20) << string( transaction.expiration );
         }
 
         out << std::setw(10) << transaction.data_size()
@@ -697,9 +697,9 @@ namespace bts { namespace cli {
     const oasset_record base_asset_record = client->get_chain()->get_asset_record( base_symbol );
     FC_ASSERT( base_asset_record.valid() );
 
-    const asset_id_type& quote_id = quote_asset_record->id;
-    const asset_id_type& base_id = base_asset_record->id;
-      
+    const asset_id_type quote_id = quote_asset_record->id;
+    const asset_id_type base_id = base_asset_record->id;
+
     price feed_price;
     {
         const omarket_status status = client->get_chain()->get_market_status( quote_id, base_id );
@@ -711,17 +711,6 @@ namespace bts { namespace cli {
     auto ask_itr = bids_asks.second.begin();
 
     auto status = client->get_chain()->get_market_status(quote_id, base_id);
-
-    std::sort( bids_asks.first.begin(), bids_asks.first.end(), [=]( const market_order& a, const market_order& b ) -> bool
-               {
-                  return a.get_price( feed_price ) > b.get_price( feed_price );
-               }
-             );
-    std::sort( bids_asks.second.begin(), bids_asks.second.end(), [=]( const market_order& a, const market_order& b ) -> bool
-               {
-                  return a.get_price( feed_price ) < b.get_price( feed_price );
-               }
-             );
 
     if(bids_asks.first.empty() && bids_asks.second.empty())
     {
@@ -736,14 +725,17 @@ namespace bts { namespace cli {
     {
       if(bid_itr != bids_asks.first.end())
       {
-        bool short_wall = (bid_itr->get_owner() == address());
-        // TODO: Fixed value, short orders already been removed.
+        //bool short_wall = (bid_itr->get_owner() == address());
         bool is_short_order = false;
 
         if (is_short_order)
         {
-          asset quantity(bid_itr->get_quote_quantity() * (*bid_itr->state.limit_price));
-          out << std::left << std::setw(26) << client->get_chain()->to_pretty_asset(bid_itr->get_quote_quantity( feed_price ))
+          //asset quantity(bid_itr->get_quote_quantity() * (*bid_itr->state.limit_price));
+          asset quantity = bid_itr->get_balance();
+          quantity.amount /= 2; // 2x collateral
+          FC_ASSERT( bid_itr->get_limit_price() );
+          asset usd_quantity = quantity * *bid_itr->get_limit_price();
+          out << std::left << std::setw(26) << client->get_chain()->to_pretty_asset( usd_quantity ) //bid_itr->get_quote_quantity( feed_price ))
               << std::setw(20) << client->get_chain()->to_pretty_asset(quantity)
               << std::right << std::setw(30) << (fc::to_string(client->get_chain()->to_pretty_price_double(*bid_itr->state.limit_price)) + " " + quote_asset_record->symbol)
               << "*";
@@ -771,7 +763,7 @@ namespace bts { namespace cli {
                  << std::setw(20) << client->get_chain()->to_pretty_asset(bid_itr->get_quantity( feed_price ))
                  << std::right << std::setw(30) <<
                      (fc::to_string(client->get_chain()->to_pretty_price_double(bid_itr->get_price( feed_price ))) + " " + quote_asset_record->symbol);
-             if(short_wall || is_short_order)
+             if(is_short_order)
                out << "*";
              else
                out << " ";
@@ -798,9 +790,11 @@ namespace bts { namespace cli {
              else
                out << "+";
           }
-          else 
+          else
             out << " ";
           out << std::left << std::setw(30) << (fc::to_string(client->get_chain()->to_pretty_price_double(abs_price)) + " " + quote_asset_record->symbol)
+   //         << std::left << std::setw(30) << (fc::to_string(client->get_chain()->to_pretty_price_double(ask_itr->get_price(feed_price))) + " " + quote_asset_record->symbol)
+    //        << std::left << std::setw(30) << (fc::to_string(client->get_chain()->to_pretty_price_double(feed_price)) + " " + quote_asset_record->symbol)
             << std::right << std::setw(23) << client->get_chain()->to_pretty_asset(ask_itr->get_quantity( feed_price ))
             << std::right << std::setw(26) << client->get_chain()->to_pretty_asset(ask_itr->get_quote_quantity( feed_price ));
           ++ask_itr;
@@ -999,6 +993,8 @@ namespace bts { namespace cli {
       block["next_secret_hash"] = "<d-ign>" + block["next_secret_hash"].as_string() + "</d-ign>";
     if(!block["delegate_signature"].is_null() && FILTER_OUTPUT_FOR_TESTS)
       block["delegate_signature"] = "<d-ign>" + block["delegate_signature"].as_string() + "</d-ign>";
+    if(!block["random_seed"].is_null() && FILTER_OUTPUT_FOR_TESTS)
+      block["random_seed"] = "<d-ign>" + block["random_seed"].as_string() + "</d-ign>";
     if(!block["processing_time"].is_null() && FILTER_OUTPUT_FOR_TESTS)
       block["processing_time"] = "<d-ign>" + block["processing_time"].as_string() + "</d-ign>";
     out << fc::json::to_pretty_string(block) << "\n";

@@ -20,7 +20,7 @@ namespace bts { namespace db {
 
         void close()
         { try {
-            flush();
+            if( _db.is_open() ) flush();
             _db.close();
             _cache.clear();
             _dirty_store.clear();
@@ -172,19 +172,19 @@ namespace bts { namespace db {
            return iterator( _cache.begin(), _cache.begin(), _cache.end() );
         }
 
-        iterator last()
+        iterator last()const
         {
            if( _cache.empty() )
               return iterator( _cache.end(), _cache.begin(), _cache.end() );
            return iterator( --_cache.end(), _cache.begin(), _cache.end() );
         }
 
-        iterator find( const Key& key )
+        iterator find( const Key& key )const
         {
            return iterator( _cache.find(key), _cache.begin(), _cache.end() );
         }
 
-        iterator lower_bound( const Key& key )
+        iterator lower_bound( const Key& key )const
         {
            return iterator( _cache.lower_bound(key), _cache.begin(), _cache.end() );
         }

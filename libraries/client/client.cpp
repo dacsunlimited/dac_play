@@ -9,7 +9,6 @@
 #include <bts/utilities/git_revision.hpp>
 
 #include <bts/blockchain/chain_database.hpp>
-#include <bts/blockchain/checkpoints.hpp>
 #include <bts/blockchain/exceptions.hpp>
 #include <bts/blockchain/time.hpp>
 #include <bts/blockchain/transaction_evaluation_state.hpp>
@@ -47,6 +46,7 @@
 #include <fc/crypto/hex.hpp>
 
 #include <boost/algorithm/string/replace.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/range/adaptor/reversed.hpp>
@@ -88,8 +88,7 @@ const string BTS_MESSAGE_MAGIC = "BitShares Signed Message:\n";
 
 fc::logging_config create_default_logging_config( const fc::path&, bool enable_ulog );
 fc::path get_data_dir(const program_options::variables_map& option_variables);
-config load_config( const fc::path& datadir, bool enable_ulog );
-void load_checkpoints( const fc::path& data_dir );
+config load_config( const fc::path& datadir, const bool enable_ulog, const fc::optional<bool> statistics_enabled );
 void load_and_configure_chain_database( const fc::path& datadir,
                                         const program_options::variables_map& option_variables );
 
@@ -111,6 +110,8 @@ program_options::variables_map parse_option_variables(int argc, char** argv)
                            "than downloading a new copy")
          ("resync-blockchain", "Delete our copy of the blockchain at startup and download a "
                                "fresh copy of the entire blockchain from the network")
+         ("statistics-enabled",
+          "Index additional blockchain statistics; requires a rebuild or resync if blocks have already been applied")
 
          ("p2p-port", program_options::value<string>(), "Set network port to listen on (prepend 'r' to enable SO_REUSEADDR)")
          ("accept-incoming-connections", program_options::value<bool>()->default_value(true), "Set to false to reject incoming p2p connections and only establish outbound connections")
@@ -392,7 +393,6 @@ void load_and_configure_chain_database( const fc::path& datadir,
       }
       else if (option_variables.count("rebuild-index"))
       {
-         std::cout << "Clearing database index\n";
          try
          {
             fc::remove_all(datadir / "chain/index");
@@ -406,10 +406,9 @@ void load_and_configure_chain_database( const fc::path& datadir,
       {
          std::cout << "Loading blockchain from: " << ( datadir / "chain" ).preferred_string()  << "\n";
       }
-
    } FC_RETHROW_EXCEPTIONS( warn, "unable to open blockchain from ${data_dir}", ("data_dir",datadir/"chain") ) }
 
-config load_config( const fc::path& datadir, bool enable_ulog )
+config load_config( const fc::path& datadir, const bool enable_ulog, const fc::optional<bool> statistics_enabled )
 { try {
       fc::path config_file = datadir / "config.json";
       config cfg;
@@ -436,6 +435,10 @@ config load_config( const fc::path& datadir, bool enable_ulog )
          std::cerr << "Creating default config file at: " << config_file.preferred_string() << "\n";
          cfg.logging = create_default_logging_config( datadir, enable_ulog );
       }
+
+      if( statistics_enabled.valid() )
+          cfg.statistics_enabled = *statistics_enabled;
+
       fc::json::save_to_file( cfg, config_file );
 
       // the logging_config may contain relative paths.  If it does, expand those to full
@@ -464,48 +467,6 @@ config load_config( const fc::path& datadir, bool enable_ulog )
       std::random_shuffle( cfg.default_peers.begin(), cfg.default_peers.end() );
       return cfg;
 } FC_RETHROW_EXCEPTIONS( warn, "unable to load config file ${cfg}", ("cfg",datadir/"config.json")) }
-
-void load_checkpoints( const fc::path& data_dir )
-{ try {
-    const fc::path checkpoint_file = data_dir / "checkpoints.json";
-
-    decltype( CHECKPOINT_BLOCKS ) external_checkpoints;
-    fc::oexception file_exception;
-    if( fc::exists( checkpoint_file ) )
-    {
-        try
-        {
-            external_checkpoints = fc::json::from_file( checkpoint_file ).as<decltype( external_checkpoints )>();
-        }
-        catch( const fc::exception& e )
-        {
-            file_exception = e;
-        }
-    }
-
-    if( !external_checkpoints.empty() )
-    {
-        if( CHECKPOINT_BLOCKS.empty() || external_checkpoints.crbegin()->first >= CHECKPOINT_BLOCKS.crbegin()->first )
-        {
-            ulog( "Using blockchain checkpoints from file: ${x}", ("x",checkpoint_file.preferred_string()) );
-            CHECKPOINT_BLOCKS = external_checkpoints;
-            return;
-        }
-    }
-
-    if( !file_exception.valid() )
-    {
-        fc::remove_all( checkpoint_file );
-        fc::json::save_to_file( CHECKPOINT_BLOCKS, checkpoint_file );
-    }
-    else
-    {
-        ulog( "Error loading blockchain checkpoints from file: ${x}", ("x",checkpoint_file.preferred_string()) );
-    }
-
-    if( !CHECKPOINT_BLOCKS.empty() )
-        ulog( "Using built-in blockchain checkpoints" );
-} FC_CAPTURE_AND_RETHROW( (data_dir) ) }
 
 namespace detail
 {
@@ -544,6 +505,8 @@ void client_impl::configure_rpc_server(config& cfg,
       // launch the RPC servers
       bool rpc_success = _rpc_server->configure_rpc(cfg.rpc);
       rpc_success &= _rpc_server->configure_http(cfg.rpc);
+      if( !cfg.rpc.encrypted_rpc_wif_key.empty() )
+          rpc_success &= _rpc_server->configure_encrypted_rpc(cfg.rpc);
 
       // this shouldn't fail due to the above checks, but just to be safe...
       if (!rpc_success)
@@ -585,29 +548,60 @@ void client_impl::configure_chain_server(config& cfg, const program_options::var
 // Call this whenever a change occurs that may enable block production by the client
 void client_impl::reschedule_delegate_loop()
 {
-   if( !_delegate_loop_complete.valid() || _delegate_loop_complete.ready() )
-      start_delegate_loop();
+    if( !_delegate_loop_complete.valid() || _delegate_loop_complete.ready() )
+        start_delegate_loop();
 }
 
 void client_impl::start_delegate_loop()
 {
-   if (!_time_discontinuity_connection.connected())
-      _time_discontinuity_connection = bts::blockchain::time_discontinuity_signal.connect([=](){ reschedule_delegate_loop(); });
-   _delegate_loop_complete = fc::async( [=](){ delegate_loop(); }, "delegate_loop" );
+    const fc::path config_file = _data_dir / "delegate_config.json";
+
+    fc::oexception file_exception;
+    if( fc::exists( config_file ) )
+    {
+        try
+        {
+            _delegate_config = fc::json::from_file( config_file ).as<decltype( _delegate_config )>();
+        }
+        catch( const fc::exception& e )
+        {
+            file_exception = e;
+        }
+    }
+
+    if( file_exception.valid() )
+        ulog( "Error loading delegate config from file: ${x}", ("x",config_file.preferred_string()) );
+
+    if (!_time_discontinuity_connection.connected())
+        _time_discontinuity_connection = bts::blockchain::time_discontinuity_signal.connect([=](){ reschedule_delegate_loop(); });
+    _delegate_loop_complete = fc::async( [=](){ delegate_loop(); }, "delegate_loop" );
 }
 
 void client_impl::cancel_delegate_loop()
 {
-   try
-   {
-      ilog( "Canceling delegate loop..." );
-      _delegate_loop_complete.cancel_and_wait(__FUNCTION__);
-      ilog( "Delegate loop canceled" );
-   }
-   catch( const fc::exception& e )
-   {
-      wlog( "Unexpected exception thrown from delegate_loop(): ${e}", ("e",e.to_detail_string() ) );
-   }
+    try
+    {
+        ilog( "Canceling delegate loop..." );
+        _delegate_loop_complete.cancel_and_wait(__FUNCTION__);
+        ilog( "Delegate loop canceled" );
+    }
+    catch( const fc::exception& e )
+    {
+        wlog( "Unexpected exception thrown from delegate_loop(): ${e}", ("e",e.to_detail_string() ) );
+    }
+
+    try
+    {
+        const fc::path config_file = _data_dir / "delegate_config.json";
+        if( fc::exists( config_file ) )
+        {
+            fc::remove_all( config_file );
+            fc::json::save_to_file( _delegate_config, config_file );
+        }
+    }
+    catch( ... )
+    {
+    }
 }
 
 void client_impl::delegate_loop()
@@ -622,6 +616,7 @@ void client_impl::delegate_loop()
    const auto now = blockchain::now();
    ilog( "Starting delegate loop at time: ${t}", ("t",now) );
 
+   _chain_db->_verify_transaction_signatures = true;
    if( _delegate_loop_first_run )
    {
       set_target_connections( BTS_NET_DELEGATE_DESIRED_CONNECTIONS );
@@ -631,31 +626,27 @@ void client_impl::delegate_loop()
    const auto next_block_time = _wallet->get_next_producible_block_timestamp( enabled_delegates );
    if( next_block_time.valid() )
    {
-      // delegates don't get to skip this check, they must check up on everyone else
-      _chain_db->skip_signature_verification( false );
       ilog( "Producing block at time: ${t}", ("t",*next_block_time) );
 
       if( *next_block_time <= now )
       {
          try
          {
-            FC_ASSERT( network_get_connection_count() >= _min_delegate_connection_count,
+            _delegate_config.validate();
+
+            FC_ASSERT( network_get_connection_count() >= _delegate_config.network_min_connection_count,
                        "Client must have ${count} connections before you may produce blocks!",
-                       ("count",_min_delegate_connection_count) );
+                       ("count",_delegate_config.network_min_connection_count) );
             FC_ASSERT( _wallet->is_unlocked(), "Wallet must be unlocked to produce blocks!" );
             FC_ASSERT( (now - *next_block_time) < fc::seconds( BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC ),
                        "You missed your slot at time: ${t}!", ("t",*next_block_time) );
 
-            full_block next_block = _chain_db->generate_block( *next_block_time,
-                                                               _max_block_transaction_count, _max_block_size,
-                                                               _max_transaction_size, _min_transaction_fee,
-                                                               _max_block_production_time );
-
+            full_block next_block = _chain_db->generate_block( *next_block_time, _delegate_config );
             _wallet->sign_block( next_block );
 
             on_new_block( next_block, next_block.id(), false );
-
             _p2p_node->broadcast( block_message( next_block ) );
+
             ilog( "Produced block #${n}!", ("n",next_block.block_num) );
          }
          catch ( const fc::canceled_exception& )
@@ -1275,6 +1266,7 @@ client::client(const std::string& user_agent,
 {
    network_to_connect_to->add_node_delegate(my.get());
    my->_p2p_node = network_to_connect_to;
+   my->_simulated_network = true;
 }
 
 void client::simulate_disconnect( bool state )
@@ -1282,58 +1274,43 @@ void client::simulate_disconnect( bool state )
    my->_simulate_disconnect = state;
 }
 
-void client::open( const path& data_dir, fc::optional<fc::path> genesis_file_path, std::function<void(float)> reindex_status_callback )
+void client::open( const path& data_dir, const fc::optional<fc::path>& genesis_file_path,
+                   const fc::optional<bool> statistics_enabled,
+                   const std::function<void( float )> replay_status_callback )
 { try {
-    my->_config = load_config( data_dir, my->_enable_ulog );
+    my->_config = load_config( data_dir, my->_enable_ulog, statistics_enabled );
 
-    //std::cout << fc::json::to_pretty_string( cfg ) <<"\n";
     fc::configure_logging( my->_config.logging );
     // re-register the _user_appender which was overwritten by configure_logging()
     fc::logger::get( "user" ).add_appender( my->_user_appender );
 
-    try
-    {
-       my->_exception_db.open( data_dir / "exceptions", true );
-    }
-    catch( const db::db_in_use_exception& e )
-    {
-       if( e.to_string().find("Corruption") != string::npos )
-       {
-          elog("Exception database corrupted. Deleting it and attempting to recover.");
-          fc::remove_all( data_dir / "exceptions" );
-          my->_exception_db.open( data_dir / "exceptions", true );
-       }
-       //FIXME: is it really correct to continue here without rethrowing?
-    }
-
-    load_checkpoints( data_dir );
+    my->_exception_db.open( data_dir / "exceptions" );
 
     bool attempt_to_recover_database = false;
     try
     {
-       ulog( "Tracking Statistics: ${s}", ("s",my->_config.track_statistics ) );
-       my->_chain_db->track_chain_statistics( my->_config.track_statistics );
-       my->_chain_db->open( data_dir / "chain", genesis_file_path, reindex_status_callback );
+       if( my->_config.statistics_enabled )
+           ulog( "Additional blockchain statistics enabled" );
+       my->_chain_db->open( data_dir / "chain", genesis_file_path, my->_config.statistics_enabled, replay_status_callback );
     }
-    catch( const db::db_in_use_exception& e )
+    catch( const db::level_map_open_failure& e )
     {
        if (e.to_string().find("Corruption") != string::npos)
        {
           elog("Chain database corrupted. Deleting it and attempting to recover.");
+          ulog("Chain database corrupted. Deleting it and attempting to recover.");
           attempt_to_recover_database = true;
        }
-       //FIXME: is it really correct to continue here without rethrowing?
-    }
-    catch ( const wrong_chain_id& )
-    {
-       elog("Wrong chain ID. Deleting database and attempting to recover.");
-       attempt_to_recover_database = true;
+       else
+       {
+           throw;
+       }
     }
 
     if (attempt_to_recover_database)
     {
        fc::remove_all(data_dir / "chain");
-       my->_chain_db->open(data_dir / "chain", genesis_file_path, reindex_status_callback);
+       my->_chain_db->open( data_dir / "chain", genesis_file_path, my->_config.statistics_enabled, replay_status_callback );
     }
 
     my->_wallet = std::make_shared<bts::wallet::wallet>( my->_chain_db, my->_config.wallet_enabled );
@@ -1344,8 +1321,12 @@ void client::open( const path& data_dir, fc::optional<fc::path> genesis_file_pat
        my->_mail_server = std::make_shared<bts::mail::server>();
        my->_mail_server->open( data_dir / "mail" );
     }
-    my->_mail_client = std::make_shared<bts::mail::client>(my->_wallet, my->_chain_db);
-    my->_mail_client->open( data_dir / "mail_client" );
+
+    if (my->_config.mail_client_enabled)
+    {
+        my->_mail_client = std::make_shared<bts::mail::client>(my->_wallet, my->_chain_db);
+        my->_mail_client->open( data_dir / "mail_client" );
+    }
 
     //if we are using a simulated network, _p2p_node will already be set by client's constructor
     if (!my->_p2p_node)
@@ -1380,6 +1361,10 @@ bts::net::node_ptr client::get_node()const { return my->_p2p_node; }
 fc::variant_object version_info()
 {
    string client_version( bts::utilities::git_revision_description );
+   const size_t pos = client_version.find( '/' );
+   if( pos != string::npos && client_version.size() > pos )
+       client_version = client_version.substr( pos + 1 );
+
 #ifdef BTS_TEST_NETWORK
    client_version += "-testnet-" + std::to_string( BTS_TEST_NETWORK_VERSION );
 #endif
@@ -1475,7 +1460,18 @@ void client::configure_from_command_line(int argc, char** argv)
    auto option_variables = parse_option_variables(argc,argv);
 
    fc::path datadir = bts::client::get_data_dir(option_variables);
-   fc::create_directories(datadir);
+   if( !fc::exists( datadir ) )
+   {
+     std::cout << "Creating new data directory " << datadir.preferred_string() << "\n";
+     fc::create_directories(datadir);
+#ifndef WIN32
+     int perm = 0700;
+     std::cout << "Setting UNIX permissions on new data directory to " << std::oct << perm << std::dec << "\n";
+     fc::chmod( datadir, perm );
+#else
+     std::cout << "Note: new data directory is readable by all user accounts on non-UNIX OS\n";
+#endif
+   }
 
    // this just clears the database if the command line says
    // TODO: rename it to smething better
@@ -1486,10 +1482,12 @@ void client::configure_from_command_line(int argc, char** argv)
       genesis_file_path = option_variables["genesis-config"].as<string>();
 
    my->_enable_ulog = option_variables["ulog"].as<bool>();
-   this->open( datadir, genesis_file_path );
+   fc::optional<bool> statistics_enabled;
+   if( option_variables.count( "statistics-enabled" ) > 0 ) statistics_enabled = true;
+   this->open( datadir, genesis_file_path, statistics_enabled );
 
    if (option_variables.count("min-delegate-connection-count"))
-      my->_min_delegate_connection_count = option_variables["min-delegate-connection-count"].as<uint32_t>();
+      my->_delegate_config.network_min_connection_count = option_variables["min-delegate-connection-count"].as<uint32_t>();
 
    this->configure( datadir );
 
@@ -1666,7 +1664,8 @@ void client::configure_from_command_line(int argc, char** argv)
                                           my->_config.chain_server.listen_port));
       ulog("Starting a chain server on port ${port}", ("port", my->_chain_server->get_listening_port()));
    }
-   my->_chain_db->set_relay_fee( my->_config.relay_fee * BTS_BLOCKCHAIN_PRECISION );
+
+   my->_chain_db->set_relay_fee( my->_config.min_relay_fee );
 } //configure_from_command_line
 
 fc::future<void> client::start()
@@ -1698,7 +1697,9 @@ void client::accept_incoming_p2p_connections(bool accept)
 const config& client::configure( const fc::path& configuration_directory )
 {
    my->_data_dir = configuration_directory;
-   my->_p2p_node->load_configuration( my->_data_dir );
+
+   if( !my->_simulated_network )
+       my->_p2p_node->load_configuration( my->_data_dir );
 
    return my->_config;
 }
@@ -1870,7 +1871,7 @@ namespace detail  {
 //This function is here instead of in debug_api.cpp because it needs load_config() which is local to client.cpp
 void client_impl::debug_update_logging_config()
 {
-   config temp_config = load_config( _data_dir, _enable_ulog );
+   config temp_config = load_config( _data_dir, _enable_ulog, _config.statistics_enabled );
    fc::configure_logging( temp_config.logging );
    // re-register the _user_appender which was overwritten by configure_logging()
    fc::logger::get("user").add_appender(_user_appender);

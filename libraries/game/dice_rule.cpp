@@ -160,7 +160,6 @@ namespace bts { namespace game {
     bool dice_rule::scan_result( const rule_result_transaction& rtrx,
                      uint32_t block_num,
                      const time_point_sec& block_time,
-                     const time_point_sec& received_time,
                      const uint32_t trx_index, bts::wallet::wallet_ptr w)
     { try {
         auto gtrx = rtrx.as<dice_transaction>();
@@ -211,7 +210,7 @@ namespace bts { namespace game {
             record.ledger_entries.push_back( in_entry );
             record.fee = asset(0);    // TODO: Dice, do we need fee for claim jackpot? may be later we'll support part to delegates
             record.created_time = block_time;
-            record.received_time = received_time;
+            record.received_time = block_time;
             
             w->store_transaction( record );
         }

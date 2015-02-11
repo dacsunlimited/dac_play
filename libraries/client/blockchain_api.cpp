@@ -1,5 +1,6 @@
 #include <bts/blockchain/exceptions.hpp>
 #include <bts/blockchain/account_operations.hpp>
+#include <bts/blockchain/balance_operations.hpp>
 #include <bts/blockchain/time.hpp>
 #include <bts/client/client.hpp>
 #include <bts/client/client_impl.hpp>
@@ -34,7 +35,7 @@ vector<account_record> client_impl::blockchain_list_delegates( uint32_t first, u
    vector<account_id_type> delegate_ids = _chain_db->get_delegates_by_vote( first, count );
 
    vector<account_record> delegate_records;
-   delegate_records.reserve( count );
+   delegate_records.reserve( delegate_ids.size() );
    for( const auto& delegate_id : delegate_ids )
    {
       auto delegate_record = _chain_db->get_account_record( delegate_id );
@@ -46,19 +47,19 @@ vector<account_record> client_impl::blockchain_list_delegates( uint32_t first, u
 
 vector<string> client_impl::blockchain_list_missing_block_delegates( uint32_t block_num )
 {
+   //FC_ASSERT( _chain_db->get_statistics_enabled() );
    if (block_num == 0 || block_num == 1)
       return vector<string>();
    vector<string> delegates;
-   auto this_block = _chain_db->get_block_record( block_num );
-   FC_ASSERT(this_block.valid(), "Cannot use this call on a block that has not yet been produced");
-   auto prev_block = _chain_db->get_block_record( block_num - 1 );
-   auto timestamp = prev_block->timestamp;
+   const auto this_block = _chain_db->get_block_header( block_num );
+   const auto prev_block = _chain_db->get_block_header( block_num - 1 );
+   auto timestamp = prev_block.timestamp;
    timestamp += BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC;
-   while (timestamp != this_block->timestamp)
+   while (timestamp != this_block.timestamp)
    {
-      auto slot_record = _chain_db->get_slot_record( timestamp );
+      const auto slot_record = _chain_db->get_slot_record( timestamp );
       FC_ASSERT( slot_record.valid() );
-      auto delegate_record = _chain_db->get_account_record( slot_record->block_producer_id );
+      const auto delegate_record = _chain_db->get_account_record( slot_record->index.delegate_id );
       FC_ASSERT( delegate_record.valid() );
       delegates.push_back( delegate_record->name );
       timestamp += BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC;
@@ -70,8 +71,7 @@ vector<block_record> client_impl::blockchain_list_blocks( uint32_t first, int32_
 {
    FC_ASSERT( count <= 1000 );
    FC_ASSERT( count >= -1000 );
-   vector<block_record> result;
-   if (count == 0) return result;
+   if (count == 0) return vector<block_record>();
 
    uint32_t total_blocks = _chain_db->get_head_block_num();
    FC_ASSERT( first <= total_blocks );
@@ -94,6 +94,8 @@ vector<block_record> client_impl::blockchain_list_blocks( uint32_t first, int32_
       if( first + count - 1 > total_blocks )
          count = total_blocks - first + 1;
    }
+
+   vector<block_record> result;
    result.reserve( count );
 
    for( int32_t block_num = first; count; --count, block_num += increment )
@@ -111,7 +113,7 @@ signed_transactions client_impl::blockchain_list_pending_transactions() const
    signed_transactions trxs;
    vector<transaction_evaluation_state_ptr> pending = _chain_db->get_pending_transactions();
    trxs.reserve(pending.size());
-   for (auto trx_eval_ptr : pending)
+   for (const auto& trx_eval_ptr : pending)
    {
       trxs.push_back(trx_eval_ptr->trx);
    }
@@ -135,15 +137,66 @@ oaccount_record detail::client_impl::blockchain_get_account( const string& accou
       ASSERT_TASK_NOT_PREEMPTED(); // make sure no cancel gets swallowed by catch(...)
       if( std::all_of( account.begin(), account.end(), ::isdigit) )
          return _chain_db->get_account_record( std::stoi( account ) );
-      else if( account.substr( 0, string( BTS_ADDRESS_PREFIX ).size() ) == BTS_ADDRESS_PREFIX )
-         return _chain_db->get_account_record( address( public_key_type( account ) ) );
-      else
+      else if( account.substr( 0, string( BTS_ADDRESS_PREFIX ).size() ) == BTS_ADDRESS_PREFIX ) {
+         //Magic number 39 is hopefully longer than the longest address and shorter than the shortest key. Hopefully.
+         if( account.length() < 39 )
+            return _chain_db->get_account_record( address( account ) );
+         else
+            return _chain_db->get_account_record( address( blockchain::public_key_type( account ) ) );
+      } else
          return _chain_db->get_account_record( account );
    }
    catch( ... )
    {
    }
    return oaccount_record();
+}
+
+map<account_id_type, string> detail::client_impl::blockchain_get_slate( const string& slate )const
+{
+    map<account_id_type, string> delegates;
+
+    slate_id_type slate_id = 0;
+    if( !std::all_of( slate.begin(), slate.end(), ::isdigit ) )
+    {
+        const oaccount_record account_record = _chain_db->get_account_record( slate );
+        FC_ASSERT( account_record.valid() );
+        try
+        {
+            FC_ASSERT( account_record->public_data.is_object() );
+            const auto public_data = account_record->public_data.get_object();
+            FC_ASSERT( public_data.contains( "slate_id" ) );
+            FC_ASSERT( public_data[ "slate_id" ].is_uint64() );
+            slate_id = public_data[ "slate_id" ].as<slate_id_type>();
+        }
+        catch( const fc::exception& )
+        {
+            return delegates;
+        }
+    }
+    else
+    {
+        slate_id = std::stoi( slate );
+    }
+
+    const oslate_record slate_record = _chain_db->get_slate_record( slate_id );
+    FC_ASSERT( slate_record.valid() );
+
+    for( const account_id_type id : slate_record->slate )
+    {
+        const oaccount_record delegate_record = _chain_db->get_account_record( id );
+        if( delegate_record.valid() )
+        {
+            if( delegate_record->is_delegate() ) delegates[ id ] = delegate_record->name;
+            else delegates[ id ] = '(' + delegate_record->name + ')';
+        }
+        else
+        {
+            delegates[ id ] = std::to_string( id );
+        }
+    }
+
+    return delegates;
 }
 
 balance_record detail::client_impl::blockchain_get_balance( const balance_id_type& balance_id )const
@@ -182,15 +235,15 @@ vector<feed_entry> detail::client_impl::blockchain_get_feeds_for_asset(const std
       vector<feed_entry> result_feeds;
       for( auto feed : raw_feeds )
       {
-         auto delegate = _chain_db->get_account_record(feed.feed.delegate_id);
+         auto delegate = _chain_db->get_account_record(feed.index.delegate_id);
          if( !delegate )
-            FC_THROW_EXCEPTION(unknown_account_id , "Unknown delegate", ("delegate_id", feed.feed.delegate_id) );
-         double price = _chain_db->to_pretty_price_double(feed.value.as<blockchain::price>());
+            FC_THROW_EXCEPTION(unknown_account_id , "Unknown delegate", ("delegate_id", feed.index.delegate_id) );
+         double price = _chain_db->to_pretty_price_double(feed.value);
 
          result_feeds.push_back({delegate->name, price, feed.last_update});
       }
 
-      auto omedian_price = _chain_db->get_median_delegate_price(asset_id, asset_id_type( 0 ));
+      const auto omedian_price = _chain_db->get_active_feed_price( asset_id );
       if( omedian_price )
          result_feeds.push_back({"MARKET", 0, _chain_db->now(), _chain_db->get_asset_symbol(asset_id), _chain_db->to_pretty_price_double(*omedian_price)});
 
@@ -204,7 +257,7 @@ double detail::client_impl::blockchain_median_feed_price( const string& asset )c
       asset_id = _chain_db->get_asset_id(asset);
    else
       asset_id = std::stoi( asset );
-   auto omedian_price = _chain_db->get_median_delegate_price(asset_id, asset_id_type( 0 ));
+   const auto omedian_price = _chain_db->get_active_feed_price( asset_id );
    if( omedian_price )
       return _chain_db->to_pretty_price_double( *omedian_price );
    return 0;
@@ -222,9 +275,9 @@ vector<feed_entry> detail::client_impl::blockchain_get_feeds_from_delegate( cons
 
       for( const auto& raw_feed : raw_feeds )
       {
-         const double price = _chain_db->to_pretty_price_double( raw_feed.value.as<blockchain::price>() );
-         const string asset_symbol = _chain_db->get_asset_symbol( raw_feed.feed.feed_id );
-         const auto omedian_price = _chain_db->get_median_delegate_price( raw_feed.feed.feed_id, asset_id_type( 0 ) );
+         const double price = _chain_db->to_pretty_price_double( raw_feed.value );
+         const string asset_symbol = _chain_db->get_asset_symbol( raw_feed.index.quote_id );
+         const auto omedian_price = _chain_db->get_active_feed_price( raw_feed.index.quote_id );
          fc::optional<double> median_price;
          if( omedian_price )
             median_price = _chain_db->to_pretty_price_double( *omedian_price );
@@ -261,9 +314,13 @@ oblock_record detail::client_impl::blockchain_get_block( const string& block )co
 }
 
 map<balance_id_type, balance_record> detail::client_impl::blockchain_list_balances( const string& first, uint32_t limit )const
-{
-   return _chain_db->get_balances( first, limit );
-}
+{ try {
+    FC_ASSERT( limit > 0 );
+    balance_id_type id;
+    if( !first.empty() ) id = variant( first ).as<balance_id_type>();
+    return _chain_db->get_balances( id, limit );
+} FC_CAPTURE_AND_RETHROW( (first)(limit) ) }
+
 account_balance_summary_type detail::client_impl::blockchain_get_account_public_balance( const string& account_name ) const
 { try {
   const auto& acct = _wallet->get_account( account_name );
@@ -286,17 +343,41 @@ map<balance_id_type, balance_record> detail::client_impl::blockchain_list_addres
     auto result =  _chain_db->get_balances_for_address( addr );
     for( auto itr = result.begin(); itr != result.end(); )
     {
-       if( fc::time_point(itr->second.last_update) < after )
+       if( fc::time_point(itr->second.last_update) <= after )
           itr = result.erase(itr);
        else
           ++itr;
     }
     return result;
 }
-map<transaction_id_type, transaction_record> detail::client_impl::blockchain_list_address_transactions( const string& raw_addr, 
-                                                                                                        const time_point& after )const
+fc::variant_object detail::client_impl::blockchain_list_address_transactions( const string& raw_addr,
+                                                                              uint32_t after_block )const
 {
-   map<transaction_id_type,transaction_record> results;
+   fc::mutable_variant_object results;
+
+   address addr;
+   try {
+      addr = address( raw_addr );
+   } catch (...) {
+      addr = address( pts_address( raw_addr ) );
+   }
+   auto transactions = _chain_db->fetch_address_transactions( addr );
+   ilog("Found ${num} transactions for ${addr}", ("num", transactions.size())("addr", raw_addr));
+
+   if( after_block > 0 )
+      transactions.erase(std::remove_if(transactions.begin(), transactions.end(),
+                                        [after_block](const blockchain::transaction_record& t) -> bool {
+         return t.chain_location.block_num <= after_block;
+      }), transactions.end());
+   ilog("Found ${num} transactions after block ${after_block}", ("num", transactions.size())("after_block", after_block));
+
+   for( const auto& trx : transactions )
+   {
+      fc::mutable_variant_object bundle("timestamp", _chain_db->get_block(trx.chain_location.block_num).timestamp);
+      bundle["trx"] = trx;
+      results[string(trx.trx.id())] = bundle;
+   }
+
    return results;
 }
 
@@ -305,13 +386,32 @@ map<balance_id_type, balance_record> detail::client_impl::blockchain_list_key_ba
     return _chain_db->get_balances_for_key( key );
 }
 
-vector<account_record> detail::client_impl::blockchain_list_accounts( const string& first, int32_t limit )const
-{
+vector<account_record> detail::client_impl::blockchain_list_accounts( const string& first, uint32_t limit )const
+{ try {
+   FC_ASSERT( limit > 0 );
    return _chain_db->get_accounts( first, limit );
+} FC_CAPTURE_AND_RETHROW( (first)(limit) ) }
+
+vector<account_record> detail::client_impl::blockchain_list_recently_updated_accounts()const
+{
+   //FC_ASSERT( _chain_db->get_statistics_enabled() );
+   vector<operation> account_updates = _chain_db->get_recent_operations(update_account_op_type);
+   vector<account_record> accounts;
+   accounts.reserve(account_updates.size());
+
+   for( const operation& op : account_updates )
+   {
+      auto oaccount = _chain_db->get_account_record(op.as<update_account_operation>().account_id);
+      if(oaccount)
+         accounts.push_back(*oaccount);
+   }
+
+  return accounts;
 }
 
 vector<account_record> detail::client_impl::blockchain_list_recently_registered_accounts()const
 {
+   //FC_ASSERT( _chain_db->get_statistics_enabled() );
    vector<operation> account_registrations = _chain_db->get_recent_operations(register_account_op_type);
    vector<account_record> accounts;
    accounts.reserve(account_registrations.size());
@@ -326,8 +426,9 @@ vector<account_record> detail::client_impl::blockchain_list_recently_registered_
    return accounts;
 }
 
-vector<asset_record> detail::client_impl::blockchain_list_assets( const string& first, int32_t limit )const
+vector<asset_record> detail::client_impl::blockchain_list_assets( const string& first, uint32_t limit )const
 {
+   FC_ASSERT( limit > 0 );
    return _chain_db->get_assets( first, limit );
 }
 
@@ -336,11 +437,11 @@ map<string, double> detail::client_impl::blockchain_list_feed_prices()const
     map<string, double> feed_prices;
     const auto scan_asset = [&]( const asset_record& record )
     {
-        const oprice median_price = _chain_db->get_median_delegate_price( record.id, asset_id_type( 0 ) );
+        const auto median_price = _chain_db->get_active_feed_price( record.id );
         if( !median_price.valid() ) return;
         feed_prices.emplace( record.symbol, _chain_db->to_pretty_price_double( *median_price ) );
     };
-    _chain_db->scan_assets( scan_asset );
+    _chain_db->scan_ordered_assets( scan_asset );
     return feed_prices;
 }
 
@@ -348,40 +449,50 @@ variant_object client_impl::blockchain_get_info()const
 {
    auto info = fc::mutable_variant_object();
 
-   info["blockchain_id"]                        = _chain_db->chain_id();
+   info["blockchain_id"]                        = _chain_db->get_chain_id();
 
-   info["symbol"]                               = BTS_BLOCKCHAIN_SYMBOL;
    info["name"]                                 = BTS_BLOCKCHAIN_NAME;
-   info["version"]                              = BTS_BLOCKCHAIN_VERSION;
+   info["symbol"]                               = BTS_BLOCKCHAIN_SYMBOL;
+   info["address_prefix"]                       = BTS_ADDRESS_PREFIX;
    info["db_version"]                           = BTS_BLOCKCHAIN_DATABASE_VERSION;
    info["genesis_timestamp"]                    = _chain_db->get_genesis_timestamp();
 
    info["block_interval"]                       = BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC;
-   info["max_block_size"]                       = BTS_BLOCKCHAIN_MAX_BLOCK_SIZE;
-   info["max_blockchain_size"]                  = BTS_BLOCKCHAIN_MAX_SIZE;
-
-   info["address_prefix"]                       = BTS_ADDRESS_PREFIX;
-   info["relay_fee"]                            = _chain_db->get_relay_fee();
-
    info["delegate_num"]                         = BTS_BLOCKCHAIN_NUM_DELEGATES;
    info["max_delegate_pay_issued_per_block"]    = _chain_db->get_max_delegate_pay_issued_per_block();
    info["max_delegate_reg_fee"]                 = _chain_db->get_delegate_registration_fee( 100 );
 
    info["name_size_max"]                        = BTS_BLOCKCHAIN_MAX_NAME_SIZE;
-   info["memo_size_max"]                        = BTS_BLOCKCHAIN_MAX_MEMO_SIZE;
+   info["memo_size_max"]                        = BTS_BLOCKCHAIN_MAX_EXTENDED_MEMO_SIZE;
    info["data_size_max"]                        = BTS_BLOCKCHAIN_MAX_NAME_DATA_SIZE;
 
-   info["symbol_size_max"]                      = BTS_BLOCKCHAIN_MAX_SYMBOL_SIZE;
+   info["symbol_size_max"]                      = BTS_BLOCKCHAIN_MAX_SUB_SYMBOL_SIZE;
    info["symbol_size_min"]                      = BTS_BLOCKCHAIN_MIN_SYMBOL_SIZE;
    info["asset_shares_max"]                     = BTS_BLOCKCHAIN_MAX_SHARES;
    info["short_symbol_asset_reg_fee"]           = _chain_db->get_asset_registration_fee( BTS_BLOCKCHAIN_MIN_SYMBOL_SIZE );
-   info["long_symbol_asset_reg_fee"]            = _chain_db->get_asset_registration_fee( BTS_BLOCKCHAIN_MAX_SYMBOL_SIZE );
+   info["long_symbol_asset_reg_fee"]            = _chain_db->get_asset_registration_fee( BTS_BLOCKCHAIN_MAX_SUB_SYMBOL_SIZE );
+   info["short_name_reg_fee"]                   = _chain_db->get_account_registration_fee( BTS_BLOCKCHAIN_MIN_NAME_SIZE );
+   info["long_name_reg_fee"]                    = _chain_db->get_account_registration_fee( BTS_BLOCKCHAIN_MAX_NAME_SIZE );
 
+   info["statistics_enabled"]                   = _chain_db->get_statistics_enabled();
+
+   info["relay_fee"]                            = _chain_db->get_relay_fee();
    info["max_pending_queue_size"]               = BTS_BLOCKCHAIN_MAX_PENDING_QUEUE_SIZE;
    info["max_trx_per_second"]                   = BTS_BLOCKCHAIN_MAX_TRX_PER_SECOND;
 
    return info;
 }
+
+void client_impl::blockchain_generate_snapshot( const string& filename )const
+{ try {
+    _chain_db->generate_snapshot( fc::path( filename ) );
+} FC_CAPTURE_AND_RETHROW( (filename) ) }
+
+void client_impl::blockchain_generate_issuance_map( const string& symbol, const string& filename )const
+{ try {
+    _chain_db->generate_issuance_map( symbol, fc::path( filename ) );
+} FC_CAPTURE_AND_RETHROW( (filename) ) }
+
 
 asset client_impl::blockchain_calculate_supply( const string& asset )const
 {
@@ -506,13 +617,13 @@ std::map<uint32_t, vector<fork_record>> client_impl::blockchain_list_forks()cons
    return _chain_db->get_forks_list();
 }
 
-vector<slot_record> client_impl::blockchain_get_delegate_slot_records( const string& delegate_name,
-                                                                       int64_t start_block_num, uint32_t count )const
-{
-   const auto delegate_record = _chain_db->get_account_record( delegate_name );
-   FC_ASSERT( delegate_record.valid() && delegate_record->is_delegate(), "${n} is not a delegate!", ("n",delegate_name) );
-   return _chain_db->get_delegate_slot_records( delegate_record->id, start_block_num, count );
-}
+vector<slot_record> client_impl::blockchain_get_delegate_slot_records( const string& delegate_name, uint32_t limit )const
+{ try {
+    FC_ASSERT( limit > 0 );
+    const oaccount_record delegate_record = _chain_db->get_account_record( delegate_name );
+    FC_ASSERT( delegate_record.valid() && delegate_record->is_delegate(), "${n} is not a delegate!", ("n",delegate_name) );
+    return _chain_db->get_delegate_slot_records( delegate_record->id, limit );
+} FC_CAPTURE_AND_RETHROW( (delegate_name)(limit) ) }
 
 string client_impl::blockchain_get_block_signee( const string& block )const
 {
@@ -548,11 +659,6 @@ bool client_impl::blockchain_verify_signature(const string& signer, const fc::sh
     }
 }
 
-void client_impl::blockchain_dump_state( const string& path )const
-{
-   _chain_db->dump_state( fc::path( path ) );
-}
-
 vector<bts::blockchain::api_market_status> client_impl::blockchain_list_markets()const
 {
    const vector<pair<asset_id_type, asset_id_type>> pairs = _chain_db->get_market_pairs();
@@ -560,7 +666,7 @@ vector<bts::blockchain::api_market_status> client_impl::blockchain_list_markets(
    vector<bts::blockchain::api_market_status> statuses;
    statuses.reserve( pairs.size() );
 
-   for( const auto& pair : pairs )
+   for( const auto pair : pairs )
    {
       const auto quote_record = _chain_db->get_asset_record( pair.first );
       const auto base_record = _chain_db->get_asset_record( pair.second );
@@ -626,6 +732,34 @@ vector<burn_record> client_impl::blockchain_get_account_wall( const string& acco
 
 void client_impl::blockchain_broadcast_transaction(const signed_transaction& trx)
 {
+   auto collector = _chain_db->get_account_record(_config.relay_account_name);
+   auto accept_fee = [this](const asset& fee) -> bool {
+      auto feed_price = _chain_db->get_active_feed_price(fee.asset_id);
+      if( !feed_price ) return false;
+
+      //Forgive up to a 5% change in price from the last sync by the lightwallet
+      asset required = asset(_config.light_relay_fee * .95) * *feed_price;
+      return fee >= required;
+   };
+
+   if( collector && _config.light_relay_fee )
+   {
+      for( operation op : trx.operations )
+         if( op.type == deposit_op_type )
+         {
+            deposit_operation deposit = op.as<deposit_operation>();
+            ilog("Checking if deposit ${d} is to ${c}", ("d", deposit)("c", collector->active_address()));
+            if( deposit.condition.owner() && *deposit.condition.owner() == collector->active_address() &&
+                ( (deposit.condition.asset_id == 0 && deposit.amount >= _config.light_relay_fee) ||
+                  accept_fee(asset(deposit.amount, deposit.condition.asset_id)) ) )
+            {
+               network_broadcast_transaction(trx);
+               return;
+            }
+         }
+
+      FC_THROW("Do I look like some kind of charity? You want your transactions sent, you pay like everyone else!");
+   }
    network_broadcast_transaction(trx);
 }
 

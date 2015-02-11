@@ -1,12 +1,12 @@
-#include <bts/blockchain/site_operations.hpp>
-#include <bts/blockchain/chain_interface.hpp>
-#include <bts/blockchain/exceptions.hpp>
 #include <bts/blockchain/auction_records.hpp>
+#include <bts/blockchain/exceptions.hpp>
+#include <bts/blockchain/pending_chain_state.hpp>
+#include <bts/blockchain/site_operations.hpp>
 #include <bts/blockchain/site_record.hpp>
 
 namespace bts { namespace blockchain {
 
-    void site_create_operation::evaluate( transaction_evaluation_state& eval_state ) 
+    void site_create_operation::evaluate( transaction_evaluation_state& eval_state )const
     {
         auto chain = eval_state._current_state;
 
@@ -20,11 +20,11 @@ namespace bts { namespace blockchain {
         auto site = site_record( this->site_name );
         auto auction = throttled_auction_record( site_id );
 
-        chain->store_object_record( object_record( site, site_id ) );
-        chain->store_object_record( object_record( auction, auction_id ) );
+        chain->store_object_record( object_record( site, site_object, site_id ) );
+        chain->store_object_record( object_record( auction, throttled_auction_object, auction_id ) );
     }
 
-    void site_update_operation::evaluate( transaction_evaluation_state& eval_state ) 
+    void site_update_operation::evaluate( transaction_evaluation_state& eval_state )const
     {
         auto chain = eval_state._current_state;
         // Check the owner of the site.

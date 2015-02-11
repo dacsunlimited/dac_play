@@ -37,7 +37,6 @@ namespace bts { namespace game {
                 virtual bool scan_result( const rule_result_transaction& rtrx,
                                        uint32_t block_num,
                                        const time_point_sec& block_time,
-                                       const time_point_sec& received_time,
                                          const uint32_t trx_index, bts::wallet::wallet_ptr w) = 0;
               
                 virtual void execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state ) = 0;
@@ -83,11 +82,10 @@ namespace bts { namespace game {
               virtual bool scan_result( const rule_result_transaction& rtrx,
                                uint32_t block_num,
                                const time_point_sec& block_time,
-                               const time_point_sec& received_time,
                                const uint32_t trx_index, bts::wallet::wallet_ptr w)
               { try {
-                  return RuleType::scan_result(rtrx, block_num, block_time, received_time, trx_index, w);
-              } FC_CAPTURE_AND_RETHROW( () ) }
+                  return RuleType::scan_result(rtrx, block_num, block_time, trx_index, w);
+              } FC_CAPTURE_AND_RETHROW( ) }
               
               virtual void execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
               { try {
@@ -130,7 +128,6 @@ namespace bts { namespace game {
           bool scan_result( const rule_result_transaction& rtrx,
                         uint32_t block_num,
                         const time_point_sec& block_time,
-                        const time_point_sec& received_time,
                         const uint32_t trx_index, bts::wallet::wallet_ptr w);
        
           void execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state );

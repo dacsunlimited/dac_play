@@ -35,8 +35,9 @@ namespace bts { namespace blockchain {
        */
       optional<account_meta_info> meta_data;
 
-      bool                        is_delegate()const;
-      void evaluate( transaction_evaluation_state& eval_state );
+      bool is_delegate()const;
+
+      void evaluate( transaction_evaluation_state& eval_state )const;
    };
 
    struct update_account_operation
@@ -46,23 +47,22 @@ namespace bts { namespace blockchain {
       account_id_type                   account_id;
       fc::optional<fc::variant>         public_data;
       fc::optional<public_key_type>     active_key;
-
-      // this value can only be reduced, never increased from
-      // the prior value.
       uint8_t                           delegate_pay_rate = -1;
 
+      bool is_retracted()const;
       bool is_delegate()const;
-      void evaluate( transaction_evaluation_state& eval_state );
+
+      void evaluate( transaction_evaluation_state& eval_state )const;
    };
 
-   struct update_block_signing_key
+   struct update_signing_key_operation
    {
       static const operation_type_enum  type;
 
       account_id_type  account_id;
-      public_key_type  block_signing_key;
+      public_key_type  signing_key;
 
-      void evaluate( transaction_evaluation_state& eval_state );
+      void evaluate( transaction_evaluation_state& eval_state )const;
    };
 
    struct withdraw_pay_operation
@@ -77,7 +77,7 @@ namespace bts { namespace blockchain {
       share_type                       amount;
       account_id_type                  account_id;
 
-      void evaluate( transaction_evaluation_state& eval_state );
+      void evaluate( transaction_evaluation_state& eval_state )const;
    };
 
 } } // bts::blockchain
@@ -85,4 +85,4 @@ namespace bts { namespace blockchain {
 FC_REFLECT( bts::blockchain::register_account_operation, (name)(public_data)(owner_key)(active_key)(delegate_pay_rate)(meta_data) )
 FC_REFLECT( bts::blockchain::update_account_operation, (account_id)(public_data)(active_key)(delegate_pay_rate) )
 FC_REFLECT( bts::blockchain::withdraw_pay_operation, (amount)(account_id) )
-FC_REFLECT( bts::blockchain::update_block_signing_key, (account_id)(block_signing_key) )
+FC_REFLECT( bts::blockchain::update_signing_key_operation, (account_id)(signing_key) )

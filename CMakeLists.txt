@@ -2,6 +2,35 @@
 project( BitShares )
 cmake_minimum_required( VERSION 2.8.12 )
 
+#place the executable programs and libraries in one specific path to prevent them being placed everywhere and mix with the source code
+#SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
+#SET(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
+
+# this variable is set to different values in each git branch:
+# develop branch                => BitSharesTestNet
+# devshares branch              => DevShares
+# bitshares and master branches => BitShares
+set( BLOCKCHAIN_NAME "PLAYTestNet" )
+
+if( BLOCKCHAIN_NAME STREQUAL DACPLAY )
+  set( CLI_CLIENT_EXECUTABLE_NAME play_client )
+  set( GUI_CLIENT_EXECUTABLE_NAME PLAY )
+  set( CUSTOM_URL_SCHEME "pls" )
+  set( INSTALLER_APP_ID "68ad7005-8eee-49c9-95ce-9eed97e5b347" )
+elseif( BLOCKCHAIN_NAME STREQUAL BitSharesPLAY )
+  set( CLI_CLIENT_EXECUTABLE_NAME play_devshares_client )
+  set( GUI_CLIENT_EXECUTABLE_NAME PLAYDev )
+  set( CUSTOM_URL_SCHEME "dvs" )
+  set( INSTALLER_APP_ID "6bc47c81-1c8a-461d-ae7b-d14f974b1846" )
+elseif(BLOCKCHAIN_NAME STREQUAL PLAYTestNet )
+  set( CLI_CLIENT_EXECUTABLE_NAME play_testnet_client )
+  set( GUI_CLIENT_EXECUTABLE_NAME PLAYTestNet )
+  set( CUSTOM_URL_SCHEME "xts" )
+  set( INSTALLER_APP_ID "3f87ba55-e899-4bcf-ad92-0a8074c931e6" )
+else()
+  message( FATAL_ERROR "Expected BLOCKCHAIN_NAME to be set to BitShares, DevShares, or BitSharesTestNet" )
+endif()
+
 # http://stackoverflow.com/a/18369825
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.8)
@@ -120,7 +149,12 @@ else( WIN32 ) # Apple AND Linux
         list(APPEND LEVELDB_BUILD_LIBRARIES pthread)
     endif()
 
-    find_package( Gperftools QUIET )
+    if(CMAKE_GENERATOR STREQUAL Xcode)
+        message( STATUS "gperftools is disabled when using Xcode generator")
+    else()
+        find_package( Gperftools QUIET )
+    endif()
+
     if( GPERFTOOLS_FOUND )
         message( STATUS "Found gperftools; compiling LevelDB with TCMalloc")
         list(APPEND LEVELDB_BUILD_LIBRARIES tcmalloc)
@@ -145,14 +179,18 @@ else( WIN32 ) # Apple AND Linux
         set( CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -std=c++11 -Wall" )
         set( rt_library rt )
         set( pthread_library pthread)
-        set( crypto_library crypto)
+        if ( NOT DEFINED crypto_library )
+          # I'm not sure why this is here, I guess someone has openssl and can't detect it with find_package()?
+          # if you have a normal install, you can define crypto_library to the empty string to avoid a build error
+          set( crypto_library crypto)
+        endif ()
         if ( FULL_STATIC_BUILD )
           set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libstdc++ -static-libgcc")
         endif ( FULL_STATIC_BUILD )
     endif( APPLE )
 
     if( "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" )
-        set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-builtin-memcmp -Wstack-usage=6144" )
+        set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-builtin-memcmp" )
     endif()
 
     if( "${CMAKE_GENERATOR}" STREQUAL "Ninja" )
@@ -172,8 +210,6 @@ target_include_directories( leveldb PRIVATE ${LEVELDB_BUILD_PRIVATE_INCLUDES}
 set_target_properties(leveldb PROPERTIES COMPILE_DEFINITIONS "${LEVELDB_BUILD_DEFINES}")
 
 find_package( BerkeleyDB )
-
-set( CUSTOM_URL_SCHEME "bts" )
 
 add_subdirectory( libraries )
 add_subdirectory( vendor/miniupnp/miniupnpc )
@@ -263,3 +299,5 @@ if(LINUX)
 endif(LINUX)
 
 endif(ENABLE_INSTALLER)
+
+
