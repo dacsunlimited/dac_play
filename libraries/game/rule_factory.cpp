@@ -15,27 +15,48 @@ namespace bts { namespace game {
    }
 
    void rule_factory::to_variant( const bts::game::rule& in, fc::variant& output )
-   { try {
+   {
+      /*
+       try {
+       FC_ASSERT( in.type == RuleType::type );
+       fc::mutable_variant_object obj( "type", in.type );
+       
+       obj[ "data" ] = fc::raw::unpack<RuleType>(in.data);
+       
+       output = std::move(obj);
+       } FC_RETHROW_EXCEPTIONS( warn, "" )
+       
+      try {
       auto converter_itr = _converters.find( in.type );
       FC_ASSERT( converter_itr != _converters.end() );
       converter_itr->second->to_variant( in, output );
-   } FC_RETHROW_EXCEPTIONS( warn, "" ) }
+       
+   } FC_RETHROW_EXCEPTIONS( warn, "" ) */}
 
    void rule_factory::from_variant( const fc::variant& in, bts::game::rule& output )
-   { try {
+   {
+      /*
+       try {
+       auto obj = in.get_object();
+       
+       FC_ASSERT( output.type == RuleType::type );
+       output.data = fc::raw::pack( obj["data"].as<RuleType>() );
+       } FC_RETHROW_EXCEPTIONS( warn, "type: ${type}", ("type",fc::get_typename<RuleType>::name()) )
+       
+      try {
       auto obj = in.get_object();
       output.type = obj["type"].as<uint8_t>();
 
       auto converter_itr = _converters.find( output.type );
       FC_ASSERT( converter_itr != _converters.end() );
       converter_itr->second->from_variant( in, output );
-   } FC_RETHROW_EXCEPTIONS( warn, "", ("in",in) ) }
+   } FC_RETHROW_EXCEPTIONS( warn, "", ("in",in) ) */}
     
     bool rule_factory::scan( const rule& g, wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w )
     {
-        auto converter_itr = _converters.find( g.type );
-        FC_ASSERT( converter_itr != _converters.end() );
-        return converter_itr->second->scan( g, trx_rec, w );
+        auto converter_itr = _engines.find( g.type );
+        FC_ASSERT( converter_itr != _engines.end() );
+        return converter_itr->second->scan( trx_rec, w );
     }
     
     bool rule_factory::scan_result( const rule_result_transaction& rtrx,
@@ -43,8 +64,8 @@ namespace bts { namespace game {
                      const time_point_sec& block_time,
                      const uint32_t trx_index, bts::wallet::wallet_ptr w)
     {
-        auto converter_itr = _converters.find( rtrx.type );
-        FC_ASSERT( converter_itr != _converters.end() );
+        auto converter_itr = _engines.find( rtrx.type );
+        FC_ASSERT( converter_itr != _engines.end() );
         return converter_itr->second->scan_result( rtrx, block_num, block_time, trx_index, w );
     }
     
@@ -55,9 +76,9 @@ namespace bts { namespace game {
         
         for ( const auto& g : games)
         {
-            auto converter_itr = _converters.find( g.rule_id );
+            auto converter_itr = _engines.find( g.rule_id );
             
-            if ( converter_itr != _converters.end() )
+            if ( converter_itr != _engines.end() )
             {
                 converter_itr->second->execute(blockchain, block_num, pending_state);
             }

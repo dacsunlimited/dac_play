@@ -4,29 +4,15 @@
 #include <bts/game/v8_api.hpp>
 
 namespace bts { namespace game {
-   using namespace v8;
    
-   static bool first_engine = []()->bool{
-      v8::Isolate* isolate = Isolate::GetCurrent();
-      if ( isolate == NULL )
-      {
-          isolate = v8::Isolate::New();
-          isolate->Enter();
-      }
-      
-      init_class_template( isolate );
-      
-      return true;
-   }();
-   
-   v8_game_engine::v8_game_engine(uint8_t rule_type) : _rule_type(rule_type)
+   v8_game_engine::v8_game_engine(uint8_t rule_type) 
    {
       // TODO: Init and load the script defined for rules
    }
    
-   void v8_game_engine::evaluate( transaction_evaluation_state& eval_state)
+   void v8_game_engine::evaluate( transaction_evaluation_state& eval_state )
    {
-      v8::Isolate* isolate = Isolate::GetCurrent();
+      v8::Isolate* isolate = v8::Isolate::GetCurrent();
       v8::Isolate::Scope isolate_scope(isolate);
       v8::HandleScope handle_scope(isolate);
       
@@ -87,7 +73,8 @@ namespace bts { namespace game {
    
    bool v8_game_engine::scan( wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w )
    {
-    
+      // TODO
+      return false;
    }
    
    bool v8_game_engine::scan_result( const rule_result_transaction& rtrx,

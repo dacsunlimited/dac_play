@@ -44,4 +44,6 @@ namespace bts { namespace game {
    private:
       uint8_t  _rule_type;
    };
+   
+   typedef std::shared_ptr<v8_game_engine> v8_game_engine_ptr;
 } } // bts::game
