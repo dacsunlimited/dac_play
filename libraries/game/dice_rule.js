@@ -172,7 +172,7 @@ global.execute = function (blockchain, block_num, pending_state) {
 	pending_state.store_asset_record( base_asset_record );
 }
 
-global.scan_result = function( rule_result_transaction, block_num, block_time, received_time, trx_index, wallet)
+global.scan_result = function( rule_result_transaction, block_num, block_time, trx_index, wallet)
 {
 	try {
         auto gtrx = rtrx.as<dice_transaction>();

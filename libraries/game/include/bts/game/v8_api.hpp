@@ -102,11 +102,6 @@ namespace bts { namespace game {
      */
     void V8_Block_Get_Transactions(const v8::FunctionCallbackInfo<Value>& args);
     
-    // Extracts a C string from a V8 Utf8Value.
-    const char* ToCString(const v8::String::Utf8Value& value) {
-        return *value ? *value : "<string conversion failed>";
-    }
-    
     // Creates a new execution environment containing the built-in
     // functions.
     v8::Handle<v8::Context> CreateShellContext(v8::Isolate* isolate);
@@ -142,4 +137,6 @@ namespace bts { namespace game {
     bool ExecuteString(v8::Isolate* isolate, v8::Handle<v8::String> source, v8::Handle<v8::String> name, bool print_result, bool report_exceptions);
     
     void ReportException(v8::Isolate* isolate, v8::TryCatch* try_catch);
+   
+   const char* ToCString(const v8::String::Utf8Value& value);
 } } // bts::game

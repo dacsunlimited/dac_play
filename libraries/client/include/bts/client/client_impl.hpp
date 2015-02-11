@@ -8,9 +8,6 @@
 
 #include <fc/log/appender.hpp>
 
-#include <include/v8.h>
-#include <include/libplatform/libplatform.h>
-
 #include <boost/accumulators/accumulators.hpp>
 #include <boost/accumulators/statistics/rolling_mean.hpp>
 #include <boost/accumulators/statistics/stats.hpp>
@@ -155,11 +152,6 @@ public:
          {
             _chain_db = std::make_shared<chain_database>();
          } FC_RETHROW_EXCEPTIONS(warn,"chain_db")
-          
-          v8::V8::InitializeICU();
-          _platform = v8::platform::CreateDefaultPlatform();
-          v8::V8::InitializePlatform(_platform);
-          v8::V8::Initialize();
       } FC_RETHROW_EXCEPTIONS( warn, "" ) }
 
    virtual ~client_impl() override
@@ -172,10 +164,6 @@ public:
       delete _cli;
       _cli = nullptr;
       _p2p_node.reset();
-       
-       v8::V8::Dispose();
-       v8::V8::ShutdownPlatform();
-       delete _platform;
    }
 
    void start()
@@ -277,6 +265,9 @@ public:
    chain_database_ptr                                      _chain_db = nullptr;
    unordered_map<transaction_id_type, signed_transaction>  _pending_trxs;
    wallet_ptr                                              _wallet = nullptr;
+   
+   std::shared_ptr<bts::game::client>                      _game_client = nullptr;
+   
    std::shared_ptr<bts::mail::server>                      _mail_server = nullptr;
    std::shared_ptr<bts::mail::client>                      _mail_client = nullptr;
    fc::time_point                                          _last_sync_status_message_time;
@@ -322,8 +313,6 @@ public:
    fc::future<void>                                        _client_done;
 
    uint32_t                                                _debug_last_wait_block;
-    
-   v8::Platform*                                           _platform;
 
    void wallet_http_callback( const string& url, const ledger_entry& e );
    boost::signals2::scoped_connection   _http_callback_signal_connection;

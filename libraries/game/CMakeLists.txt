@@ -1,11 +1,11 @@
 file(GLOB HEADERS "include/bts/game/*.hpp")
 
-set(SOURCES game_operations.cpp rule_factory.cpp dice_rule.cpp game_config.cpp v8_api.cpp v8_game.cpp)
+set(SOURCES game_operations.cpp rule_factory.cpp dice_rule.cpp client.cpp v8_api.cpp v8_game.cpp)
 
 add_library( bts_game ${SOURCES} ${HEADERS} )
 
 target_link_libraries( bts_game
-PUBLIC fc bts_wallet bts_db bts_utilities leveldb bts_api bts_rpc_stubs upnpc-static v8)
+PUBLIC fc bts_wallet bts_db bts_utilities leveldb bts_api bts_rpc_stubs upnpc-static exlib v8)
 
 target_include_directories( bts_game 
   PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include"
