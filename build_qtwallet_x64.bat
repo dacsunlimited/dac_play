@@ -1,8 +1,8 @@
-@echo on
+@echo off
 REM call setenv_x64.bat 
 if "%BITSHARES_ROOT%" == "" (
     echo please call setenv_x64.bat firstly
-    exit
+    goto done 
 )
 
 set WORKSPACE=%BITSHARES_ROOT%
@@ -65,3 +65,7 @@ rem %SHA1SUM_EXE% BitShares-*.exe > sha1sum.txt
 
 rem cd %WORKSPACE%\build
 rem "%SEVENZIP_EXE%" a pdbs.7z -ir!*.pdb
+
+
+:done
+
