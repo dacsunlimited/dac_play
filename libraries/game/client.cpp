@@ -2,16 +2,12 @@
 
 #include <bts/game/rule_record.hpp>
 #include <bts/game/rule_factory.hpp>
-#include <bts/game/dice_rule.hpp>
 #include <bts/game/game_operations.hpp>
 #include <bts/game/client.hpp>
 #include <bts/game/v8_api.hpp>
 
 namespace bts { namespace game {
    using namespace bts::blockchain;
-   
-   const uint8_t dice_rule::type = dice_rule_type;
-   const uint8_t dice_transaction::type = dice_rule_type;
    
    const operation_type_enum game_operation::type              = game_op_type;
    
