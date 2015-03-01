@@ -464,6 +464,7 @@ namespace bts { namespace wallet {
                  const string& quote_symbol,
                  bool sign
                  );
+
          wallet_transaction_record cancel_market_orders(
                  const vector<order_id_type>& order_ids,
                  bool sign

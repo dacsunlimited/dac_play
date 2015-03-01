@@ -18,6 +18,7 @@ namespace bts { namespace blockchain {
          virtual fc::time_point_sec     now()const override;
 
          virtual orule_data_record      get_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id )const override;
+
          virtual oprice                 get_active_feed_price( const asset_id_type quote_id,
                                                                const asset_id_type base_id = 0 )const override;
 
