@@ -51,7 +51,7 @@ namespace bts { namespace rpc {
           }
 
           std::vector<char> packed_signature(80, ' ');
-          socket->readsome(packed_signature.data(), packed_signature.size());
+          FC_ASSERT( socket->readsome(packed_signature.data(), packed_signature.size()) == 80, "Unexpected number of bytes read from RPC socket" );
           fc::ecc::compact_signature signature;
           signature = fc::raw::unpack<fc::ecc::compact_signature>(packed_signature);
           wdump((signature));
@@ -118,7 +118,16 @@ namespace bts { namespace rpc {
   
   fc::rpc::json_connection_ptr rpc_client::get_json_connection() const
   {
-    return my->_json_connection;
+     return my->_json_connection;
+  }
+
+  void rpc_client::reset_json_connection()
+  {
+     my->_json_connection->close();
+     auto ptr_copy = my->_json_connection;
+     fc::schedule([ptr_copy] { /* Do nothing; just let ptr_copy go out of scope */ },
+                  fc::time_point::now() + fc::seconds(1), __FUNCTION__);
+     my->_json_connection.reset();
   }
 
 } } // bts::rpc

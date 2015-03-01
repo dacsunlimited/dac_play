@@ -28,5 +28,6 @@ The wallet can be installed as a local application capable of handling xts: URLs
 
 	sudo cp build/bin/BitShares /usr/local/bin/
 	sudo mkdir -p /usr/local/share/icons/
-	sudo cp build/programs/qt_wallet/images/qtapp80.png /usr/local/share/icons/BitShares.png
-	sudo cp build/programs/qt_wallet/BitShares.desktop /usr/local/share/applications/
+	sudo cp programs/qt_wallet/images/qtapp80.png /usr/local/share/icons/BitShares.png
+	sudo mkdir -p /usr/local/share/applications/
+	sudo cp programs/qt_wallet/BitShares.desktop /usr/local/share/applications/

@@ -22,35 +22,44 @@ namespace bts { namespace wallet {
          fc::variant get_property( property_enum property_id )const;
 
          // ********************************************************************
-         // Recently rewritten by Vikram
+         // Most recently rewritten by Vikram
 
          // Wallet child keys
          uint32_t               get_last_wallet_child_key_index()const;
          void                   set_last_wallet_child_key_index( uint32_t key_index );
          private_key_type       get_wallet_child_key( const fc::sha512& password, uint32_t key_index )const;
-         public_key_type        generate_new_account( const fc::sha512& password, const string& account_name,
-                                                      const variant& private_data );
+         public_key_type        generate_new_account( const fc::sha512& password, const string& account_name );
 
          // Account child keys
-         private_key_type       get_account_child_key( const private_key_type& active_private_key, uint32_t seq_num )const;
+         private_key_type       get_account_child_key( const private_key_type& active_private_key, uint32_t child_key_index )const;
          private_key_type       get_account_child_key_v1( const fc::sha512& password, const address& account_address,
-                                                          uint32_t seq_num )const;
+                                                          uint32_t child_key_index )const;
          private_key_type       generate_new_account_child_key( const fc::sha512& password, const string& account_name );
-
-         void                   add_contact_account( const account_record& blockchain_account_record, const variant& private_data );
 
          // Account getters and setters
          owallet_account_record lookup_account( const address& account_address )const;
          owallet_account_record lookup_account( const string& account_name )const;
          owallet_account_record lookup_account( const account_id_type account_id )const;
-         void                   store_account( const account_data& account );
-         void                   store_account( const blockchain::account_record& blockchain_account_record );
+         wallet_account_record  store_account( const account_data& account );
+         wallet_account_record  store_account( const blockchain::account_record& blockchain_account_record );
 
          // Key getters and setters
          owallet_key_record     lookup_key( const address& derived_address )const;
          void                   store_key( const key_data& key );
          void                   import_key( const fc::sha512& password, const string& account_name,
                                             const private_key_type& private_key, bool move_existing );
+
+         // Contact getters and setters
+         owallet_contact_record lookup_contact( const variant& data )const;
+         owallet_contact_record lookup_contact( const string& label )const;
+         wallet_contact_record  store_contact( const contact_data& contact );
+         owallet_contact_record remove_contact( const variant& data );
+         owallet_contact_record remove_contact( const string& label );
+
+         // Approval getters and setters
+         owallet_approval_record lookup_approval( const string& name )const;
+         wallet_approval_record  store_approval( const approval_data& approval );
+         owallet_approval_record remove_approval( const string& name );
 
          // Transaction getters and setters
          owallet_transaction_record lookup_transaction( const transaction_id_type& id )const;
@@ -80,8 +89,6 @@ namespace bts { namespace wallet {
 
          bool has_private_key( const address& a )const;
 
-         void remove_contact_account( const string& account_name);
-
          void rename_account( const public_key_type& old_account_key,
                               const string& new_account_name );
 
@@ -98,17 +105,20 @@ namespace bts { namespace wallet {
 
          const unordered_map<transaction_id_type, wallet_transaction_record>& get_transactions()const { return transactions; }
          const unordered_map<int32_t,wallet_account_record>& get_accounts()const { return accounts; }
-         const unordered_map< address, wallet_key_record >& get_keys()const { return keys; }
+         const unordered_map<address, wallet_key_record>& get_keys()const { return keys; }
+         const unordered_map<string, wallet_contact_record>& get_contacts()const { return contacts; }
+         const unordered_map<string, wallet_approval_record>& get_approvals()const { return approvals; }
 
          unordered_map<transaction_id_type, transaction_ledger_entry>   experimental_transactions;
 
       private:
+         map<property_enum, wallet_property_record>                     properties;
          optional<wallet_master_key_record>                             wallet_master_key;
-
          unordered_map<int32_t, wallet_account_record>                  accounts;
          unordered_map<address, wallet_key_record>                      keys;
+         unordered_map<string, wallet_contact_record>                   contacts;
+         unordered_map<string, wallet_approval_record>                  approvals;
          unordered_map<transaction_id_type, wallet_transaction_record>  transactions;
-         map<property_enum, wallet_property_record>                     properties;
          unordered_map<string, wallet_setting_record>                   settings;
 
          // Caches to lookup accounts
@@ -118,6 +128,9 @@ namespace bts { namespace wallet {
 
          // Cache to lookup keys
          unordered_map<address, address>                                btc_to_bts_address;
+
+         // Cache to lookup accounts and contacts
+         unordered_map<string, string>                                  label_to_account_or_contact;
 
          // Cache to lookup transactions
          unordered_map<transaction_id_type, transaction_id_type>        id_to_transaction_record_index;

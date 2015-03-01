@@ -184,8 +184,6 @@ namespace bts { namespace blockchain {
       null_order,
       bid_order,
       ask_order,
-      relative_bid_order,
-      relative_ask_order
    };
 
    struct market_order
@@ -251,23 +249,6 @@ namespace bts { namespace blockchain {
       fc::time_point_sec                        timestamp;
    };
 
-   struct collateral_record
-   {
-      collateral_record(share_type c = 0,
-                        share_type p = 0,
-                        const price& apr = price(),
-                        time_point_sec exp = time_point_sec())
-          :collateral_balance(c),payoff_balance(p),interest_rate(apr),expiration(exp){}
-      bool is_null() const { return 0 == payoff_balance && 0 == collateral_balance; }
-
-      share_type      collateral_balance = 0;
-      share_type      payoff_balance = 0;
-      price           interest_rate;
-      time_point_sec  expiration; // after expiration the collateral is forced to be called.
-      slate_id_type   slate_id = 0;
-   };
-   typedef fc::optional<collateral_record> ocollateral_record;
-
    struct market_status
    {
        market_status(){} // Null case
@@ -307,8 +288,6 @@ FC_REFLECT_ENUM( bts::blockchain::order_type_enum,
                  (null_order)
                  (bid_order)
                  (ask_order)
-                 (relative_bid_order)
-                 (relative_ask_order)
                )
 
 FC_REFLECT_ENUM( bts::blockchain::market_history_key::time_granularity_enum, (each_block)(each_hour)(each_day) )
@@ -320,7 +299,6 @@ FC_REFLECT( bts::blockchain::market_history_record, (highest_bid)(lowest_ask)(op
 FC_REFLECT( bts::blockchain::market_history_key, (quote_id)(base_id)(granularity)(timestamp) )
 FC_REFLECT( bts::blockchain::market_history_point, (timestamp)(highest_bid)(lowest_ask)(opening_price)(closing_price)(volume) )
 FC_REFLECT( bts::blockchain::order_record, (balance)(limit_price)(last_update) )
-FC_REFLECT( bts::blockchain::collateral_record, (collateral_balance)(payoff_balance)(interest_rate)(expiration)(slate_id) )
 FC_REFLECT( bts::blockchain::market_order, (type)(market_index)(state)(collateral)(interest_rate)(expiration) )
 FC_REFLECT_TYPENAME( std::vector<bts::blockchain::market_transaction> )
 FC_REFLECT_TYPENAME( bts::blockchain::market_history_key::time_granularity_enum ) // http://en.wikipedia.org/wiki/Voodoo_programminqg
@@ -331,12 +309,9 @@ FC_REFLECT( bts::blockchain::market_transaction,
             (ask_price)
             (bid_paid)
             (bid_received)
-            (short_collateral)
             (ask_paid)
             (ask_received)
-            (returned_collateral)
             (bid_type)
             (ask_type)
-            (fees_collected)
           )
 FC_REFLECT_DERIVED( bts::blockchain::order_history_record, (bts::blockchain::market_transaction), (timestamp) )

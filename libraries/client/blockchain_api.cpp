@@ -67,46 +67,37 @@ vector<string> client_impl::blockchain_list_missing_block_delegates( uint32_t bl
    return delegates;
 }
 
-vector<block_record> client_impl::blockchain_list_blocks( uint32_t first, int32_t count )
-{
-   FC_ASSERT( count <= 1000 );
-   FC_ASSERT( count >= -1000 );
-   if (count == 0) return vector<block_record>();
+vector<block_record> client_impl::blockchain_list_blocks( const uint32_t max_block_num, const uint32_t limit )
+{ try {
+    FC_ASSERT( max_block_num > 0 );
+    FC_ASSERT( limit > 0 );
 
-   uint32_t total_blocks = _chain_db->get_head_block_num();
-   FC_ASSERT( first <= total_blocks );
+    const uint32_t head_block_num = _chain_db->get_head_block_num();
 
-   int32_t increment = 1;
+    uint32_t start_block_num = head_block_num;
+    if( max_block_num <= head_block_num )
+    {
+        start_block_num = max_block_num;
+    }
+    else
+    {
+        FC_ASSERT( -max_block_num <= head_block_num );
+        start_block_num = head_block_num + max_block_num + 1;
+    }
 
-   //Normalize first and count if count < 0 and adjust count if necessary to not try to list nonexistent blocks
-   if( count < 0 )
-   {
-      first = total_blocks - first;
-      count *= -1;
-      if( signed(first) - count < 0 )
-         count = first;
-      increment = -1;
-   }
-   else
-   {
-      if ( first == 0 )
-         first = 1;
-      if( first + count - 1 > total_blocks )
-         count = total_blocks - first + 1;
-   }
+    const uint32_t count = std::min( limit, start_block_num );
+    vector<block_record> records;
+    records.reserve( count );
 
-   vector<block_record> result;
-   result.reserve( count );
+    for( uint32_t block_num = start_block_num; block_num > 0; --block_num )
+    {
+        oblock_record record = _chain_db->get_block_record( block_num );
+        if( record.valid() ) records.push_back( std::move( *record ) );
+        if( records.size() >= count ) break;
+    }
 
-   for( int32_t block_num = first; count; --count, block_num += increment )
-   {
-      auto record = _chain_db->get_block_record( block_num );
-      FC_ASSERT( record.valid() );
-      result.push_back( *record );
-   }
-
-   return result;
-}
+    return records;
+} FC_CAPTURE_AND_RETHROW( (max_block_num)(limit) ) }
 
 signed_transactions client_impl::blockchain_list_pending_transactions() const
 {
@@ -118,11 +109,6 @@ signed_transactions client_impl::blockchain_list_pending_transactions() const
       trxs.push_back(trx_eval_ptr->trx);
    }
    return trxs;
-}
-
-block_id_type detail::client_impl::blockchain_get_block_hash( uint32_t block_number ) const
-{
-   return _chain_db->get_block(block_number).id();
 }
 
 uint32_t detail::client_impl::blockchain_get_block_count() const
@@ -298,22 +284,28 @@ pair<transaction_id_type, transaction_record> detail::client_impl::blockchain_ge
 } FC_CAPTURE_AND_RETHROW( (transaction_id_prefix)(exact) ) }
 
 oblock_record detail::client_impl::blockchain_get_block( const string& block )const
-{
+{ try {
    try
    {
       ASSERT_TASK_NOT_PREEMPTED(); // make sure no cancel gets swallowed by catch(...)
       if( block.size() == string( block_id_type() ).size() )
          return _chain_db->get_block_record( block_id_type( block ) );
-      else
-         return _chain_db->get_block_record( std::stoi( block ) );
+      uint32_t num;
+      try {
+          fc::time_point_sec time(fc::time_point_sec::from_iso_string( block ));
+          num = _chain_db->find_block_num( time );
+      } catch( ... ) {
+          num = std::stoi( block );
+      }
+      return _chain_db->get_block_record( num );
    }
    catch( ... )
    {
    }
    return oblock_record();
-}
+} FC_CAPTURE_AND_RETHROW( (block) ) }
 
-map<balance_id_type, balance_record> detail::client_impl::blockchain_list_balances( const string& first, uint32_t limit )const
+unordered_map<balance_id_type, balance_record> detail::client_impl::blockchain_list_balances( const string& first, uint32_t limit )const
 { try {
     FC_ASSERT( limit > 0 );
     balance_id_type id;
@@ -330,14 +322,18 @@ account_balance_summary_type detail::client_impl::blockchain_get_account_public_
   account_balance_summary_type ret;
   ret[account_name] = balances;
   return ret;
-} FC_RETHROW_EXCEPTIONS( warn, "", ("account_name",account_name) ) }
+} FC_CAPTURE_AND_RETHROW( (account_name) ) }
 
-map<balance_id_type, balance_record> detail::client_impl::blockchain_list_address_balances( const string& raw_addr, const time_point& after )const
-{
+unordered_map<balance_id_type, balance_record> detail::client_impl::blockchain_list_address_balances( const string& raw_addr,
+                                                                                                      const time_point& after )const
+{ try {
     address addr;
-    try {
+    try
+    {
         addr = address( raw_addr );
-    } catch (...) {
+    }
+    catch( const fc::exception& )
+    {
         addr = address( pts_address( raw_addr ) );
     }
     auto result =  _chain_db->get_balances_for_address( addr );
@@ -349,10 +345,10 @@ map<balance_id_type, balance_record> detail::client_impl::blockchain_list_addres
           ++itr;
     }
     return result;
-}
-fc::variant_object detail::client_impl::blockchain_list_address_transactions( const string& raw_addr,
-                                                                              uint32_t after_block )const
-{
+} FC_CAPTURE_AND_RETHROW( (raw_addr)(after) ) }
+
+fc::variant_object detail::client_impl::blockchain_list_address_transactions( const string& raw_addr, uint32_t after_block )const
+{ try {
    fc::mutable_variant_object results;
 
    address addr;
@@ -379,12 +375,12 @@ fc::variant_object detail::client_impl::blockchain_list_address_transactions( co
    }
 
    return results;
-}
+} FC_CAPTURE_AND_RETHROW( (raw_addr)(after_block) ) }
 
-map<balance_id_type, balance_record> detail::client_impl::blockchain_list_key_balances( const public_key_type& key )const
-{
+unordered_map<balance_id_type, balance_record> detail::client_impl::blockchain_list_key_balances( const public_key_type& key )const
+{ try {
     return _chain_db->get_balances_for_key( key );
-}
+} FC_CAPTURE_AND_RETHROW( (key) ) }
 
 vector<account_record> detail::client_impl::blockchain_list_accounts( const string& first, uint32_t limit )const
 { try {
@@ -762,41 +758,5 @@ void client_impl::blockchain_broadcast_transaction(const signed_transaction& trx
    }
    network_broadcast_transaction(trx);
 }
-
-
-object_record client_impl::blockchain_get_object( const object_id_type& id )const
-{
-    auto oobj = _chain_db->get_object_record( id );
-    FC_ASSERT( oobj.valid(), "No such object!" );
-    return *oobj;
-}
-
-vector<edge_record> client_impl::blockchain_get_edges( const object_id_type& from,
-                                                       const object_id_type& to,
-                                                       const string& name )const
-{ try {
-    vector<edge_record> edges;
-    if( name != "" )
-    {
-        auto oedge = _chain_db->get_edge( from, to, name );
-        if( oedge.valid() )
-            edges.push_back( oedge->as<edge_record>() );
-    }
-    else if( to != -1 )
-    {
-        auto name_map = _chain_db->get_edges( from, to );
-        for( auto pair : name_map )
-            edges.push_back( pair.second.as<edge_record>() );
-    }
-    else
-    {
-        auto from_map = _chain_db->get_edges( from );
-        for( auto p1 : from_map )
-            for( auto p2 : p1.second )
-                edges.push_back( p2.second.as<edge_record>() );
-    }
-    return edges;
-} FC_CAPTURE_AND_RETHROW( (from)(to)(name) ) }
-
 
 } } } // namespace bts::client::detail

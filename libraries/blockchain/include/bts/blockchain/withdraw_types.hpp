@@ -15,15 +15,9 @@ namespace bts { namespace blockchain {
       withdraw_signature_type   = 1,
       withdraw_vesting_type     = 2,
       withdraw_multisig_type    = 3,
-      withdraw_password_type    = 4,
-      withdraw_reserved_type    = 5,
       withdraw_escrow_type      = 6
    };
 
-   /**
-    * The withdraw condition defines which delegate this address
-    * is voting for, assuming asset_type == 0
-    */
    struct withdraw_condition
    {
       withdraw_condition():asset_id(0),slate_id(0),type(withdraw_null_type){}
@@ -160,7 +154,7 @@ namespace bts { namespace blockchain {
       static const uint8_t    type;
 
       uint32_t                required;
-      std::set<address>       owners;
+      set<address>            owners;
       optional<titan_memo>    memo;
    };
 
@@ -173,7 +167,7 @@ namespace bts { namespace blockchain {
       address                 escrow;
       digest_type             agreement_digest;
 
-      omemo_status decrypt_memo_data( const fc::ecc::private_key& receiver_key )const;
+      omemo_status decrypt_memo_data( const fc::ecc::private_key& receiver_key, bool ignore_owner = false )const;
       public_key_type encrypt_memo_data( const fc::ecc::private_key& one_time_private_key,
                                       const fc::ecc::public_key&  to_public_key,
                                       const fc::ecc::private_key& from_private_key,
@@ -186,31 +180,6 @@ namespace bts { namespace blockchain {
       void                  encrypt_memo_data( const fc::sha512& secret, const memo_data& );
 
       optional<titan_memo>    memo;
-   };
-
-   /**
-    *  User A picks a random password and generates password_hash.
-    *  User A sends funds to user B which they may claim with the password + their signature, but
-    *     where User A can recover the funds after a timeout T.
-    *  User B sends funds to user A under the same conditions where they can recover the
-    *     the funds after a timeout T2 << T
-    *  User A claims the funds from User B revealing password before T2....
-    *  User B now has the time between T2 and T to claim the funds.
-    *
-    *  When User A claims the funds from user B, user B learns the password that
-    *  allows them to spend the funds from user A.
-    *
-    *  User A can spend the funds after a timeout.
-    */
-   struct withdraw_with_password
-   {
-      static const uint8_t type;
-
-      address                         payee;
-      address                         payor;
-      fc::time_point_sec              timeout;
-      fc::ripemd160                   password_hash;
-      optional<titan_memo>            memo;
    };
 
 } } // bts::blockchain
@@ -227,8 +196,6 @@ FC_REFLECT_ENUM( bts::blockchain::withdraw_condition_types,
         (withdraw_signature_type)
         (withdraw_vesting_type)
         (withdraw_multisig_type)
-        (withdraw_password_type)
-        (withdraw_reserved_type)
         (withdraw_escrow_type)
         )
 FC_REFLECT( bts::blockchain::withdraw_condition,
@@ -284,12 +251,5 @@ FC_REFLECT( bts::blockchain::withdraw_with_escrow,
         (receiver)
         (escrow)
         (agreement_digest)
-        (memo)
-        )
-FC_REFLECT( bts::blockchain::withdraw_with_password,
-        (payee)
-        (payor)
-        (timeout)
-        (password_hash)
         (memo)
         )
