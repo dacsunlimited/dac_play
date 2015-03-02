@@ -90,12 +90,6 @@ namespace bts { namespace blockchain {
          virtual void                   set_market_transactions( vector<market_transaction> trxs )override;
          virtual void                   set_rule_result_transactions( vector<rule_result_transaction> trxs ) override;
 
-         map< std::pair<rule_id_type,data_id_type>, rule_data_record>                        rules;
-       
-       
-
-         vector<rule_result_transaction>                                    rule_result_transactions;
-
          map<property_id_type, property_record>                             _property_id_to_record;
          set<property_id_type>                                              _property_id_remove;
 
@@ -140,6 +134,10 @@ namespace bts { namespace blockchain {
          vector<market_transaction>                                         market_transactions;
          map< std::pair<asset_id_type,asset_id_type>, market_status>        market_statuses;
          map<market_history_key, market_history_record>                     market_history;
+      
+         map< std::pair<rule_id_type,data_id_type>, rule_data_record>       rules;
+      
+         vector<rule_result_transaction>                                    rule_result_transactions;
 
       private:
          // Not serialized
@@ -172,14 +170,14 @@ namespace bts { namespace blockchain {
          virtual void asset_erase_from_id_map( const asset_id_type )override;
          virtual void asset_erase_from_symbol_map( const string& )override;
       
-      virtual ogame_record game_lookup_by_id( const game_id_type )const override;
-      virtual ogame_record game_lookup_by_symbol( const string& )const override;
+         virtual ogame_record game_lookup_by_id( const game_id_type )const override;
+         virtual ogame_record game_lookup_by_symbol( const string& )const override;
       
-      virtual void game_insert_into_id_map( const game_id_type, const game_record& )override;
-      virtual void game_insert_into_symbol_map( const string&, const game_id_type )override;
+         virtual void game_insert_into_id_map( const game_id_type, const game_record& )override;
+         virtual void game_insert_into_symbol_map( const string&, const game_id_type )override;
       
-      virtual void game_erase_from_id_map( const game_id_type )override;
-      virtual void game_erase_from_symbol_map( const string& )override;
+         virtual void game_erase_from_id_map( const game_id_type )override;
+         virtual void game_erase_from_symbol_map( const string& )override;
 
          virtual oslate_record slate_lookup_by_id( const slate_id_type )const override;
          virtual void slate_insert_into_id_map( const slate_id_type, const slate_record& )override;
@@ -248,4 +246,6 @@ FC_REFLECT( bts::blockchain::pending_chain_state,
             (market_transactions)
             (market_statuses)
             (market_history)
+            (rules)
+            (rule_result_transactions)
             )

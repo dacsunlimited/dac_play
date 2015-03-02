@@ -74,9 +74,6 @@ namespace bts { namespace blockchain {
 
       const asset reg_fee( eval_state._current_state->get_asset_registration_fee( this->symbol.size() ), 0 );
       eval_state.required_fees += reg_fee;
-      
-      const asset initial_collateral(this->initial_collateral, 0);
-      eval_state.required_fees += initial_collateral;
 
       asset_record new_record;
       new_record.id                     = eval_state._current_state->new_asset_id();
@@ -109,8 +106,11 @@ namespace bts { namespace blockchain {
 
       eval_state._current_state->store_asset_record( new_record );
        
-       const asset initial_supply(this->initial_collateral, new_record.id);
-       eval_state.add_balance( initial_supply );
+      const asset initial_supply(this->initial_supply, new_record.id);
+      eval_state.add_balance( initial_supply );
+      
+      const asset initial_collateral(this->initial_collateral, 0);
+      eval_state.sub_balance(address(), initial_collateral);
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
    void update_asset_operation::evaluate( transaction_evaluation_state& eval_state )const
