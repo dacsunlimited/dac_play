@@ -41,6 +41,16 @@
         "aliases" : ["advance_time"]
       },
       {
+        "method_name": "debug_trap",
+        "description": "Break into debugger (UNIX: SIGINT, win32: __debugbreak)",
+        "return_type": "void",
+        "parameters" : [],
+        "is_const" : true,
+        "cached"  : false,
+        "prerequisites" : ["json_authenticated"],
+        "aliases" : []
+      },
+      {
         "method_name": "debug_wait",
         "description": "wait for specified amount of time",
         "return_type": "void",
@@ -245,14 +255,6 @@
       {
         "method_name": "debug_get_call_statistics",
         "description": "Returns call timings for node_delegate callbacks",
-        "return_type": "json_object",
-        "parameters" : [],
-        "is_const"   : true,
-        "prerequisites" : ["no_prerequisites"]
-      },
-      {
-        "method_name": "debug_verify_delegate_votes",
-        "description": "Adds up delegate votes using balances, and reports any discrepancies with the stored values in the database",
         "return_type": "json_object",
         "parameters" : [],
         "is_const"   : true,

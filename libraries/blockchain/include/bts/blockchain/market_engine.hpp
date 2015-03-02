@@ -1,4 +1,5 @@
 #include <bts/blockchain/chain_database_impl.hpp>
+#include <bts/blockchain/transaction_evaluation_state.hpp>
 
 namespace bts { namespace blockchain { namespace detail {
 
@@ -24,12 +25,6 @@ namespace bts { namespace blockchain { namespace detail {
 
     bool get_next_bid();
     bool get_next_ask();
-    asset get_current_cover_debt()const;
-    uint32_t get_current_cover_age()const
-    {
-        //Total lifetime minus remaining lifetime
-        return BTS_BLOCKCHAIN_MAX_SHORT_PERIOD_SEC - (*_current_ask->expiration - _pending_state->now()).to_seconds();
-    }
 
     price minimum_ask()const
     {
@@ -52,13 +47,14 @@ namespace bts { namespace blockchain { namespace detail {
                                 const price& closing_price,
                                 const fc::time_point_sec timestamp );
 
+    transaction_evaluation_state  _eval_state;
+
     pending_chain_state_ptr       _pending_state;
     pending_chain_state_ptr       _prior_state;
     const chain_database_impl&    _db_impl;
 
     optional<market_order>        _current_bid;
     optional<market_order>        _current_ask;
-    collateral_record             _current_collat_record;
 
     asset_id_type                 _quote_id;
     asset_id_type                 _base_id;
@@ -72,8 +68,6 @@ namespace bts { namespace blockchain { namespace detail {
   private:
     bts::db::cached_level_map< market_index_key, order_record >::iterator         _bid_itr;
     bts::db::cached_level_map< market_index_key, order_record >::iterator         _ask_itr;
-    bts::db::cached_level_map< market_index_key, order_record >::iterator         _relative_bid_itr;
-    bts::db::cached_level_map< market_index_key, order_record >::iterator         _relative_ask_itr;
   };
 
 } } } // end namespace bts::blockchain::detail

@@ -31,12 +31,20 @@ TransactionSummary* Account::buildSummary(bts::wallet::transaction_ledger_entry 
          if( trx.operation_notes.count(label.first) )
             entry->setProperty("memo", convert(trx.operation_notes[label.first]));
 
+         auto& yields = trx.delta_amounts["Yield"];
+         auto asset_yield = std::find_if(yields.begin(), yields.end(),
+                                         [amount] (const bts::blockchain::asset& a) {
+                                            return a.asset_id == amount.asset_id;
+                                         });
+         if( asset_yield != yields.end() )
+            entry->setProperty("yield", double(asset_yield->amount) / asset->precision);
+
          ledger.append(entry);
       }
    }
 
    TransactionSummary* summary = new TransactionSummary(convert(string(trx.id)),
-                                                        convert(fc::get_approximate_relative_time_string(trx.timestamp)),
+                                                        trx.timestamp,
                                                         std::move(ledger), this);
 
    if( trx.delta_amounts.count("Fee") && trx.delta_amounts["Fee"].size() )
@@ -60,6 +68,8 @@ Account::Account(bts::light_wallet::light_wallet* wallet,
    : QObject(parent),
      m_wallet(wallet),
      m_name(convert(account.name)),
+     m_ownerKey(convert(std::string(account.owner_key))),
+     m_activeKey(convert(std::string(account.active_key()))),
      m_isRegistered(account.registration_date != fc::time_point_sec()),
      m_registrationDate(convert(account.registration_date))
 {}
@@ -67,9 +77,13 @@ Account::Account(bts::light_wallet::light_wallet* wallet,
 Account& Account::operator=(const bts::blockchain::account_record& account)
 {
    m_name = convert(account.name);
+   m_ownerKey = convert(std::string(account.owner_key));
+   m_activeKey = convert(std::string(account.active_key()));
    m_isRegistered = (account.registration_date != fc::time_point_sec());
    m_registrationDate = convert(account.registration_date);
    Q_EMIT nameChanged(m_name);
+   Q_EMIT ownerKeyChanged(m_ownerKey);
+   Q_EMIT activeKeyChanged(m_activeKey);
    Q_EMIT isRegisteredChanged(m_isRegistered);
    Q_EMIT registrationDateChanged(m_registrationDate);
 
@@ -88,42 +102,48 @@ QQmlListProperty<Balance> Account::balances()
    while( !balanceList.empty() )
       balanceList.takeFirst()->deleteLater();
    for( auto balance : m_wallet->balance(convert(m_name)) )
-      balanceList.append(new Balance(convert(balance.first), balance.second, this));
+      balanceList.append(new Balance(convert(balance.first), balance.second.first, balance.second.second, this));
    return QQmlListProperty<Balance>(this, &balanceList, count, at);
 }
 
-qreal Account::balance(QString symbol)
+Balance* Account::balance(QString symbol)
 {
-   return m_wallet->balance(convert(m_name))[convert(symbol)];
+   return new Balance(symbol, m_wallet->balance(convert(m_name))[convert(symbol)]);
 }
 
 QStringList Account::availableAssets()
 {
    QStringList assets;
    for( auto balance : m_wallet->balance(convert(m_name)) )
-      if( balance.second > 0 )
+      if( balance.second.first > 0 || balance.second.second > 0 )
          assets.append(convert(balance.first));
    return assets;
 }
 
 QList<QObject*> Account::transactionHistory(QString asset_symbol)
 {
-   auto raw_transactions = m_wallet->transactions(convert(m_name), convert(asset_symbol));
-   std::sort(raw_transactions.rbegin(), raw_transactions.rend(),
-             [](const bts::wallet::transaction_ledger_entry& a,
+   try {
+      auto raw_transactions = m_wallet->transactions(convert(m_name), convert(asset_symbol));
+      std::sort(raw_transactions.rbegin(), raw_transactions.rend(),
+                [](const bts::wallet::transaction_ledger_entry& a,
                 const bts::wallet::transaction_ledger_entry& b) {
-      return a.timestamp < b.timestamp;
-   });
+         return a.timestamp < b.timestamp;
+      });
 
-   int position = 0;
-   for( bts::wallet::transaction_ledger_entry trx : raw_transactions )
-   {
-      if( std::find_if(transactionList[asset_symbol].begin(), transactionList[asset_symbol].end(), [&trx] (QObject* o) -> bool {
-                       return o->property("id").toString() == convert(string(trx.id));
-      }) != transactionList[asset_symbol].end() )
-         continue;
+      int position = 0;
+      for( bts::wallet::transaction_ledger_entry trx : raw_transactions )
+      {
+         if( std::find_if(transactionList[asset_symbol].begin(), transactionList[asset_symbol].end(),
+                          [&trx] (QObject* o) -> bool {
+                             return o->property("id").toString() == convert(string(trx.id));
+                          }) != transactionList[asset_symbol].end() )
+            continue;
 
-      transactionList[asset_symbol].insert(position++, buildSummary(std::move(trx)));
+         transactionList[asset_symbol].insert(position++, buildSummary(std::move(trx)));
+      }
+   } catch( fc::exception& e ) {
+      elog("Unhandled exception: ${e}", ("e", e.to_detail_string()));
+      Q_EMIT error(tr("Internal error while building transaction history"));
    }
 
    return transactionList[asset_symbol];

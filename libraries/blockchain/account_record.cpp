@@ -44,9 +44,7 @@ namespace bts { namespace blockchain {
 
     public_key_type account_record::active_key()const
     {
-        if( active_key_history.empty() )
-            return public_key_type();
-
+        FC_ASSERT( !active_key_history.empty() );
         return active_key_history.rbegin()->second;
     }
 
@@ -76,88 +74,122 @@ namespace bts { namespace blockchain {
         return address( signing_key() );
     }
 
-    public_key_type burn_record_value::signer_key()const
-    {
-       FC_ASSERT( signer.valid() );
-       fc::sha256 digest;
-       if( message.size() )
-          digest = fc::sha256::hash( message.c_str(), message.size() );
-       return fc::ecc::public_key( *signer, digest );
-    }
-
-    const account_db_interface& account_record::db_interface( const chain_interface& db )
+    void account_record::sanity_check( const chain_interface& db )const
     { try {
-        return db._account_db_interface;
-    } FC_CAPTURE_AND_RETHROW() }
+        FC_ASSERT( id > 0 );
+        FC_ASSERT( !name.empty() );
+        FC_ASSERT( !active_key_history.empty() );
+        if( delegate_info.valid() )
+        {
+            FC_ASSERT( delegate_info->votes_for >= 0 );
+            FC_ASSERT( delegate_info->pay_rate <= 100 );
+            FC_ASSERT( !delegate_info->signing_key_history.empty() );
+            FC_ASSERT( delegate_info->pay_balance >= 0 );
+        }
+    } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
-    oaccount_record account_db_interface::lookup( const account_id_type id )const
+    oaccount_record account_record::lookup( const chain_interface& db, const account_id_type id )
     { try {
-        return lookup_by_id( id );
+        return db.account_lookup_by_id( id );
     } FC_CAPTURE_AND_RETHROW( (id) ) }
 
-    oaccount_record account_db_interface::lookup( const string& name )const
+    oaccount_record account_record::lookup( const chain_interface& db, const string& name )
     { try {
-        return lookup_by_name( name );
+        return db.account_lookup_by_name( name );
     } FC_CAPTURE_AND_RETHROW( (name) ) }
 
-    oaccount_record account_db_interface::lookup( const address& addr )const
+    oaccount_record account_record::lookup( const chain_interface& db, const address& addr )
     { try {
-        return lookup_by_address( addr );
+        return db.account_lookup_by_address( addr );
     } FC_CAPTURE_AND_RETHROW( (addr) ) }
 
-    void account_db_interface::store( const account_id_type id, const account_record& record )const
+    void account_record::store( chain_interface& db, const account_id_type id, const account_record& record )
     { try {
-        const oaccount_record prev_record = lookup( id );
+        const oaccount_record prev_record = db.lookup<account_record>( id );
         if( prev_record.valid() )
         {
             if( prev_record->name != record.name )
-                erase_from_name_map( prev_record->name );
+                db.account_erase_from_name_map( prev_record->name );
+
             if( prev_record->owner_address() != record.owner_address() )
-                erase_from_address_map( prev_record->owner_address() );
-            if( !prev_record->is_retracted() )
+                db.account_erase_from_address_map( prev_record->owner_address() );
+
+            if( prev_record->active_key() != record.active_key() )
             {
-                if( record.is_retracted() || prev_record->active_address() != record.active_address() )
-                    erase_from_address_map( prev_record->active_address() );
-                if( prev_record->is_delegate() )
+                for( const auto& item : prev_record->active_key_history )
                 {
-                    if( record.is_retracted() || !record.is_delegate() || prev_record->signing_address() != record.signing_address() )
-                        erase_from_address_map( prev_record->signing_address() );
+                    const public_key_type& active_key = item.second;
+                    db.account_erase_from_address_map( address( active_key ) );
+                }
+            }
+
+            if( prev_record->is_delegate() )
+            {
+                if( !record.is_delegate() || prev_record->signing_key() != record.signing_key() )
+                {
+                    for( const auto& item : prev_record->delegate_info->signing_key_history )
+                    {
+                        const public_key_type& signing_key = item.second;
+                        db.account_erase_from_address_map( address( signing_key ) );
+                    }
+                }
+
+                if( !prev_record->is_retracted() )
+                {
                     if( record.is_retracted() || !record.is_delegate() || prev_record->net_votes() != record.net_votes() )
-                        erase_from_vote_set( vote_del( prev_record->net_votes(), prev_record->id ) );
+                        db.account_erase_from_vote_set( vote_del( prev_record->net_votes(), prev_record->id ) );
                 }
             }
         }
 
-        insert_into_id_map( id, record );
-        insert_into_name_map( record.name, id );
-        insert_into_address_map( record.owner_address(), id );
-        if( !record.is_retracted() )
+        db.account_insert_into_id_map( id, record );
+        db.account_insert_into_name_map( record.name, id );
+        db.account_insert_into_address_map( record.owner_address(), id );
+
+        for( const auto& item : record.active_key_history )
         {
-            insert_into_address_map( record.active_address(), id );
-            if( record.is_delegate() )
+            const public_key_type& active_key = item.second;
+            if( active_key != public_key_type() ) db.account_insert_into_address_map( address( active_key ), id );
+        }
+
+        if( record.is_delegate() )
+        {
+            for( const auto& item : record.delegate_info->signing_key_history )
             {
-                insert_into_address_map( record.signing_address(), id );
-                insert_into_vote_set( vote_del( record.net_votes(), id ) );
+                const public_key_type& signing_key = item.second;
+                if( signing_key != public_key_type() ) db.account_insert_into_address_map( address( signing_key ), id );
             }
+
+            if( !record.is_retracted() )
+                db.account_insert_into_vote_set( vote_del( record.net_votes(), id ) );
         }
     } FC_CAPTURE_AND_RETHROW( (id)(record) ) }
 
-    void account_db_interface::remove( const account_id_type id )const
+    void account_record::remove( chain_interface& db, const account_id_type id )
     { try {
-        const oaccount_record prev_record = lookup( id );
+        const oaccount_record prev_record = db.lookup<account_record>( id );
         if( prev_record.valid() )
         {
-            erase_from_id_map( id );
-            erase_from_name_map( prev_record->name );
-            erase_from_address_map( prev_record->owner_address() );
-            if( !prev_record->is_retracted() )
+            db.account_erase_from_id_map( id );
+            db.account_erase_from_name_map( prev_record->name );
+            db.account_erase_from_address_map( prev_record->owner_address() );
+
+            for( const auto& item : prev_record->active_key_history )
             {
-                erase_from_address_map( prev_record->active_address() );
-                if( prev_record->is_delegate() )
+                const public_key_type& active_key = item.second;
+                db.account_erase_from_address_map( address( active_key ) );
+            }
+
+            if( prev_record->is_delegate() )
+            {
+                for( const auto& item : prev_record->delegate_info->signing_key_history )
                 {
-                    erase_from_address_map( prev_record->signing_address() );
-                    erase_from_vote_set( vote_del( prev_record->net_votes(), prev_record->id ) );
+                    const public_key_type& signing_key = item.second;
+                    db.account_erase_from_address_map( address( signing_key ) );
                 }
+
+                if( !prev_record->is_retracted() )
+                    db.account_erase_from_vote_set( vote_del( prev_record->net_votes(), prev_record->id ) );
             }
         }
     } FC_CAPTURE_AND_RETHROW( (id) ) }

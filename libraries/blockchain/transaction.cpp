@@ -1,12 +1,9 @@
 #include <bts/blockchain/account_operations.hpp>
 #include <bts/blockchain/asset_operations.hpp>
 #include <bts/blockchain/balance_operations.hpp>
-#include <bts/blockchain/edge_operations.hpp>
 #include <bts/blockchain/feed_operations.hpp>
 #include <bts/blockchain/market_operations.hpp>
-#include <bts/blockchain/object_operations.hpp>
 #include <bts/blockchain/meta_game_operations.hpp>
-
 #include <bts/blockchain/slate_operations.hpp>
 #include <bts/blockchain/time.hpp>
 #include <bts/blockchain/transaction.hpp>
@@ -47,16 +44,6 @@ namespace bts { namespace blockchain {
        return fc::ecc::public_key( signatures.at( sig_index ), this->digest( chain_id ), false );
    } FC_CAPTURE_AND_RETHROW( (sig_index)(chain_id) ) }
 
-   void transaction::set_object( const object_record& obj )
-   {
-      operations.emplace_back( set_object_operation( obj ) );
-   }
-
-   void transaction::set_edge( const edge_record& edge )
-   {
-      operations.emplace_back( set_edge_operation( edge ) );
-   }
-
    void transaction::define_slate( const set<account_id_type>& slate )
    { try {
        define_slate_operation op;
@@ -94,33 +81,6 @@ namespace bts { namespace blockchain {
 
       operations.emplace_back( std::move( op ) );
    }
-   void transaction::relative_bid( const asset& quantity,
-                          const price& delta_price_per_unit,
-                          const optional<price>& limit,
-                          const address& owner )
-   {
-      relative_bid_operation op;
-      op.amount = quantity.amount;
-      op.bid_index.order_price = delta_price_per_unit;
-      op.bid_index.owner = owner;
-      op.limit_price = limit;
-
-      operations.emplace_back( std::move( op ) );
-   }
-
-   void transaction::relative_ask( const asset& quantity,
-                          const price& delta_price_per_unit,
-                          const optional<price>& limit,
-                          const address& owner )
-   {
-      relative_ask_operation op;
-      op.amount = quantity.amount;
-      op.ask_index.order_price = delta_price_per_unit;
-      op.ask_index.owner = owner;
-      op.limit_price = limit;
-
-      operations.emplace_back( std::move( op ) );
-   }
 
    void transaction::withdraw( const balance_id_type& account,
                                share_type             amount )
@@ -147,7 +107,7 @@ namespace bts { namespace blockchain {
       FC_ASSERT( amount.amount > 0, "amount: ${amount}", ("amount",amount) );
       deposit_operation op;
       op.amount = amount.amount;
-      op.condition = withdraw_condition( withdraw_with_multisig{multsig_info.required,multsig_info.owners}, amount.asset_id );
+      op.condition = withdraw_condition( withdraw_with_multisig{ multsig_info.required,multsig_info.owners }, amount.asset_id );
       operations.emplace_back( std::move( op ) );
    }
 
@@ -408,12 +368,11 @@ namespace bts { namespace blockchain {
       return false;
    }
 
-    void transaction::authorize_key( asset_id_type asset_id, const address& owner, object_id_type meta )
+    void transaction::authorize_key( const asset_id_type asset_id, const address& owner )
     {
        authorize_operation op;
        op.asset_id = asset_id;
        op.owner = owner;
-       op.meta_id = meta;
        operations.emplace_back( std::move( op ) );
     }
 

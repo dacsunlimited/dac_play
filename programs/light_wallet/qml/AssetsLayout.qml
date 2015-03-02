@@ -1,5 +1,5 @@
 import QtQuick 2.3
-import QtQuick.Controls 1.3
+import QtQuick.Controls 1.2
 import QtQuick.Layouts 1.1
 
 import Material 0.1
@@ -8,8 +8,14 @@ import "utils.js" as Utils
 
 Page {
    title: wallet.accounts[accountName].name + qsTr("'s Balances")
-   actions: [payAction, lockAction]
+   actions: [/*__marketAction, DISABLED FOR RELEASE*/ payAction, lockAction]
 
+   Action {
+      id: __marketAction
+      name: qsTr("Place Market Order")
+      iconName: "action/shopping_basket"
+      onTriggered: openOrderForm({accountName: accountName})
+   }
 
    property string accountName
 
@@ -28,10 +34,15 @@ Page {
          Layout.fillWidth: true
          Layout.fillHeight: true
          flickableItem.interactive: true
-         // @disable-check M16 -- For some reason, QtC doesn't recognize this property...
-         verticalScrollBarPolicy: Qt.platform.os in ["android", "ios"]? Qt.ScrollBarAsNeeded : Qt.ScrollBarAlwaysOff
 
          ListView {
+            onDragEnded: {
+               if( contentY < units.dp(-100) )
+               {
+                  showMessage(qsTr("Refreshing balances"))
+                  wallet.syncAllBalances()
+               }
+            }
             model: wallet.accounts[accountName].balances
             delegate: Rectangle {
                width: parent.width
@@ -46,7 +57,8 @@ Page {
 
                   Item { Layout.preferredWidth: visuals.margins }
                   Label {
-                     text: amount
+                     text: format(amount, symbol) + (yield ? "\n+ " + format(yield, symbol) + qsTr(" yield")
+                                                           : "")
                      font.pixelSize: units.dp(32)
                   }
                   Item { Layout.fillWidth: true }
@@ -68,6 +80,12 @@ Page {
                      console.log("Open trx history for " + accountName + "/" + symbol)
                   }
                }
+            }
+            Label {
+               y: units.dp(-100) - height - parent.contentY
+               text: qsTr("Release to refresh balances")
+               anchors.horizontalCenter: parent.horizontalCenter
+               style: "headline"
             }
          }
       }

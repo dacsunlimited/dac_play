@@ -4,8 +4,10 @@
 #include <bts/blockchain/transaction.hpp>
 
 namespace bts { namespace blockchain {
+   struct game_record;
+   typedef fc::optional<game_record> ogame_record;
+   
     class chain_interface;
-    struct game_db_interface;
     struct game_record
     {
         enum
@@ -32,27 +34,27 @@ namespace bts { namespace blockchain {
         
         /** reserved for future extensions */
         vector<char>        reserved;
-        
-        static const game_db_interface& db_interface( const chain_interface& );
-    };
-    typedef fc::optional<game_record> ogame_record;
-    
-    struct game_db_interface
-    {
-        std::function<ogame_record( const game_id_type )>               lookup_by_id;
-        std::function<ogame_record( const string& )>                    lookup_by_symbol;
-        
-        std::function<void( const game_id_type, const game_record& )>  insert_into_id_map;
-        std::function<void( const string&, const game_id_type )>        insert_into_symbol_map;
-        
-        std::function<void( const game_id_type )>                       erase_from_id_map;
-        std::function<void( const string& )>                            erase_from_symbol_map;
-        
-        ogame_record lookup( const game_id_type )const;
-        ogame_record lookup( const string& )const;
-        void store( const game_id_type, const game_record& )const;
-        void remove( const game_id_type )const;
-    };
+       
+        void sanity_check( const chain_interface& )const;
+        static ogame_record lookup( const chain_interface&, const game_id_type );
+        static ogame_record lookup( const chain_interface&, const string& );
+        static void store( chain_interface&, const game_id_type, const game_record& );
+        static void remove( chain_interface&, const game_id_type );
+   };
+   
+   class game_db_interface
+   {
+      friend struct game_record;
+      
+      virtual ogame_record game_lookup_by_id( const game_id_type )const = 0;
+      virtual ogame_record game_lookup_by_symbol( const string& )const = 0;
+      
+      virtual void game_insert_into_id_map( const game_id_type, const game_record& ) = 0;
+      virtual void game_insert_into_symbol_map( const string&, const game_id_type ) = 0;
+      
+      virtual void game_erase_from_id_map( const game_id_type ) = 0;
+      virtual void game_erase_from_symbol_map( const string& ) = 0;
+   };
     
     struct rule_data_record
     {

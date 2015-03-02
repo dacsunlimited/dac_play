@@ -1,5 +1,5 @@
 import QtQuick 2.3
-import QtQuick.Controls 1.3
+import QtQuick.Controls 1.2
 import QtQuick.Layouts 1.1
 import QtGraphicalEffects 1.0
 
@@ -13,6 +13,7 @@ RowLayout {
 
    property alias placeholderText: passwordText.placeholderText
    property alias floatingLabel: passwordText.floatingLabel
+   property alias helperText: passwordText.helperText
    property alias password: passwordText.text
    property alias fontPixelSize: passwordInput.font.pixelSize
 

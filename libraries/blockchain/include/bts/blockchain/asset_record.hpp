@@ -17,8 +17,10 @@ namespace bts { namespace blockchain {
       game_chip             = 1 << 5   ///< ! The asset is for games
    };
 
+   struct asset_record;
+   typedef fc::optional<asset_record> oasset_record;
+
    class chain_interface;
-   struct asset_db_interface;
    struct asset_record
    {
       enum
@@ -43,6 +45,12 @@ namespace bts { namespace blockchain {
       bool can_issue( const share_type amount )const;
       share_type available_shares()const;
 
+      // TODO: Always allow issuer and/or authority (what's the difference?)
+      bool is_authorized( const address& addr )const;
+
+      asset asset_from_string( const string& amount )const;
+      string amount_to_string( share_type amount, bool append_symbol = true )const;
+
       asset_id_type       id;
       std::string         symbol;
       std::string         name;
@@ -66,58 +74,34 @@ namespace bts { namespace blockchain {
        */
       share_type          transaction_fee = 0;
       /**
-       * 0 for no fee, 10000 for 10% fee.
+       * 0 for no fee, 10000 for 100% fee.
        * This is used for gateways that want to continue earning market trading fees
        * when their assets are used.
        */
-      uint16_t            market_fee = BTS_BLOCKCHAIN_MAX_UIA_MARKET_FEE; 
+      uint16_t            market_fee = 0;
       multisig_meta_info  authority;
 
-      proposal_id_type    last_proposal_id = 0;
+      unordered_set<address> whitelist;
 
-
-      /** reserved for future extensions */
-      vector<char>        reserved;
-
-      static const asset_db_interface& db_interface( const chain_interface& );
-
-      asset asset_from_string( const string& amount )const;
-      string amount_to_string( share_type amount, bool append_symbol = true )const;
-   };
-   typedef fc::optional<asset_record> oasset_record;
-
-   struct asset_db_interface
-   {
-       std::function<oasset_record( const asset_id_type )>              lookup_by_id;
-       std::function<oasset_record( const string& )>                    lookup_by_symbol;
-
-       std::function<void( const asset_id_type, const asset_record& )>  insert_into_id_map;
-       std::function<void( const string&, const asset_id_type )>        insert_into_symbol_map;
-
-       std::function<void( const asset_id_type )>                       erase_from_id_map;
-       std::function<void( const string& )>                             erase_from_symbol_map;
-
-       oasset_record lookup( const asset_id_type )const;
-       oasset_record lookup( const string& )const;
-       void store( const asset_id_type, const asset_record& )const;
-       void remove( const asset_id_type )const;
+      void sanity_check( const chain_interface& )const;
+      static oasset_record lookup( const chain_interface&, const asset_id_type );
+      static oasset_record lookup( const chain_interface&, const string& );
+      static void store( chain_interface&, const asset_id_type, const asset_record& );
+      static void remove( chain_interface&, const asset_id_type );
    };
 
-   struct proposal_record
+   class asset_db_interface
    {
-      proposal_record(){}
+      friend struct asset_record;
 
-      proposal_record( asset_id_type id, proposal_id_type pid, object_id_type oid = -1 )
-      :asset_id(id),proposal_id(pid),info(oid){}
+      virtual oasset_record asset_lookup_by_id( const asset_id_type )const = 0;
+      virtual oasset_record asset_lookup_by_symbol( const string& )const = 0;
 
-      proposal_record make_null()const { auto tmp = *this; tmp.info = -1; return tmp; }
-      std::pair<asset_id_type,proposal_id_type> key()const{ return std::make_pair(asset_id,proposal_id); }
+      virtual void asset_insert_into_id_map( const asset_id_type, const asset_record& ) = 0;
+      virtual void asset_insert_into_symbol_map( const string&, const asset_id_type ) = 0;
 
-      asset_id_type      asset_id      = 0;
-      proposal_id_type   proposal_id   = 0;
-      object_id_type     info          = -1;
-      uint32_t           votes_for     = 0;
-      uint32_t           votes_against = 0;
+      virtual void asset_erase_from_id_map( const asset_id_type ) = 0;
+      virtual void asset_erase_from_symbol_map( const string& ) = 0;
    };
 
 } } // bts::blockchain
@@ -131,14 +115,6 @@ FC_REFLECT_ENUM( bts::blockchain::asset_permissions,
         (supply_unlimit)
         (game_chip)
         )
-FC_REFLECT( bts::blockchain::proposal_record,
-        (asset_id)
-        (proposal_id)
-        (info)
-        (votes_for)
-        (votes_against)
-        );
-
 FC_REFLECT( bts::blockchain::asset_record,
         (id)
         (symbol)
@@ -158,6 +134,6 @@ FC_REFLECT( bts::blockchain::asset_record,
         (transaction_fee)
         (market_fee)
         (authority)
-        (last_proposal_id)
+        (whitelist)
         )
 

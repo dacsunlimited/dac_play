@@ -1,5 +1,6 @@
 #include <bts/blockchain/balance_record.hpp>
 #include <bts/blockchain/chain_interface.hpp>
+#include <bts/blockchain/exceptions.hpp>
 
 namespace bts { namespace blockchain {
 
@@ -22,20 +23,6 @@ namespace bts { namespace blockchain {
    bool balance_record::is_owner( const address& addr )const
    {
        return this->owners().count( addr ) > 0;
-   }
-
-   bool balance_record::is_owner( const public_key_type& key )const
-   {
-       const auto& addrs = this->owners();
-       for( const auto& addr : addrs )
-       {
-           if( addr == address( key ) ) return true;
-           if( addr == address( pts_address( key, false, 56 ) ) ) return true;
-           if( addr == address( pts_address( key, true, 56 ) ) ) return true;
-           if( addr == address( pts_address( key, false, 0 ) ) ) return true;
-           if( addr == address( pts_address( key, true, 0 ) ) ) return true;
-       }
-       return false;
    }
 
    asset balance_record::get_spendable_balance( const time_point_sec at_time )const
@@ -91,31 +78,42 @@ namespace bts { namespace blockchain {
         multisig_condition.required = m;
         multisig_condition.owners = set<address>(addrs.begin(), addrs.end());
         withdraw_condition condition( multisig_condition, asset_id, 0 );
-        auto balance = balance_record(condition);
+        const auto balance = balance_record( condition );
         return balance.id();
     } FC_CAPTURE_AND_RETHROW( (m)(addrs) ) }
 
-    const balance_db_interface& balance_record::db_interface( const chain_interface& db )
+    void balance_record::sanity_check( const chain_interface& db )const
     { try {
-        return db._balance_db_interface;
-    } FC_CAPTURE_AND_RETHROW() }
+        FC_ASSERT( balance >= 0 );
+        FC_ASSERT( condition.asset_id == 0 || db.lookup<asset_record>( condition.asset_id ).valid() );
+        FC_ASSERT( condition.slate_id == 0 || db.lookup<slate_record>( condition.slate_id ).valid() );
+        switch( withdraw_condition_types( condition.type ) )
+        {
+            case withdraw_signature_type:
+            case withdraw_vesting_type:
+            case withdraw_multisig_type:
+            case withdraw_escrow_type:
+                break;
+            default:
+                FC_CAPTURE_AND_THROW( invalid_withdraw_condition );
+        }
+    } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
-    obalance_record balance_db_interface::lookup( const balance_id_type& id )const
+    obalance_record balance_record::lookup( const chain_interface& db, const balance_id_type& id )
     { try {
-        return lookup_by_id( id );
+        return db.balance_lookup_by_id( id );
     } FC_CAPTURE_AND_RETHROW( (id) ) }
 
-    void balance_db_interface::store( const balance_id_type& id, const balance_record& record )const
+    void balance_record::store( chain_interface& db, const balance_id_type& id, const balance_record& record )
     { try {
-        FC_ASSERT( record.balance >= 0 ); // Sanity check
-        insert_into_id_map( id, record );
+        db.balance_insert_into_id_map( id, record );
     } FC_CAPTURE_AND_RETHROW( (id)(record) ) }
 
-    void balance_db_interface::remove( const balance_id_type& id )const
+    void balance_record::remove( chain_interface& db, const balance_id_type& id )
     { try {
-        const obalance_record prev_record = lookup( id );
+        const obalance_record prev_record = db.lookup<balance_record>( id );
         if( prev_record.valid() )
-            erase_from_id_map( id );
+            db.balance_erase_from_id_map( id );
     } FC_CAPTURE_AND_RETHROW( (id) ) }
 
 } } // bts::blockchain

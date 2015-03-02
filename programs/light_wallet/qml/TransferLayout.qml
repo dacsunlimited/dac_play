@@ -10,15 +10,16 @@ Page {
    actions: [lockAction]
 
    property string accountName
+   property string assetSymbol: wallet.accounts[accountName].availableAssets[0]
 
    signal transferComplete(string assetSymbol)
    
    RowLayout {
       id: hashBar
       anchors.top: parent.top
-      anchors.left: parent.left
-      anchors.right:  parent.right
+      anchors.horizontalCenter: parent.horizontalCenter
       anchors.margins: visuals.margins
+      width: Math.min(parent.width - visuals.margins*2, units.dp(600))
 
       RoboHash {
          name: wallet.accounts[accountName].name
@@ -27,7 +28,9 @@ Page {
       }
       RoboHash {
          id: recipientHash
-         name: toNameField.text? toNameField.text : "Unknown"
+         name: toNameField.text ? toNameField.text.indexOf(wallet.keyPrefix) === 0 ? "Unregistered Account"
+                                                                                   : toNameField.text
+                                : "Unknown"
          Layout.fillWidth: true
       }
    }
@@ -37,7 +40,7 @@ Page {
       anchors.top: hashBar.bottom
       style: "display1"
       color: "red"
-      text: amountField.amount() + " " + assetSymbol.text
+      text: format(amountField.amount(), assetSymbolField.selectedText) + " " + assetSymbolField.selectedText
    }
 
    Rectangle {
@@ -52,11 +55,11 @@ Page {
       id: transferForm
       anchors {
          top: splitter.bottom
-         left: parent.left
-         right: parent.right
          bottom: parent.bottom
+         horizontalCenter: parent.horizontalCenter
          margins: visuals.margins
       }
+      width: Math.min(parent.width - visuals.margins*2, units.dp(600))
 
       TextField {
          id: toNameField
@@ -66,20 +69,21 @@ Page {
          focus: true
          onEditingFinished: canProceed()
          transform: ShakeAnimation { id: recipientShaker }
-         helperText: " "
+         helperText: "Enter username or key"
          input {
-            inputMethodHints: Qt.ImhLowercaseOnly | Qt.ImhLatinOnly
+            inputMethodHints: Qt.ImhLatinOnly
             font.pixelSize: units.dp(20)
          }
 
          function canProceed() {
-            if( !wallet.accountExists(text) )
+            if( wallet.accountExists(text) || wallet.isValidKey(text) )
             {
-               hasError = true
-               helperText = qsTr("This account does not exist")
-            } else {
                hasError = false
                helperText = ""
+            } else {
+               hasError = true
+               helperText = text.indexOf(wallet.keyPrefix) === 0 ? qsTr("Invalid recipient key")
+                                                                 : qsTr("This account does not exist")
             }
 
             return !hasError
@@ -101,66 +105,47 @@ Page {
             input {
                inputMethodHints: Qt.ImhDigitsOnly
                font.pixelSize: units.dp(20)
-               validator: DoubleValidator {bottom: 0; notation: DoubleValidator.StandardNotation}
+               validator: DoubleValidator {bottom: 0; notation: DoubleValidator.StandardNotation; decimals: wallet.getDigitsOfPrecision(assetSymbolField.selectedText)}
             }
             helperText: {
-               var fee = wallet.getFee(assetSymbol.text)
-               return qsTr("Available balance: ") + wallet.accounts[accountName].balance(assetSymbol.text) +
-                     " " + assetSymbol.text + "\n" + qsTr("Transaction fee: ") + fee.amount + " " + fee.symbol
+               var fee = wallet.getFee(assetSymbolField.selectedText)
+               var balance = Number(wallet.accounts[accountName].balance(assetSymbolField.selectedText).total)
+               return qsTr("Available balance: ") + format(balance, assetSymbolField.selectedText) +
+                     " " + assetSymbolField.selectedText + "\n" + qsTr("Transaction fee: ") + format(fee.amount, fee.symbol) + " " + fee.symbol
             }
             onEditingFinished: canProceed()
 
             function amount() {
-               return Number(text)? Number(text) : 0
+               return Number.fromLocaleString(text)? Number.fromLocaleString(text) : 0
             }
             function canProceed() {
-               var fee = wallet.getFee(assetSymbol.text)
+               var fee = wallet.getFee(assetSymbolField.selectedText)
                var total = amount()
-               if( fee.symbol === assetSymbol.text ) {
+               if( fee.symbol === assetSymbolField.selectedText ) {
                   total += fee.amount
                }
 
-               hasError = total > wallet.accounts[accountName].balance(assetSymbol.text)
+               hasError = total > wallet.accounts[accountName].balance(assetSymbolField.selectedText).total
                return !hasError && amount() > 0
             }
             function canPayFee() {
-               var fee = wallet.getFee(assetSymbol.text)
-               if( fee.symbol === assetSymbol.text )
+               var fee = wallet.getFee(assetSymbolField.selectedText)
+               if( fee.symbol === assetSymbolField.selectedText )
                   return canProceed()
                return fee.amount <= wallet.accounts[accountName].balance(fee.symbol)
             }
          }
-         TextField {
-            id: assetSymbol
-            y: amountField.y
-            Layout.preferredWidth: units.dp(100)
-            input.readOnly: true
-            input.font.pixelSize: units.dp(20)
-            //Hack to make RowLayout place this field vertically level with amountField
-            helperText: "\n "
-            text: wallet.accounts[accountName].availableAssets.length ? wallet.accounts[accountName].availableAssets[0]
-                                                        : ":("
-            placeholderText: qsTr("Asset")
+         MenuField {
+            id: assetSymbolField
+            Layout.preferredHeight: amountField.height
+            anchors.verticalCenter: amountField.verticalCenter
+            model: wallet.accounts[accountName].availableAssets
+            selectedIndex: model.indexOf(assetSymbol)
             floatingLabel: true
+            placeholderText: "Asset"
+            hasHelperText: true
 
-            Icon {
-               anchors.verticalCenter: parent.verticalCenter
-               anchors.right: parent.right
-               anchors.rightMargin: units.dp(5)
-               name: "navigation/arrow_drop_down"
-            }
-            Ink {
-               anchors.fill: parent
-               enabled: !assetMenu.opened
-               onClicked: assetMenu.open(assetSymbol.text, assetSymbol.inputRect.x, assetSymbol.inputRect.y)
-            }
-            Menu {
-               id: assetMenu
-               width: parent.width * 1.1
-               model: wallet.accounts[accountName].availableAssets
-               owner: assetSymbol
-               onElementSelected: assetSymbol.text = elementData
-            }
+            Behavior on width { NumberAnimation {} }
          }
       }
       TextField {
@@ -227,37 +212,31 @@ Page {
             if( !amountField.canProceed() )
                return amountShaker.shake()
             if( !amountField.canPayFee() )
-               return badFeeDialog.open()
+               return badFeeDialog.show()
             if( memoField.characterCount > memoField.characterLimit )
                return memoShaker.shake()
 
-            transactionPreview.trx = wallet.accounts[accountName].beginTransfer(toNameField.text, amountField.text,
-                                                                                assetSymbol.text, memoField.text);
+            transactionPreview.trx = wallet.accounts[accountName].beginTransfer(toNameField.text, amountField.amount(),
+                                                                                assetSymbolField.selectedText, memoField.text);
             transferPage.state = "confirmation"
             confirmPassword.forceActiveFocus()
          }
       }
    }
 
-   MouseArea {
-      anchors.fill: parent
-      onClicked: badFeeDialog.close()
-      enabled: badFeeDialog.visible
-   }
    Dialog {
       id: badFeeDialog
       title: qsTr("Cannot pay fee")
       height: units.dp(200)
-      negativeBtnText: ""
-      positiveBtnText: qsTr("OK")
-      visible: false
+      negativeButtonText: ""
+      positiveButtonText: qsTr("OK")
 
       onAccepted: close()
 
       Label {
          id: dialogContentLabel
          style: "body1"
-         text: qsTr("The BitShares network does not accept fees in " + assetSymbol.text + ", so the transaction fee " +
+         text: qsTr("The BitShares network does not accept fees in " + assetSymbolField.selectedText + ", so the transaction fee " +
                     "must be paid in " + wallet.baseAssetSymbol + ". You do not currently have enough " +
                     wallet.baseAssetSymbol + " to pay the fee.")
          wrapMode: Text.WrapAtWordBoundaryOrAnywhere
@@ -285,7 +264,7 @@ Page {
             text: qsTr("Confirm")
             onClicked: {
                if( wallet.accounts[accountName].completeTransfer(confirmPassword.password) )
-                  transferComplete(assetSymbol.text)
+                  transferComplete(assetSymbolField.selectedText)
                else
                   confirmPassword.shake()
             }

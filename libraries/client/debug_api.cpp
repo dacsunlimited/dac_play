@@ -4,6 +4,10 @@
 #include <bts/utilities/key_conversion.hpp>
 #include <bts/wallet/wallet.hpp>
 
+#ifndef WIN32
+#include <csignal>
+#endif
+
 namespace bts { namespace client { namespace detail {
 
 void client_impl::debug_enable_output(bool enable_flag)
@@ -115,11 +119,6 @@ fc::variant_object client_impl::debug_get_call_statistics() const
    return _p2p_node->get_call_statistics();
 }
 
-fc::variant_object client_impl::debug_verify_delegate_votes() const
-{
-   return _chain_db->find_delegate_vote_discrepancies();
-}
-
 void client_impl::debug_start_simulated_time(const fc::time_point& starting_time)
 {
    bts::blockchain::start_simulated_time(starting_time);
@@ -183,6 +182,16 @@ void client_impl::debug_wait_for_block_by_number(uint32_t block_number, const st
 std::string client_impl::debug_get_client_name() const
 {
    return this->_config.client_debug_name;
+}
+
+void client_impl::debug_trap() const
+{
+#ifdef WIN32
+    __debugbreak();
+#else
+    raise(SIGTRAP);
+#endif
+    return;
 }
 
 static std::string _generate_deterministic_private_key(const std::string& prefix, int32_t index)

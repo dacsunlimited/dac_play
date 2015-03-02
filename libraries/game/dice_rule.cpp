@@ -265,11 +265,6 @@ namespace bts { namespace game {
                  // TODO: FC_THROW( "withdraw_multi_sig_type not implemented!" );
                  break;
              }
-             case withdraw_password_type:
-             {
-                 // TODO: FC_THROW( "withdraw_password_type not implemented!" );
-                 break;
-             }
              default:
              {
                  FC_THROW( "unknown withdraw condition type!" );
