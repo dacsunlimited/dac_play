@@ -50,6 +50,9 @@ namespace bts { namespace blockchain {
       new_record.last_update       = now;
       new_record.meta_data         = this->meta_data;
 
+      if( !new_record.meta_data.valid() )
+          new_record.meta_data = account_meta_info( titan_account );
+
       const asset name_fee( eval_state._current_state->get_account_registration_fee( this->name.size() ), 0 );
       eval_state.required_fees += name_fee;
       

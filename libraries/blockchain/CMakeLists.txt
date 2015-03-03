@@ -37,14 +37,10 @@ add_library( bts_blockchain
              slate_record.cpp
              balance_record.cpp
              transaction_record.cpp
+             burn_record.cpp
              feed_record.cpp
              market_records.cpp
              slot_record.cpp
-             object_record.cpp
-             edge_record.cpp
-             site_record.cpp
-             auction_records.cpp
-             sale_record.cpp
 
              transaction.cpp
              transaction_evaluation_state.cpp
@@ -58,13 +54,8 @@ add_library( bts_blockchain
              asset_operations.cpp
              feed_operations.cpp
              market_operations.cpp
-             object_operations.cpp
-
              meta_game_operations.cpp
-             edge_operations.cpp
-             site_operations.cpp
-             auction_operations.cpp
-             sale_operations.cpp
+             data_operations.cpp
 
              time.cpp
 

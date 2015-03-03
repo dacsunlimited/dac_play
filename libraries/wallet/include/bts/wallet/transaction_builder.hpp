@@ -213,13 +213,6 @@ namespace bts { namespace wallet {
                                                      uint32_t m,
                                                      const vector<address>& addresses );
 
-      transaction_builder& set_object(const string& payer_name,
-                                      const object_record& obj,
-                                      bool create );
-
-      transaction_builder& set_edge(const string& payer_name,
-                                    const edge_record& obj );
-
       transaction_builder& withdraw_from_balance(const balance_id_type& from,
                                                  const share_type amount);
 
@@ -245,11 +238,6 @@ namespace bts { namespace wallet {
                                       const asset& real_quantity,
                                       const price& quote_price);
 
-      transaction_builder& submit_relative_bid(const wallet_account_record& from_account,
-                                      const asset& real_quantity,
-                                      const price& delta_quote_price,
-                                      const optional<price>& limit
-                                      );
       /**
        * @brief Submit an ask order
        * @param from_account The account to place the ask
@@ -264,10 +252,6 @@ namespace bts { namespace wallet {
                                       const asset& cost,
                                       const price& quote_price);
 
-      transaction_builder& submit_relative_ask(const wallet_account_record& from_account,
-                                      const asset& cost,
-                                      const price& delta_quote_price,
-                                      const optional<price>& limit );
       /**
        * @brief Submit a short order
        * @param from_account The account to place the short
@@ -296,8 +280,7 @@ namespace bts { namespace wallet {
                                         const order_id_type& order_id);
 
       transaction_builder& asset_authorize_key( const string& symbol,
-                                                const address& owner,
-                                                object_id_type meta );
+                                                const address& owner );
 
       transaction_builder& update_signing_key( const string& authorizing_account_name,
                                                const string& delegate_name,

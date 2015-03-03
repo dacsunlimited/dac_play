@@ -33,7 +33,8 @@ namespace bts { namespace blockchain {
       {
          public:
             void                                        load_checkpoints( const fc::path& data_dir )const;
-            void                                        open_database(const fc::path& data_dir );
+            bool                                        replay_required( const fc::path& data_dir );
+            void                                        open_database( const fc::path& data_dir );
             void                                        clear_invalidation_of_future_blocks();
             digest_type                                 initialize_genesis( const optional<path>& genesis_file,
                                                                             const bool statistics_enabled );
@@ -103,6 +104,8 @@ namespace bts { namespace blockchain {
             share_type                                                                  _relay_fee = BTS_BLOCKCHAIN_DEFAULT_RELAY_FEE;
 
             /* Block processing */
+            uint32_t /* Only used to skip undo states when possible during replay */    _min_undo_block = 0;
+
             fc::mutex                                                                   _push_block_mutex;
 
             bts::db::level_map<block_id_type, full_block>                               _block_id_to_full_block;
@@ -137,18 +140,17 @@ namespace bts { namespace blockchain {
 
             bts::db::fast_level_map<balance_id_type, balance_record>                    _balance_id_to_record;
 
-            bts::db::level_map<transaction_id_type,transaction_record>                  _id_to_transaction_record_db;
+            bts::db::level_map<transaction_id_type, transaction_record>                 _transaction_id_to_record;
             set<unique_transaction_key>                                                 _unique_transactions;
+            bts::db::level_map<address, unordered_set<transaction_id_type>>             _address_to_transaction_ids;
+
+            bts::db::cached_level_map<burn_index, burn_record>                          _burn_index_to_record;
 
             bts::db::cached_level_map<feed_index, feed_record>                          _feed_index_to_record;
             unordered_map<asset_id_type, unordered_map<account_id_type, feed_record>>   _nested_feed_map;
 
-            bts::db::cached_level_map<burn_record_key, burn_record_value>               _burn_db;
-
             bts::db::cached_level_map<market_index_key, order_record>                   _ask_db;
             bts::db::cached_level_map<market_index_key, order_record>                   _bid_db;
-            bts::db::cached_level_map<market_index_key, order_record>                   _relative_ask_db;
-            bts::db::cached_level_map<market_index_key, order_record>                   _relative_bid_db;
 
             bts::db::cached_level_map<uint32_t, vector<market_transaction>>             _market_transactions_db;
             bts::db::cached_level_map<pair<asset_id_type,asset_id_type>, market_status> _market_status_db;
@@ -157,23 +159,7 @@ namespace bts { namespace blockchain {
             bts::db::level_map<slot_index, slot_record>                                 _slot_index_to_record;
             bts::db::level_map<time_point_sec, account_id_type>                         _slot_timestamp_to_delegate;
 
-            bts::db::level_map<object_id_type, object_record>                           _object_db;
-            bts::db::level_map<edge_index_key, object_id_type/*edge id*/>               _edge_index;
-            bts::db::level_map<edge_index_key, object_id_type/*edge id*/>               _reverse_edge_index;
-
-            bts::db::level_map<string, site_record>                                     _site_index;
-
-            /**
-             *  This index is to facilitate light weight clients and is intended mostly for
-             *  block explorers and other APIs serving data.
-             */
-            bts::db::level_map< pair<address,transaction_id_type>, int>                 _address_to_trx_index;
-
-            bts::db::level_map<pair<asset_id_type,address>, object_id_type>             _auth_db;
-            bts::db::level_map<pair<asset_id_type,proposal_id_type>, proposal_record>   _asset_proposal_db;
-          
             bts::db::cached_level_map<std::pair<rule_id_type, data_id_type>, rule_data_record > _rule_data_db;
-          
             bts::db::cached_level_map<data_id_type, std::vector<rule_result_transaction> >      _rule_result_transactions_db;
 
             map<operation_type_enum, std::deque<operation>>                             _recent_operations;
@@ -183,4 +169,5 @@ namespace bts { namespace blockchain {
 } } // bts::blockchain
 
 FC_REFLECT_TYPENAME( std::vector<bts::blockchain::block_id_type> )
+FC_REFLECT_TYPENAME( std::unordered_set<bts::blockchain::transaction_id_type> )
 FC_REFLECT( bts::blockchain::fee_index, (_fees)(_trx) )

@@ -9,28 +9,16 @@ namespace bts { namespace blockchain {
    {
       public:
                                         pending_chain_state( chain_interface_ptr prev_state = chain_interface_ptr() );
-                                        pending_chain_state( const pending_chain_state& cpy );
-         void                           init();
-         pending_chain_state&           operator=(const pending_chain_state&) = default;
-
-         virtual                        ~pending_chain_state()override;
+         pending_chain_state&           operator = ( const pending_chain_state& ) = default;
 
          void                           set_prev_state( chain_interface_ptr prev_state );
-
-         void                           authorize( asset_id_type asset_id, const address& owner, object_id_type oid = 0 ) override;
-         optional<object_id_type>       get_authorization( asset_id_type asset_id, const address& owner )const override;
 
          virtual void                   set_market_dirty( const asset_id_type quote_id, const asset_id_type base_id )override;
 
          virtual fc::time_point_sec     now()const override;
 
-         virtual void                       store_asset_proposal( const proposal_record& r ) override;
-         virtual optional<proposal_record>  fetch_asset_proposal( asset_id_type asset_id, proposal_id_type proposal_id )const override;
-
-         virtual void                   store_burn_record( const burn_record& br ) override;
-         virtual oburn_record           fetch_burn_record( const burn_record_key& key )const override;
-       
          virtual orule_data_record      get_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id )const override;
+
          virtual oprice                 get_active_feed_price( const asset_id_type quote_id,
                                                                const asset_id_type base_id = 0 )const override;
 
@@ -47,31 +35,11 @@ namespace bts { namespace blockchain {
                                                                const asset_id_type base_id )override;
          virtual oorder_record          get_bid_record( const market_index_key& )const override;
          virtual oorder_record          get_ask_record( const market_index_key& )const override;
-         virtual oorder_record          get_relative_bid_record( const market_index_key& )const override;
-         virtual oorder_record          get_relative_ask_record( const market_index_key& )const override;
-
-         virtual void                   store_bid_record( const market_index_key& key, const order_record& ) override;
-         virtual void                   store_ask_record( const market_index_key& key, const order_record& ) override;
-         virtual void                   store_relative_bid_record( const market_index_key& key, const order_record& ) override;
-         virtual void                   store_relative_ask_record( const market_index_key& key, const order_record& ) override;
 
          virtual void                   store_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id, const rule_data_record& r )override;
 
-         virtual void                   store_object_record( const object_record& obj )override;
-         virtual oobject_record         get_object_record( const object_id_type id )const override;
-
-
-         virtual void                       store_site_record( const site_record& site )override;
-         virtual osite_record               lookup_site( const string& site_name)const override;
-
-         virtual void                       store_edge_record( const object_record& edge )override;
-         virtual oobject_record               get_edge( const object_id_type from,
-                                                      const object_id_type to,
-                                                      const string& name )const          override;
-         virtual map<string, object_record>   get_edges( const object_id_type from,
-                                                       const object_id_type to )const   override;
-         virtual map<object_id_type, map<string, object_record>>
-                                        get_edges( const object_id_type from )const override;
+         virtual void                   store_bid_record( const market_index_key& key, const order_record& ) override;
+         virtual void                   store_ask_record( const market_index_key& key, const order_record& ) override;
 
          virtual void                   store_market_history_record( const market_history_key& key,
                                                                      const market_history_record& record )override;
@@ -122,12 +90,6 @@ namespace bts { namespace blockchain {
          virtual void                   set_market_transactions( vector<market_transaction> trxs )override;
          virtual void                   set_rule_result_transactions( vector<rule_result_transaction> trxs ) override;
 
-         map< std::pair<rule_id_type,data_id_type>, rule_data_record>                        rules;
-       
-       
-
-         vector<rule_result_transaction>                                   rule_result_transactions;
-
          map<property_id_type, property_record>                             _property_id_to_record;
          set<property_id_type>                                              _property_id_remove;
 
@@ -154,6 +116,9 @@ namespace bts { namespace blockchain {
          unordered_set<transaction_id_type>                                 _transaction_id_remove;
          unordered_set<digest_type>                                         _transaction_digests;
 
+         map<burn_index, burn_record>                                       _burn_index_to_record;
+         set<burn_index>                                                    _burn_index_remove;
+
          map<feed_index, feed_record>                                       _feed_index_to_record;
          set<feed_index>                                                    _feed_index_remove;
 
@@ -161,83 +126,126 @@ namespace bts { namespace blockchain {
          set<slot_index>                                                    _slot_index_remove;
          map<time_point_sec, account_id_type>                               _slot_timestamp_to_delegate;
 
-         map<burn_record_key,burn_record_value>                             burns;
-
          map< market_index_key, order_record>                               asks;
          map< market_index_key, order_record>                               bids;
-         map< market_index_key, order_record>                               relative_asks;
-         map< market_index_key, order_record>                               relative_bids;
-         map< market_index_key, order_record>                               shorts;
-         map< market_index_key, collateral_record>                          collateral;
 
          std::set<std::pair<asset_id_type, asset_id_type>>                  _dirty_markets;
 
          vector<market_transaction>                                         market_transactions;
          map< std::pair<asset_id_type,asset_id_type>, market_status>        market_statuses;
          map<market_history_key, market_history_record>                     market_history;
-
-         map< object_id_type, object_record >                               objects;
-         map< edge_index_key, object_id_type >                              edge_index;
-         map< edge_index_key, object_id_type >                              reverse_edge_index;
-
-         map< string, site_record >                                         site_index;
-
-         map< std::pair<asset_id_type,address>, object_id_type >            authorizations;
-         map< std::pair<asset_id_type,proposal_id_type>, proposal_record >  asset_proposals;
+      
+         map< std::pair<rule_id_type,data_id_type>, rule_data_record>       rules;
+      
+         vector<rule_result_transaction>                                    rule_result_transactions;
 
       private:
          // Not serialized
          std::weak_ptr<chain_interface>                                     _prev_state;
 
-         virtual void init_property_db_interface()override;
-         virtual void init_account_db_interface()override;
-         virtual void init_asset_db_interface()override;
-         virtual void init_game_db_interface()override;
-         virtual void init_balance_db_interface()override;
-         virtual void init_transaction_db_interface()override;
-         virtual void init_slate_db_interface()override;
-         virtual void init_feed_db_interface()override;
-         virtual void init_slot_db_interface()override;
+         virtual oproperty_record property_lookup_by_id( const property_id_type )const override;
+         virtual void property_insert_into_id_map( const property_id_type, const property_record& )override;
+         virtual void property_erase_from_id_map( const property_id_type )override;
+
+         virtual oaccount_record account_lookup_by_id( const account_id_type )const override;
+         virtual oaccount_record account_lookup_by_name( const string& )const override;
+         virtual oaccount_record account_lookup_by_address( const address& )const override;
+
+         virtual void account_insert_into_id_map( const account_id_type, const account_record& )override;
+         virtual void account_insert_into_name_map( const string&, const account_id_type )override;
+         virtual void account_insert_into_address_map( const address&, const account_id_type )override;
+         virtual void account_insert_into_vote_set( const vote_del& )override;
+
+         virtual void account_erase_from_id_map( const account_id_type )override;
+         virtual void account_erase_from_name_map( const string& )override;
+         virtual void account_erase_from_address_map( const address& )override;
+         virtual void account_erase_from_vote_set( const vote_del& )override;
+
+         virtual oasset_record asset_lookup_by_id( const asset_id_type )const override;
+         virtual oasset_record asset_lookup_by_symbol( const string& )const override;
+
+         virtual void asset_insert_into_id_map( const asset_id_type, const asset_record& )override;
+         virtual void asset_insert_into_symbol_map( const string&, const asset_id_type )override;
+
+         virtual void asset_erase_from_id_map( const asset_id_type )override;
+         virtual void asset_erase_from_symbol_map( const string& )override;
+      
+         virtual ogame_record game_lookup_by_id( const game_id_type )const override;
+         virtual ogame_record game_lookup_by_symbol( const string& )const override;
+      
+         virtual void game_insert_into_id_map( const game_id_type, const game_record& )override;
+         virtual void game_insert_into_symbol_map( const string&, const game_id_type )override;
+      
+         virtual void game_erase_from_id_map( const game_id_type )override;
+         virtual void game_erase_from_symbol_map( const string& )override;
+
+         virtual oslate_record slate_lookup_by_id( const slate_id_type )const override;
+         virtual void slate_insert_into_id_map( const slate_id_type, const slate_record& )override;
+         virtual void slate_erase_from_id_map( const slate_id_type )override;
+
+         virtual obalance_record balance_lookup_by_id( const balance_id_type& )const override;
+         virtual void balance_insert_into_id_map( const balance_id_type&, const balance_record& )override;
+         virtual void balance_erase_from_id_map( const balance_id_type& )override;
+
+         virtual otransaction_record transaction_lookup_by_id( const transaction_id_type& )const override;
+
+         virtual void transaction_insert_into_id_map( const transaction_id_type&, const transaction_record& )override;
+         virtual void transaction_insert_into_unique_set( const transaction& )override;
+
+         virtual void transaction_erase_from_id_map( const transaction_id_type& )override;
+         virtual void transaction_erase_from_unique_set( const transaction& )override;
+
+         virtual oburn_record burn_lookup_by_index( const burn_index& )const override;
+         virtual void burn_insert_into_index_map( const burn_index&, const burn_record& )override;
+         virtual void burn_erase_from_index_map( const burn_index& )override;
+
+         virtual ofeed_record feed_lookup_by_index( const feed_index )const override;
+         virtual void feed_insert_into_index_map( const feed_index, const feed_record& )override;
+         virtual void feed_erase_from_index_map( const feed_index )override;
+
+         virtual oslot_record slot_lookup_by_index( const slot_index )const override;
+         virtual oslot_record slot_lookup_by_timestamp( const time_point_sec )const override;
+
+         virtual void slot_insert_into_index_map( const slot_index, const slot_record& )override;
+         virtual void slot_insert_into_timestamp_map( const time_point_sec, const account_id_type )override;
+
+         virtual void slot_erase_from_index_map( const slot_index )override;
+         virtual void slot_erase_from_timestamp_map( const time_point_sec )override;
    };
    typedef std::shared_ptr<pending_chain_state> pending_chain_state_ptr;
 
 } } // bts::blockchain
 
 FC_REFLECT( bts::blockchain::pending_chain_state,
-        (_property_id_to_record)
-        (_property_id_remove)
-        (_account_id_to_record)
-        (_account_id_remove)
-        (_account_name_to_id)
-        (_account_address_to_id)
-        (_asset_id_to_record)
-        (_asset_id_remove)
-        (_asset_symbol_to_id)
-        (_slate_id_to_record)
-        (_slate_id_remove)
-        (_balance_id_to_record)
-        (_balance_id_remove)
-        (_transaction_id_to_record)
-        (_transaction_id_remove)
-        (_transaction_digests)
-        (_feed_index_to_record)
-        (_feed_index_remove)
-        (_slot_index_to_record)
-        (_slot_index_remove)
-        (_slot_timestamp_to_delegate)
-        (burns)
-        (asks)
-        (bids)
-        (relative_asks)
-        (relative_bids)
-        (_dirty_markets)
-        (market_transactions)
-        (market_statuses)
-        (market_history)
-        (objects)
-        (edge_index)
-        (reverse_edge_index)
-        (site_index)
-        (authorizations)
-        (asset_proposals)
-    )
+            (_property_id_to_record)
+            (_property_id_remove)
+            (_account_id_to_record)
+            (_account_id_remove)
+            (_account_name_to_id)
+            (_account_address_to_id)
+            (_asset_id_to_record)
+            (_asset_id_remove)
+            (_asset_symbol_to_id)
+            (_slate_id_to_record)
+            (_slate_id_remove)
+            (_balance_id_to_record)
+            (_balance_id_remove)
+            (_transaction_id_to_record)
+            (_transaction_id_remove)
+            (_transaction_digests)
+            (_burn_index_to_record)
+            (_burn_index_remove)
+            (_feed_index_to_record)
+            (_feed_index_remove)
+            (_slot_index_to_record)
+            (_slot_index_remove)
+            (_slot_timestamp_to_delegate)
+            (asks)
+            (bids)
+            (_dirty_markets)
+            (market_transactions)
+            (market_statuses)
+            (market_history)
+            (rules)
+            (rule_result_transactions)
+            )

@@ -161,10 +161,16 @@ void LightWallet::connectToServer(QString host, quint16 port, QString serverKey,
       else
          m_wallet.connect(convert(host), convert(user), convert(password), port,
                           bts::blockchain::public_key_type(convert(serverKey)));
+      m_wallet.set_disconnect_callback([this](fc::exception_ptr) {
+         Q_EMIT connectedChanged(false);
+      });
       Q_EMIT connectedChanged(isConnected());
       Q_EMIT allAssetsChanged();
    } catch (fc::exception e) {
-      m_connectionError = convert(e.get_log().begin()->get_message()).replace("\n", " ");
+      if( e.get_log().size() )
+         m_connectionError = convert(e.get_log().begin()->get_message()).replace("\n", " ");
+      else
+         m_connectionError = tr("Unknown error");
       Q_EMIT errorConnecting(m_connectionError);
    }
    END_THREAD
@@ -376,7 +382,8 @@ void LightWallet::sync()
    IN_THREAD
    if( !isConnected() ) return;
 
-   if( m_wallet.sync_balance() || m_wallet.sync_transactions() )
+   bool dirty = m_wallet.sync_balance() | m_wallet.sync_transactions();
+   if( dirty )
       Q_EMIT synced();
 
    END_THREAD
@@ -430,6 +437,9 @@ void LightWallet::updateAccount(const bts::blockchain::account_record& account)
       newAccount->moveToThread(thread());
       newAccount->setParent(this);
       connect(this, &LightWallet::synced, newAccount, &Account::balancesChanged);
+      connect(newAccount, &Account::error, [this, newAccount] (QString error) {
+         Q_EMIT notification(tr("Error from account %1: %2").arg(newAccount->name()).arg(error));
+      });
 
       m_accounts.insert(accountName, QVariant::fromValue(newAccount));
 

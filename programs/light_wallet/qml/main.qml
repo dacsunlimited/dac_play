@@ -1,7 +1,7 @@
 import QtQuick 2.3
 import QtQuick.Window 2.2
 import QtQuick.Layouts 1.1
-import QtQuick.Controls 1.3
+import QtQuick.Controls 1.2
 import QtGraphicalEffects 1.0
 
 import Qt.labs.settings 1.0
@@ -45,7 +45,7 @@ Window {
       lockScreen.focus()
    }
 
-   function showError(error, buttonName, buttonCallback) {
+   function showMessage(error, buttonName, buttonCallback) {
       snack.text = error
       if( buttonName && buttonCallback ) {
          snack.buttonText = buttonName
@@ -87,7 +87,7 @@ Window {
       if( PlatformName )
          platform = PlatformName
       var xhr = new XMLHttpRequest()
-      var url = encodeURI(ManifestUrl + "?uuid="+persist.guid+"&app="+AppName+"&version="+version+"&platform="+platform)
+      var url = encodeURI(ManifestUrl + "?uuid="+persist.guid+"&version="+AppName+"/"+version+"&platform="+platform)
       xhr.open("GET", url, true)
       xhr.send()
    }
@@ -95,14 +95,14 @@ Window {
       if( wallet.accounts[args.accountName].availableAssets.length )
          window.pageStack.push({item: transferUi, properties: args})
       else
-         showError(qsTr("You don't have any assets, so you cannot make a transfer."), qsTr("Refresh Balances"),
+         showMessage(qsTr("You don't have any assets, so you cannot make a transfer."), qsTr("Refresh Balances"),
                    wallet.syncAllBalances)
    }
    function openOrderForm(args) {
       if( wallet.accounts[args.accountName].availableAssets.length )
          window.pageStack.push({item: orderUi, properties: args})
       else
-         showError(qsTr("You don't have any assets, so you cannot place a market order."), qsTr("Refresh Balances"),
+         showMessage(qsTr("You don't have any assets, so you cannot place a market order."), qsTr("Refresh Balances"),
                    wallet.syncAllBalances)
    }
 
@@ -148,10 +148,16 @@ Window {
          Utils.connectOnce(wallet.onConnectedChanged, fn, function() { return connected })
       }
 
-      onErrorConnecting: {
-         showError(error)
+      onConnectedChanged: {
+         if( !connected ) {
+            showMessage(qsTr("Connection to server lost. Retrying..."))
+            window.connectToServer()
+         }
       }
-      onNotification: showError(message)
+      onErrorConnecting: {
+         showMessage(error)
+      }
+      onNotification: showMessage(message)
    }
 
    Item {
@@ -357,6 +363,7 @@ Window {
    }
    Loader {
       id: onboardLoader
+      anchors.fill: parent
       z: 2
    }
    Snackbar {
