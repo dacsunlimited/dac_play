@@ -193,7 +193,8 @@ void wallet_impl::scan_balances()
            transaction_record->received_time = timestamp;
 
            if( bal_rec.condition.type == withdraw_vesting_type )
-               transaction_record->block_num = 933804;
+               // pls vesting is starting from the first block
+               transaction_record->block_num = 1;
        }
 
        auto entry = ledger_entry();
