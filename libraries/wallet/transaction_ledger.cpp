@@ -193,7 +193,8 @@ void wallet_impl::scan_balances()
            transaction_record->received_time = timestamp;
 
            if( bal_rec.condition.type == withdraw_vesting_type )
-               transaction_record->block_num = 933804;
+               // pls vesting is starting from the first block
+               transaction_record->block_num = 1;
        }
 
        auto entry = ledger_entry();
@@ -357,12 +358,10 @@ wallet_transaction_record wallet_impl::scan_transaction(
                 break;
             }
             case game_op_type:
-                // TODO: Dice
                 store_record |= scan_game( op.as<game_operation>(), *transaction_record );
                 break;
             case buy_chips_type:
-                // TODO: FIXME:sync the buy back chips, TODO: Dice, update the transaction ledger
-                // sync_balance_with_blockchain( op.as<buy_chips_operation>().balance_id() );
+              store_record |= scan_buy_chips( op.as<buy_chips_operation>(), *transaction_record, total_fee );
                 break;
             default:
                 break;
@@ -1621,6 +1620,40 @@ bool wallet_impl::scan_game( const game_operation& op, wallet_transaction_record
 {
     return bts::game::rule_factory::instance().scan(op.rule, trx_rec, self->shared_from_this() );
 }
+
+bool wallet_impl::scan_buy_chips( const buy_chips_operation& op, wallet_transaction_record& trx_rec, asset& total_fee )
+{ try {
+   const auto amount = op.amount;
+   if( amount.asset_id == total_fee.asset_id )
+      total_fee -= amount;
+   
+   auto okey_rec = _wallet_db.lookup_key( op.owner );
+   if( okey_rec.valid() && okey_rec->has_private_key() )
+   {
+      for( auto& entry : trx_rec.ledger_entries )
+      {
+         if( amount.amount >= 0 )
+         {
+            if( !entry.to_account.valid() )
+            {
+               entry.to_account = okey_rec->public_key;
+               entry.amount = amount;
+               entry.memo = "buy chips";
+               break;
+            }
+            else if( *entry.to_account == okey_rec->public_key )
+            {
+               entry.amount = amount;
+               entry.memo = "buy chips";
+               break;
+            }
+         }
+      }
+      
+      return true;
+   }
+   return false;
+} FC_CAPTURE_AND_RETHROW( (op) ) }
 
 account_balance_summary_type wallet::compute_historic_balance( const string &account_name,
                                                                   uint32_t block_num )const
