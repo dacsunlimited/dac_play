@@ -9,10 +9,13 @@
 #include <bts/wallet/wallet_records.hpp>
 
 #include <bts/game/rule_record.hpp>
+#include <bts/game/client.hpp>
 
 namespace bts { namespace game {
    using namespace bts::blockchain;
    using namespace bts::wallet;
+   
+   namespace detail { class v8_game_engine_impl; }
    
    /**
     * @class v8_game_engine
@@ -22,7 +25,7 @@ namespace bts { namespace game {
    class v8_game_engine
    {
    public:
-      v8_game_engine(uint8_t rule_type);
+      v8_game_engine(uint8_t rule_type, bts::game::client* client);
       
       ~v8_game_engine(){};
       
@@ -42,7 +45,7 @@ namespace bts { namespace game {
        */
       void execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state );
    private:
-      uint8_t  _rule_type;
+      std::shared_ptr<detail::v8_game_engine_impl> my;
    };
    
    typedef std::shared_ptr<v8_game_engine> v8_game_engine_ptr;

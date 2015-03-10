@@ -4,6 +4,7 @@
 #include <bts/game/rule_factory.hpp>
 #include <bts/game/game_operations.hpp>
 #include <bts/game/client.hpp>
+
 #include <bts/game/v8_api.hpp>
 
 namespace bts { namespace game {
@@ -18,6 +19,8 @@ namespace bts { namespace game {
          client*                 self;
          
          v8::Platform*           _platform;
+         
+         fc::path                _data_dir;
          
          client_impl(client* self)
          : self(self)
@@ -44,22 +47,16 @@ namespace bts { namespace game {
                
                init_class_template( isolate );
                
-               fc::path script_1(data_dir / "rule_1.js");
-               v8::Handle<v8::String> source = ReadFile( isolate, script_1.to_native_ansi_path().c_str() );
-               if (source.IsEmpty()) {
-                  isolate->ThrowException( v8::String::NewFromUtf8(isolate, "Error loading file" ) );
-               }
-               
                // TODO: loop through all the rule scripts and register them, each rule instance is supposed to have their own context
                // TODO: To check whether the wallet and blockchain object are the same with the ones that should be used in script.
                //_archive.open(data_dir / "script");
                // TODO delete cpp version of dice_rule
-               bts::game::rule_factory::instance().register_rule(1, std::make_shared< v8_game_engine > (1));
+               bts::game::rule_factory::instance().register_rule(1, std::make_shared< v8_game_engine > (1, self));
                
                bts::blockchain::operation_factory::instance().register_operation<game_operation>();
                
                game_executors::instance().register_game_executor(
-                                                                 std::function<void( chain_database_ptr, uint32_t, const pending_chain_state_ptr&)>(std::bind(&rule_factory::execute, rule_factory::instance(), std::placeholders::_1, std::placeholders::_2, std::placeholders::_3))
+                     std::function<void( chain_database_ptr, uint32_t, const pending_chain_state_ptr&)>(std::bind(&rule_factory::execute, rule_factory::instance(), std::placeholders::_1, std::placeholders::_2, std::placeholders::_3 ) )
                                                                  );
             } catch (...) {
             }
@@ -74,6 +71,12 @@ namespace bts { namespace game {
    }
    
    void client::open(const path& data_dir) {
+      my->_data_dir = data_dir;
       my->open(data_dir);
    };
+   
+   fc::path client::get_data_dir()const
+   {
+      return my->_data_dir;
+   }
 } } // bts:game

@@ -6,9 +6,6 @@
 
 #include <map>
 
-#include <include/v8.h>
-#include <include/libplatform/libplatform.h>
-
 namespace bts { namespace game {
     
    namespace detail { class client_impl; }
@@ -19,7 +16,9 @@ namespace bts { namespace game {
       client();
       virtual ~client() {}
        
-      void open(const fc::path& data_dir);
+      void     open(const fc::path& data_dir);
+      
+      fc::path get_data_dir()const;
        
    private:
       std::shared_ptr<detail::client_impl> my;
