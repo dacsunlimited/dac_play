@@ -74,9 +74,6 @@ namespace bts { namespace blockchain {
 
       const asset reg_fee( eval_state._current_state->get_asset_registration_fee( this->symbol.size() ), 0 );
       eval_state.required_fees += reg_fee;
-      
-      const asset initial_collateral(this->initial_collateral, 0);
-      eval_state.required_fees += initial_collateral;
 
       asset_record new_record;
       new_record.id                     = eval_state._current_state->new_asset_id();
@@ -109,8 +106,11 @@ namespace bts { namespace blockchain {
 
       eval_state._current_state->store_asset_record( new_record );
        
-       const asset initial_supply(this->initial_collateral, new_record.id);
-       eval_state.add_balance( initial_supply );
+      const asset initial_supply(this->initial_supply, new_record.id);
+      eval_state.add_balance( initial_supply );
+      
+      const asset initial_collateral(this->initial_collateral, 0);
+      eval_state.sub_balance(address(), initial_collateral);
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
    void update_asset_operation::evaluate( transaction_evaluation_state& eval_state )const
@@ -302,32 +302,20 @@ namespace bts { namespace blockchain {
       eval_state._current_state->store_asset_record( *current_asset_record );
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
-
    void authorize_operation::evaluate( transaction_evaluation_state& eval_state )const
    { try {
-      oasset_record current_asset_record = eval_state._current_state->get_asset_record( this->asset_id );
+      oasset_record current_asset_record = eval_state._current_state->get_asset_record( abs( this->asset_id ) );
+      if( !current_asset_record.valid() )
+          FC_CAPTURE_AND_THROW( unknown_asset_id, (this->asset_id) );
 
-      if( NOT current_asset_record.valid() ) FC_CAPTURE_AND_THROW( unknown_asset_id, (this->asset_id) );
+      FC_ASSERT( current_asset_record->is_restricted() );
 
-      FC_ASSERT( current_asset_record->is_user_issued() );
-      FC_ASSERT( current_asset_record->issuer_permissions & restricted );
+      if( this->asset_id > 0 )
+          current_asset_record->whitelist.insert( this->owner );
+      else
+          current_asset_record->whitelist.erase( this->owner );
 
-      eval_state._current_state->authorize( this->asset_id, this->owner, this->meta_id );
-
-   } FC_CAPTURE_AND_RETHROW( (*this) ) }
-
-   void create_asset_proposal::evaluate( transaction_evaluation_state& eval_state )const
-   { try {
-      oasset_record current_asset_record = eval_state._current_state->get_asset_record( this->asset_id );
-      if( NOT current_asset_record.valid() ) FC_CAPTURE_AND_THROW( unknown_asset_id, (this->asset_id) );
-      FC_ASSERT( current_asset_record->is_user_issued() );
-      FC_ASSERT( !current_asset_record->is_market_issued() );
-
-      if( !eval_state.verify_authority( current_asset_record->authority ) )
-         FC_CAPTURE_AND_THROW( missing_signature, (current_asset_record->authority) );
-
-      current_asset_record->last_proposal_id++;
-      eval_state._current_state->store_asset_proposal( proposal_record( this->asset_id, current_asset_record->last_proposal_id, this->info ) );
+      eval_state._current_state->store_asset_record( *current_asset_record );
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
 } } // bts::blockchain

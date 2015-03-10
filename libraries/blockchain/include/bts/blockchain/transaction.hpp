@@ -1,8 +1,6 @@
 #pragma once
 
 #include <bts/blockchain/account_record.hpp>
-#include <bts/blockchain/edge_record.hpp>
-#include <bts/blockchain/object_record.hpp>
 #include <bts/blockchain/operations.hpp>
 #include <bts/blockchain/slate_record.hpp>
 #include <bts/blockchain/withdraw_types.hpp>
@@ -23,9 +21,6 @@ namespace bts { namespace blockchain {
 
       void issue( const asset& amount_to_issue );
 
-      void set_object( const object_record& obj );
-      void set_edge( const edge_record& edge );
-
       void define_slate( const set<account_id_type>& slate );
 
       void withdraw( const balance_id_type& account, share_type amount );
@@ -34,7 +29,7 @@ namespace bts { namespace blockchain {
 
       void deposit( const address& addr, const asset& amount );
 
-      void authorize_key( asset_id_type asset_id, const address& owner, object_id_type meta );
+      void authorize_key( const asset_id_type asset_id, const address& owner );
 
       void deposit_multisig( const multisig_meta_info& info, const asset& amount );
 
@@ -128,18 +123,8 @@ namespace bts { namespace blockchain {
                 const price& price_per_unit,
                 const address& owner );
 
-      void relative_bid( const asset& quantity,
-                const price& price_per_unit,
-                const optional<price>& limit,
-                const address& owner );
-
       void ask( const asset& quantity,
                 const price& price_per_unit,
-                const address& owner );
-
-      void relative_ask( const asset& quantity,
-                const price& price_per_unit,
-                const optional<price>& limit,
                 const address& owner );
 
       void publish_feed( asset_id_type feed_id,

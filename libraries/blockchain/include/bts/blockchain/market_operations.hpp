@@ -30,33 +30,6 @@ namespace bts { namespace blockchain {
         void evaluate( transaction_evaluation_state& eval_state )const;
    };
 
-   struct relative_bid_operation
-   {
-        static const operation_type_enum type;
-        relative_bid_operation():amount(0){}
-
-        /** bid amount is in the quote unit */
-        asset            get_amount()const { return asset( amount, bid_index.order_price.quote_asset_id ); }
-        share_type       amount;
-        market_index_key bid_index;
-        optional<price>  limit_price;
-
-        void evaluate( transaction_evaluation_state& eval_state )const;
-   };
-
-   struct relative_ask_operation
-   {
-        static const operation_type_enum type;
-        relative_ask_operation():amount(0){}
-
-        asset             get_amount()const { return asset( amount, ask_index.order_price.base_asset_id ); }
-        share_type        amount;
-        market_index_key  ask_index;
-        optional<price>   limit_price;
-
-        void evaluate( transaction_evaluation_state& eval_state )const;
-   };
-    
    struct buy_chips_operation
    {
         static const operation_type_enum type;
@@ -74,6 +47,4 @@ namespace bts { namespace blockchain {
 
 FC_REFLECT( bts::blockchain::bid_operation,               (amount)(bid_index))
 FC_REFLECT( bts::blockchain::ask_operation,               (amount)(ask_index))
-FC_REFLECT( bts::blockchain::relative_bid_operation,      (amount)(bid_index)(limit_price))
-FC_REFLECT( bts::blockchain::relative_ask_operation,      (amount)(ask_index)(limit_price))
-FC_REFLECT( bts::blockchain::buy_chips_operation, (amount)(owner))
+FC_REFLECT( bts::blockchain::buy_chips_operation,         (amount)(owner))
