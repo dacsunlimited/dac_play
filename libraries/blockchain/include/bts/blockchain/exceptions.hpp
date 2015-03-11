@@ -103,5 +103,6 @@ namespace bts { namespace blockchain {
                                 "invalid game name" );
    FC_DECLARE_DERIVED_EXCEPTION( game_id_in_use,                    bts::blockchain::evaluation_error, 100005,
                                  "game id in use" );
+   FC_DECLARE_DERIVED_EXCEPTION( unknown_game_symbol,              bts::blockchain::evaluation_error, 100006,                    "unknown game symbol" );
 
 } } // bts::blockchain

@@ -3276,13 +3276,14 @@ namespace detail {
        
        FC_ASSERT( is_open() );
        FC_ASSERT( is_unlocked() );
+       FC_ASSERT( my->_blockchain->is_valid_game_symbol( symbol ) );
        
-       auto chip_asset_record  = my->_blockchain->get_asset_record( symbol );
+       auto game_record  = my->_blockchain->get_game_record( symbol );
        
-       if( NOT chip_asset_record )
-           FC_CAPTURE_AND_THROW( unknown_asset_symbol, (symbol) );
+       if( NOT game_record )
+           FC_CAPTURE_AND_THROW( unknown_game_symbol, (symbol) );
        
-       auto record =bts::game::rule_factory::instance().play(chip_asset_record->id, my->_blockchain, shared_from_this(), params, sign);
+       auto record =bts::game::rule_factory::instance().play(game_record->id, my->_blockchain, shared_from_this(), params, sign);
        
        return record;
        

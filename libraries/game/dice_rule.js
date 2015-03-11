@@ -73,11 +73,14 @@ var BTS_BLOCKCHAIN_NUM_DICE = BTS_BLOCKCHAIN_NUM_DELEGATES / 10;
 var BTS_BLOCKCHAIN_DICE_RANGE = 10000;
 var BTS_BLOCKCHAIN_DICE_HOUSE_EDGE = 0;
 
+// TODO: We should not have the assumption that the asset id equals to game id.
 var dice_game = {
         asset_id : 1,
         asset : "DICE",
         game_symbol: "DICE"
     };
+
+var game_type = 1;
 
 /*
  * Play this game with input in the context to blockchain and wallet
@@ -86,34 +89,40 @@ var dice_game = {
  * sign indicates that the result transaction should be signed or not
  * { operations, ledger_entries, required_signatures}
  */
-global.play = function (blockchain, wallet, input, sign) {
-    //try {
-        
-    // TODO: return wallet_record
-        
+global.play = function (blockchain, wallet, input, record, trx) {
+    //try {  
+    
+    // V8_Vaild
     //FC_ASSERT( input.amount > 0 );
     //FC_ASSERT( input.odds > 0 );
     
-    var trx = Utils.new_transaction();  // TODO: utils of transaction constructor
     var required_signatures = [];   // TODO: js array to unordered_set<address>
-      
-    // TODO: trx.expiration = now() + w->get_transaction_expiration();
-        
-    var asset_rec = blockchain.get_asset_record(dice_game.asset);  // TODO: permission limitation to other assets.
+    
+    // V8_API: wallet::get_transaction_fee
+    var required_fees = wallet.get_transaction_fee();
+    
+    // V8_API: blockchain::get_asset_record
+    // TODO: permission limitation to other assets.
+    var asset_record = blockchain.get_asset_record(dice_game.asset);
     //FC_ASSERT( asset_rec.valid() );
-        
-    var amount_to_play = input.amount * asset_rec.precision;    // TODO: access property precision for asset record
-        
-    // dice asset is 1
-    var chips_to_play = asset(amount_to_play, asset_rec.id); // TODO: constructor for asset? And Accessor to id
-        
+    
+    // V8_API: asset_record.precision
+    // TODO: access property precision for asset record
+    var amount_to_play = input.amount * asset_record.precision;
+    // V8_Valid
+    // FC_ASSERT( amount_to_play > 0 );
+    
+    // V8_API: constructor for asset, and accessor to id
+    var chips_to_play = asset(amount_to_play, asset_record.id);
+    
+    // V8_Vaild
     //if( ! blockchain->is_valid_account_name( input.from_account_name ) )
     //    FC_THROW_EXCEPTION( bts::wallet::invalid_name, "Invalid account name!", ("dice_account_name",d_input.from_account_name) );
-        
-        
+    
+    // V8_API: blockchain::get_account_record
     var play_account = blockchain.get_account_record(input.from_account_name);
-    // TODO make sure it is using account active key
-        
+    
+    // TODO make sure it is using account active key    
     wallet.withdraw_to_transaction(chips_to_play,
                                     input.from_account_name,
                                     trx,
@@ -123,15 +132,13 @@ global.play = function (blockchain, wallet, input, sign) {
                                     input.from_account_name,
                                     trx,
                                     required_signatures );
-        
-    //check this way to avoid overflow
-    // TODO: active_key method for play_account
+    
+    // V8_API: play_account::active_key
     required_signatures.push( play_account.active_key() );
     
     // TODO: Dice, specify to account, the receiver who can claim jackpot
-    // FC_ASSERT( amount_to_play > 0 );
     
-    // TODO: bts::game::dice_rule(address( play_account->active_key() ), amount_to_play, input.odds, input.guess )
+    // bts::game::dice_rule(address( play_account->active_key() ), amount_to_play, input.odds, input.guess )
     var dice_rule = {
         address : address( play_account.active_key() ),     // TODO, address constructor
         amount  : amount_to_play,
@@ -140,7 +147,13 @@ global.play = function (blockchain, wallet, input, sign) {
     };
     
     // slate_id 0, TODO: game_operation constructor, trx operations accessor
-    // TODO: delete bts::game::rule in C++, replace with a rule_id and variant
+    // TODO: then how to map the structs, delete bts::game::rule in C++, replace with a rule_id and variant
+    // trx.operations.push_back( game_operation(bts::game::dice_rule(address( play_account->active_key() ), amount_to_play, d_input.odds, d_input.guess ))//slate_id 0 );
+    // create the operations according to rule_type and input types, ?
+    
+    // V8_API: trx.operations
+    // V8_API: operations::push ?? if operations is array this might not needed.
+    // V8_API: contructor game_operation()
     trx.operations.push( game_operation(dice_rule) );
 
     // json to bts::wallet::ledger_entry, might similar to json --> variant --> ledger_entry.from_variant
@@ -153,13 +166,6 @@ global.play = function (blockchain, wallet, input, sign) {
     record.ledger_entries.push(entry);
     record.fee = required_fees;
         
-    if(sign){
-        // TODO: sign_transaction mapping
-        wallet.sign_transaction( trx, required_signatures );
-    }
-        
-    record.trx = trx;
-        
     //} FC_CAPTURE_AND_RETHROW( (params) )
 }
 
@@ -167,27 +173,32 @@ global.play = function (blockchain, wallet, input, sign) {
  * Instead of defining the evaluate function as a method of rule, pass the rule to the function
  */
 global.evaluate = function(self, eval_state, eval_state_current_state){
+    // V8_Valid
     //if( self.odds < 1 || self.odds < self.guess || self.guess < 1)
     //    FC_CAPTURE_AND_THROW( invalid_dice_odds, (odds) );
         
-    // TODO: support symbol string as parameter
+    // V8_API: eval_state_current_state::get_asset_record
     var dice_asset_record = eval_state_current_state.get_asset_record(dice_game.asset);
+    // V8_Valid
     //if( !dice_asset_record )
         //FC_CAPTURE_AND_THROW( unknown_asset_symbol, ( eval_state.trx.id() ) );
     
-    /*
-     * For each transaction, there must be only one dice operatiion exist
-     */
-    var cur_record = eval_state_current_state.get_rule_data_record(type, eval_state.trx.id()._hash[0]);
+    // For each transaction, there must be only one dice operatiion exist
+    // TODO: improve the rule id representation for rule record
+    // V8_API: eval_state_current_state::get_rule_data_record
+    var cur_record = eval_state_current_state.get_rule_data_record(game_type, eval_state.trx.id()._hash[0]);
+    
+    // V8_Valid
     //if( cur_record )
         //FC_CAPTURE_AND_THROW( duplicate_dice_in_transaction, ( eval_state.trx.id() ) );
     
     
     
-    // this does not means the balance are now stored in balance record, just over pass the api
-    // the dice record are not in any balance record, they are over-fly-on-sky..
-    // TODO: Dice Review
-    // TODO: Accessor to id
+    // TODO: Game Logic: this does not means the balance are now stored in balance record, just over pass the api
+    // the dice record are not in any balance record, they are over-fly-on-sky.
+    // V8_API: dice_asset_record.id
+    // V8_API: self::balance_id and self.amount what the self here.
+    // V8_API: eval_state::sub_balance
     eval_state.sub_balance(self.balance_id(), asset(self.amount, dice_asset_record.id));
     
     
@@ -200,9 +211,8 @@ global.evaluate = function(self, eval_state, eval_state_current_state){
         guess : self.guess
     };
     
-    // cur_record = rule_data_record(cur_data);
-    // TODO: remove rule_data_record
-    
+    // TODO: Game Logic: remove rule_data_record
+    // V8_API: eval_state_current_state::store_rule_data_record
     eval_state_current_state.store_rule_data_record(type, cur_data.id._hash[0], rule_data_record(dice_record));
 };
 

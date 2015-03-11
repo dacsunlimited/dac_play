@@ -80,46 +80,48 @@ namespace bts { namespace game {
       
       v8::TryCatch try_catch;
       v8::Handle<v8::Script> script = v8::Script::Compile(
-                                                          String::NewFromUtf8(
-                                                                              my->GetIsolate(),
-                                                                              "'TODO';scan_result(scan_rtx, scan_result_block_num, scan_result_block_time, scan_result_received_time, scan_result_trx_index, scan_w);"), String::NewFromUtf8(my->GetIsolate(), "rule.execute")
+                           String::NewFromUtf8(
+                           my->GetIsolate(),
+                           "scan_result(scan_rtx, scan_result_block_num, scan_result_block_time, scan_result_received_time, scan_result_trx_index, scan_w);"),
+                           String::NewFromUtf8(my->GetIsolate(), "rule.execute")
                                                           );
       script->Run();
    }
    
    wallet_transaction_record v8_game_engine::play( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, const variant& var, bool sign )
    {
-      // TODO: Now we have the assumption that the asset id equals the game id.
+      
       signed_transaction     trx;
       unordered_set<address> required_signatures;
       
       trx.expiration = now() + w->get_transaction_expiration();
       
-      // TODO: adjust fee based upon blockchain price per byte and
-      // the size of trx... 'recursively'
-      auto required_fees = w->get_transaction_fee();
+      auto record = wallet_transaction_record();
       
-      {
-          // TODO
+      v8::HandleScope handle_scope(my->GetIsolate());
+      v8::Local<v8::Context> context = v8::Local<v8::Context>::New(my->GetIsolate(), my->_context);
+      // Entering the context
+      Context::Scope context_scope(context);
+         
+      v8::TryCatch try_catch;
+      v8::Handle<v8::Script> script = v8::Script::Compile(
+                                                          String::NewFromUtf8(
+                                                                                 my->GetIsolate(),
+                                                                                 "scan_result(scan_rtx, scan_result_block_num, scan_result_block_time, scan_result_received_time, scan_result_trx_index, scan_w);"),
+                                                             String::NewFromUtf8(my->GetIsolate(), "rule.execute")
+                                                             );
+      v8::Local<Value> result = script->Run();
+      
+      if (result.IsEmpty()) {
+         // The TryCatch above is still in effect and will have caught the error.
+         String::Utf8Value error(try_catch.Exception());
+         elog("Error when running the script. The error is ${e}", ("e", *error));
       }
       
-      auto record = wallet_transaction_record();
-      // create the operations according to rule_type and input types
-      // then how to map the structs?
-      //trx.operations.push_back( game_operation(bts::game::dice_rule(address( play_account->active_key() ), amount_to_play, d_input.odds, d_input.guess ))//slate_id 0 );
-      
-      auto entry = bts::wallet::ledger_entry();
-      //entry.from_account = play_account->active_key();
-      //entry.to_account = play_account->active_key();
-      //entry.memo = "play dice";
-      
-      record.ledger_entries.push_back( entry );
-      record.fee = required_fees;
-      
-      if( sign ) w->sign_transaction( trx, required_signatures );
+      if( sign )
+         w->sign_transaction( trx, required_signatures );
       
       record.trx = trx;
-      
       return record;
    }
    
@@ -149,7 +151,7 @@ namespace bts { namespace game {
       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "scan_result_trx_index"), Integer::New(my->GetIsolate(), trx_index));
       
       v8::TryCatch try_catch;
-      v8::Handle<v8::Script> script = v8::Script::Compile(String::NewFromUtf8(my->GetIsolate(), "'TODO';scan_result(scan_rtx, scan_result_block_num, scan_result_block_time, scan_result_trx_index, scan_w);"), String::NewFromUtf8(my->GetIsolate(), "rule.execute"));
+      v8::Handle<v8::Script> script = v8::Script::Compile(String::NewFromUtf8(my->GetIsolate(), "scan_result(scan_rtx, scan_result_block_num, scan_result_block_time, scan_result_trx_index, scan_w);"), String::NewFromUtf8(my->GetIsolate(), "rule.execute"));
       v8::Handle<v8::Value> result = script->Run();
       
       return result->ToBoolean(my->GetIsolate())->BooleanValue();
@@ -173,7 +175,7 @@ namespace bts { namespace game {
       
       // begin script execution
       v8::TryCatch try_catch;
-      v8::Handle<v8::Script> script = v8::Script::Compile(String::NewFromUtf8(my->GetIsolate(), "'TODO';execute(execute_blockchain, execute_block_num, execute_pendingstate);"), String::NewFromUtf8(my->GetIsolate(), "rule.execute"));
+      v8::Handle<v8::Script> script = v8::Script::Compile(String::NewFromUtf8(my->GetIsolate(), "execute(execute_blockchain, execute_block_num, execute_pendingstate);"), String::NewFromUtf8(my->GetIsolate(), "rule.execute"));
       script->Run();
       
       /*
