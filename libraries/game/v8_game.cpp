@@ -1,7 +1,8 @@
 #include <bts/blockchain/time.hpp>
 
-#include <bts/game/v8_game.hpp>
+#include <bts/game/v8_helper.hpp>
 #include <bts/game/v8_api.hpp>
+#include <bts/game/v8_game.hpp>
 #include <bts/game/client.hpp>
 
 namespace bts { namespace game {
@@ -33,7 +34,7 @@ namespace bts { namespace game {
             _isolate = v8::Isolate::GetCurrent();
             
             HandleScope handle_scope(GetIsolate());
-            v8::Handle<v8::Context> context = CreateShellContext(GetIsolate());
+            v8::Handle<v8::Context> context = v8_helper::CreateShellContext(GetIsolate());
             if (context.IsEmpty()) {
                fprintf(stderr, "Error creating context\n");
             }
@@ -41,7 +42,7 @@ namespace bts { namespace game {
             
             Context::Scope context_scope(context);
             
-            v8::Handle<v8::String> source = ReadFile( GetIsolate(), script_1.to_native_ansi_path().c_str() );
+            v8::Handle<v8::String> source = v8_helper::ReadFile( GetIsolate(), script_1.to_native_ansi_path().c_str() );
             if (source.IsEmpty()) {
                GetIsolate()->ThrowException( v8::String::NewFromUtf8(GetIsolate(), "Error loading file" ) );
             }
@@ -127,6 +128,8 @@ namespace bts { namespace game {
    
    bool v8_game_engine::scan( wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w )
    {
+      
+      HandleScope handle_scope(my->GetIsolate());
       // TODO
       return false;
    }

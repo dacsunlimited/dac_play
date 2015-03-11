@@ -45,7 +45,7 @@ namespace bts { namespace game {
                   isolate->Enter();
                }
                
-               init_class_template( isolate );
+               v8_api::init_class_template( isolate );
                
                // TODO: loop through all the rule scripts and register them, each rule instance is supposed to have their own context
                // TODO: To check whether the wallet and blockchain object are the same with the ones that should be used in script.

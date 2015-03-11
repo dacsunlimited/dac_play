@@ -13,11 +13,44 @@
 #include <include/libplatform/libplatform.h>
 
 namespace bts { namespace game {
-    
-    using namespace v8;
-    using namespace bts::blockchain;
-    using namespace bts::wallet;
-    
+   
+   using namespace v8;
+   using namespace bts::blockchain;
+   using namespace bts::wallet;
+   
+   class v8_api
+   {
+   public:
+      /**
+       * init the javascript classes
+       */
+      static bool init_class_template(v8::Isolate* isolate);
+      
+      /**
+       * @brief Global method for create balance id for the owner of balance
+       *
+       */
+      static void V8_Global_Get_Balance_ID_For_Owner(const v8::FunctionCallbackInfo<Value>& args);
+      
+      /**
+       * @brief Method for getting transactions from full block
+       *
+       */
+      static void V8_Block_Get_Transactions(const v8::FunctionCallbackInfo<Value>& args);
+      
+      static Persistent<ObjectTemplate> global;
+      
+      static Persistent<FunctionTemplate> blockchain_templ;
+      
+      static Persistent<FunctionTemplate> block_templ;
+      
+      static Persistent<FunctionTemplate> pendingstate_templ;
+      
+      static Persistent<FunctionTemplate> eval_state_templ;
+      
+      static Persistent<FunctionTemplate> transaction_templ;
+   };
+   
     /**
      *  @class v8_blockchain
      *  @brief wrappers blockchain pointer to js object, blockchain
@@ -85,58 +118,4 @@ namespace bts { namespace game {
          */
         static void Sub_Balance(const v8::FunctionCallbackInfo<Value>& args);
     };
-    /**
-     * init the javascript classes
-     */
-    bool init_class_template(v8::Isolate* isolate);
-    
-    /**
-     * @brief Global method for create balance id for the owner of balance
-     *
-     */
-    void V8_Global_Get_Balance_ID_For_Owner(const v8::FunctionCallbackInfo<Value>& args);
-    
-    /**
-     * @brief Method for getting transactions from full block
-     *
-     */
-    void V8_Block_Get_Transactions(const v8::FunctionCallbackInfo<Value>& args);
-    
-    // Creates a new execution environment containing the built-in
-    // functions.
-    v8::Handle<v8::Context> CreateShellContext(v8::Isolate* isolate);
-    
-    // The callback that is invoked by v8 whenever the JavaScript 'print'
-    // function is called.  Prints its arguments on stdout separated by
-    // spaces and ending with a newline.
-    void Print(const v8::FunctionCallbackInfo<v8::Value>& args);
-    
-    
-    // The callback that is invoked by v8 whenever the JavaScript 'read'
-    // function is called.  This function loads the content of the file named in
-    // the argument into a JavaScript string.
-    void Read(const v8::FunctionCallbackInfo<v8::Value>& args);
-    
-    
-    // The callback that is invoked by v8 whenever the JavaScript 'load'
-    // function is called.  Loads, compiles and executes its argument
-    // JavaScript file.
-    void Load(const v8::FunctionCallbackInfo<v8::Value>& args);
-    
-    
-    // The callback that is invoked by v8 whenever the JavaScript 'quit'
-    // function is called.  Quits.
-    void Quit(const v8::FunctionCallbackInfo<v8::Value>& args);
-    
-    
-    void Version(const v8::FunctionCallbackInfo<v8::Value>& args);
-    
-    // Reads a file into a v8 string.
-    v8::Handle<v8::String> ReadFile(v8::Isolate* isolate, const char* name);
-    
-    bool ExecuteString(v8::Isolate* isolate, v8::Handle<v8::String> source, v8::Handle<v8::String> name, bool print_result, bool report_exceptions);
-    
-    void ReportException(v8::Isolate* isolate, v8::TryCatch* try_catch);
-   
-   const char* ToCString(const v8::String::Utf8Value& value);
 } } // bts::game
