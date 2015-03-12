@@ -59,7 +59,7 @@ namespace bts { namespace game {
         return converter_itr->second->scan( trx_rec, w );
     }
     
-    bool rule_factory::scan_result( const rule_result_transaction& rtrx,
+    bool rule_factory::scan_result( const game_result_transaction& rtrx,
                      uint32_t block_num,
                      const time_point_sec& block_time,
                      const uint32_t trx_index, bts::wallet::wallet_ptr w)
@@ -76,7 +76,7 @@ namespace bts { namespace game {
         
         for ( const auto& g : games)
         {
-            auto converter_itr = _engines.find( g.rule_id );
+            auto converter_itr = _engines.find( g.id );
             
             if ( converter_itr != _engines.end() )
             {

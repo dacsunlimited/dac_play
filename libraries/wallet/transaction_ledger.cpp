@@ -238,12 +238,12 @@ void wallet_impl::scan_block( uint32_t block_num )
         }
     }
     
-    const vector<rule_result_transaction>& rule_result_trxs = _blockchain->get_rule_result_transactions( block_num );
-    for( uint32_t i = 0; i < rule_result_trxs.size(); ++i )
+    const vector<game_result_transaction>& game_result_trxs = _blockchain->get_game_result_transactions( block_num );
+    for( uint32_t i = 0; i < game_result_trxs.size(); ++i )
     {
         try
         {
-            rule_factory::instance().scan_result( rule_result_trxs[i], block_num, block_header.timestamp, i, self->shared_from_this());
+            rule_factory::instance().scan_result( game_result_trxs[i], block_num, block_header.timestamp, i, self->shared_from_this());
         }
         catch( ... )
         {

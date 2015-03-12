@@ -51,9 +51,14 @@
               "description" : "the ticker symbol for the new asset"
           },
           {
-              "name" : "rule_id",
-              "type" : "uint32_t",
-              "description" : "the id of the rule binding to this game"
+              "name" : "script_url",
+              "type" : "string",
+              "description" : "the url of the rule script for this game"
+          },
+          {
+             "name" : "script_hash",
+             "type" : "string",
+             "description" : "the hash of the rule script"
           },
           {
               "name" : "description",

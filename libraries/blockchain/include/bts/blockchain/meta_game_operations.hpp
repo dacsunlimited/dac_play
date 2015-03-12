@@ -43,7 +43,11 @@ namespace bts { namespace blockchain {
        /** The id of the asset used to play in this game */
        asset_id_type    asset_id;
 
-       rule_id_type     rule_id;
+       /** The url of the game's rule script */
+       std::string      script_url;
+      
+       /** The hash of the game's rule script */
+       std::string      script_hash;
 
        void evaluate( transaction_evaluation_state& eval_state ) const;
    };
@@ -57,5 +61,6 @@ FC_REFLECT( bts::blockchain::create_game_operation,
             (public_data)
             (issuer_account_id)
             (asset_id)
-            (rule_id)
+            (script_url)
+            (script_hash)
             )

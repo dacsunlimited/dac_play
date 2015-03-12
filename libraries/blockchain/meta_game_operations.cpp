@@ -25,17 +25,15 @@ namespace bts { namespace blockchain {
       if( NOT issuer_account_record.valid() )
            FC_CAPTURE_AND_THROW( unknown_account_id, (issuer_account_id) );
        
-       oasset_record game_asset_record = eval_state._current_state->get_asset_record( this->asset_id );
-       FC_ASSERT( game_asset_record.valid() );
+      oasset_record game_asset_record = eval_state._current_state->get_asset_record( this->asset_id );
+      FC_ASSERT( game_asset_record.valid() );
        
-       oaccount_record game_asset_issuer_account_record = eval_state._current_state->get_account_record( game_asset_record->issuer_account_id );
-       FC_ASSERT( game_asset_issuer_account_record.valid() );
+      oaccount_record game_asset_issuer_account_record = eval_state._current_state->get_account_record( game_asset_record->issuer_account_id );
+      FC_ASSERT( game_asset_issuer_account_record.valid() );
        
-       if( !eval_state.check_signature( game_asset_issuer_account_record->active_key() ) )
+      if( !eval_state.check_signature( game_asset_issuer_account_record->active_key() ) )
            FC_CAPTURE_AND_THROW( missing_signature, (game_asset_issuer_account_record) );
-
-       // TODO: check validation of rule_id (game rule script id)
-       
+      
       // TODO: replace with game fee
       const asset reg_fee( eval_state._current_state->get_asset_registration_fee( this->symbol.size() ), 0 );
       eval_state.required_fees += reg_fee;
@@ -48,7 +46,8 @@ namespace bts { namespace blockchain {
       new_record.public_data            = this->public_data;
       new_record.issuer_account_id      = this->issuer_account_id;
       new_record.asset_id               = this->asset_id;
-      new_record.rule_id               = this->rule_id;
+      new_record.script_url             = this->script_url;
+      new_record.script_hash            = this->script_hash;
       new_record.registration_date      = eval_state._current_state->now();
       new_record.last_update            = new_record.registration_date;
 

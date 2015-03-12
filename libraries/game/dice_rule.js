@@ -66,7 +66,7 @@
 // require("play.js")
 // TODO: Add the substitute for FC_CAPTURE_AND_THROW and FC_ASSERT
 // TODO: Mapping between js object and C++ variant
-// TODO: Input: {game_input}, Output: {operation_rule_data, wallet_transaction_record, wallet_rule_data_record, rule_result_transaction}
+// TODO: Input: {game_input}, Output: {operation_game_data, wallet_transaction_record, game_result_transaction}
 
 var BTS_BLOCKCHAIN_NUM_DELEGATES = 101;
 var BTS_BLOCKCHAIN_NUM_DICE = BTS_BLOCKCHAIN_NUM_DELEGATES / 10;
@@ -185,8 +185,8 @@ global.evaluate = function(self, eval_state, eval_state_current_state){
     
     // For each transaction, there must be only one dice operatiion exist
     // TODO: improve the rule id representation for rule record
-    // V8_API: eval_state_current_state::get_rule_data_record
-    var cur_record = eval_state_current_state.get_rule_data_record(game_type, eval_state.trx.id()._hash[0]);
+    // V8_API: eval_state_current_state::get_game_data_record
+    var cur_record = eval_state_current_state.get_game_data_record(game_type, eval_state.trx.id()._hash[0]);
     
     // V8_Valid
     //if( cur_record )
@@ -211,9 +211,9 @@ global.evaluate = function(self, eval_state, eval_state_current_state){
         guess : self.guess
     };
     
-    // TODO: Game Logic: remove rule_data_record
-    // V8_API: eval_state_current_state::store_rule_data_record
-    eval_state_current_state.store_rule_data_record(type, cur_data.id._hash[0], rule_data_record(dice_record));
+    // TODO: Game Logic: remove game_data_record
+    // V8_API: eval_state_current_state::store_game_data_record
+    eval_state_current_state.store_game_data_record(game_type, cur_data.id._hash[0], game_data_record(dice_record));
 };
 
 // game execute during extain chain and deterministrix transaction apply
@@ -236,28 +236,28 @@ global.execute = function (blockchain, block_num, pending_state){
 	{
 		var id = trx.id();
 		// TODO: define the type
-		var rule_data = blockchain_context.get_rule_data_record(type, id.hash(0));
+		var game_data = blockchain_context.get_game_data_record(type, id.hash(0));
         
-		if (rule_data)
+		if (game_data)
 		{
 			// TODO hash to be defined in V8
 			var dice_random_num = id.hash(0);
 			
 			// win condition
-            var lucky_number = ( ( ( block_random_num % range ) + ( dice_random_num % range ) ) % range ) * (rule_data.odds);
-            var guess = rule_data.guess;
+            var lucky_number = ( ( ( block_random_num % range ) + ( dice_random_num % range ) ) % range ) * (game_data.odds);
+            var guess = game_data.guess;
             var jackpot = 0;
             if ( lucky_number >= (guess - 1) * range && lucky_number < guess * range )
             {
-                jackpot = rule_data.amount * (rule_data.odds) * (100 - BTS_BLOCKCHAIN_DICE_HOUSE_EDGE) / 100;
+                jackpot = game_data.amount * (game_data.odds) * (100 - BTS_BLOCKCHAIN_DICE_HOUSE_EDGE) / 100;
                 
                 // add the jackpot to the accout's balance, give the jackpot from virtul pool to winner
                    
                 // TODO: Dice, what should be the slate_id for the withdraw_with_signature, if need, we can set to the jackpot owner?
-                var jackpot_balance_address = V8_Global_Get_Balance_ID_For_Owner(rule_data.owner, dice_game.asset_id);
+                var jackpot_balance_address = V8_Global_Get_Balance_ID_For_Owner(game_data.owner, dice_game.asset_id);
                 var jackpot_payout = pending_state.get_balance_record( jackpot_balance_address );
                 if( !jackpot_payout )
-                    jackpot_payout = balance_record( rule_data.owner, asset(0, dice_game.asset_id), dice_game.asset_id);
+                    jackpot_payout = balance_record( game_data.owner, asset(0, dice_game.asset_id), dice_game.asset_id);
                 jackpot_payout.balance += jackpot;
                 jackpot_payout.last_update = Date.now();
                    
@@ -267,26 +267,26 @@ global.execute = function (blockchain, block_num, pending_state){
             }
                
             // balance destroyed
-            shares_destroyed += rule_data.amount;
+            shares_destroyed += game_data.amount;
             
 			// remove the dice_record from pending state after execute the jackpot
-            pending_state.store_rule_data_record(type, id._hash[0], null);
+            pending_state.store_game_data_record(type, id._hash[0], null);
                
             var dice_trx = {
-                play_owner : rule_data.owner,
-                jackpot_owner : rule_data.owner,
-                play_amount : rule_data.amount,
+                play_owner : game_data.owner,
+                jackpot_owner : game_data.owner,
+                play_amount : game_data.amount,
                 jackpot_received : jackpot,
-                odds : rule_data.odds,
+                odds : game_data.odds,
                 lucky_number : (lucky_number / range) + 1
             };
 
-            // TODO: There is no necessary for rule_result_transaction to exsit anymore, dice_trx are directly stored as variant
-            rule_result_transactions.push(rule_result_transaction(dice_trx));
+            // TODO: There is no necessary for game_result_transaction to exsit anymore, dice_trx are directly stored as variant
+            game_result_transactions.push(game_result_transaction(dice_trx));
 		}
 	}
 	
-	pending_state.set_rule_result_transactions( rule_result_transactions );
+	pending_state.set_game_result_transactions( game_result_transactions );
     
     // TODO: what is asset_id_type?
 	auto base_asset_record = pending_state.get_asset_record( asset_id_type(1) );
@@ -295,18 +295,18 @@ global.execute = function (blockchain, block_num, pending_state){
 	pending_state.store_asset_record( base_asset_record );
 }
 
-global.scan_result = function( rule_result_trx, block_num, block_time, trx_index, wallet)
+global.scan_result = function( game_result_trx, block_num, block_time, trx_index, wallet)
 {
     //try {
-    // auto gtrx = rtrx.as<dice_transaction>(); rule_result_trx now is a variant/js_object it self, so no need to convert
-    var win = ( rule_result_trx.jackpot_received != 0 );
+    // auto gtrx = rtrx.as<dice_transaction>(); game_result_trx now is a variant/js_object it self, so no need to convert
+    var win = ( game_result_trx.jackpot_received != 0 );
     var play_result = win ? "win" : "lose";
     
     // TODO: Dice, play owner might be different with jackpot owner
     // TODO: Accessor get_wallet_key_for_address for wallet
     // TODO: Accessor has_private_key for wallet_key
     // TODO: Property account_address for wallet_key
-    var okey_jackpot = wallet.get_wallet_key_for_address( rule_result_trx.jackpot_owner );
+    var okey_jackpot = wallet.get_wallet_key_for_address( game_result_trx.jackpot_owner );
     if( okey_jackpot && okey_jackpot.has_private_key() )
     {
         var jackpot_account_key = wallet.get_wallet_key_for_address( okey_jackpot.account_address );
@@ -331,15 +331,15 @@ global.scan_result = function( rule_result_trx, block_num, block_time, trx_index
             // TODO Property public_key for wallet_key
             // TODO: Constructor for asset()
             to_account : jackpot_account_key.public_key,
-            amount : asset(rule_result_trx.jackpot_received, 1),
-            memo : play_result + ", jackpot lucky number: " + rule_result_trx.lucky_number
+            amount : asset(game_result_trx.jackpot_received, 1),
+            memo : play_result + ", jackpot lucky number: " + game_result_trx.lucky_number
         }
         );
         
         // TODO: Don't blow away memo, etc.
         var wallet_transaction_record = {
             //  Construct a unique record id, TODO: js method for fc::ripemd160::hash, could refer bitshares-js repository
-            record_id : fc::ripemd160::hash( "" + block_num + rule_result_trx.jackpot_owner + trx_index ),
+            record_id : fc::ripemd160::hash( "" + block_num + game_result_trx.jackpot_owner + trx_index ),
             block_num : block_num,
             is_virtual : true,
             is_confirmed : true,

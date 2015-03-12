@@ -22,6 +22,9 @@ namespace bts { namespace game {
       global->Set(v8::String::NewFromUtf8(isolate, "version"),
                   v8::FunctionTemplate::New(isolate, Version));
       
+      // TODO Reset
+      // TODO Transaction Template
+      
       return v8::Context::New(isolate, NULL, global);
    }
    
@@ -110,7 +113,7 @@ namespace bts { namespace game {
       int exit_code = args[0]->Int32Value();
       fflush(stdout);
       fflush(stderr);
-      std::exit(exit_code);
+      exit(exit_code);
    }
    
    

@@ -19,11 +19,11 @@ namespace bts { namespace game {
    public:
       static rule_factory& instance();
 
-      void   register_rule(uint8_t rule_id, v8_game_engine_ptr engine_ptr )
+      void   register_rule(uint8_t game_id, v8_game_engine_ptr engine_ptr )
       {
-         FC_ASSERT( _engines.find( rule_id ) == _engines.end(),
-                        "Rule ID already Registered ${id}", ("id", rule_id) );
-         _engines[rule_id] = engine_ptr;
+         FC_ASSERT( _engines.find( game_id ) == _engines.end(),
+                        "Game ID already Registered ${id}", ("id", game_id) );
+         _engines[game_id] = engine_ptr;
       }
 
       void evaluate( transaction_evaluation_state& eval_state, const rule& g )
@@ -50,7 +50,7 @@ namespace bts { namespace game {
        
       bool scan( const rule& g, wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w );
       
-      bool scan_result( const rule_result_transaction& rtrx,
+      bool scan_result( const game_result_transaction& rtrx,
                     uint32_t block_num,
                     const time_point_sec& block_time,
                     const uint32_t trx_index, bts::wallet::wallet_ptr w);

@@ -5,6 +5,8 @@
 #include <bts/game/v8_game.hpp>
 #include <bts/game/client.hpp>
 
+#include <fc/log/logger.hpp>
+
 namespace bts { namespace game {
    
    namespace detail {
@@ -33,16 +35,21 @@ namespace bts { namespace game {
             fc::path script_1(_client->get_data_dir() / "rule_1.js");
             _isolate = v8::Isolate::GetCurrent();
             
-            HandleScope handle_scope(GetIsolate());
-            v8::Handle<v8::Context> context = v8_helper::CreateShellContext(GetIsolate());
+            HandleScope handle_scope(_isolate);
+            v8::Handle<v8::Context> context = v8_helper::CreateShellContext(_isolate);
             if (context.IsEmpty()) {
                fprintf(stderr, "Error creating context\n");
             }
-            _context.Reset(GetIsolate(), context);
+            _context.Reset(_isolate, context);
             
             Context::Scope context_scope(context);
             
-            v8::Handle<v8::String> source = v8_helper::ReadFile( GetIsolate(), script_1.to_native_ansi_path().c_str() );
+            ilog("The path is ${s}", ("s", script_1.to_native_ansi_path().c_str() ));
+            
+            v8::Handle<v8::String> source = v8_helper::ReadFile( _isolate, script_1.to_native_ansi_path().c_str() );
+            
+            String::Utf8Value utf8_source(source);
+            ilog("The source is ${s}", ("s", std::string(*utf8_source) ));
             if (source.IsEmpty()) {
                GetIsolate()->ThrowException( v8::String::NewFromUtf8(GetIsolate(), "Error loading file" ) );
             }
@@ -134,7 +141,7 @@ namespace bts { namespace game {
       return false;
    }
    
-   bool v8_game_engine::scan_result( const rule_result_transaction& rtrx,
+   bool v8_game_engine::scan_result( const game_result_transaction& rtrx,
                     uint32_t block_num,
                     const time_point_sec& block_time,
                     const uint32_t trx_index, bts::wallet::wallet_ptr w)

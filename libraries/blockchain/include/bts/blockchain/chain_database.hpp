@@ -239,9 +239,9 @@ namespace bts { namespace blockchain {
          void                               scan_balances( const function<void( const balance_record& )> callback )const;
          void                               scan_transactions( const function<void( const transaction_record& )> callback )const;
 
-         virtual orule_data_record          get_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id )const override;
+         virtual ogame_data_record          get_game_data_record( const game_id_type& game_id, const data_id_type& data_id )const override;
        
-         virtual void                       store_rule_data_record(const rule_id_type& rule_id, const data_id_type& data_id, const rule_data_record& r )override;
+         virtual void                       store_game_data_record(const game_id_type& game_id, const data_id_type& data_id, const game_data_record& r )override;
 
          bool                               is_valid_asset_symbol( const string& asset_symbol )const;
        
@@ -271,8 +271,8 @@ namespace bts { namespace blockchain {
 
          virtual void                       set_market_transactions( vector<market_transaction> trxs )override;
          vector<market_transaction>         get_market_transactions( uint32_t block_num  )const;
-         virtual void                       set_rule_result_transactions( vector<rule_result_transaction> trxs );
-         vector<rule_result_transaction>    get_rule_result_transactions( uint32_t block_num  )const;
+         virtual void                       set_game_result_transactions( vector<game_result_transaction> trxs );
+         vector<game_result_transaction>    get_game_result_transactions( uint32_t block_num  )const;
 
          vector<pair<asset_id_type, asset_id_type>> get_market_pairs()const;
 

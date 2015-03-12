@@ -492,7 +492,8 @@ namespace bts { namespace wallet {
                                                      const variant& data,
                                                      const string& issuer_account_name,
                                                      const string& asset_symbol,
-                                                     uint32_t rule_id,
+                                                     const string& script_url,
+                                                     const string& script_hash,
                                                        bool sign );
        
          wallet_transaction_record play_game( const string& symbol,

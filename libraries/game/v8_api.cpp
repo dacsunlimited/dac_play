@@ -65,11 +65,11 @@ namespace bts { namespace game {
       Handle<ObjectTemplate> pendingstate_proto = result->PrototypeTemplate();
       pendingstate_proto->Set(isolate, "get_balance_record", FunctionTemplate::New(isolate, v8_chainstate::Get_Blance_Record));
       pendingstate_proto->Set(isolate, "get_asset_record", FunctionTemplate::New(isolate, v8_chainstate::Get_Asset_Record));
-      pendingstate_proto->Set(isolate, "get_rule_data_record", FunctionTemplate::New(isolate, v8_chainstate::Get_Rule_Data_Record));
+      pendingstate_proto->Set(isolate, "get_game_data_record", FunctionTemplate::New(isolate, v8_chainstate::Get_Game_Data_Record));
       
       pendingstate_proto->Set(isolate, "set_balance_record", FunctionTemplate::New(isolate, v8_chainstate::Store_Blance_Record));
       pendingstate_proto->Set(isolate, "set_asset_record", FunctionTemplate::New(isolate, v8_chainstate::Store_Asset_Record));
-      pendingstate_proto->Set(isolate, "set_rule_data_record", FunctionTemplate::New(isolate, v8_chainstate::Store_Rule_Data_Record));
+      pendingstate_proto->Set(isolate, "set_game_data_record", FunctionTemplate::New(isolate, v8_chainstate::Store_Game_Data_Record));
       
       // Again, return the result through the current handle scope.
       return handle_scope.Escape(result);
@@ -301,7 +301,7 @@ namespace bts { namespace game {
       args.GetReturnValue().Set( External::New(args.GetIsolate(), &asset_record) );
    }
    
-   void v8_chainstate::Get_Rule_Data_Record(const v8::FunctionCallbackInfo<Value>& args)
+   void v8_chainstate::Get_Game_Data_Record(const v8::FunctionCallbackInfo<Value>& args)
    {
       Local<Object> self = args.Holder();
       Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
@@ -310,9 +310,9 @@ namespace bts { namespace game {
       Local<Integer> wrapper_type = Local<Integer>::Cast(args[0]);
       Local<Integer> wrapper_id = Local<Integer>::Cast(args[1]);
       
-      auto rule_data_record = static_cast<v8_chainstate*>(ptr)->_chain_state->get_rule_data_record(wrapper_type->Int32Value(), wrapper_id->Int32Value() );
+      auto game_data_record = static_cast<v8_chainstate*>(ptr)->_chain_state->get_game_data_record(wrapper_type->Int32Value(), wrapper_id->Int32Value() );
       
-      args.GetReturnValue().Set( External::New(args.GetIsolate(), &rule_data_record) );
+      args.GetReturnValue().Set( External::New(args.GetIsolate(), &game_data_record) );
    }
    
    void v8_chainstate::Store_Blance_Record(const v8::FunctionCallbackInfo<Value>& args)
@@ -343,7 +343,7 @@ namespace bts { namespace game {
     * @brief Method for v8_chainstate
     * @return undefine
     */
-   void v8_chainstate::Store_Rule_Data_Record(const v8::FunctionCallbackInfo<Value>& args)
+   void v8_chainstate::Store_Game_Data_Record(const v8::FunctionCallbackInfo<Value>& args)
    {
       Local<Object> self = args.Holder();
       Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
@@ -354,7 +354,7 @@ namespace bts { namespace game {
       Local<External> wrap_rule_data = Local<External>::Cast(args[2]);
       
       // TODO: parse json to C++ struct, from variant
-      static_cast<v8_chainstate*>(ptr)->_chain_state->store_rule_data_record(wrapper_type->Int32Value(), wrapper_id->Int32Value(), * static_cast<blockchain::rule_data_record*>(wrap_rule_data->Value()) );
+      static_cast<v8_chainstate*>(ptr)->_chain_state->store_game_data_record(wrapper_type->Int32Value(), wrapper_id->Int32Value(), * static_cast<blockchain::game_data_record*>(wrap_rule_data->Value()) );
    }
    
    Local<Object> v8_evalstate::New(v8::Isolate* isolate, transaction_evaluation_state_ptr eval_state)

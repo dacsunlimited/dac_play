@@ -289,7 +289,8 @@ namespace bts { namespace blockchain {
                                    const fc::variant& data,
                                    account_id_type issuer_id,
                                    asset_id_type asset_id,
-                                   uint32_t rule_id )
+                                 const std::string& script_url,
+                                 const std::string& script_hash )
    {
         create_game_operation op;
         op.symbol = symbol;
@@ -298,7 +299,8 @@ namespace bts { namespace blockchain {
         op.public_data = data;
         op.issuer_account_id = issuer_id;
         op.asset_id = asset_id;
-        op.rule_id = rule_id;
+      op.script_url = script_url;
+      op.script_hash = script_hash;
         operations.push_back( op );
    }
 

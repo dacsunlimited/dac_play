@@ -97,7 +97,8 @@ namespace bts { namespace blockchain {
                                      const fc::variant& data,
                                      account_id_type issuer_id,
                                      asset_id_type asset_id,
-                       uint32_t rule_id );
+                                     const std::string& script_url,
+                                     const std::string& script_hash );
 
       void update_asset_ext( const asset_id_type asset_id,
                          const optional<string>& name,

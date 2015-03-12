@@ -3097,7 +3097,8 @@ namespace detail {
                                                    const variant& data,
                                                    const string& issuer_account_name,
                                                    const string& asset_symbol,
-                                                   uint32_t rule_id,
+                                                   const string& script_url,
+                                                   const string& script_hash,
                                                    bool sign )
     { try {
         FC_ASSERT( is_open() );
@@ -3145,7 +3146,7 @@ namespace detail {
         // TODO: rename require the signature of asset issuer's signature.
         trx.create_game( symbol, game_name,
                          description, data,
-                         oname_rec->id, asset_record->id, rule_id);
+                         oname_rec->id, asset_record->id, script_url, script_hash);
         
         auto entry = ledger_entry();
         entry.from_account = from_account_address;

@@ -28,7 +28,8 @@ namespace bts { namespace blockchain {
         fc::variant         public_data;
         account_id_type     issuer_account_id;
         asset_id_type       asset_id;
-        rule_id_type        rule_id;
+        std::string         script_url;
+        std::string         script_hash;
         fc::time_point_sec  registration_date;
         fc::time_point_sec  last_update;
         
@@ -56,12 +57,12 @@ namespace bts { namespace blockchain {
       virtual void game_erase_from_symbol_map( const string& ) = 0;
    };
     
-    struct rule_data_record
+    struct game_data_record
     {
-        rule_data_record():type(0){}
+        game_data_record():type(0){}
         
         template<typename RecordType>
-        rule_data_record( const RecordType& rec )
+        game_data_record( const RecordType& rec )
         :type( int(RecordType::type) ),data(rec)
         { }
         
@@ -69,7 +70,7 @@ namespace bts { namespace blockchain {
         RecordType as()const;
         
         // TODO: Figure out what following index used for
-        int32_t get_rule_data_index()const
+        int32_t get_game_data_index()const
         { try {
             FC_ASSERT( data.is_object() );
             FC_ASSERT( data.get_object().contains( "index" ) );
@@ -81,9 +82,9 @@ namespace bts { namespace blockchain {
             return type == 0;
         }
         
-        rule_data_record make_null()const
+        game_data_record make_null()const
         {
-            rule_data_record cpy(*this);
+            game_data_record cpy(*this);
             cpy.type = 0;
             return cpy;
         }
@@ -92,12 +93,12 @@ namespace bts { namespace blockchain {
         fc::variant                                      data;
     };
     
-    struct rule_result_transaction
+    struct game_result_transaction
     {
-        rule_result_transaction():type(0){}
+        game_result_transaction():type(0){}
         
         template<typename RecordType>
-        rule_result_transaction( const RecordType& rec )
+        game_result_transaction( const RecordType& rec )
         :type( int(RecordType::type) ),data(rec)
         { }
         
@@ -108,7 +109,7 @@ namespace bts { namespace blockchain {
         fc::variant                                      data;
     };
     
-    typedef fc::optional<rule_data_record> orule_data_record;
+    typedef fc::optional<game_data_record> ogame_data_record;
     
 } } // bts::blockchain
 
@@ -120,23 +121,24 @@ FC_REFLECT( bts::blockchain::game_record,
            (public_data)
            (issuer_account_id)
            (asset_id)
-           (rule_id)
+           (script_url)
+           (script_hash)
            (registration_date)
            (last_update)
            )
 
-FC_REFLECT( bts::blockchain::rule_data_record,
+FC_REFLECT( bts::blockchain::game_data_record,
            (type)
            (data)
            )
-FC_REFLECT_TYPENAME( std::vector<bts::blockchain::rule_result_transaction> )
-FC_REFLECT( bts::blockchain::rule_result_transaction,
+FC_REFLECT_TYPENAME( std::vector<bts::blockchain::game_result_transaction> )
+FC_REFLECT( bts::blockchain::game_result_transaction,
            (type)(data)
            )
 
 namespace bts { namespace blockchain {
     template<typename RecordType>
-    RecordType rule_data_record::as()const
+    RecordType game_data_record::as()const
     {
         FC_ASSERT( type == RecordType::type, "",
                   ("type",type));
@@ -145,7 +147,7 @@ namespace bts { namespace blockchain {
     }
     
     template<typename RecordType>
-    RecordType rule_result_transaction::as()const
+    RecordType game_result_transaction::as()const
     {
         FC_ASSERT( type == RecordType::type, "",
                   ("type",type));

@@ -76,7 +76,7 @@ namespace bts { namespace blockchain {
 
          fc::ripemd160                      get_current_random_seed()const;
 
-         virtual void                       store_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id, const rule_data_record& r )               = 0;
+         virtual void                       store_game_data_record( const game_id_type& game_id, const data_id_type& data_id, const game_data_record& r )               = 0;
 
          void                               set_required_confirmations( uint64_t count );
          uint64_t                           get_required_confirmations()const;
@@ -85,7 +85,7 @@ namespace bts { namespace blockchain {
                                                                const asset_id_type base_id )               = 0;
          virtual void                       store_market_status( const market_status& s )                   = 0;
 
-         virtual orule_data_record          get_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id )const    = 0;
+         virtual ogame_data_record          get_game_data_record( const game_id_type& game_id, const data_id_type& data_id )const    = 0;
 
          virtual omarket_order              get_lowest_ask_record( const asset_id_type quote_id,
                                                                    const asset_id_type base_id )           = 0;
@@ -125,7 +125,7 @@ namespace bts { namespace blockchain {
          void set_dirty_markets( const std::set<std::pair<asset_id_type, asset_id_type>>& );
          std::set<std::pair<asset_id_type, asset_id_type>> get_dirty_markets()const;
 
-         virtual void                       set_rule_result_transactions( vector<rule_result_transaction> trxs ) = 0;
+         virtual void                       set_game_result_transactions( vector<game_result_transaction> trxs ) = 0;
          virtual void                       set_market_transactions( vector<market_transaction> trxs )      = 0;
 
          oproperty_record                   get_property_record( const property_id_type id )const;

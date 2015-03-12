@@ -17,7 +17,7 @@ namespace bts { namespace blockchain {
 
          virtual fc::time_point_sec     now()const override;
 
-         virtual orule_data_record      get_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id )const override;
+         virtual ogame_data_record      get_game_data_record( const game_id_type& game_id, const data_id_type& data_id )const override;
 
          virtual oprice                 get_active_feed_price( const asset_id_type quote_id,
                                                                const asset_id_type base_id = 0 )const override;
@@ -36,7 +36,7 @@ namespace bts { namespace blockchain {
          virtual oorder_record          get_bid_record( const market_index_key& )const override;
          virtual oorder_record          get_ask_record( const market_index_key& )const override;
 
-         virtual void                   store_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id, const rule_data_record& r )override;
+         virtual void                   store_game_data_record( const game_id_type& game_id, const data_id_type& data_id, const game_data_record& r )override;
 
          virtual void                   store_bid_record( const market_index_key& key, const order_record& ) override;
          virtual void                   store_ask_record( const market_index_key& key, const order_record& ) override;
@@ -88,7 +88,7 @@ namespace bts { namespace blockchain {
          virtual uint32_t               get_head_block_num()const override;
 
          virtual void                   set_market_transactions( vector<market_transaction> trxs )override;
-         virtual void                   set_rule_result_transactions( vector<rule_result_transaction> trxs ) override;
+         virtual void                   set_game_result_transactions( vector<game_result_transaction> trxs ) override;
 
          map<property_id_type, property_record>                             _property_id_to_record;
          set<property_id_type>                                              _property_id_remove;
@@ -135,9 +135,9 @@ namespace bts { namespace blockchain {
          map< std::pair<asset_id_type,asset_id_type>, market_status>        market_statuses;
          map<market_history_key, market_history_record>                     market_history;
       
-         map< std::pair<rule_id_type,data_id_type>, rule_data_record>       rules;
+         map< std::pair<game_id_type, data_id_type>, game_data_record>      game_datas;
       
-         vector<rule_result_transaction>                                    rule_result_transactions;
+         vector<game_result_transaction>                                    game_result_transactions;
 
       private:
          // Not serialized
@@ -246,6 +246,6 @@ FC_REFLECT( bts::blockchain::pending_chain_state,
             (market_transactions)
             (market_statuses)
             (market_history)
-            (rules)
-            (rule_result_transactions)
+            (game_datas)
+            (game_result_transactions)
             )

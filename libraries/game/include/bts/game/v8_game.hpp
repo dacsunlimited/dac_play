@@ -35,7 +35,7 @@ namespace bts { namespace game {
       
       bool scan( wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w );
       
-      bool scan_result( const rule_result_transaction& rtrx,
+      bool scan_result( const game_result_transaction& rtrx,
                                uint32_t block_num,
                                const time_point_sec& block_time,
                                const uint32_t trx_index, bts::wallet::wallet_ptr w);

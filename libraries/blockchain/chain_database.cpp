@@ -166,8 +166,8 @@ namespace bts { namespace blockchain {
           _market_status_db.open( data_dir / "index/market_status_db" );
           _market_history_db.open( data_dir / "index/market_history_db" );
           
-          _rule_data_db.open( data_dir / "index/_rule_data_db");
-          _rule_result_transactions_db.open( data_dir / "index/rule_result_transactions_db" );
+          _game_data_db.open( data_dir / "index/_game_data_db");
+          _game_result_transactions_db.open( data_dir / "index/game_result_transactions_db" );
           
           _game_id_to_record.open ( data_dir / "index/_game_id_to_record");
           _game_symbol_to_id.open( data_dir / "index/game_symbol_to_id" );
@@ -1231,8 +1231,8 @@ namespace bts { namespace blockchain {
               {
                   my->_burn_index_to_record.set_write_through( write_through );
 
-                  my->_rule_data_db.set_write_through( write_through );
-                  my->_rule_result_transactions_db.set_write_through ( write_through );
+                  my->_game_data_db.set_write_through( write_through );
+                  my->_game_result_transactions_db.set_write_through ( write_through );
                   my->_feed_index_to_record.set_write_through( write_through );
 
                   my->_ask_db.set_write_through( write_through );
@@ -1429,8 +1429,8 @@ namespace bts { namespace blockchain {
 
       my->_game_id_to_record.close();
       my->_game_symbol_to_id.close();
-      my->_rule_data_db.close();
-      my->_rule_result_transactions_db.close();
+      my->_game_data_db.close();
+      my->_game_result_transactions_db.close();
 
    } FC_CAPTURE_AND_RETHROW() }
 
@@ -1765,22 +1765,22 @@ namespace bts { namespace blockchain {
        return arec->id;
    } FC_CAPTURE_AND_RETHROW( (symbol) ) }
     
-   orule_data_record chain_database::get_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id )const
+   ogame_data_record chain_database::get_game_data_record( const game_id_type& game_id, const data_id_type& data_id )const
    {
-       return my->_rule_data_db.fetch_optional( std::make_pair(rule_id, data_id) );
+       return my->_game_data_db.fetch_optional( std::make_pair(game_id, data_id) );
    }
 
-   void chain_database::store_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id, const rule_data_record& r )
+   void chain_database::store_game_data_record( const game_id_type& game_id, const data_id_type& data_id, const game_data_record& r )
    {
        try {
-           ilog( "rule record: ${r}", ("r",r) );
+           ilog( "rule data record: ${r}", ("r",r) );
            if( r.is_null() )
            {
-               my->_rule_data_db.remove( std::make_pair(rule_id, data_id) );
+               my->_game_data_db.remove( std::make_pair(game_id, data_id) );
            }
            else
            {
-               my->_rule_data_db.store( std::make_pair(rule_id, data_id), r );
+               my->_game_data_db.store( std::make_pair(game_id, data_id), r );
            }
    } FC_RETHROW_EXCEPTIONS( warn, "", ("record", r) ) }
 
@@ -2685,23 +2685,23 @@ namespace bts { namespace blockchain {
       }
    }
 
-   void chain_database::set_rule_result_transactions( vector<rule_result_transaction> trxs )
+   void chain_database::set_game_result_transactions( vector<game_result_transaction> trxs )
    {
         if( trxs.size() == 0 )
         {
-            my->_rule_result_transactions_db.remove( get_head_block_num()+1 );
+            my->_game_result_transactions_db.remove( get_head_block_num()+1 );
         }
         else
         {
-            my->_rule_result_transactions_db.store( get_head_block_num()+1, trxs );
+            my->_game_result_transactions_db.store( get_head_block_num()+1, trxs );
         }
    }
     
-    vector<rule_result_transaction> chain_database::get_rule_result_transactions( uint32_t block_num  )const
+    vector<game_result_transaction> chain_database::get_game_result_transactions( uint32_t block_num  )const
     {
-        auto tmp = my->_rule_result_transactions_db.fetch_optional(block_num);
+        auto tmp = my->_game_result_transactions_db.fetch_optional(block_num);
         if( tmp ) return *tmp;
-        return vector<rule_result_transaction>();
+        return vector<game_result_transaction>();
     }
 
    vector<market_transaction> chain_database::get_market_transactions( const uint32_t block_num )const
