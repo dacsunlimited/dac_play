@@ -6,6 +6,7 @@
 #include <bts/game/client.hpp>
 
 #include <bts/game/v8_api.hpp>
+#include <bts/game/http_downloader.hpp>
 
 #include <fc/io/json.hpp>
 #include <fc/network/http/connection.hpp>
@@ -15,6 +16,7 @@
 #include <fc/thread/non_preemptable_scope_check.hpp>
 
 #include <iostream>
+#include <fstream>
 
 namespace bts { namespace game {
    using namespace bts::blockchain;
@@ -56,9 +58,6 @@ namespace bts { namespace game {
                   isolate->Enter();
                }
                
-               std::cerr << "Init class templat for game client\n";
-               ilog("Init class templat for game client" );
-               
                v8_api::init_class_template( isolate );
                
                // TODO: loop through all the rule scripts and register them, each rule instance is supposed to have their own context
@@ -90,22 +89,22 @@ namespace bts { namespace game {
             ilog("The url is ${url}, the hash is ${hash}", ("url", url)("hash", hash) );
             fc::async( [=]()
                       {
-                         fc::url u(url);
-                         if( u.host() )
-                         {
-                            auto endpoints = fc::resolve( *u.host(), u.port() ? *u.port() : 80 );
-                            for( auto ep : endpoints )
-                            {
-                               fc::http::connection con;
-                               con.connect_to( ep );
-                               ilog("before request return of the body is: ${b}", ("b", "xx") );
-                               auto response = con.request( "GET", url, fc::json::to_string(hash) );
-                               ilog("Start return of the body is: ${b}", ("b", response.body) );
-                               if( response.status == fc::http::reply::OK )
-                                  ilog("The return of the body is: ${b}", ("b", response.body) );
-                                  return;
-                            }
+                         const std::shared_ptr<http_downloader> downloader_ptr = std::make_shared<http_downloader>();
+                         auto content = downloader_ptr->download(url);
+                         
+                         if ( !fc::exists(self->get_data_dir()) ) {
+                            fc::create_directories(self->get_data_dir());
                          }
+                         
+                         ilog ("The data dir is ${d}", ("d", self->get_data_dir() ));
+                         
+                         fc::path script_filename = self->get_data_dir() / ( hash + ".js");
+                         
+                         ilog ("The script_filename ${d}", ("d", script_filename ));
+                         
+                         std::ofstream script_file(script_filename.string());
+                         
+                         script_file << content;
                       }
                       );
          }
