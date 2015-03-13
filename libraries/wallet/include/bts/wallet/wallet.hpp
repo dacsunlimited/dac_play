@@ -5,6 +5,7 @@
 #include <bts/mail/message.hpp>
 #include <bts/wallet/pretty.hpp>
 #include <bts/wallet/transaction_builder.hpp>
+#include <bts/game/client.hpp>
 
 #include <fc/signals.hpp>
 
@@ -44,7 +45,7 @@ namespace bts { namespace wallet {
    class wallet : public std::enable_shared_from_this< wallet >
    {
       public:
-         wallet( chain_database_ptr chain, bool enabled = true );
+         wallet( chain_database_ptr chain, bts::game::game_client_ptr game_client, bool enabled = true );
          virtual ~wallet();
 
          void initialize_transaction_creator( transaction_creation_state& c, const string& account_name );

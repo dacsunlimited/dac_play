@@ -363,6 +363,8 @@ wallet_transaction_record wallet_impl::scan_transaction(
             case buy_chips_type:
               store_record |= scan_buy_chips( op.as<buy_chips_operation>(), *transaction_record, total_fee );
                 break;
+            case create_game_operation_type:
+              store_record |= _game_client->scan_create_game( op.as<create_game_operation>() );
             default:
                 break;
         }

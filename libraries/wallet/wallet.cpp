@@ -843,12 +843,13 @@ namespace detail {
 
 } // bts::wallet::detail
 
-   wallet::wallet( chain_database_ptr blockchain, bool enabled )
+   wallet::wallet( chain_database_ptr blockchain, bts::game::game_client_ptr game_client, bool enabled )
    : my( new detail::wallet_impl() )
    {
       my->self = this;
       my->_is_enabled = enabled;
       my->_blockchain = blockchain;
+      my->_game_client = game_client;
       my->_blockchain->add_observer( my.get() );
    }
 

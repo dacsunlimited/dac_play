@@ -7,7 +7,9 @@
 #include <bts/blockchain/balance_operations.hpp>
 #include <bts/blockchain/feed_operations.hpp>
 #include <bts/blockchain/market_operations.hpp>
+#include <bts/blockchain/meta_game_operations.hpp>
 #include <bts/game/game_operations.hpp>
+#include <bts/game/client.hpp>
 
 namespace bts { namespace wallet { namespace detail {
 
@@ -18,6 +20,7 @@ class wallet_impl : public chain_observer
        bool                                             _is_enabled = true;
        wallet_db                                        _wallet_db;
        chain_database_ptr                               _blockchain = nullptr;
+       bts::game::game_client_ptr                       _game_client = nullptr;
        path                                             _data_directory;
        path                                             _current_wallet_path;
        fc::sha512                                       _wallet_password;

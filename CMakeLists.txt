@@ -211,6 +211,14 @@ set_target_properties(leveldb PROPERTIES COMPILE_DEFINITIONS "${LEVELDB_BUILD_DE
 
 find_package( BerkeleyDB )
 
+FIND_PACKAGE(CURL)
+IF(CURL_FOUND)
+  MESSAGE(STATUS "Curl libraries found at: ${CURL_LIBRARIES}")
+  MESSAGE(STATUS "Curl includes found at: ${CURL_INCLUDE_DIRS}")
+else()
+  MESSAGE(SEND_ERROR "Could not find cURL on your system")
+ENDIF(CURL_FOUND)
+
 add_subdirectory( libraries )
 add_subdirectory( vendor/miniupnp/miniupnpc )
 add_subdirectory( vendor/v8-fibjs/exlib )
