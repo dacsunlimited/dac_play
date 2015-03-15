@@ -30,6 +30,12 @@ namespace bts { namespace game {
          client*                 self;
          
          v8::Platform*           _platform;
+          
+          // For each game we should create a different isolate instance,
+          // and do exit/dispose operation for each of them
+          //
+          // Here I just fixed the process hang issue.
+          v8::Isolate* _isolate;
          
          fc::path                _data_dir;
          
@@ -39,6 +45,10 @@ namespace bts { namespace game {
          : self(self)
          {}
          ~client_impl(){
+             
+            _isolate->Exit();
+            _isolate->Dispose();
+             
             v8::V8::Dispose();
             v8::V8::ShutdownPlatform();
             delete _platform;
@@ -51,14 +61,17 @@ namespace bts { namespace game {
                v8::V8::InitializePlatform(_platform);
                v8::V8::Initialize();
                
-               v8::Isolate* isolate = v8::Isolate::GetCurrent();
-               if ( isolate == NULL )
+               _isolate = v8::Isolate::GetCurrent();
+               if ( _isolate == NULL )
                {
-                  isolate = v8::Isolate::New();
-                  isolate->Enter();
+                  _isolate = v8::Isolate::New();
+                  _isolate->Enter();
                }
                
-               v8_api::init_class_template( isolate );
+               ilog("Init class templat for game client" );
+               
+               v8_api::init_class_template( _isolate );
+
                
                // TODO: loop through all the rule scripts and register them, each rule instance is supposed to have their own context
                // TODO: To check whether the wallet and blockchain object are the same with the ones that should be used in script.
@@ -78,6 +91,7 @@ namespace bts { namespace game {
                
                // Testing
                self->game_claimed_script("http://www.dacsunlimited.com/games/dice_rule.js", "000");
+                
             } catch (...) {
             }
          }
