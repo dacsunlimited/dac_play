@@ -16,6 +16,9 @@ target_link_libraries( bts_create_genesis fc bts_blockchain bts_utilities)
 add_executable( key_to_wif key_to_wif.cpp )
 target_link_libraries( key_to_wif fc bts_blockchain bts_utilities)
 
+add_executable( pubkey_to_address pubkey_to_address.cpp )
+target_link_libraries( pubkey_to_address fc bts_blockchain bts_utilities)
+
 add_executable( bts_key_info bts_key_info.cpp )
 target_link_libraries( bts_key_info fc bts_blockchain bts_utilities)
 
