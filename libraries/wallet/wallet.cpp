@@ -2992,7 +2992,7 @@ namespace detail {
                  const uint64_t precision,
                  double initial_supply,
                  double initial_collateral,
-                 bool chip_issued,
+                 bool user_issued,
                  bool sign
                  )
    { try {
@@ -3031,8 +3031,67 @@ namespace detail {
 
       record.trx = trx;
       return record;
-   } FC_CAPTURE_AND_RETHROW( (responsible_account_name)(symbol)(name)(description)(max_supply)(precision)(chip_issued)(sign) ) }
-   
+   } FC_CAPTURE_AND_RETHROW( (responsible_account_name)(symbol)(name)(description)(max_supply)(precision)(user_issued)(sign) ) }
+
+   wallet_transaction_record wallet::uia_issue_or_collect_fees(
+           const bool issue_new,
+           const asset& amount,
+           const string& generic_recipient,
+           const string& memo,
+           const bool sign
+           )
+   { try {
+      if( NOT is_open()     ) FC_CAPTURE_AND_THROW( wallet_closed );
+      if( NOT is_unlocked() ) FC_CAPTURE_AND_THROW( wallet_locked );
+
+      const wallet_contact_record recipient = my->generic_recipient_to_contact( generic_recipient );
+
+      signed_transaction     trx;
+      unordered_set<address> required_signatures;
+
+      trx.expiration = blockchain::now() + get_transaction_expiration();
+
+      const auto required_fees = get_transaction_fee();
+
+      const oasset_record asset_record = my->_blockchain->get_asset_record( amount.asset_id );
+      FC_ASSERT( asset_record.valid() );
+
+      const owallet_account_record issuer_account = my->_wallet_db.lookup_account( asset_record->issuer_id );
+      if( !issuer_account.valid() )
+          FC_CAPTURE_AND_THROW( issuer_not_found, (asset_record->issuer_id) );
+
+      my->withdraw_to_transaction( required_fees,
+                                   issuer_account->name,
+                                   trx,
+                                   required_signatures );
+
+      if( issue_new )
+          trx.uia_issue( amount );
+      else
+          trx.uia_withdraw_fees( amount );
+
+      for( const address& authority : asset_record->authority.owners )
+          required_signatures.insert( authority );
+
+      const public_key_type recipient_key = my->deposit_from_transaction( trx, amount, *issuer_account, recipient, memo );
+
+      if( sign )
+          my->sign_transaction( trx, required_signatures );
+
+      auto entry = ledger_entry();
+      entry.from_account = issuer_account->owner_key;
+      entry.to_account = recipient_key;
+      entry.amount = amount;
+      entry.memo = memo;
+
+      auto record = wallet_transaction_record();
+      record.ledger_entries.push_back( entry );
+      record.fee = required_fees;
+      record.trx = trx;
+
+      return record;
+   } FC_CAPTURE_AND_RETHROW( (issue_new)(amount)(generic_recipient)(memo)(sign) ) }
+
    wallet_transaction_record wallet::create_game(
                                                  const string& symbol,
                                                  const string& game_name,
@@ -3105,65 +3164,6 @@ namespace detail {
       record.trx = trx;
       return record;
    } FC_CAPTURE_AND_RETHROW( (symbol)(game_name)(description)(issuer_account_name)(asset_symbol) ) }
-
-   wallet_transaction_record wallet::uia_issue_or_collect_fees(
-           const bool issue_new,
-           const asset& amount,
-           const string& generic_recipient,
-           const string& memo,
-           const bool sign
-           )
-   { try {
-      if( NOT is_open()     ) FC_CAPTURE_AND_THROW( wallet_closed );
-      if( NOT is_unlocked() ) FC_CAPTURE_AND_THROW( wallet_locked );
-
-      const wallet_contact_record recipient = my->generic_recipient_to_contact( generic_recipient );
-
-      signed_transaction     trx;
-      unordered_set<address> required_signatures;
-
-      trx.expiration = blockchain::now() + get_transaction_expiration();
-
-      const auto required_fees = get_transaction_fee();
-
-      const oasset_record asset_record = my->_blockchain->get_asset_record( amount.asset_id );
-      FC_ASSERT( asset_record.valid() );
-
-      const owallet_account_record issuer_account = my->_wallet_db.lookup_account( asset_record->issuer_id );
-      if( !issuer_account.valid() )
-          FC_CAPTURE_AND_THROW( issuer_not_found, (asset_record->issuer_id) );
-
-      my->withdraw_to_transaction( required_fees,
-                                   issuer_account->name,
-                                   trx,
-                                   required_signatures );
-
-      if( issue_new )
-          trx.uia_issue( amount );
-      else
-          trx.uia_withdraw_fees( amount );
-
-      for( const address& authority : asset_record->authority.owners )
-          required_signatures.insert( authority );
-
-      const public_key_type recipient_key = my->deposit_from_transaction( trx, amount, *issuer_account, recipient, memo );
-
-      if( sign )
-          my->sign_transaction( trx, required_signatures );
-
-      auto entry = ledger_entry();
-      entry.from_account = issuer_account->owner_key;
-      entry.to_account = recipient_key;
-      entry.amount = amount;
-      entry.memo = memo;
-
-      auto record = wallet_transaction_record();
-      record.ledger_entries.push_back( entry );
-      record.fee = required_fees;
-      record.trx = trx;
-
-      return record;
-   } FC_CAPTURE_AND_RETHROW( (issue_new)(amount)(generic_recipient)(memo)(sign) ) }
 
    wallet_transaction_record wallet::play_game( const string& symbol,
                                                 const variant& params,

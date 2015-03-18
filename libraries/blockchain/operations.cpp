@@ -80,8 +80,8 @@ namespace bts { namespace blockchain {
 
         bts::blockchain::operation_factory::instance().register_operation<data_operation>();
        
-       bts::blockchain::operation_factory::instance().register_operation<buy_chips_operation>();
-       bts::blockchain::operation_factory::instance().register_operation<create_game_operation>();
+        bts::blockchain::operation_factory::instance().register_operation<buy_chips_operation>();
+        bts::blockchain::operation_factory::instance().register_operation<create_game_operation>();
 
         return true;
     }();
@@ -99,11 +99,11 @@ namespace bts { namespace blockchain {
         converter_itr->second->to_variant( in, output );
     } FC_CAPTURE_AND_RETHROW() }
    
-   game_executors& game_executors::instance()
-   {
-      static std::unique_ptr<game_executors> inst( new game_executors() );
-      return *inst;
-   }
+    game_executors& game_executors::instance()
+    {
+       static std::unique_ptr<game_executors> inst( new game_executors() );
+       return *inst;
+    }
 
     void operation_factory::from_variant( const fc::variant& in, bts::blockchain::operation& output )
     { try {

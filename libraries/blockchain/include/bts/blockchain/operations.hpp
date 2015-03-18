@@ -65,10 +65,10 @@ enum operation_type_enum
     limit_fee_op_type                   = 28,
 
     data_op_type                        = 29,
-   game_op_type                  = 45,
-   buy_chips_type                = 46,
+    game_op_type                  = 45,
+    buy_chips_type                = 46,
    
-   create_game_operation_type    = 47
+    create_game_operation_type    = 47
 };
 
 /**

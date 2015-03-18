@@ -15,10 +15,6 @@ namespace bts { namespace blockchain {
    { try {
       if( !eval_state.pending_state()->is_valid_account_name( this->name ) )
          FC_CAPTURE_AND_THROW( invalid_account_name, (name) );
-      
-      // names which is valid public key is invalid as account names
-      if( bts::blockchain::address::is_valid( this->name ) )
-         FC_CAPTURE_AND_THROW( invalid_account_name, (name) );
 
       oaccount_record current_account = eval_state.pending_state()->get_account_record( this->name );
       if( current_account.valid() )

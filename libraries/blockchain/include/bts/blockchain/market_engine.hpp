@@ -26,8 +26,6 @@ namespace bts { namespace blockchain { namespace detail {
 
     bool get_next_bid();
     bool get_next_ask();
-     
-    bool get_next_ask_order();
 
     price minimum_cover_ask_price()const
     {

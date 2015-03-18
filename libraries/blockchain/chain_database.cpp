@@ -271,6 +271,7 @@ namespace bts { namespace blockchain {
              rec.delegate_info = delegate_stats();
              rec.delegate_info->pay_rate = 100;
              rec.set_signing_key( 0, delegate.owner );
+             rec.meta_data = account_meta_info( titan_account );
              self->store_account_record( rec );
          }
 
@@ -342,13 +343,11 @@ namespace bts { namespace blockchain {
          asset_record base_asset;
          base_asset.id = asset_id;
          base_asset.symbol = BTS_BLOCKCHAIN_SYMBOL;
+         base_asset.issuer_id = asset_record::god_issuer_id;
          base_asset.name = BTS_BLOCKCHAIN_NAME;
          base_asset.description = BTS_BLOCKCHAIN_DESCRIPTION;
-         base_asset.public_data = variant("");
-         base_asset.issuer_id = asset_record::god_issuer_id;
          base_asset.precision = BTS_BLOCKCHAIN_PRECISION;
-         base_asset.registration_date = timestamp;
-         base_asset.last_update = timestamp;
+         base_asset.max_supply = BTS_BLOCKCHAIN_MAX_SHARES;
          base_asset.current_supply = total_base_supply;
          base_asset.authority_flag_permissions = 0;
          base_asset.registration_date = timestamp;
@@ -357,23 +356,22 @@ namespace bts { namespace blockchain {
 
          for( const auto& asset : config.chip_assets )
          {
-            ++asset_id;
-            asset_record rec;
-            rec.id = asset_id;
-            rec.symbol = asset.symbol;
-            rec.name = asset.name;
-            rec.description = asset.description;
-            rec.public_data = variant("");
-            rec.issuer_id = asset_record::game_issuer_id;
-            rec.precision = asset.precision;
-            rec.registration_date = timestamp;
-            rec.last_update = timestamp;
-            rec.current_collateral = asset.init_collateral * BTS_BLOCKCHAIN_PRECISION;
-            rec.current_supply = asset.init_supply * asset.precision;
-            rec.max_supply = BTS_BLOCKCHAIN_MAX_SHARES;
-            rec.collected_fees = 0;
+             ++asset_id;
+             asset_record rec;
+             rec.id = asset_id;
+             rec.symbol = asset.symbol;
+             rec.issuer_id = asset_record::game_issuer_id;
+             rec.name = asset.name;
+             rec.description = asset.description;
+             rec.precision = asset.precision;
+             rec.max_supply = BTS_BLOCKCHAIN_MAX_SHARES;
+             rec.authority_flag_permissions = 0;
+             rec.registration_date = timestamp;
+             rec.last_update = timestamp;
+             rec.current_collateral = asset.init_collateral * BTS_BLOCKCHAIN_PRECISION;
+             rec.current_supply = asset.init_supply * asset.precision;
 
-            self->store_asset_record( rec );
+             self->store_asset_record( rec );
          }
 
          //add fork_data for the genesis block to the fork database
@@ -710,39 +708,45 @@ namespace bts { namespace blockchain {
                                               const pending_chain_state_ptr& pending_state,
                                               oblock_record& record )const
       { try {
-            // TODO: record paprameter is added in upstream, since play are using different algorithm than upstream, so need to check the usage of record in upstream
-            oaccount_record delegate_record = self->get_account_record( address( block_signee ) );
-            FC_ASSERT( delegate_record.valid() );
-            delegate_record = pending_state->get_account_record( delegate_record->id );
-            FC_ASSERT( delegate_record.valid() && delegate_record->is_delegate() && delegate_record->delegate_info.valid() );
+          oasset_record base_asset_record = pending_state->get_asset_record( asset_id_type( 0 ) );
+          FC_ASSERT( base_asset_record.valid() );
 
-            const uint8_t pay_rate_percent = delegate_record->delegate_info->pay_rate;
-            FC_ASSERT( pay_rate_percent >= 0 && pay_rate_percent <= 100 );
+          oaccount_record delegate_record = self->get_account_record( address( block_signee ) );
+          FC_ASSERT( delegate_record.valid() );
+          delegate_record = pending_state->get_account_record( delegate_record->id );
+          FC_ASSERT( delegate_record.valid() && delegate_record->is_delegate() && delegate_record->delegate_info.valid() );
 
-            const share_type max_available_paycheck = self->get_max_delegate_pay_issued_per_block();
-            const share_type accepted_paycheck = (max_available_paycheck * pay_rate_percent) / 100;
-            FC_ASSERT( max_available_paycheck >= accepted_paycheck );
-            FC_ASSERT( accepted_paycheck >= 0 );
+          const uint8_t pay_rate_percent = delegate_record->delegate_info->pay_rate;
+          FC_ASSERT( pay_rate_percent >= 0 && pay_rate_percent <= 100 );
 
-            delegate_record->delegate_info->votes_for += accepted_paycheck;
-            delegate_record->delegate_info->pay_balance += accepted_paycheck;
-            delegate_record->delegate_info->total_paid += accepted_paycheck;
-            pending_state->store_account_record( *delegate_record );
+          const share_type max_new_shares = self->get_max_delegate_pay_issued_per_block();
+          const share_type accepted_new_shares = (max_new_shares * pay_rate_percent) / 100;
+          FC_ASSERT( max_new_shares >= 0 && accepted_new_shares >= 0 );
+          base_asset_record->current_supply += accepted_new_shares;
 
-            oasset_record base_asset_record = pending_state->get_asset_record( asset_id_type( 0 ) );
-            FC_ASSERT( base_asset_record.valid() );
+          static const uint32_t blocks_per_two_weeks = 14 * BTS_BLOCKCHAIN_BLOCKS_PER_DAY;
+          const share_type max_collected_fees = base_asset_record->collected_fees / blocks_per_two_weeks;
+          const share_type accepted_collected_fees = (max_collected_fees * pay_rate_percent) / 100;
+          const share_type destroyed_collected_fees = max_collected_fees - accepted_collected_fees;
+          FC_ASSERT( max_collected_fees >= 0 && accepted_collected_fees >= 0 && destroyed_collected_fees >= 0 );
+          base_asset_record->collected_fees -= max_collected_fees;
+          base_asset_record->current_supply -= destroyed_collected_fees;
 
-            base_asset_record->collected_fees -= max_available_paycheck;
-            base_asset_record->current_supply -= (max_available_paycheck - accepted_paycheck);
-            pending_state->store_asset_record( *base_asset_record );
+          const share_type accepted_paycheck = accepted_new_shares + accepted_collected_fees;
+          FC_ASSERT( accepted_paycheck >= 0 );
+          delegate_record->delegate_info->votes_for += accepted_paycheck;
+          delegate_record->delegate_info->pay_balance += accepted_paycheck;
+          delegate_record->delegate_info->total_paid += accepted_paycheck;
 
-            // TODO: update the right suitable value for block record
-            if( record.valid() )
-            {
-                record->signee_shares_issued = 0;
-                record->signee_fees_collected = max_available_paycheck;
-                record->signee_fees_destroyed = (max_available_paycheck - accepted_paycheck);
-            }
+          pending_state->store_account_record( *delegate_record );
+          pending_state->store_asset_record( *base_asset_record );
+
+          if( record.valid() )
+          {
+              record->signee_shares_issued = accepted_new_shares;
+              record->signee_fees_collected = accepted_collected_fees;
+              record->signee_fees_destroyed = destroyed_collected_fees;
+          }
       } FC_CAPTURE_AND_RETHROW( (block_id)(block_signee)(record) ) }
 
       void chain_database_impl::save_undo_state( const uint32_t block_num,
@@ -852,10 +856,9 @@ namespace bts { namespace blockchain {
           else block_timestamp = block_header.timestamp;
           const auto& active_delegates = self->get_active_delegates();
 
-          for( ; block_timestamp < block_header.timestamp;
-                 block_timestamp += BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC )
+          for( ; block_timestamp < block_header.timestamp; block_timestamp += BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC )
           {
-              /* Note: Active delegate list has not been updated yet so we can use the timestamp */
+              /* Note: Active delegate list has not been updated yet so we can safely use the timestamp */
               delegate_id = self->get_slot_signee( block_timestamp, active_delegates ).id;
               delegate_record = pending_state->get_account_record( delegate_id );
               FC_ASSERT( delegate_record.valid() && delegate_record->is_delegate() );
@@ -995,9 +998,11 @@ namespace bts { namespace blockchain {
 
             game_executors::instance().execute( self->shared_from_this(), block_data.block_num, pending_state);
 
+#ifdef BTS_TEST_NETWORK
+            pending_state->check_supplies();
+#endif
             save_undo_state( block_data.block_num, block_id, pending_state );
 
-            // TODO: Verify idempotency
             pending_state->apply_changes();
 
             mark_included( block_id, true );
@@ -2329,7 +2334,7 @@ namespace bts { namespace blockchain {
    omarket_order chain_database::get_lowest_ask_record( const asset_id_type quote_id, const asset_id_type base_id )
    {
       omarket_order result;
-      auto itr = my->_ask_db.lower_bound( market_index_key( price(0,quote_id,base_id) ) );
+      auto itr = my->_ask_db.lower_bound( market_index_key( price( 0, quote_id, base_id ) ) );
       if( itr.valid() )
       {
          auto market_index = itr.key();
@@ -2483,9 +2488,7 @@ namespace bts { namespace blockchain {
        return optional<market_order>();
    } FC_CAPTURE_AND_RETHROW( (key) ) }
 
-   vector<market_order> chain_database::get_market_asks( const string& quote_symbol,
-                                                         const string& base_symbol,
-                                                         uint32_t limit )const
+   vector<market_order> chain_database::get_market_asks( const string& quote_symbol, const string& base_symbol, uint32_t limit )const
    { try {
        auto quote_asset_id = get_asset_id( quote_symbol );
        auto base_asset_id  = get_asset_id( base_symbol );
@@ -2615,7 +2618,7 @@ namespace bts { namespace blockchain {
                                                                    const asset_id_type base_id,
                                                                    const fc::time_point start_time,
                                                                    const fc::microseconds duration,
-                                                                   market_history_key::time_granularity_enum granularity)const
+                                                                   market_history_key::time_granularity_enum granularity )const
    {
       time_point_sec end_time = start_time + duration;
       auto record_itr = my->_market_history_db.lower_bound( market_history_key(quote_id, base_id, granularity, start_time) );
@@ -2632,12 +2635,12 @@ namespace bts { namespace blockchain {
              && record_itr.key().timestamp <= end_time )
       {
         history.push_back( {
-            record_itr.key().timestamp,
-            to_pretty_price( record_itr.value().highest_bid, false ),
-            to_pretty_price( record_itr.value().lowest_ask, false ),
-            to_pretty_price( record_itr.value().opening_price, false ),
-            to_pretty_price( record_itr.value().closing_price, false ),
-            record_itr.value().volume
+                             record_itr.key().timestamp,
+                             to_pretty_price( record_itr.value().highest_bid, false ),
+                             to_pretty_price( record_itr.value().lowest_ask, false ),
+                             to_pretty_price( record_itr.value().opening_price, false ),
+                             to_pretty_price( record_itr.value().closing_price, false ),
+                             record_itr.value().volume
                            } );
         ++record_itr;
       }
@@ -2934,45 +2937,45 @@ namespace bts { namespace blockchain {
        fc::json::save_to_file( snapshot, filename );
    } FC_CAPTURE_AND_RETHROW( (filename) ) }
 
-    unordered_map<asset_id_type, share_type> chain_database::calculate_supplies()const
-    { try {
-        unordered_map<asset_id_type, share_type> totals;
-        
-        for( auto iter = my->_account_id_to_record.unordered_begin(); iter != my->_account_id_to_record.unordered_end(); ++iter )
-        {
-            const account_record& account = iter->second;
-            if( account.delegate_info.valid() )
-                totals[ 0 ] += account.delegate_info->pay_balance;
-        }
-        
-        for( auto iter = my->_asset_id_to_record.unordered_begin(); iter != my->_asset_id_to_record.unordered_end(); ++iter )
-        {
-            const asset_record& asset = iter->second;
-            totals[ asset.id ] += asset.collected_fees;
-        }
-        
-        for( auto iter = my->_balance_id_to_record.unordered_begin(); iter != my->_balance_id_to_record.unordered_end(); ++iter )
-        {
-            const balance_record& balance = iter->second;
-            totals[ balance.asset_id() ] += balance.balance;
-        }
-        
-        for( auto iter = my->_ask_db.begin(); iter.valid(); ++iter )
-        {
-            const market_index_key& index = iter.key();
-            const order_record& ask = iter.value();
-            totals[ index.order_price.base_asset_id ] += ask.balance;
-        }
-        
-        for( auto iter = my->_bid_db.begin(); iter.valid(); ++iter )
-        {
-            const market_index_key& index = iter.key();
-            const order_record& bid = iter.value();
-            totals[ index.order_price.quote_asset_id ] += bid.balance;
-        }
-        
-        return totals;
-    } FC_CAPTURE_AND_RETHROW() }
+   unordered_map<asset_id_type, share_type> chain_database::calculate_supplies()const
+   { try {
+       unordered_map<asset_id_type, share_type> totals;
+
+       for( auto iter = my->_account_id_to_record.unordered_begin(); iter != my->_account_id_to_record.unordered_end(); ++iter )
+       {
+           const account_record& account = iter->second;
+           if( account.delegate_info.valid() )
+               totals[ 0 ] += account.delegate_info->pay_balance;
+       }
+
+       for( auto iter = my->_asset_id_to_record.unordered_begin(); iter != my->_asset_id_to_record.unordered_end(); ++iter )
+       {
+           const asset_record& asset = iter->second;
+           totals[ asset.id ] += asset.collected_fees;
+       }
+
+       for( auto iter = my->_balance_id_to_record.unordered_begin(); iter != my->_balance_id_to_record.unordered_end(); ++iter )
+       {
+           const balance_record& balance = iter->second;
+           totals[ balance.asset_id() ] += balance.balance;
+       }
+
+       for( auto iter = my->_ask_db.begin(); iter.valid(); ++iter )
+       {
+           const market_index_key& index = iter.key();
+           const order_record& ask = iter.value();
+           totals[ index.order_price.base_asset_id ] += ask.balance;
+       }
+
+       for( auto iter = my->_bid_db.begin(); iter.valid(); ++iter )
+       {
+           const market_index_key& index = iter.key();
+           const order_record& bid = iter.value();
+           totals[ index.order_price.quote_asset_id ] += bid.balance;
+       }
+
+       return totals;
+   } FC_CAPTURE_AND_RETHROW() }
 
    asset chain_database::unclaimed_genesis()
    { try {
