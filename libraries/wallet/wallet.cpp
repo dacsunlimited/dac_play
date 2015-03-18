@@ -3126,7 +3126,7 @@ namespace detail {
       
       auto asset_record = my->_blockchain->get_asset_record( asset_symbol );
       FC_ASSERT(asset_record.valid(), "no such asset record");
-      auto asset_issuer_account = my->_blockchain->get_account_record( asset_record->issuer_account_id );
+      auto asset_issuer_account = my->_blockchain->get_account_record( asset_record->issuer_id );
       FC_ASSERT(asset_issuer_account, "uh oh! no account for valid asset");
       
       required_signatures.insert( asset_issuer_account->active_key() );
@@ -3187,23 +3187,22 @@ namespace detail {
     
    wallet_transaction_record wallet::buy_chips(
                                          const string& from_account_name,
-                                         double real_quantity,
-                                         const string& quantity_symbol,
+                                         const asset& quantity,
                                          bool sign )
    { try {
        FC_ASSERT( is_open() );
        FC_ASSERT( is_unlocked() );
 
-       if( real_quantity <= 0 )
-           FC_CAPTURE_AND_THROW( negative_bid, (real_quantity) );
+       if( quantity.amount <= 0 )
+           FC_CAPTURE_AND_THROW( negative_bid, (quantity) );
 
-       if( quantity_symbol == BTS_BLOCKCHAIN_SYMBOL )
-           FC_CAPTURE_AND_THROW( invalid_price, (quantity_symbol) );
+       if( quantity.asset_id == 0 )
+           FC_CAPTURE_AND_THROW( invalid_price, (quantity) );
        
-       auto chip_asset_record  = my->_blockchain->get_asset_record( quantity_symbol );
+       auto chip_asset_record  = my->_blockchain->get_asset_record( quantity.asset_id );
        
        if( NOT chip_asset_record )
-           FC_CAPTURE_AND_THROW( unknown_asset_symbol, (quantity_symbol) );
+           FC_CAPTURE_AND_THROW( unknown_asset_symbol, (chip_asset_record->symbol) );
        
        double price = ( chip_asset_record->current_collateral * 1.0 ) / chip_asset_record->current_supply;
        
@@ -3211,9 +3210,9 @@ namespace detail {
       
        FC_ASSERT( from_account.valid() );
       
-       share_type cost = real_quantity * chip_asset_record->precision * price;
+       share_type cost = quantity.amount * price;
        
-       asset chips_to_buy( real_quantity * chip_asset_record->precision, chip_asset_record->id );
+       asset chips_to_buy( quantity );
        asset cost_shares( cost, 0 );
        
        auto order_key = my->get_new_public_key( from_account_name );
@@ -3237,7 +3236,7 @@ namespace detail {
        
        std::stringstream memo;
        // TODO: Dice the price here is not true, it is in satoshi.
-       memo << "buy " << real_quantity << " " << chip_asset_record->symbol << " @ ";
+       memo << "buy " << std::string(chips_to_buy) << " @ ";
        memo << price << " " << BTS_BLOCKCHAIN_SYMBOL;
        
        auto entry = ledger_entry();
@@ -3262,7 +3261,7 @@ namespace detail {
 
        return record;
    } FC_CAPTURE_AND_RETHROW( (from_account_name)
-                             (real_quantity)(quantity_symbol)(sign) ) }
+                             (quantity)(sign) ) }
 
    wallet_transaction_record wallet::uia_issue_to_many(
            const string& symbol,

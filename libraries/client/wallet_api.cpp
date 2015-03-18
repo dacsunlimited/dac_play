@@ -583,7 +583,7 @@ wallet_transaction_record detail::client_impl::wallet_mia_create(
     const uint64_t precision = asset_record::share_string_to_precision_unsafe( max_divisibility );
     const share_type max_supply = BTS_BLOCKCHAIN_MAX_SHARES;
 
-    auto record = _wallet->asset_register( payer_account, symbol, name, description, max_supply, precision, false, true );
+    auto record = _wallet->asset_register( payer_account, symbol, name, description, max_supply, precision, 0, 0, false, true );
     _wallet->cache_transaction( record );
     network_broadcast_transaction( record.trx );
 
@@ -601,7 +601,7 @@ wallet_transaction_record detail::client_impl::wallet_uia_create(
     const uint64_t precision = asset_record::share_string_to_precision_unsafe( max_supply_with_trailing_decimals );
     const share_type max_supply = asset_record::share_string_to_satoshi( max_supply_with_trailing_decimals, precision );
 
-    auto record = _wallet->asset_register( issuer_account, symbol, name, description, max_supply, precision, true, true );
+    auto record = _wallet->asset_register( issuer_account, symbol, name, description, max_supply, precision, 0, 0, true, true );
     _wallet->cache_transaction( record );
     network_broadcast_transaction( record.trx );
 

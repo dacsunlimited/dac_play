@@ -475,8 +475,7 @@ namespace bts { namespace wallet {
        
          wallet_transaction_record buy_chips(
                  const string& from_account_name,
-                 double real_quantity,
-                 const string& quantity_symbol,
+                 const asset& quantity,
                  bool sign
                  );
 

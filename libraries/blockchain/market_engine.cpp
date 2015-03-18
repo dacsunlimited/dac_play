@@ -432,6 +432,7 @@ namespace bts { namespace blockchain { namespace detail {
           FC_ASSERT( false, "_current_pass value is unknown" );
       }
       return false;
+      } FC_CAPTURE_AND_RETHROW()
   }
 
   bool market_engine::get_next_ask_order()

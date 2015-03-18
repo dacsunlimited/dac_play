@@ -26,16 +26,9 @@ namespace bts { namespace blockchain { namespace detail {
 
     bool get_next_bid();
     bool get_next_ask();
+    bool get_next_ask_order();
 
-    price minimum_cover_ask_price()const
-    {
-        FC_ASSERT( _feed_price.valid() );
-        price min_ask = *_feed_price;
-        min_ask.ratio *= 9;
-        min_ask.ratio /= 10;
-        return min_ask;
-    }
-   void handle_liquidation( const price& liqudation_price );
+    void handle_liquidation( const price& liqudation_price );
 
     /**
       *  This method should not affect market execution or validation and

@@ -4,11 +4,9 @@ using namespace bts::client;
 using namespace bts::client::detail;
 
 wallet_transaction_record client_impl::game_buy_chips(
-        const string& from_account,
-        double quantity, 
-        const string& quantity_symbol )
+        const std::string& from_account_name, const std::string& quantity, const std::string& quantity_symbol )
 {
-    auto record = _wallet->buy_chips(from_account, quantity, quantity_symbol, true);
+    auto record = _wallet->buy_chips(from_account_name, _chain_db->to_ugly_asset(quantity, quantity_symbol), true);
     _wallet->cache_transaction(record);
     network_broadcast_transaction(record.trx);
     return record;

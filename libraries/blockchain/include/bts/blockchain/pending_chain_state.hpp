@@ -84,8 +84,6 @@ namespace bts { namespace blockchain {
 
          void                           check_supplies()const;
 
-         void                           check_supplies()const;
-
          map<property_id_type, property_record>                             _property_id_to_record;
          set<property_id_type>                                              _property_id_remove;
 
