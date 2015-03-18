@@ -1361,6 +1361,49 @@
          "prerequisites" : ["wallet_unlocked"]
       },
       {
+          "method_name" : "wallet_gia_create",
+          "description" : "Create a new game(chip)-issued asset (Chip Asset) on the blockchain. Warning: creation fees can be very high!",
+          "return_type" : "transaction_record",
+          "parameters"  : [
+          {
+              "name" : "payer_account",
+              "type" : "string",
+              "description" : "The local account name that will pay the creation fee"
+          },
+          {
+              "name" : "symbol",
+              "type" : "asset_symbol",
+              "description" : "A unique symbol that will represent the new asset. Short symbols are very expensive!"
+          },
+          {
+              "name" : "name",
+              "type" : "string",
+              "description" : "A human-readable name for the new asset"
+          },
+          {
+              "name" : "description",
+              "type" : "string",
+              "description" : "A human-readable description of the new asset"
+          },
+          {
+              "name" : "max_divisibility",
+              "type" : "string",
+              "description" : "Choose the max share divisibility for the new asset. Must be an inverse power of ten. For example: 0.00001 or 1"
+          },
+          {
+              "name" : "init_supply",
+              "type" : "string",
+              "description" : "Choose the init share supply"
+          },
+          {
+              "name" : "init_collateral",
+              "type" : "string",
+              "description" : "Choose the init share collateral"
+          }
+          ],
+          "prerequisites" : ["wallet_unlocked"]
+      },
+      {
          "method_name" : "wallet_uia_create",
          "description" : "Create a new user-issued asset on the blockchain. Warning: creation fees can be very high!",
          "return_type" : "transaction_record",

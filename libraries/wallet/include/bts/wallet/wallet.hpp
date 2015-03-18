@@ -363,7 +363,7 @@ namespace bts { namespace wallet {
                  const uint64_t precision,
                  double initial_supply,
                  double initial_collateral,
-                 bool user_issued,
+                 signed_int issued_type,
                  bool sign
                  );
          wallet_transaction_record uia_issue_or_collect_fees(

@@ -2983,6 +2983,10 @@ namespace detail {
       return record;
    } FC_CAPTURE_AND_RETHROW( (account_to_register)(public_data)(pay_with_account_name)(delegate_pay_rate) ) }
 
+   /*
+    issued_type : 1, 0, -1, -2, -3
+    1 means user issued, otherwise is market issued or game issued
+    */
    wallet_transaction_record wallet::asset_register(
                  const string& responsible_account_name,
                  const string& symbol,
@@ -2992,7 +2996,7 @@ namespace detail {
                  const uint64_t precision,
                  double initial_supply,
                  double initial_collateral,
-                 bool user_issued,
+                 signed_int issued_type,
                  bool sign
                  )
    { try {
@@ -3011,7 +3015,7 @@ namespace detail {
       const asset required_fees( my->_blockchain->get_asset_registration_fee( symbol.size() ), 0 );
       my->withdraw_to_transaction( required_fees, responsible_account_name, trx, required_signatures );
 
-      const account_id_type issuer_id = user_issued ? account_record->id : asset_record::game_issuer_id;
+      const account_id_type issuer_id = issued_type > 0 ? account_record->id : issued_type;
       trx.create_asset( symbol, name, description, issuer_id, max_supply, precision, initial_supply, initial_collateral );
 
       // TODO: This is a hack to enable registering child assets
@@ -3031,7 +3035,7 @@ namespace detail {
 
       record.trx = trx;
       return record;
-   } FC_CAPTURE_AND_RETHROW( (responsible_account_name)(symbol)(name)(description)(max_supply)(precision)(user_issued)(sign) ) }
+   } FC_CAPTURE_AND_RETHROW( (responsible_account_name)(symbol)(name)(description)(max_supply)(precision)(issued_type)(sign) ) }
 
    wallet_transaction_record wallet::uia_issue_or_collect_fees(
            const bool issue_new,

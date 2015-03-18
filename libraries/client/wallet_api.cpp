@@ -583,12 +583,34 @@ wallet_transaction_record detail::client_impl::wallet_mia_create(
     const uint64_t precision = asset_record::share_string_to_precision_unsafe( max_divisibility );
     const share_type max_supply = BTS_BLOCKCHAIN_MAX_SHARES;
 
-    auto record = _wallet->asset_register( payer_account, symbol, name, description, max_supply, precision, 0, 0, false, true );
+    auto record = _wallet->asset_register( payer_account, symbol, name, description, max_supply, precision, 0, 0, asset_record::market_issuer_id, true );
     _wallet->cache_transaction( record );
     network_broadcast_transaction( record.trx );
 
     return record;
 } FC_CAPTURE_AND_RETHROW( (payer_account)(symbol)(name)(description)(max_divisibility) ) }
+    
+    wallet_transaction_record detail::client_impl::wallet_gia_create(
+                                                                     const string& payer_account,
+                                                                     const string& symbol,
+                                                                     const string& name,
+                                                                     const string& description,
+                                                                     const string& max_divisibility,
+                                                                     const string& init_supply,
+                                                                     const string& init_collateral
+                                                                     )
+    { try {
+        const uint64_t precision = asset_record::share_string_to_precision_unsafe( max_divisibility );
+        const share_type max_supply = BTS_BLOCKCHAIN_MAX_SHARES;
+        const share_type initial_supply = asset_record::share_string_to_satoshi(init_supply, precision);
+        const share_type initial_collateral = asset_record::share_string_to_satoshi(init_collateral, precision);
+        
+        auto record = _wallet->asset_register( payer_account, symbol, name, description, max_supply, precision, initial_supply, initial_collateral, asset_record::game_issuer_id, true );
+        _wallet->cache_transaction( record );
+        network_broadcast_transaction( record.trx );
+        
+        return record;
+    } FC_CAPTURE_AND_RETHROW( (payer_account)(symbol)(name)(description)(max_divisibility) ) }
 
 wallet_transaction_record detail::client_impl::wallet_uia_create(
         const string& issuer_account,
@@ -601,7 +623,7 @@ wallet_transaction_record detail::client_impl::wallet_uia_create(
     const uint64_t precision = asset_record::share_string_to_precision_unsafe( max_supply_with_trailing_decimals );
     const share_type max_supply = asset_record::share_string_to_satoshi( max_supply_with_trailing_decimals, precision );
 
-    auto record = _wallet->asset_register( issuer_account, symbol, name, description, max_supply, precision, 0, 0, true, true );
+    auto record = _wallet->asset_register( issuer_account, symbol, name, description, max_supply, precision, 0, 0, 1, true );
     _wallet->cache_transaction( record );
     network_broadcast_transaction( record.trx );
 
