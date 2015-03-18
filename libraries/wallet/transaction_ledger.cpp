@@ -410,9 +410,6 @@ wallet_transaction_record wallet_impl::scan_transaction(
             case create_asset_op_type:
                 store_record |= scan_create_asset( op.as<create_asset_operation>(), *transaction_record );
                 break;
-            case update_asset_op_type:
-                // TODO
-                break;
             case issue_asset_op_type:
                 store_record |= scan_issue_asset( op.as<issue_asset_operation>(), *transaction_record );
                 break;
@@ -438,7 +435,7 @@ wallet_transaction_record wallet_impl::scan_transaction(
                   transaction_record->ledger_entries.pop_back();
               }
 
-              for( const auto& yield_item : blockchain_trx_state->yield )
+              for( const auto& yield_item : blockchain_trx_state->yield_claimed )
               {
                  auto entry = ledger_entry();
                  entry.amount = asset( yield_item.second, yield_item.first );
@@ -449,7 +446,7 @@ wallet_transaction_record wallet_impl::scan_transaction(
                  self->wallet_claimed_transaction( transaction_record->ledger_entries.back() );
               }
 
-              if( !blockchain_trx_state->yield.empty() )
+              if( !blockchain_trx_state->yield_claimed.empty() )
                  _wallet_db.store_transaction( *transaction_record );
           }
        }
@@ -1381,11 +1378,19 @@ vector<pretty_transaction> wallet::get_pretty_transaction_history( const string&
     }
 
     /* Tally up running balances */
+    const bool end_before_head = end_block_num != -1
+                                 && end_block_num <= my->_blockchain->get_head_block_num();
+    const fc::time_point_sec now( my->_blockchain->now() );
     for( const auto& name : account_names )
     {
         map<asset_id_type, asset> running_balances;
         for( auto& trx : pretties )
         {
+            if( !trx.is_virtual && !trx.is_confirmed
+                    && ( end_before_head || trx.expiration_timestamp < now ) )
+            {
+                continue;
+            }
             const auto fee_asset_id = trx.fee.asset_id;
             if( running_balances.count( fee_asset_id ) <= 0 )
                 running_balances[ fee_asset_id ] = asset( 0, fee_asset_id );

@@ -27,7 +27,7 @@ namespace bts { namespace blockchain {
 
          virtual void                   store_transaction( const transaction_id_type&, const transaction_record&  ) override;
 
-         virtual omarket_status         get_market_status( const asset_id_type quote_id, const asset_id_type base_id )override;
+         virtual omarket_status         get_market_status( const asset_id_type quote_id, const asset_id_type base_id )const override;
 
          virtual void                   store_market_status( const market_status& s ) override;
 
@@ -45,13 +45,8 @@ namespace bts { namespace blockchain {
                                                                      const market_history_record& record )override;
          virtual omarket_history_record get_market_history_record( const market_history_key& key )const override;
 
-         /** apply changes from this pending state to the previous state */
-         virtual void                   apply_changes()const;
-
-         /** populate undo state with everything that would be necessary to revert this
-          * pending state to the previous state.
-          */
-         virtual void                   get_undo_state( const chain_interface_ptr& undo_state )const;
+         void                           apply_changes()const;
+         void                           get_undo_state( const chain_interface_ptr& undo_state )const;
 
          template<typename T, typename U>
          void populate_undo_state( const chain_interface_ptr& undo_state, const chain_interface_ptr& prev_state,
@@ -80,15 +75,15 @@ namespace bts { namespace blockchain {
              for( const auto& item : store_map ) prev_state->store( item.first, item.second );
          }
 
-         /** load the state from a variant */
-         virtual void                   from_variant( const variant& v );
-         /** convert the state to a variant */
-         virtual variant                to_variant()const;
+         void                           from_variant( const variant& v );
+         variant                        to_variant()const;
 
          virtual uint32_t               get_head_block_num()const override;
 
          virtual void                   set_market_transactions( vector<market_transaction> trxs )override;
          virtual void                   set_rule_result_transactions( vector<rule_result_transaction> trxs ) override;
+
+         void                           check_supplies()const;
 
          map<property_id_type, property_record>                             _property_id_to_record;
          set<property_id_type>                                              _property_id_remove;

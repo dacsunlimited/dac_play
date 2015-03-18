@@ -40,14 +40,14 @@ namespace bts { namespace game {
         if( this->odds < 1 || this->odds < this->guess || this->guess < 1)
             FC_CAPTURE_AND_THROW( invalid_dice_odds, (odds) );
         
-        auto dice_asset_record = eval_state._current_state->get_asset_record( "DICE" );
+        auto dice_asset_record = eval_state.pending_state()->get_asset_record( "DICE" );
         if( !dice_asset_record )
             FC_CAPTURE_AND_THROW( unknown_asset_symbol, ( eval_state.trx.id() ) );
         
         /*
          * For each transaction, there must be only one dice operatiion exist
          */
-        auto cur_record = eval_state._current_state->get_rule_data_record( type, eval_state.trx.id()._hash[0] );
+        auto cur_record = eval_state.pending_state()->get_rule_data_record( type, eval_state.trx.id()._hash[0] );
         if( cur_record )
             FC_CAPTURE_AND_THROW( duplicate_dice_in_transaction, ( eval_state.trx.id() ) );
         
@@ -56,7 +56,7 @@ namespace bts { namespace game {
         // this does not means the balance are now stored in balance record, just over pass the api
         // the dice record are not in any balance record, they are over-fly-on-sky..
         // TODO: Dice Review
-        eval_state.sub_balance(this->balance_id(), asset( this->amount, dice_asset_record->id ));
+        eval_state.sub_balance(asset( this->amount, dice_asset_record->id ));
         
         cur_data.id               = eval_state.trx.id();
         cur_data.amount           = this->amount;
@@ -66,7 +66,7 @@ namespace bts { namespace game {
         
         cur_record = rule_data_record(cur_data);
         
-        eval_state._current_state->store_rule_data_record(type, cur_data.id._hash[0], *cur_record );
+        eval_state.pending_state()->store_rule_data_record(type, cur_data.id._hash[0], *cur_record );
     }
     
     void dice_rule::execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
@@ -155,7 +155,7 @@ namespace bts { namespace game {
         // TODO: Dice The destoy part is not only the delegate now, but also the house edge, so should reflect it on ui.
         auto base_asset_record = pending_state->get_asset_record( asset_id_type(1) );
         FC_ASSERT( base_asset_record.valid() );
-        base_asset_record->current_share_supply += (shares_created - shares_destroyed);
+        base_asset_record->current_supply += (shares_created - shares_destroyed);
         pending_state->store_asset_record( *base_asset_record );
     }
     

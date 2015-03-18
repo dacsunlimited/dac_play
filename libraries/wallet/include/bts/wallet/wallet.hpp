@@ -1,5 +1,6 @@
 #pragma once
 
+#include <bts/blockchain/asset_operations.hpp>
 #include <bts/blockchain/chain_database.hpp>
 #include <bts/blockchain/transaction_creation_state.hpp>
 #include <bts/mail/message.hpp>
@@ -32,13 +33,6 @@ namespace bts { namespace wallet {
        active_delegate_status   = 1 << 1,
        disabled_delegate_status = 1 << 2,
        inactive_delegate_status = 1 << 3
-   };
-
-   enum account_key_type
-   {
-       owner_key    = 0,
-       active_key   = 1,
-       signing_key  = 2
    };
 
    class wallet : public std::enable_shared_from_this< wallet >
@@ -102,7 +96,7 @@ namespace bts { namespace wallet {
 
          void                   set_transaction_fee( const asset& fee );
          asset                  get_transaction_fee( const asset_id_type desired_fee_asset_id = 0 )const;
-         bool                   asset_can_pay_fee( const asset_id_type desired_fee_asset_id = 0 )const;
+         bool                   asset_can_pay_network_fee( const asset_id_type desired_fee_asset_id = 0 )const;
 
          void                   set_transaction_expiration( uint32_t secs );
          uint32_t               get_transaction_expiration()const;
@@ -145,7 +139,7 @@ namespace bts { namespace wallet {
          vector<wallet_transaction_record>          get_pending_transactions()const;
          map<transaction_id_type, fc::exception>    get_pending_transaction_errors()const;
 
-         void start_scan( const uint32_t start_block_num, const uint32_t limit );
+         void start_scan( const uint32_t start_block_num, const uint32_t limit, const bool async = true );
          void cancel_scan();
 
          wallet_transaction_record         scan_transaction( const string& transaction_id_prefix, bool overwrite_existing );
@@ -245,7 +239,6 @@ namespace bts { namespace wallet {
          public_key_type    get_new_public_key( const string& account_name );
          address            create_new_address( const string& account_name, const string& label = "");
 
-
          void               set_address_label( const address& addr, const string& label );
          string             get_address_label( const address& addr );
          void               set_address_group_label( const address& addr, const string& group_label );
@@ -265,28 +258,12 @@ namespace bts { namespace wallet {
 
          void cache_transaction( wallet_transaction_record& transaction_record );
 
-         /**
-          *  This transfer works like a bitcoin transaction combining multiple inputs
-          *  and producing a single output. The only different aspect with transfer_asset is that
-          *  this will send to a address.
-          */
-         wallet_transaction_record transfer_asset_to_address(
+         wallet_transaction_record transfer(
                  const asset& amount,
-                 const string& from_account_name,
-                 const address& to_address,
-                 const string& memo_message,
-                 vote_strategy selection_method,
-                 bool sign = true
-                 );
-         /**
-          * This transfer works like a bitcoin sendmany transaction combining multiple inputs
-          * and producing a single output.
-          */
-         wallet_transaction_record transfer_asset_to_many_address(
-                 const string& amount_to_transfer_symbol,
-                 const string& from_account_name,
-                 const unordered_map<address, double>& to_address_amounts,
-                 const string& memo_message,
+                 const string& sender_account_name,
+                 const string& generic_recipient,
+                 const string& memo,
+                 const vote_strategy strategy,
                  bool sign
                  );
          wallet_transaction_record burn_asset(
@@ -331,24 +308,23 @@ namespace bts { namespace wallet {
                  );
          wallet_transaction_record withdraw_delegate_pay(
                  const string& delegate_name,
-                 double amount_to_withdraw,
+                 const asset& amount,
                  const string& withdraw_to_account_name,
                  bool sign
                  );
          wallet_transaction_record publish_feeds(
                  const string& account,
-                 map<string,double> amount_per_xts,
+                 map<string,string> amount_per_xts,
                  bool sign
                  );
          vector<std::pair<string, wallet_transaction_record>>
                  publish_feeds_multi_experimental(
-                 map<string,double> amount_per_xts,
+                 map<string,string> amount_per_xts,
                  bool sign
                  );
          wallet_transaction_record publish_price(
                  const string& account,
-                 double amount_per_xts,
-                 const string& amount_asset_symbol,
+                 const price& new_price,
                  bool sign
                  );
          transaction_builder set_vote_info(
@@ -372,58 +348,56 @@ namespace bts { namespace wallet {
                  const string& memo_message,
                  bool sign
                  );
-         wallet_transaction_record asset_authorize_key(
-                 const string& paying_account_name,
-                 const string& symbol,
-                 const address& key,
-                 bool sign
-                 );
          wallet_transaction_record update_signing_key(
                  const string& authorizing_account_name,
                  const string& delegate_name,
                  const public_key_type& signing_key,
                  bool sign
                  );
-         wallet_transaction_record create_asset(
+         wallet_transaction_record asset_register(
+                 const string& responsible_account_name,
                  const string& symbol,
-                 const string& asset_name,
+                 const string& name,
                  const string& description,
-                 const variant& data,
-                 const string& issuer_name,
-                 double max_share_supply,
-                 uint64_t precision,
-                 bool is_market_issued,
+                 const share_type max_supply,
+                 const uint64_t precision,
                  double initial_supply,
                  double initial_collateral,
+                 bool chip_issued,
                  bool sign
                  );
-         wallet_transaction_record update_asset(
+         wallet_transaction_record uia_issue_or_collect_fees(
+                 const bool issue_new,
+                 const asset& amount,
+                 const string& generic_recipient,
+                 const string& memo,
+                 const bool sign
+                 );
+         wallet_transaction_record uia_issue_to_many(
                  const string& symbol,
-                 const optional<string>& name,
-                 const optional<string>& description,
-                 const optional<variant>& public_data,
-                 const optional<double>& maximum_share_supply,
-                 const optional<uint64_t>& precision,
-                 const share_type issuer_fee,
-                 double market_fee,
-                 uint32_t flags,
-                 uint32_t issuer_perms,
-                 const string& issuer_account_name,
-                 uint32_t required_sigs,
-                 const vector<address>& authority,
-                 bool sign
+                 const map<string, share_type>& addresses
                  );
-         wallet_transaction_record issue_asset(
-                 double amount,
-                 const string& symbol,
-                 const string& to_account_name,
-                 const string& memo_message,
-                 bool sign
+         wallet_transaction_record uia_update_properties(
+                 const string& paying_account,
+                 const string& asset_symbol,
+                 const asset_update_properties_operation& update_op,
+                 const bool sign
                  );
-         wallet_transaction_record issue_asset_to_addresses(
-               const string& symbol,
-               const map<string, share_type>& addresses );
-
+         wallet_transaction_record uia_update_permission_or_flag(
+                 const string& paying_account,
+                 const string& asset_symbol,
+                 const asset_record::flag_enum flag,
+                 const bool add_instead_of_remove,
+                 const bool update_authority_permission,
+                 const bool sign
+                 );
+         wallet_transaction_record uia_update_whitelist(
+                 const string& paying_account,
+                 const string& asset_symbol,
+                 const address& addr,
+                 const bool add_to_whitelist,
+                 const bool sign
+                 );
          /**
           *  ie: submit_bid( 10 BTC at 600.34 USD per BTC )
           *
@@ -578,9 +552,3 @@ namespace bts { namespace wallet {
    typedef std::weak_ptr<wallet> wallet_weak_ptr;
 
 } } // bts::wallet
-
-FC_REFLECT_ENUM( bts::wallet::account_key_type,
-        (owner_key)
-        (active_key)
-        (signing_key)
-        )

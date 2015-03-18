@@ -75,7 +75,7 @@ void light_wallet::fetch_welcome_package()
    {
       //Caveat: we need to already have cached the issuer's account if dealing with a UIA
       if( record.is_user_issued() )
-         get_account_record(fc::to_string(record.issuer_account_id));
+         get_account_record(fc::to_string(record.issuer_id));
       _chain_cache->store_asset_record(std::move(record));
    }
 }
@@ -315,7 +315,7 @@ fc::variant_object light_wallet::prepare_transfer(const string& amount,
                    create_one_time_key(from_account_name, fc::to_string(expiration.sec_since_epoch())),
                    memo, active_key(from_account_name));
 
-   creator.pay_fee(fee);
+   //creator.pay_fee(fee);
 
    creator.trx.expiration = expiration;
 
@@ -374,16 +374,18 @@ oprice light_wallet::get_median_feed_price( const string& symbol )
             _data->price_cache.erase( cached_price_itr );
       }
    }
-   double price_ratio = _rpc.blockchain_median_feed_price( symbol );
+   const string price_ratio = _rpc.blockchain_median_feed_price( symbol );
    oprice opt;
-   if( price_ratio != 0 )
+   if( price_ratio != "" )
    {
       auto base_rec = get_asset_record( BTS_BLOCKCHAIN_SYMBOL );
       auto quote_rec = get_asset_record( symbol );
       FC_ASSERT( base_rec && quote_rec );
 
-      opt = price( price_ratio * (double(quote_rec->precision) / base_rec->precision),
-                   quote_rec->id, base_rec->id );
+      opt = price();
+      opt->base_asset_id = base_rec->id;
+      opt->quote_asset_id = quote_rec->id;
+      opt->set_ratio_from_string( price_ratio );
    }
 
    if( opt && is_open() )
@@ -418,7 +420,7 @@ map<string, pair<double,double>> light_wallet::balance(const string& account_nam
          balances[record->symbol].second += balance.second.calculate_yield(blockchain::now(),
                                                                            balance.second.balance,
                                                                            record->collected_fees,
-                                                                           record->current_share_supply).amount / double(record->precision);
+                                                                           record->current_supply).amount / double(record->precision);
       }
    }
    return balances;
@@ -706,7 +708,7 @@ bts::wallet::transaction_ledger_entry light_wallet::summarize(const string& acco
                if( _relay_fee_collector && condition.owner == _relay_fee_collector->active_address() && !condition.memo )
                {
                   //Tally it up as fees, and don't show it in ledger
-                  record.balance[deposit.condition.asset_id] += deposit.amount;
+                  record.fees_paid[deposit.condition.asset_id] += deposit.amount;
                   continue;
                }
 
@@ -728,7 +730,7 @@ bts::wallet::transaction_ledger_entry light_wallet::summarize(const string& acco
                }
 
                //Record any yield
-               if( record.yield.count(asset_id) )
+               if( record.yield_claimed.count(asset_id) )
                {
                   auto& yields = summary.delta_amounts["Yield"];
                   auto asset_yield = std::find_if(yields.begin(), yields.end(),
@@ -736,9 +738,9 @@ bts::wallet::transaction_ledger_entry light_wallet::summarize(const string& acco
                                                      return a.asset_id == asset_id;
                                                   });
                   if( asset_yield != yields.end() )
-                     asset_yield->amount += record.yield[asset_id];
+                     asset_yield->amount += record.yield_claimed[asset_id];
                   else
-                     yields.emplace_back(record.yield[asset_id], asset_id);
+                     yields.emplace_back(record.yield_claimed[asset_id], asset_id);
                }
 
                raw_delta_amounts[summary.delta_labels[i]][asset_id] -= deposit.amount;
@@ -754,7 +756,7 @@ bts::wallet::transaction_ledger_entry light_wallet::summarize(const string& acco
       for( auto asset : delta.second )
          summary.delta_amounts[delta.first].emplace_back(asset.second, asset.first);
    if( tally_fees )
-      for( auto fee : record.balance )
+      for( auto fee : record.fees_paid )
          if( fee.second )
             summary.delta_amounts["Fee"].emplace_back(fee.second, fee.first);
 
