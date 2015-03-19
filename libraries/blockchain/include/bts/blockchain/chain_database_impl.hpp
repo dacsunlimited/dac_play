@@ -127,7 +127,7 @@ namespace bts { namespace blockchain {
             bts::db::fast_level_map<uint8_t, property_record>                           _property_id_to_record;
 
             bts::db::fast_level_map<game_id_type, game_record>                          _game_id_to_record;
-            bts::db::fast_level_map<string, game_id_type>                               _game_symbol_to_id;
+            bts::db::fast_level_map<string, game_id_type>                               _game_name_to_id;
             bts::db::fast_level_map<account_id_type, account_record>                    _account_id_to_record;
             bts::db::fast_level_map<string, account_id_type>                            _account_name_to_id;
             bts::db::fast_level_map<address, account_id_type>                           _account_address_to_id;

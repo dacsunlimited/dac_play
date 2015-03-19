@@ -1371,6 +1371,11 @@
               "description" : "The local account name that will pay the creation fee"
           },
           {
+              "name" : "game_name",
+              "type" : "string",
+              "description" : "The name of the game that can issue to this asset"
+          },
+          {
               "name" : "symbol",
               "type" : "asset_symbol",
               "description" : "A unique symbol that will represent the new asset. Short symbols are very expensive!"

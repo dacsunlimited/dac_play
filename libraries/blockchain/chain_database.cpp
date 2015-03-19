@@ -170,7 +170,7 @@ namespace bts { namespace blockchain {
           _rule_result_transactions_db.open( data_dir / "index/rule_result_transactions_db" );
           
           _game_id_to_record.open ( data_dir / "index/_game_id_to_record");
-          _game_symbol_to_id.open( data_dir / "index/game_symbol_to_id" );
+          _game_name_to_id.open( data_dir / "index/game_symbol_to_id" );
 
           _slot_index_to_record.open( data_dir / "index/slot_index_to_record" );
           _slot_timestamp_to_delegate.open( data_dir / "index/slot_timestamp_to_delegate" );
@@ -343,7 +343,8 @@ namespace bts { namespace blockchain {
          asset_record base_asset;
          base_asset.id = asset_id;
          base_asset.symbol = BTS_BLOCKCHAIN_SYMBOL;
-         base_asset.issuer_id = asset_record::god_issuer_id;
+         base_asset.issuer.type = asset_record::god_issuer_id;
+         base_asset.issuer.issuer_id = -1;
          base_asset.name = BTS_BLOCKCHAIN_NAME;
          base_asset.description = BTS_BLOCKCHAIN_DESCRIPTION;
          base_asset.precision = BTS_BLOCKCHAIN_PRECISION;
@@ -360,7 +361,9 @@ namespace bts { namespace blockchain {
              asset_record rec;
              rec.id = asset_id;
              rec.symbol = asset.symbol;
-             rec.issuer_id = asset_record::game_issuer_id;
+             rec.issuer.type = asset_record::game_issuer_id;
+             // TODO: No one can use the chip assets then
+             rec.issuer.issuer_id = -1;
              rec.name = asset.name;
              rec.description = asset.description;
              rec.precision = asset.precision;
@@ -1420,7 +1423,7 @@ namespace bts { namespace blockchain {
       my->_slot_timestamp_to_delegate.close();
 
       my->_game_id_to_record.close();
-      my->_game_symbol_to_id.close();
+      my->_game_name_to_id.close();
       my->_rule_data_db.close();
       my->_rule_result_transactions_db.close();
 
@@ -2156,8 +2159,8 @@ namespace bts { namespace blockchain {
     vector<game_record>        chain_database::get_games(const string& first, uint32_t limit)const
     { try {
         vector<game_record> records;
-        records.reserve( std::min( size_t( limit ), my->_game_symbol_to_id.size() ) );
-        for( auto iter = my->_game_symbol_to_id.ordered_lower_bound( first ); iter.valid(); ++iter )
+        records.reserve( std::min( size_t( limit ), my->_game_name_to_id.size() ) );
+        for( auto iter = my->_game_name_to_id.ordered_lower_bound( first ); iter.valid(); ++iter )
         {
             const ogame_record& record = lookup<game_record>( iter.value() );
             if( record.valid() ) records.push_back( *record );
@@ -3218,10 +3221,10 @@ namespace bts { namespace blockchain {
       return ogame_record();
    }
    
-   ogame_record chain_database::game_lookup_by_symbol( const string& symbol )const
+   ogame_record chain_database::game_lookup_by_name( const string& symbol )const
    {
-      const auto iter = my->_game_symbol_to_id.unordered_find( symbol );
-      if( iter != my->_game_symbol_to_id.unordered_end() ) return game_lookup_by_id( iter->second );
+      const auto iter = my->_game_name_to_id.unordered_find( symbol );
+      if( iter != my->_game_name_to_id.unordered_end() ) return game_lookup_by_id( iter->second );
       return ogame_record();
    }
    
@@ -3230,9 +3233,9 @@ namespace bts { namespace blockchain {
       my->_game_id_to_record.store( id, record );
    }
    
-   void chain_database::game_insert_into_symbol_map( const string& symbol, const game_id_type id )
+   void chain_database::game_insert_into_name_map( const string& symbol, const game_id_type id )
    {
-      my->_game_symbol_to_id.store( symbol, id );
+      my->_game_name_to_id.store( symbol, id );
    }
    
    void chain_database::game_erase_from_id_map( const game_id_type id )
@@ -3240,9 +3243,9 @@ namespace bts { namespace blockchain {
       my->_game_id_to_record.remove( id );
    }
    
-   void chain_database::game_erase_from_symbol_map( const string& symbol )
+   void chain_database::game_erase_from_name_map( const string& symbol )
    {
-      my->_game_symbol_to_id.remove( symbol );
+      my->_game_name_to_id.remove( symbol );
    }
 
    oslate_record chain_database::slate_lookup_by_id( const slate_id_type id )const

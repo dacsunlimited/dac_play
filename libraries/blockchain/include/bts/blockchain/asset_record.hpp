@@ -8,16 +8,17 @@ namespace bts { namespace blockchain {
 
 struct asset_record;
 typedef fc::optional<asset_record> oasset_record;
-
+    
 class chain_interface;
 struct asset_record
 {
     enum
     {
         god_issuer_id     =  0,
-        null_issuer_id    = -1,
-        market_issuer_id  = -2,
-        game_issuer_id    = -3
+        null_issuer_id    =  1,
+        market_issuer_id  =  2,
+        user_issuer_id    =  3,
+        game_issuer_id    =  4
     };
 
     enum flag_enum
@@ -29,10 +30,17 @@ struct asset_record
         retractable_balances    = 1 << 4, // Authority can withdraw from any balance or market order
         restricted_deposits     = 1 << 5  // Only whitelisted addresses can receive deposits (conflicting market executions will fail)
     };
+    
+    struct issuer_meta_info
+    {
+        uint8_t                 type = null_issuer_id;
+        
+        issuer_id_type          issuer_id = 0;
+    };
 
-    bool is_market_issued()const      { return issuer_id == market_issuer_id; };
-    bool is_user_issued()const        { return issuer_id > god_issuer_id; };
-    bool is_game_chip()const          { return issuer_id == game_issuer_id; }
+    bool is_market_issued()const      { return issuer.type == market_issuer_id; };
+    bool is_user_issued()const        { return issuer.type == user_issuer_id; };
+    bool is_game_issued()const        { return issuer.type == game_issuer_id; }
 
     bool authority_has_flag_permission( const flag_enum permission )const
     { return is_user_issued() && (authority_flag_permissions & permission); }
@@ -51,7 +59,7 @@ struct asset_record
     asset_id_type           id;
     string                  symbol;
 
-    account_id_type         issuer_id = null_issuer_id;
+    issuer_meta_info        issuer;
 
     multisig_meta_info      authority;
     uint32_t                authority_flag_permissions = uint32_t( -1 );
@@ -106,10 +114,14 @@ FC_REFLECT_ENUM( bts::blockchain::asset_record::flag_enum,
         (retractable_balances)
         (restricted_deposits)
         )
+FC_REFLECT(bts::blockchain::asset_record::issuer_meta_info,
+           (type)
+           (issuer_id)
+           )
 FC_REFLECT( bts::blockchain::asset_record,
         (id)
         (symbol)
-        (issuer_id)
+        (issuer)
         (authority)
         (authority_flag_permissions)
         (active_flags)

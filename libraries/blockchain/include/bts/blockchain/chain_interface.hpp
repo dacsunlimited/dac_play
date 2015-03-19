@@ -45,6 +45,7 @@ namespace bts { namespace blockchain {
          share_type                         get_delegate_registration_fee( uint8_t pay_rate )const;
          share_type                         get_asset_registration_fee( uint8_t symbol_length )const;
          share_type                         get_account_registration_fee( uint8_t name_length )const;
+         share_type                         get_game_registration_fee( uint8_t name_length )const;
 
          vector<account_id_type>            get_active_delegates()const;
          void                               set_active_delegates( const std::vector<account_id_type>& active_delegates );
@@ -137,7 +138,7 @@ namespace bts { namespace blockchain {
          void                               store_asset_record( const asset_record& record );
        
          ogame_record                       get_game_record( const game_id_type id )const;
-         ogame_record                       get_game_record( const std::string& symbol )const;
+         ogame_record                       get_game_record( const std::string& name )const;
          void                               store_game_record( const game_record& record );
 
          oslate_record                      get_slate_record( const slate_id_type id )const;

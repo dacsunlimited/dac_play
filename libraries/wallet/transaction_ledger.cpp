@@ -650,9 +650,9 @@ bool wallet_impl::scan_update_account( const update_account_operation& op, walle
 
 bool wallet_impl::scan_create_asset( const create_asset_operation& op, wallet_transaction_record& trx_rec )
 {
-   if( op.issuer_account_id != asset_record::market_issuer_id )
+   if( op.issuer_type == asset_record::user_issuer_id )
    {
-      auto oissuer = _blockchain->get_account_record( op.issuer_account_id );
+      auto oissuer = _blockchain->get_account_record( op.issuer_id );
       FC_ASSERT( oissuer.valid() );
       auto opt_key_rec = _wallet_db.lookup_key( oissuer->owner_key );
       if( opt_key_rec.valid() && opt_key_rec->has_private_key() )
@@ -673,6 +673,31 @@ bool wallet_impl::scan_create_asset( const create_asset_operation& op, wallet_tr
              }
          }
       }
+   } else if ( op.issuer_type == asset_record::game_issuer_id )
+   {
+       auto oissuer = _blockchain->get_game_record( op.issuer_id );
+       FC_ASSERT( oissuer.valid() );
+       auto oissuer_game_owner = _blockchain->get_account_record( oissuer->owner_account_id );
+       FC_ASSERT( oissuer.valid() );
+       auto opt_key_rec = _wallet_db.lookup_key( oissuer_game_owner->owner_key );
+       if( opt_key_rec.valid() && opt_key_rec->has_private_key() )
+       {
+           for( auto& entry : trx_rec.ledger_entries )
+           {
+               if( !entry.to_account.valid() )
+               {
+                   entry.to_account = oissuer_game_owner->owner_key;
+                   entry.amount = asset( 0 ); // Assume scan_withdraw came first
+                   entry.memo = "create " + op.symbol + " (" + op.name + ") for your game";
+                   return true;
+               }
+               else if( entry.to_account == oissuer_game_owner->owner_key )
+               {
+                   entry.amount = asset( 0 ); // Assume scan_withdraw came first
+                   return true;
+               }
+           }
+       }
    }
    return false;
 }

@@ -511,10 +511,10 @@ namespace bts { namespace blockchain {
       return prev_state->lookup<game_record>( id );
    }
    
-   ogame_record pending_chain_state::game_lookup_by_symbol( const string& symbol )const
+   ogame_record pending_chain_state::game_lookup_by_name( const string& symbol )const
    {
-      const auto iter = _game_symbol_to_id.find( symbol );
-      if( iter != _game_symbol_to_id.end() ) return _game_id_to_record.at( iter->second );
+      const auto iter = _game_name_to_id.find( symbol );
+      if( iter != _game_name_to_id.end() ) return _game_id_to_record.at( iter->second );
       const chain_interface_ptr prev_state = _prev_state.lock();
       if( !prev_state ) return ogame_record();
       const ogame_record record = prev_state->lookup<game_record>( symbol );
@@ -528,9 +528,9 @@ namespace bts { namespace blockchain {
       _game_id_to_record[ id ] = record;
    }
    
-   void pending_chain_state::game_insert_into_symbol_map( const string& symbol, const game_id_type id )
+   void pending_chain_state::game_insert_into_name_map( const string& symbol, const game_id_type id )
    {
-      _game_symbol_to_id[ symbol ] = id;
+      _game_name_to_id[ symbol ] = id;
    }
    
    void pending_chain_state::game_erase_from_id_map( const game_id_type id )
@@ -539,9 +539,9 @@ namespace bts { namespace blockchain {
       _game_id_remove.insert( id );
    }
    
-   void pending_chain_state::game_erase_from_symbol_map( const string& symbol )
+   void pending_chain_state::game_erase_from_name_map( const string& symbol )
    {
-      _game_symbol_to_id.erase( symbol );
+      _game_name_to_id.erase( symbol );
    }
 
    oslate_record pending_chain_state::slate_lookup_by_id( const slate_id_type id )const

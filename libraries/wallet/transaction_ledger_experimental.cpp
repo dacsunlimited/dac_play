@@ -357,16 +357,27 @@ void detail::wallet_impl::scan_transaction_experimental( const transaction_evalu
 
     const auto scan_create_asset = [&]( const create_asset_operation& op ) -> bool
     {
-        const oaccount_record account_record = _blockchain->get_account_record( op.issuer_account_id );
-        const string& account_name = account_record.valid() ? account_record->name : string( "MARKET" );
-
-        if( record.operation_notes.count( op_index ) == 0 )
+        if ( op.issuer_type == asset_record::user_issuer_id )
         {
-            const string note = account_name + " created asset " + op.symbol;
-            record.operation_notes[ op_index ] = note;
+            const oaccount_record account_record = _blockchain->get_account_record( op.issuer_id );
+            if ( account_record.valid() )
+            {
+                const string& account_name = account_record->name;
+                if( record.operation_notes.count( op_index ) == 0 )
+                {
+                    const string note = account_name + " created asset " + op.symbol;
+                    record.operation_notes[ op_index ] = note;
+                }
+                
+                return account_names.count( account_name ) > 0;
+            }
+        } else if ( op.issuer_type == asset_record::game_issuer_id )
+        {
+            // TODO: Do we need to scan for assets created for game
+            return false;
         }
-
-        return account_names.count( account_name ) > 0;
+        
+        return false;
     };
 
     const auto scan_issue_asset = [&]( const issue_asset_operation& op ) -> bool
@@ -377,8 +388,13 @@ void detail::wallet_impl::scan_transaction_experimental( const transaction_evalu
             string account_name = "GOD";
             if( asset_record.valid() )
             {
-                const oaccount_record account_record = _blockchain->get_account_record( asset_record->issuer_id );
-                account_name = account_record.valid() ? account_record->name : std::to_string( asset_record->issuer_id );
+                if ( asset_record->issuer.type == asset_record::user_issuer_id )
+                {
+                    const oaccount_record account_record = _blockchain->get_account_record( asset_record->issuer.issuer_id );
+                    account_name = account_record.valid() ? account_record->name : std::to_string( asset_record->issuer.issuer_id );
+                } else {
+                    // TODO game_issuer_id
+                }
             }
 
             const string delta_label = "ISSUER-" + account_name;

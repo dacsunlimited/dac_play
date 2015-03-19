@@ -15,12 +15,6 @@ namespace bts { namespace blockchain {
        static const operation_type_enum type;
 
        /**
-        * Symbols may only contain A-Z and 0-9 and up to 5
-        * characters and must be unique.
-        */
-       std::string      symbol;
-
-       /**
         * Names are a more complete description and may
         * contain any kind of characters or spaces.
         */
@@ -35,13 +29,10 @@ namespace bts { namespace blockchain {
        fc::variant      public_data;
 
        /**
-        *  Assets can only be issued by individuals that
+        *  Game only be issued by individuals that
         *  have registered a name.
         */
-       account_id_type  issuer_account_id;
-
-       /** The id of the asset used to play in this game */
-       asset_id_type    asset_id;
+       account_id_type  owner_account_id;
 
        rule_id_type     rule_id;
 
@@ -51,11 +42,9 @@ namespace bts { namespace blockchain {
 } } // bts::blockchain
 
 FC_REFLECT( bts::blockchain::create_game_operation,
-            (symbol)
             (name)
             (description)
             (public_data)
-            (issuer_account_id)
-            (asset_id)
+            (owner_account_id)
             (rule_id)
             )

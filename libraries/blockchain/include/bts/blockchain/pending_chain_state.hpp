@@ -98,7 +98,7 @@ namespace bts { namespace blockchain {
        
          unordered_map< game_id_type, game_record>                          _game_id_to_record;
          unordered_set<game_id_type>                                        _game_id_remove;
-         unordered_map<string, game_id_type>                                _game_symbol_to_id;
+         unordered_map<string, game_id_type>                                _game_name_to_id;
 
          unordered_map<slate_id_type, slate_record>                         _slate_id_to_record;
          unordered_set<slate_id_type>                                       _slate_id_remove;
@@ -165,13 +165,13 @@ namespace bts { namespace blockchain {
          virtual void asset_erase_from_symbol_map( const string& )override;
       
          virtual ogame_record game_lookup_by_id( const game_id_type )const override;
-         virtual ogame_record game_lookup_by_symbol( const string& )const override;
+         virtual ogame_record game_lookup_by_name( const string& )const override;
       
          virtual void game_insert_into_id_map( const game_id_type, const game_record& )override;
-         virtual void game_insert_into_symbol_map( const string&, const game_id_type )override;
+         virtual void game_insert_into_name_map( const string&, const game_id_type )override;
       
          virtual void game_erase_from_id_map( const game_id_type )override;
-         virtual void game_erase_from_symbol_map( const string& )override;
+         virtual void game_erase_from_name_map( const string& )override;
 
          virtual oslate_record slate_lookup_by_id( const slate_id_type )const override;
          virtual void slate_insert_into_id_map( const slate_id_type, const slate_record& )override;

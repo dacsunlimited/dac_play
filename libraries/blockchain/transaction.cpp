@@ -201,6 +201,7 @@ namespace bts { namespace blockchain {
    void transaction::create_asset( const string& symbol,
                                   const string& name,
                                   const string& description,
+                                  const uint8_t& issuer_type,
                                   const account_id_type issuer_id,
                                   const share_type max_supply,
                                   const uint64_t precision,
@@ -211,7 +212,8 @@ namespace bts { namespace blockchain {
       op.symbol = symbol;
       op.name = name;
       op.description = description;
-      op.issuer_account_id = issuer_id;
+      op.issuer_type = issuer_type;
+      op.issuer_id = issuer_id;
       op.maximum_share_supply = max_supply;
       op.precision = precision;
       op.initial_supply = initial_supply;
@@ -229,21 +231,17 @@ namespace bts { namespace blockchain {
         operations.push_back( op );
     }
     
-   void transaction::create_game( const std::string& symbol,
-                                   const std::string& name,
+   void transaction::create_game(  const std::string& name,
                                    const std::string& description,
                                    const fc::variant& data,
-                                   account_id_type issuer_id,
-                                   asset_id_type asset_id,
+                                   account_id_type owner_id,
                                    uint32_t rule_id )
    {
         create_game_operation op;
-        op.symbol = symbol;
         op.name = name;
         op.description = description;
         op.public_data = data;
-        op.issuer_account_id = issuer_id;
-        op.asset_id = asset_id;
+        op.owner_account_id = owner_id;
         op.rule_id = rule_id;
         operations.push_back( op );
    }

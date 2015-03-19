@@ -66,7 +66,8 @@ namespace bts { namespace blockchain {
       void create_asset( const string& symbol,
                          const string& name,
                          const string& description,
-                         const account_id_type issuer_id,
+                         const uint8_t& issuer_type,
+                         const issuer_id_type issuer_id,
                          const share_type max_supply,
                          const uint64_t precision,
                          const share_type initial_supply,
@@ -75,12 +76,10 @@ namespace bts { namespace blockchain {
       void buy_chips( const asset& quantity,
                      const address& owner );
       
-      void create_game( const std::string& symbol,
-                       const std::string& name,
+      void create_game( const std::string& name,
                        const std::string& description,
                        const fc::variant& data,
-                       account_id_type issuer_id,
-                       asset_id_type asset_id,
+                       account_id_type owner_id,
                        uint32_t rule_id );
 
       void burn( const asset& quantity,

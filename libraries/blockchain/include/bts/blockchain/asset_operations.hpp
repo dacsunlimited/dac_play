@@ -19,13 +19,14 @@ struct create_asset_operation
     string          description;
     variant         public_data;
 
-    account_id_type issuer_account_id;
+    uint8_t         issuer_type;
+    issuer_id_type  issuer_id;
 
     share_type      maximum_share_supply = 0;
     uint64_t        precision = 0;
    
-    share_type       initial_supply = 1;
-    share_type       initial_collateral = 1;
+    share_type      initial_supply = 1;
+    share_type      initial_collateral = 1;
 
     void evaluate( transaction_evaluation_state& eval_state )const;
 };
@@ -91,7 +92,8 @@ FC_REFLECT( bts::blockchain::create_asset_operation,
         (name)
         (description)
         (public_data)
-        (issuer_account_id)
+        (issuer_type)
+        (issuer_id)
         (maximum_share_supply)
         (precision)
         )

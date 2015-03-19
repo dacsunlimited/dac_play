@@ -769,9 +769,8 @@ string pretty_asset_list( const vector<asset_record>& asset_records, cptr client
         out << std::setw( 24 ) << pretty_shorten( asset_record.name, 23 );
         out << std::setw( 48 ) << pretty_shorten( asset_record.description, 47 );
 
-        const auto issuer_id = asset_record.issuer_id;
         const auto supply = asset( asset_record.current_supply, asset_id );
-        if( issuer_id == 0 )
+        if( asset_record.issuer.type == 0 )
         {
             out << std::setw( 32 ) << "GENESIS";
             out << std::setw( 10 ) << "N/A";
@@ -781,9 +780,24 @@ string pretty_asset_list( const vector<asset_record>& asset_records, cptr client
             out << std::setw( 32 ) << "MARKET";
             out << std::setw( 10 ) << "N/A";
         }
+        else if ( asset_record.is_game_issued() )
+        {
+            const auto game_record = client->get_chain()->get_game_record( asset_record.issuer.issuer_id );
+            if ( game_record.valid() )
+            {
+                out << std::setw( 32 ) << "GAME "<< pretty_shorten( game_record->name, 31 );
+                out << std::setw( 10 ) << "N/A";
+            }
+            else
+            {
+                out << std::setw( 32 ) << "GAME ";
+                out << std::setw( 10 ) << "N/A";
+
+            }
+        }
         else
         {
-            const auto account_record = client->get_chain()->get_account_record( issuer_id );
+            const auto account_record = client->get_chain()->get_account_record( asset_record.issuer.issuer_id );
             if( account_record.valid() )
                 out << std::setw( 32 ) << pretty_shorten( account_record->name, 31 );
             else

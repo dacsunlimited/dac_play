@@ -101,11 +101,13 @@ FC_DECLARE_DERIVED_EXCEPTION( price_multiplication_undefined,   bts::blockchain:
 FC_DECLARE_DERIVED_EXCEPTION( invalid_dice_odds,                 bts::blockchain::evaluation_error, 100000, "invalid dice odds" );
 FC_DECLARE_DERIVED_EXCEPTION( duplicate_dice_in_transaction,     bts::blockchain::evaluation_error, 100001, "duplicate dice in transactions" );
 FC_DECLARE_DERIVED_EXCEPTION( invalid_chip_symbol,               bts::blockchain::evaluation_error, 100002, "invalid chip symbol" );
-FC_DECLARE_DERIVED_EXCEPTION( game_symbol_in_use,                bts::blockchain::evaluation_error, 100003,
+FC_DECLARE_DERIVED_EXCEPTION( game_name_in_use,                  bts::blockchain::evaluation_error, 100003,
        "game symbol in use" );
 FC_DECLARE_DERIVED_EXCEPTION( invalid_game_name,                 bts::blockchain::evaluation_error, 100004,
                                 "invalid game name" );
 FC_DECLARE_DERIVED_EXCEPTION( game_id_in_use,                    bts::blockchain::evaluation_error, 100005,
                                  "game id in use" );
+FC_DECLARE_DERIVED_EXCEPTION( unknown_game_id,                   bts::blockchain::evaluation_error, 100006, "unknown game id" );
+FC_DECLARE_DERIVED_EXCEPTION( unknown_game,                      bts::blockchain::evaluation_error, 100007, "unknown game" );
 
 } } // bts::blockchain

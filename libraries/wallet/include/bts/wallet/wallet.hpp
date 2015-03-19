@@ -363,7 +363,8 @@ namespace bts { namespace wallet {
                  const uint64_t precision,
                  double initial_supply,
                  double initial_collateral,
-                 signed_int issued_type,
+                 uint8_t issued_type,
+                 issuer_id_type issuer_id,
                  bool sign
                  );
          wallet_transaction_record uia_issue_or_collect_fees(
@@ -460,14 +461,12 @@ namespace bts { namespace wallet {
                  );
        
          wallet_transaction_record create_game(
-                                                     const string& symbol,
                                                      const string& game_name,
                                                      const string& description,
                                                      const variant& data,
-                                                     const string& issuer_account_name,
-                                                     const string& asset_symbol,
+                                                     const string& owner_account_name,
                                                      uint32_t rule_id,
-                                                       bool sign );
+                                                     bool sign );
        
          wallet_transaction_record play_game( const string& symbol,
                                            const variant& params,

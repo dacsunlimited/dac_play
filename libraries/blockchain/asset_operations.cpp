@@ -58,12 +58,24 @@ void create_asset_operation::evaluate( transaction_evaluation_state& eval_state 
     if( current_asset_record.valid() )
         FC_CAPTURE_AND_THROW( asset_id_in_use, (asset_id) );
 
-    oaccount_record issuer_account_record;
-    if( issuer_account_id != asset_record::market_issuer_id )
+    oaccount_record authority_account_record;
+    if ( issuer_type == asset_record::user_issuer_id )
     {
-        issuer_account_record = eval_state.pending_state()->get_account_record( this->issuer_account_id );
+        auto issuer_account_record = eval_state.pending_state()->get_account_record( this->issuer_id );
         if( !issuer_account_record.valid() )
-            FC_CAPTURE_AND_THROW( unknown_account_id, (issuer_account_id) );
+            FC_CAPTURE_AND_THROW( unknown_account_id, (issuer_id) );
+        
+        authority_account_record = issuer_account_record;
+    } else if ( issuer_type == asset_record::game_issuer_id )
+    {
+        auto issuer_game_record = eval_state.pending_state()->get_game_record( this->issuer_id );
+        if ( !issuer_game_record.valid() )
+            FC_CAPTURE_AND_THROW(unknown_game_id, (issuer_id) );
+        
+        authority_account_record = eval_state.pending_state()->get_account_record( issuer_game_record->owner_account_id );
+        
+        if( !authority_account_record.valid() )
+            FC_CAPTURE_AND_THROW( unknown_account_id, (issuer_game_record->owner_account_id) );
     }
 
     if( this->maximum_share_supply <= 0 || this->maximum_share_supply > BTS_BLOCKCHAIN_MAX_SHARES )
@@ -80,11 +92,12 @@ void create_asset_operation::evaluate( transaction_evaluation_state& eval_state 
     new_record.id                 = eval_state.pending_state()->new_asset_id();
     new_record.symbol             = this->symbol;
 
-    new_record.issuer_id          = this->issuer_account_id;
+    new_record.issuer.type        = this->issuer_type;
+    new_record.issuer.issuer_id   = this->issuer_id;
 
-    if( issuer_account_record.valid() )
+    if( authority_account_record.valid() )
     {
-        new_record.authority.owners.insert( issuer_account_record->active_key() );
+        new_record.authority.owners.insert( authority_account_record->active_key() );
         new_record.authority.required = 1;
     }
 
@@ -165,7 +178,7 @@ void asset_update_properties_operation::evaluate( transaction_evaluation_state& 
         if( !account_record.valid() )
             FC_CAPTURE_AND_THROW( unknown_account_id, (*this->issuer_id) );
 
-        current_asset_record->issuer_id = *this->issuer_id;
+        current_asset_record->issuer.issuer_id = *this->issuer_id;
     }
 
     if( this->name.valid() )

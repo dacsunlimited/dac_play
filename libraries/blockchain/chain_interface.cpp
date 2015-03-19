@@ -179,6 +179,27 @@ namespace bts { namespace blockchain {
            return short_name_price;
        }
    }
+    
+    share_type chain_interface::get_game_registration_fee( uint8_t name_length )const
+    {
+        // names with length >= 6 will cost extra 1 PLS, but for names less than 6 length
+        // 1 character will cost 100000 PLS, 2 cost 10000 PLS etc.
+        if ( name_length > 6 )
+        {
+            return 1 * BTS_BLOCKCHAIN_PRECISION;
+        } else
+        {
+            uint8_t len = 7 - name_length;
+            share_type short_name_price = 1 * BTS_BLOCKCHAIN_PRECISION;
+            
+            while (len != 0) {
+                short_name_price *= 10;
+                --len;
+            }
+            
+            return short_name_price;
+        }
+    }
 
    asset_id_type chain_interface::last_asset_id()const
    { try {
@@ -393,10 +414,10 @@ namespace bts { namespace blockchain {
         return lookup<game_record>( id );
     } FC_CAPTURE_AND_RETHROW( (id) ) }
     
-    ogame_record chain_interface::get_game_record( const string& symbol )const
+    ogame_record chain_interface::get_game_record( const string& name )const
     { try {
-        return lookup<game_record>( symbol );
-    } FC_CAPTURE_AND_RETHROW( (symbol) ) }
+        return lookup<game_record>( name );
+    } FC_CAPTURE_AND_RETHROW( (name) ) }
     
     void chain_interface::store_game_record( const game_record& record )
     { try {
