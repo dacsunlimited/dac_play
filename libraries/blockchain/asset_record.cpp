@@ -110,7 +110,7 @@ namespace bts { namespace blockchain {
     { try {
         FC_ASSERT( id >= 0 );
         FC_ASSERT( !symbol.empty() );
-        FC_ASSERT( id == 0 || issuer_id == market_issuer_id || db.lookup<account_record>( issuer_id ).valid() );
+        FC_ASSERT( id == 0 || issuer.type == market_issuer_id || ( issuer.type == user_issuer_id && db.lookup<account_record>( issuer.issuer_id ).valid() ) || ( issuer.type == game_issuer_id && db.lookup<game_record>( issuer.issuer_id ).valid() ) );
         FC_ASSERT( !is_user_issued() || (authority.required > 0 && !authority.owners.empty()) );
         FC_ASSERT( !name.empty() );
         FC_ASSERT( is_power_of_ten( precision ) );
