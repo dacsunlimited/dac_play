@@ -2994,8 +2994,8 @@ namespace detail {
                  const string& description,
                  const share_type max_supply,
                  const uint64_t precision,
-                 double initial_supply,
-                 double initial_collateral,
+                 share_type initial_supply,
+                 share_type initial_collateral,
                  uint8_t issued_type,
                  issuer_id_type issuer_id,
                  bool sign
@@ -3013,13 +3013,27 @@ namespace detail {
 
       trx.expiration = blockchain::now() + get_transaction_expiration();
 
-      const asset required_fees( my->_blockchain->get_asset_registration_fee( symbol.size() ), 0 );
+      asset required_fees( my->_blockchain->get_asset_registration_fee( symbol.size() ), 0 );
+      required_fees += asset(initial_collateral, 0);
       my->withdraw_to_transaction( required_fees, responsible_account_name, trx, required_signatures );
       
       trx.create_asset( symbol, name, description, issued_type, issuer_id, max_supply, precision, initial_supply, initial_collateral );
 
       // TODO: This is a hack to enable registering child assets
       required_signatures.insert( account_record->active_address() );
+       
+       if ( initial_supply > 0 && issued_type == asset_record::game_issuer_id )
+       {
+           // TODO: There could be problem when two people create the same asset at the same time
+           // Or move the process of initializing supply and collateral to the action of creating game
+           asset inital_supply_future(initial_supply, my->_blockchain->last_asset_id() + 1);
+           
+           const string memo_message = "initial supply";
+           const wallet_contact_record recipient = my->generic_recipient_to_contact( responsible_account_name );
+           
+           const public_key_type recipient_key = my->deposit_from_transaction( trx, inital_supply_future, *account_record, recipient, memo_message );
+       }
+       
 
       auto entry = ledger_entry();
       entry.from_account = account_record->owner_key;
@@ -3210,7 +3224,7 @@ namespace detail {
       
        share_type cost = quantity.amount * price;
        
-       asset chips_to_buy( quantity );
+       asset chips_to_buy( quantity.amount, quantity.asset_id );
        asset cost_shares( cost, 0 );
        
        auto order_key = my->get_new_public_key( from_account_name );

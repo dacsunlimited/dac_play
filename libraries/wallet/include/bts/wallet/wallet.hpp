@@ -361,8 +361,8 @@ namespace bts { namespace wallet {
                  const string& description,
                  const share_type max_supply,
                  const uint64_t precision,
-                 double initial_supply,
-                 double initial_collateral,
+                 share_type initial_supply,
+                 share_type initial_collateral,
                  uint8_t issued_type,
                  issuer_id_type issuer_id,
                  bool sign

@@ -96,6 +96,8 @@ FC_REFLECT( bts::blockchain::create_asset_operation,
         (issuer_id)
         (maximum_share_supply)
         (precision)
+        (initial_supply)
+        (initial_collateral)
         )
 FC_REFLECT( bts::blockchain::issue_asset_operation,
         (amount)

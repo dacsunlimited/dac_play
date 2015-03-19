@@ -110,8 +110,16 @@ void create_asset_operation::evaluate( transaction_evaluation_state& eval_state 
 
     new_record.registration_date  = eval_state.pending_state()->now();
     new_record.last_update        = new_record.registration_date;
+    new_record.current_supply     = this->initial_supply;
+    new_record.current_collateral = this->initial_collateral;
 
     eval_state.pending_state()->store_asset_record( new_record );
+    
+    const asset initial_supply(this->initial_supply, new_record.id);
+    eval_state.add_balance( initial_supply );
+    
+    const asset initial_collateral(this->initial_collateral, 0);
+    eval_state.sub_balance(initial_collateral);
 } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
 void issue_asset_operation::evaluate( transaction_evaluation_state& eval_state )const

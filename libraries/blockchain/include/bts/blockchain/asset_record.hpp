@@ -135,6 +135,7 @@ FC_REFLECT( bts::blockchain::asset_record,
         (market_fee_rate)
         (collected_fees)
         (current_supply)
+        (current_collateral)
         (registration_date)
         (last_update)
         )
