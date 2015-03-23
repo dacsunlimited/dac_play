@@ -33,9 +33,9 @@ BitShares OS X Build Instructions
    
    Tip 2: 2.3 or above required. https://github.com/bitsuperlab/bitshares_play/issues/76
 
-7. Clone the BitShares repository:
+7. Clone the BitShares PLAY repository:
    ```
-   git clone git@github.com:BitShares/bitshares.git
+   git clone git@github.com:bitsuperlab/bitshares_play.git
    cd bitshares
    ```
 
