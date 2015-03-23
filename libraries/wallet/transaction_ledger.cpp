@@ -410,9 +410,6 @@ wallet_transaction_record wallet_impl::scan_transaction(
             case create_asset_op_type:
                 store_record |= scan_create_asset( op.as<create_asset_operation>(), *transaction_record );
                 break;
-            case update_asset_op_type:
-                // TODO
-                break;
             case issue_asset_op_type:
                 store_record |= scan_issue_asset( op.as<issue_asset_operation>(), *transaction_record );
                 break;
@@ -438,7 +435,7 @@ wallet_transaction_record wallet_impl::scan_transaction(
                   transaction_record->ledger_entries.pop_back();
               }
 
-              for( const auto& yield_item : blockchain_trx_state->yield )
+              for( const auto& yield_item : blockchain_trx_state->yield_claimed )
               {
                  auto entry = ledger_entry();
                  entry.amount = asset( yield_item.second, yield_item.first );
@@ -449,7 +446,7 @@ wallet_transaction_record wallet_impl::scan_transaction(
                  self->wallet_claimed_transaction( transaction_record->ledger_entries.back() );
               }
 
-              if( !blockchain_trx_state->yield.empty() )
+              if( !blockchain_trx_state->yield_claimed.empty() )
                  _wallet_db.store_transaction( *transaction_record );
           }
        }
@@ -653,9 +650,9 @@ bool wallet_impl::scan_update_account( const update_account_operation& op, walle
 
 bool wallet_impl::scan_create_asset( const create_asset_operation& op, wallet_transaction_record& trx_rec )
 {
-   if( op.issuer_account_id != asset_record::market_issuer_id )
+   if( op.issuer_type == asset_record::user_issuer_id )
    {
-      auto oissuer = _blockchain->get_account_record( op.issuer_account_id );
+      auto oissuer = _blockchain->get_account_record( op.issuer_id );
       FC_ASSERT( oissuer.valid() );
       auto opt_key_rec = _wallet_db.lookup_key( oissuer->owner_key );
       if( opt_key_rec.valid() && opt_key_rec->has_private_key() )
@@ -676,6 +673,31 @@ bool wallet_impl::scan_create_asset( const create_asset_operation& op, wallet_tr
              }
          }
       }
+   } else if ( op.issuer_type == asset_record::game_issuer_id )
+   {
+       auto oissuer = _blockchain->get_game_record( op.issuer_id );
+       FC_ASSERT( oissuer.valid() );
+       auto oissuer_game_owner = _blockchain->get_account_record( oissuer->owner_account_id );
+       FC_ASSERT( oissuer.valid() );
+       auto opt_key_rec = _wallet_db.lookup_key( oissuer_game_owner->owner_key );
+       if( opt_key_rec.valid() && opt_key_rec->has_private_key() )
+       {
+           for( auto& entry : trx_rec.ledger_entries )
+           {
+               if( !entry.to_account.valid() )
+               {
+                   entry.to_account = oissuer_game_owner->owner_key;
+                   entry.amount = asset( 0 ); // Assume scan_withdraw came first
+                   entry.memo = "create " + op.symbol + " (" + op.name + ") for your game";
+                   return true;
+               }
+               else if( entry.to_account == oissuer_game_owner->owner_key )
+               {
+                   entry.amount = asset( 0 ); // Assume scan_withdraw came first
+                   return true;
+               }
+           }
+       }
    }
    return false;
 }
@@ -1381,11 +1403,19 @@ vector<pretty_transaction> wallet::get_pretty_transaction_history( const string&
     }
 
     /* Tally up running balances */
+    const bool end_before_head = end_block_num != -1
+                                 && end_block_num <= my->_blockchain->get_head_block_num();
+    const fc::time_point_sec now( my->_blockchain->now() );
     for( const auto& name : account_names )
     {
         map<asset_id_type, asset> running_balances;
         for( auto& trx : pretties )
         {
+            if( !trx.is_virtual && !trx.is_confirmed
+                    && ( end_before_head || trx.expiration_timestamp < now ) )
+            {
+                continue;
+            }
             const auto fee_asset_id = trx.fee.asset_id;
             if( running_balances.count( fee_asset_id ) <= 0 )
                 running_balances[ fee_asset_id ] = asset( 0, fee_asset_id );

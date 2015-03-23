@@ -215,7 +215,7 @@ void detail::wallet_impl::scan_transaction_experimental( const transaction_evalu
         {
             return collect_balance( op.balance_id, delta_amount );
         };
-        return eval_state.scan_deltas( op_index, scan_delta );
+        return eval_state.scan_op_deltas( op_index, scan_delta );
     };
 
     // TODO: Recipient address label and memo message needs to be saved at time of creation by sender
@@ -298,7 +298,7 @@ void detail::wallet_impl::scan_transaction_experimental( const transaction_evalu
                 return collect_balance( balance_id, delta_amount );
             };
 
-            return eval_state.scan_deltas( op_index, scan_delta );
+            return eval_state.scan_op_deltas( op_index, scan_delta );
         };
 
         switch( withdraw_condition_types( op.condition.type ) )
@@ -352,21 +352,32 @@ void detail::wallet_impl::scan_transaction_experimental( const transaction_evalu
             return account_names.count( account_name ) > 0;
         };
 
-        return eval_state.scan_deltas( op_index, scan_delta );
+        return eval_state.scan_op_deltas( op_index, scan_delta );
     };
 
     const auto scan_create_asset = [&]( const create_asset_operation& op ) -> bool
     {
-        const oaccount_record account_record = _blockchain->get_account_record( op.issuer_account_id );
-        const string& account_name = account_record.valid() ? account_record->name : string( "MARKET" );
-
-        if( record.operation_notes.count( op_index ) == 0 )
+        if ( op.issuer_type == asset_record::user_issuer_id )
         {
-            const string note = account_name + " created asset " + op.symbol;
-            record.operation_notes[ op_index ] = note;
+            const oaccount_record account_record = _blockchain->get_account_record( op.issuer_id );
+            if ( account_record.valid() )
+            {
+                const string& account_name = account_record->name;
+                if( record.operation_notes.count( op_index ) == 0 )
+                {
+                    const string note = account_name + " created asset " + op.symbol;
+                    record.operation_notes[ op_index ] = note;
+                }
+                
+                return account_names.count( account_name ) > 0;
+            }
+        } else if ( op.issuer_type == asset_record::game_issuer_id )
+        {
+            // TODO: Do we need to scan for assets created for game
+            return false;
         }
-
-        return account_names.count( account_name ) > 0;
+        
+        return false;
     };
 
     const auto scan_issue_asset = [&]( const issue_asset_operation& op ) -> bool
@@ -377,8 +388,13 @@ void detail::wallet_impl::scan_transaction_experimental( const transaction_evalu
             string account_name = "GOD";
             if( asset_record.valid() )
             {
-                const oaccount_record account_record = _blockchain->get_account_record( asset_record->issuer_account_id );
-                account_name = account_record.valid() ? account_record->name : std::to_string( asset_record->issuer_account_id );
+                if ( asset_record->issuer.type == asset_record::user_issuer_id )
+                {
+                    const oaccount_record account_record = _blockchain->get_account_record( asset_record->issuer.issuer_id );
+                    account_name = account_record.valid() ? account_record->name : std::to_string( asset_record->issuer.issuer_id );
+                } else {
+                    // TODO game_issuer_id
+                }
             }
 
             const string delta_label = "ISSUER-" + account_name;
@@ -387,7 +403,7 @@ void detail::wallet_impl::scan_transaction_experimental( const transaction_evalu
             return account_names.count( account_name ) > 0;
         };
 
-        return eval_state.scan_deltas( op_index, scan_delta );
+        return eval_state.scan_op_deltas( op_index, scan_delta );
     };
 
     const auto scan_bid = [&]( const bid_operation& op ) -> bool
@@ -400,7 +416,7 @@ void detail::wallet_impl::scan_transaction_experimental( const transaction_evalu
             raw_delta_amounts[ delta_label ][ delta_amount.asset_id ] += delta_amount.amount;
             return false;
         };
-        eval_state.scan_deltas( op_index, scan_delta );
+        eval_state.scan_op_deltas( op_index, scan_delta );
 
         if( record.operation_notes.count( op_index ) == 0 )
         {
@@ -434,7 +450,7 @@ void detail::wallet_impl::scan_transaction_experimental( const transaction_evalu
             raw_delta_amounts[ delta_label ][ delta_amount.asset_id ] += delta_amount.amount;
             return false;
         };
-        eval_state.scan_deltas( op_index, scan_delta );
+        eval_state.scan_op_deltas( op_index, scan_delta );
 
         if( record.operation_notes.count( op_index ) == 0 )
         {
@@ -469,7 +485,7 @@ void detail::wallet_impl::scan_transaction_experimental( const transaction_evalu
             raw_delta_amounts[ delta_label ][ delta_amount.asset_id ] += delta_amount.amount;
             return false;
         };
-        eval_state.scan_deltas( op_index, scan_delta );
+        eval_state.scan_op_deltas( op_index, scan_delta );
 
         if( record.operation_notes.count( op_index ) == 0 )
         {
@@ -505,7 +521,7 @@ void detail::wallet_impl::scan_transaction_experimental( const transaction_evalu
             raw_delta_amounts[ delta_label ][ delta_amount.asset_id ] += delta_amount.amount;
             return false;
         };
-        eval_state.scan_deltas( op_index, scan_delta );
+        eval_state.scan_op_deltas( op_index, scan_delta );
 
         if( record.operation_notes.count( op_index ) == 0 )
         {
@@ -527,7 +543,7 @@ void detail::wallet_impl::scan_transaction_experimental( const transaction_evalu
             raw_delta_amounts[ delta_label ][ delta_amount.asset_id ] += delta_amount.amount;
             return false;
         };
-        eval_state.scan_deltas( op_index, scan_delta );
+        eval_state.scan_op_deltas( op_index, scan_delta );
 
         if( record.operation_notes.count( op_index ) == 0 )
         {
@@ -624,14 +640,8 @@ void detail::wallet_impl::scan_transaction_experimental( const transaction_evalu
             case create_asset_op_type:
                 result = scan_create_asset( op.as<create_asset_operation>() );
                 break;
-            case update_asset_op_type:
-                // TODO
-                break;
             case issue_asset_op_type:
                 result = scan_issue_asset( op.as<issue_asset_operation>() );
-                break;
-            case create_asset_prop_op_type:
-                // TODO
                 break;
             case bid_op_type:
                 result = scan_bid( op.as<bid_operation>() );
@@ -706,7 +716,7 @@ void detail::wallet_impl::scan_transaction_experimental( const transaction_evalu
     if( rescan_with_titan_info() )
         return scan_transaction_experimental( eval_state, account_keys, account_balances, account_names, record, store_record );
 
-    for( const auto& delta_item : eval_state.balance )
+    for( const auto& delta_item : eval_state.fees_paid )
     {
         const asset delta_amount( delta_item.second, delta_item.first );
         if( delta_amount.amount != 0 )

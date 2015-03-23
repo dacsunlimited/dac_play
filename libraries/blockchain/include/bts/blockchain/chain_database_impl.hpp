@@ -26,7 +26,7 @@ namespace bts { namespace blockchain {
           return std::tie( a._fees, a._trx ) > std::tie( b._fees, b._trx );
       }
    };
-
+   
    namespace detail
    {
       class chain_database_impl
@@ -93,6 +93,8 @@ namespace bts { namespace blockchain {
             void                                        update_head_block( const signed_block_header& block_header,
                                                                            const block_id_type& block_id );
 
+            void debug_check_no_orders_overlap() const;
+
             chain_database*                                                             self = nullptr;
             unordered_set<chain_observer*>                                              _observers;
 
@@ -127,7 +129,7 @@ namespace bts { namespace blockchain {
             bts::db::fast_level_map<uint8_t, property_record>                           _property_id_to_record;
 
             bts::db::fast_level_map<game_id_type, game_record>                          _game_id_to_record;
-            bts::db::fast_level_map<string, game_id_type>                               _game_symbol_to_id;
+            bts::db::fast_level_map<string, game_id_type>                               _game_name_to_id;
             bts::db::fast_level_map<account_id_type, account_record>                    _account_id_to_record;
             bts::db::fast_level_map<string, account_id_type>                            _account_name_to_id;
             bts::db::fast_level_map<address, account_id_type>                           _account_address_to_id;
@@ -163,6 +165,8 @@ namespace bts { namespace blockchain {
             bts::db::cached_level_map<data_id_type, std::vector<rule_result_transaction> >      _rule_result_transactions_db;
 
             map<operation_type_enum, std::deque<operation>>                             _recent_operations;
+            
+            mutable std::vector<std::string>                                            _debug_matching_error_log;
       };
 
   } // detail

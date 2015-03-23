@@ -45,6 +45,7 @@ namespace bts { namespace blockchain {
          share_type                         get_delegate_registration_fee( uint8_t pay_rate )const;
          share_type                         get_asset_registration_fee( uint8_t symbol_length )const;
          share_type                         get_account_registration_fee( uint8_t name_length )const;
+         share_type                         get_game_registration_fee( uint8_t name_length )const;
 
          vector<account_id_type>            get_active_delegates()const;
          void                               set_active_delegates( const std::vector<account_id_type>& active_delegates );
@@ -52,8 +53,7 @@ namespace bts { namespace blockchain {
 
          /** converts an asset + asset_id to a more friendly representation using the symbol name */
          string                             to_pretty_asset( const asset& a )const;
-         double                             to_pretty_price_double( const price& a )const;
-         string                             to_pretty_price( const price& a )const;
+         string                             to_pretty_price( const price& a, const bool include_units = true )const;
          /** converts a numeric string + asset symbol to an asset */
          asset                              to_ugly_asset( const string& amount, const string& symbol )const;
          /** converts a numeric string and two asset symbols to a price */
@@ -68,8 +68,7 @@ namespace bts { namespace blockchain {
          void                               set_statistics_enabled( const bool enabled );
          bool                               get_statistics_enabled()const;
 
-         virtual oprice                     get_active_feed_price( const asset_id_type quote_id,
-                                                                   const asset_id_type base_id = 0 )const = 0;
+         virtual oprice                     get_active_feed_price( const asset_id_type quote_id )const = 0;
 
          virtual void                       set_market_dirty( const asset_id_type quote_id,
                                                               const asset_id_type base_id )                = 0;
@@ -78,11 +77,8 @@ namespace bts { namespace blockchain {
 
          virtual void                       store_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id, const rule_data_record& r )               = 0;
 
-         void                               set_required_confirmations( uint64_t count );
-         uint64_t                           get_required_confirmations()const;
-
          virtual omarket_status             get_market_status( const asset_id_type quote_id,
-                                                               const asset_id_type base_id )               = 0;
+                                                               const asset_id_type base_id )const          = 0;
          virtual void                       store_market_status( const market_status& s )                   = 0;
 
          virtual orule_data_record          get_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id )const    = 0;
@@ -141,7 +137,7 @@ namespace bts { namespace blockchain {
          void                               store_asset_record( const asset_record& record );
        
          ogame_record                       get_game_record( const game_id_type id )const;
-         ogame_record                       get_game_record( const std::string& symbol )const;
+         ogame_record                       get_game_record( const std::string& name )const;
          void                               store_game_record( const game_record& record );
 
          oslate_record                      get_slate_record( const slate_id_type id )const;
@@ -154,7 +150,7 @@ namespace bts { namespace blockchain {
          void                               store_burn_record( const burn_record& record );
 
          ofeed_record                       get_feed_record( const feed_index index )const;
-         virtual void                       store_feed_record( const feed_record& record );
+         void                               store_feed_record( const feed_record& record );
 
          oslot_record                       get_slot_record( const slot_index index )const;
          oslot_record                       get_slot_record( const time_point_sec timestamp )const;

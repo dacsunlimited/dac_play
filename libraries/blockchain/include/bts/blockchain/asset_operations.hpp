@@ -8,172 +8,118 @@
 
 namespace bts { namespace blockchain {
 
-   bool is_power_of_ten( uint64_t n );
+bool is_power_of_ten( uint64_t n );
 
-   /**
-    *  Creates / defines an asset type but does not
-    *  allocate it to anyone. Use issue_asset_operation
-    */
-   struct create_asset_operation
-   {
-       static const operation_type_enum type;
+struct create_asset_operation
+{
+    static const operation_type_enum type;
 
-       /**
-        * Symbols may only contain A-Z and 0-9 and up to 5
-        * characters and must be unique.
-        */
-       std::string      symbol;
+    string          symbol;
+    string          name;
+    string          description;
+    variant         public_data;
 
-       /**
-        * Names are a more complete description and may
-        * contain any kind of characters or spaces.
-        */
-       std::string      name;
-       /**
-        *  Describes the asset and its purpose.
-        */
-       std::string      description;
-       /**
-        * Other information relevant to this asset.
-        */
-       fc::variant      public_data;
+    uint8_t         issuer_type;
+    issuer_id_type  issuer_id;
 
-       /**
-        *  Assets can only be issued by individuals that
-        *  have registered a name.
-        */
-       account_id_type  issuer_account_id;
+    share_type      maximum_share_supply = 0;
+    uint64_t        precision = 0;
+   
+    share_type      initial_supply = 1;
+    share_type      initial_collateral = 1;
 
-       /** The maximum number of shares that may be allocated */
-       share_type       maximum_share_supply = 0;
+    void evaluate( transaction_evaluation_state& eval_state )const;
+};
 
-       uint64_t         precision = 0;
-       
-       share_type       initial_supply = 1;
-       
-       share_type       initial_collateral = 1;
-       
-       uint32_t         flags = 0;
+// TODO: Rename because it can now withdraw fees in addition to issue shares
+struct issue_asset_operation
+{
+    static const operation_type_enum type;
 
-       void evaluate( transaction_evaluation_state& eval_state )const;
-   };
+    asset amount;
 
-   /**
-    * This operation updates an existing issuer record provided
-    * it is signed by a proper key.
-    */
-   struct update_asset_operation
-   {
-       static const operation_type_enum type;
+    void evaluate( transaction_evaluation_state& eval_state )const;
+};
 
-       asset_id_type                asset_id;
-       optional<std::string>        name;
-       optional<std::string>        description;
-       optional<fc::variant>        public_data;
-       optional<share_type>         maximum_share_supply;
-       optional<uint64_t>           precision;
+struct asset_update_properties_operation
+{
+    static const operation_type_enum type;
 
-       void evaluate( transaction_evaluation_state& eval_state )const;
-   };
+    asset_id_type               asset_id;
 
-   /**
-    * This operation updates an existing issuer record provided
-    * it is signed by a proper key.
-    */
-   struct update_asset_ext_operation : public update_asset_operation
-   {
-       static const operation_type_enum type;
-       update_asset_ext_operation(){}
-       update_asset_ext_operation( const update_asset_operation& c ):update_asset_operation(c){}
+    optional<account_id_type>   issuer_id;
 
-       /**
-        * A restricted asset can only be held/controlled by keys
-        * on the authorized list.
-        */
-       uint32_t           flags = 0;
-       uint32_t           issuer_permissions = -1;
-       account_id_type    issuer_account_id;
-       uint16_t           market_fee = 0;
+    optional<string>            name;
+    optional<string>            description;
+    optional<variant>           public_data;
 
-       /**
-        *  The issuer can specify a transaction fee (of the asset type)
-        *  that will be paid to the issuer with every transaction that
-        *  references this asset type.
-        */
-       share_type          transaction_fee = 0;
-       multisig_meta_info  authority;
+    optional<uint64_t>          precision;
+    optional<share_type>        max_supply;
 
-       void evaluate( transaction_evaluation_state& eval_state )const;
-   };
+    optional<share_type>        withdrawal_fee;
+    optional<uint16_t>          market_fee_rate;
 
-   /**
-    *  Transaction must be signed by the active key
-    *  on the issuer_name_record.
-    *
-    *  The resulting amount of shares must be below
-    *  the maximum share supply.
-    */
-   struct issue_asset_operation
-   {
-       static const operation_type_enum type;
+    void evaluate( transaction_evaluation_state& eval_state )const;
+};
 
-       issue_asset_operation( asset a = asset() ):amount(a){}
+struct asset_update_permissions_operation
+{
+    static const operation_type_enum type;
 
-       asset amount;
+    asset_id_type                   asset_id;
 
-       void evaluate( transaction_evaluation_state& eval_state )const;
-   };
+    optional<multisig_meta_info>    authority;
+    optional<uint32_t>              authority_flag_permissions;
+    optional<uint32_t>              active_flags;
 
-   /**
-    *  For assets that are restricted to certain qualified owners, this operation
-    *  allows updating the permission table.
-    *
-    *  Authorization operations require signatures by the authority on the asset_id
-    */
-   struct authorize_operation
-   {
-      static const operation_type_enum type;
+    void evaluate( transaction_evaluation_state& eval_state )const;
+};
 
-      asset_id_type    asset_id = 0;
-      address          owner;
+struct asset_update_whitelist_operation
+{
+    static const operation_type_enum type;
 
-      void evaluate( transaction_evaluation_state& eval_state )const;
-   };
+    asset_id_type   asset_id;
+    address         owner;
+
+    void evaluate( transaction_evaluation_state& eval_state )const;
+};
 
 } } // bts::blockchain
 
 FC_REFLECT( bts::blockchain::create_asset_operation,
-            (symbol)
-            (name)
-            (description)
-            (public_data)
-            (issuer_account_id)
-            (maximum_share_supply)
-            (precision)
-            (initial_supply)
-            (initial_collateral)
-            (flags)
-            )
-FC_REFLECT( bts::blockchain::update_asset_operation,
-            (asset_id)
-            (name)
-            (description)
-            (public_data)
-            (maximum_share_supply)
-            (precision)
-            )
-FC_REFLECT_DERIVED( bts::blockchain::update_asset_ext_operation,
-                    (bts::blockchain::update_asset_operation),
-                    (flags)
-                    (issuer_permissions)
-                    (issuer_account_id)
-                    (transaction_fee)
-                    (market_fee)
-                    (authority) )
+        (symbol)
+        (name)
+        (description)
+        (public_data)
+        (issuer_type)
+        (issuer_id)
+        (maximum_share_supply)
+        (precision)
+        (initial_supply)
+        (initial_collateral)
+        )
 FC_REFLECT( bts::blockchain::issue_asset_operation,
-            (amount)
-            )
-FC_REFLECT( bts::blockchain::authorize_operation,
-            (asset_id)
-            (owner)
-            )
+        (amount)
+        )
+FC_REFLECT( bts::blockchain::asset_update_properties_operation,
+        (asset_id)
+        (issuer_id)
+        (name)
+        (description)
+        (public_data)
+        (precision)
+        (max_supply)
+        (withdrawal_fee)
+        (market_fee_rate)
+        )
+FC_REFLECT( bts::blockchain::asset_update_permissions_operation,
+        (asset_id)
+        (authority)
+        (authority_flag_permissions)
+        (active_flags)
+        )
+FC_REFLECT( bts::blockchain::asset_update_whitelist_operation,
+        (asset_id)
+        (owner)
+        )

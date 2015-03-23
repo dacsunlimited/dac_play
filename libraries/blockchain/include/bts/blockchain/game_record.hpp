@@ -12,22 +12,18 @@ namespace bts { namespace blockchain {
     {
         enum
         {
-            god_issuer_id     =  0,
-            null_issuer_id    = -1
+            god_owner_id     =  0,
+            null_owner_id    = -1
         };
         
         game_record make_null()const;
-        bool is_null()const               { return issuer_account_id == null_issuer_id; };
-        
-        bool is_user_issued()const        { return issuer_account_id > god_issuer_id;};
+        bool is_null()const               { return owner_account_id == null_owner_id; };
         
         game_id_type        id;
-        std::string         symbol;
         std::string         name;
         std::string         description;
         fc::variant         public_data;
-        account_id_type     issuer_account_id;
-        asset_id_type       asset_id;
+        account_id_type     owner_account_id;
         rule_id_type        rule_id;
         fc::time_point_sec  registration_date;
         fc::time_point_sec  last_update;
@@ -47,13 +43,13 @@ namespace bts { namespace blockchain {
       friend struct game_record;
       
       virtual ogame_record game_lookup_by_id( const game_id_type )const = 0;
-      virtual ogame_record game_lookup_by_symbol( const string& )const = 0;
+      virtual ogame_record game_lookup_by_name( const string& )const = 0;
       
       virtual void game_insert_into_id_map( const game_id_type, const game_record& ) = 0;
-      virtual void game_insert_into_symbol_map( const string&, const game_id_type ) = 0;
+      virtual void game_insert_into_name_map( const string&, const game_id_type ) = 0;
       
       virtual void game_erase_from_id_map( const game_id_type ) = 0;
-      virtual void game_erase_from_symbol_map( const string& ) = 0;
+      virtual void game_erase_from_name_map( const string& ) = 0;
    };
     
     struct rule_data_record
@@ -114,12 +110,10 @@ namespace bts { namespace blockchain {
 
 FC_REFLECT( bts::blockchain::game_record,
            (id)
-           (symbol)
            (name)
            (description)
            (public_data)
-           (issuer_account_id)
-           (asset_id)
+           (owner_account_id)
            (rule_id)
            (registration_date)
            (last_update)

@@ -66,6 +66,8 @@ namespace bts { namespace wallet {
        uint32_t         last_child_key_index = 0;
        bool             block_production_enabled = false;
        variant_object   custom_data;
+
+       bool             is_registered()const { return id > 0; }
    };
 
    struct key_data
@@ -146,7 +148,6 @@ namespace bts { namespace wallet {
        asset                     fee;
        fc::time_point_sec        created_time;
        fc::time_point_sec        received_time;
-       vector<address>           extra_addresses;
    };
 
    struct ledger_entry
@@ -342,7 +343,6 @@ FC_REFLECT( bts::wallet::transaction_data,
         (fee)
         (created_time)
         (received_time)
-        (extra_addresses)
         )
 
 FC_REFLECT( bts::wallet::ledger_entry,

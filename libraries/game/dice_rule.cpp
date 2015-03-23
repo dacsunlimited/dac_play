@@ -40,23 +40,52 @@ namespace bts { namespace game {
         if( this->odds < 1 || this->odds < this->guess || this->guess < 1)
             FC_CAPTURE_AND_THROW( invalid_dice_odds, (odds) );
         
-        auto dice_asset_record = eval_state._current_state->get_asset_record( "DICE" );
+        auto dice_asset_record = eval_state.pending_state()->get_asset_record( "DICE" );
         if( !dice_asset_record )
             FC_CAPTURE_AND_THROW( unknown_asset_symbol, ( eval_state.trx.id() ) );
         
         /*
          * For each transaction, there must be only one dice operatiion exist
          */
-        auto cur_record = eval_state._current_state->get_rule_data_record( type, eval_state.trx.id()._hash[0] );
+        auto cur_record = eval_state.pending_state()->get_rule_data_record( type, eval_state.trx.id()._hash[0] );
         if( cur_record )
             FC_CAPTURE_AND_THROW( duplicate_dice_in_transaction, ( eval_state.trx.id() ) );
         
         rule_dice_record cur_data;
         
-        // this does not means the balance are now stored in balance record, just over pass the api
-        // the dice record are not in any balance record, they are over-fly-on-sky..
-        // TODO: Dice Review
-        eval_state.sub_balance(this->balance_id(), asset( this->amount, dice_asset_record->id ));
+        // Update Zero Balance
+        withdraw_condition zero_condition(withdraw_with_signature(), dice_asset_record->id);
+        
+        obalance_record zero_record = eval_state.pending_state()->get_balance_record( zero_condition.get_address() );
+        if( !zero_record.valid() )
+        {
+            zero_record = balance_record( zero_condition );
+        }
+        
+        if( zero_record->balance == 0 )
+        {
+            zero_record->deposit_date = eval_state.pending_state()->now();
+        }
+        else
+        {
+            fc::uint128 old_sec_since_epoch( zero_record->deposit_date.sec_since_epoch() );
+            fc::uint128 new_sec_since_epoch( eval_state.pending_state()->now().sec_since_epoch() );
+            
+            fc::uint128 avg = (old_sec_since_epoch * zero_record->balance) + (new_sec_since_epoch * this->amount);
+            avg /= (zero_record->balance + this->amount);
+            
+            zero_record->deposit_date = time_point_sec( avg.to_integer() );
+        }
+        
+        // We store the balance in a genesis common address, where the consensus agree that the rule can read from there.
+        // Another purpose for this is to over pass the check supply part of the consensus.
+        // TODO: what happens when balance is negetive
+        zero_record->balance += this->amount;
+        eval_state.sub_balance( asset( this->amount, dice_asset_record->id ) );
+        
+        zero_record->last_update = eval_state.pending_state()->now();
+        
+        eval_state.pending_state()->store_balance_record( *zero_record );
         
         cur_data.id               = eval_state.trx.id();
         cur_data.amount           = this->amount;
@@ -66,7 +95,7 @@ namespace bts { namespace game {
         
         cur_record = rule_data_record(cur_data);
         
-        eval_state._current_state->store_rule_data_record(type, cur_data.id._hash[0], *cur_record );
+        eval_state.pending_state()->store_rule_data_record(type, cur_data.id._hash[0], *cur_record );
     }
     
     void dice_rule::execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
@@ -118,7 +147,7 @@ namespace bts { namespace game {
                     pending_state->store_balance_record( *jackpot_payout );
                     
                     // TODO: Dice, add the virtual transactions just like market transactions
-                    
+                    // Do not need update balance here
                     // balance created
                     
                     shares_created += jackpot;
@@ -144,6 +173,32 @@ namespace bts { namespace game {
             }
         }
         
+        // Update Zero Balance
+        withdraw_condition zero_condition(withdraw_with_signature(), asset_id_type(1));
+        obalance_record zero_record = pending_state->get_balance_record( zero_condition.get_address() );
+        if( !zero_record.valid() )
+        {
+            zero_record = balance_record( zero_condition );
+        }
+        if( zero_record->balance == 0 )
+        {
+            zero_record->deposit_date = pending_state->now();
+        }
+        else
+        {
+            fc::uint128 old_sec_since_epoch( zero_record->deposit_date.sec_since_epoch() );
+            fc::uint128 new_sec_since_epoch( pending_state->now().sec_since_epoch() );
+            
+            fc::uint128 avg = (old_sec_since_epoch * zero_record->balance) + (new_sec_since_epoch * (0 - - shares_destroyed));
+            avg /= (zero_record->balance - shares_destroyed);
+            
+            zero_record->deposit_date = time_point_sec( avg.to_integer() );
+        }
+        
+        zero_record->balance -= shares_destroyed;
+        // Do not need update balance here
+        pending_state->store_balance_record( *zero_record );
+        
         pending_state->set_rule_result_transactions( std::move( rule_result_transactions ) );
         
         // TODO: Dice what if the accumulated_fees become negetive which is possible in theory
@@ -155,7 +210,7 @@ namespace bts { namespace game {
         // TODO: Dice The destoy part is not only the delegate now, but also the house edge, so should reflect it on ui.
         auto base_asset_record = pending_state->get_asset_record( asset_id_type(1) );
         FC_ASSERT( base_asset_record.valid() );
-        base_asset_record->current_share_supply += (shares_created - shares_destroyed);
+        base_asset_record->current_supply += (shares_created - shares_destroyed);
         pending_state->store_asset_record( *base_asset_record );
     }
     

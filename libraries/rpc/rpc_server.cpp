@@ -82,7 +82,7 @@ namespace bts { namespace rpc {
          virtual void verify_wallet_is_open() const override;
          virtual void verify_wallet_is_unlocked() const override;
          virtual void verify_connected_to_network() const override;
-         virtual void store_method_metadata(const bts::api::method_data& method_metadata);
+         virtual void store_method_metadata(const bts::api::method_data& method_metadata)override;
 
          std::string help(const std::string& command_name) const;
 
@@ -211,7 +211,8 @@ namespace bts { namespace rpc {
                  add_content_type_header(path,s);
 
                 auto filename = _config.htdocs / path.substr(1,std::string::npos);
-                if( r.path == fc::path("/rpc") )
+                if( r.path == fc::path("/rpc")
+                        || fc::path(r.path).parent_path() == fc::path("/rpc"))
                 {
                    // WARNING: logging RPC calls can capture passwords and private keys
                   //  dlog( "RPC ${r}", ("r",r.path) );
@@ -300,6 +301,44 @@ namespace bts { namespace rpc {
              fc_ilog( fc::logger::get("rpc"), "Completed ${path} ${status} in ${ms}ms", ("path",r.path)("status",(int)status)("ms",(end_time - begin_time).count()/1000));
          }
 
+         /** Assures that if the request path is either /req or
+          *  /safebot/whatever, or of the form /req/something where
+          *  something == method.
+          *  throws an exception otherwise.
+          */
+         static void validate_request_path(const fc::path& req, const string& method,
+                                           fc::variants& parameters)
+         {
+             static fc::path prefix("/rpc");
+             if ( req.parent_path() == fc::path("/safebot") || req == prefix )
+             {
+                 return;
+             }
+             if ( method == "batch" )
+             {
+                 FC_ASSERT( parameters.size() > 0 && parameters[0].is_string() && req == prefix / parameters[0].as_string() );
+             }
+             else
+             {
+                 FC_ASSERT( req == prefix / method );
+             }
+         }
+
+         static string send_and_log_reply( const fc::http::server::response& s,
+                                           const fc::http::reply::status_code status,
+                                           const fc::path& path,
+                                           const string& method,
+                                           const fc::mutable_variant_object& json)
+         {
+             s.set_status( status );
+             auto reply = fc::json::to_string( json );
+             s.set_length( reply.size() );
+             s.write( reply.c_str(), reply.size() );
+             auto reply_log = reply.size() > 253 ? reply.substr(0,253) + ".." :  reply;
+             fc_ilog( fc::logger::get("rpc"), "Result ${path} ${method}: ${reply}", ("path",path)("method",method)("reply",reply_log));
+             return reply;
+         }
+
          fc::http::reply::status_code handle_http_rpc(const fc::http::request& r, const fc::http::server::response& s )
          {
                 fc::http::reply::status_code status = fc::http::reply::OK;
@@ -313,6 +352,7 @@ namespace bts { namespace rpc {
                    auto rpc_call = fc::json::from_string( str ).get_object();
                    method_name = rpc_call["method"].as_string();
                    auto params = rpc_call["params"].get_array();
+                   validate_request_path( r.path, method_name, params );
 
                    auto request_key = method_name + "=" + fc::json::to_string(rpc_call["params"]);
 
@@ -328,13 +368,9 @@ namespace bts { namespace rpc {
                       if( cache_itr != _call_cache.end() )
                       {
                          status = fc::http::reply::OK;
-                         s.set_status( status );
-
-                         auto reply = cache_itr->second;
-                         s.set_length( reply.size() );
-                         s.write( reply.c_str(), reply.size() );
-                         auto reply_log = reply.size() > 253 ? reply.substr(0,253) + ".." :  reply;
-                         fc_ilog( fc::logger::get("rpc"), "Result ${path} ${method}: ${reply}", ("path",r.path)("method",method_name)("reply",reply_log));
+                         fc::mutable_variant_object json( fc::json::from_string( cache_itr->second ) );
+                         json["id"] =  rpc_call["id"];
+                         send_and_log_reply( s, status, r.path, method_name, json );
                          return status;
                       }
                    }
@@ -355,7 +391,6 @@ namespace bts { namespace rpc {
                          result["result"] = dispatch_authenticated_method(_method_map[call_itr->second], params);
                       //   auto reply = fc::json::to_string( result );
                          status = fc::http::reply::OK;
-                         s.set_status( status );
                       }
                       catch ( const fc::canceled_exception& )
                       {
@@ -364,18 +399,12 @@ namespace bts { namespace rpc {
                       catch ( const fc::exception& e )
                       {
                           status = fc::http::reply::InternalServerError;
-                          s.set_status( status );
                           result["error"] = fc::mutable_variant_object("message",e.to_string())( "detail",e.to_detail_string() )("code",e.code());
                       }
                       //ilog( "${e}", ("e",result) );
-                      auto reply = fc::json::to_string( result );
-                      s.set_length( reply.size() );
-                      s.write( reply.c_str(), reply.size() );
-                      auto reply_log = reply.size() > 253 ? reply.substr(0,253) + ".." :  reply;
-                      fc_ilog( fc::logger::get("rpc"), "Result ${path} ${method}: ${reply}", ("path",r.path)("method",method_name)("reply",reply_log));
-
+                      auto reply = send_and_log_reply( s, status, r.path, method_name, result );
                       if( _method_map[method_name].cached )
-                         _call_cache[request_key] = reply;
+                         _call_cache[request_key] = std::move( reply );
 
                       return status;
                    }

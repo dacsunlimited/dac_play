@@ -59,6 +59,15 @@
 #include <iomanip>
 #include <set>
 
+#ifndef WIN32
+// Supports UNIX specific --debug-stop CLI option
+#include <signal.h>
+#include <unistd.h>
+#ifdef __linux__
+#include <sys/prctl.h>
+#endif
+#endif
+
 using namespace boost;
 using std::string;
 
@@ -143,10 +152,14 @@ program_options::variables_map parse_option_variables(int argc, char** argv)
          ("input-log", program_options::value< vector<string> >(), "Set log file with CLI commands to execute at startup")
          ("log-commands", "Log all command input and output")
          ("ulog", program_options::value<bool>()->default_value( true ), "Enable CLI user logging")
+         
+         ("stop-before-block", program_options::value<uint32_t>(), "stop before given block number")
 
          ("growl", program_options::value<std::string>()->implicit_value("127.0.0.1"), "Send notifications about potential problems to Growl")
          ("growl-password", program_options::value<std::string>(), "Password for authenticating to a Growl server")
          ("growl-identifier", program_options::value<std::string>(), "A name displayed in growl messages to identify this bitshares_client instance")
+
+         ("debug-stop", "Raise SIGSTOP on startup (UNIX only) and disable trace protection (Linux 3.4+ only)")
          ;
 
    program_options::variables_map option_variables;
@@ -750,6 +763,13 @@ block_fork_data client_impl::on_new_block(const full_block& block,
 {
    try
    {
+	  // delay until we want to accept the block
+	  while( (this->_debug_stop_before_block_num >= 1) &&
+	         (block.block_num >= this->_debug_stop_before_block_num) )
+	  {
+		  fc::usleep(fc::microseconds(1000000));
+	  }
+
       _sync_mode = sync_mode;
       if (sync_mode && _remaining_items_to_sync > 0)
          --_remaining_items_to_sync;
@@ -1452,6 +1472,33 @@ void client::configure_from_command_line(int argc, char** argv)
    }
    // parse command-line options
    auto option_variables = parse_option_variables(argc,argv);
+   
+   if( option_variables.count("debug-stop") )
+   {
+#ifdef WIN32
+      std::cout << "--debug-stop option is not supported on Windows\n\nPatches welcome!\n\n";
+      exit(1);
+#else
+#ifdef __linux__
+#ifdef PR_SET_PTRACER
+      //
+      // on Ubuntu, you can only debug direct child processes
+      // due to /proc/sys/kernel/yama/ptrace_scope setting.
+      //
+      // this is good for security, but inconvenient for debugging.
+      //
+      // if the user is requesting --debug-stop, they probably
+      // intend to attach with GDB (e.g. btstests recommended GDB usage)
+      //
+      // so this call simply requests the kernel to allow any process
+      // owned by the same user to debug us
+      //
+      prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0);
+#endif
+#endif
+      raise(SIGSTOP);
+#endif
+   }
 
    fc::path datadir = bts::client::get_data_dir(option_variables);
    if( !fc::exists( datadir ) )
@@ -1556,6 +1603,8 @@ void client::configure_from_command_line(int argc, char** argv)
       }
    } //end else we will accept input from the console
 
+   if( option_variables.count("stop-before-block") )
+      my->_debug_stop_before_block_num = option_variables["stop-before-block"].as<uint32_t>();
 
    // start listening.  this just finds a port and binds it, it doesn't start
    // accepting connections until connect_to_p2p_network()
