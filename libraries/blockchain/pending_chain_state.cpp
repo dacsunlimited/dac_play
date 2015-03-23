@@ -289,16 +289,25 @@ namespace bts { namespace blockchain {
            const asset_id_type id = item.first;
            const oasset_record prev_record = prev_state->get_asset_record( id );
            if( prev_record.valid() )
+           {
                deltas[ prev_record->id ] -= prev_record->collected_fees;
+               deltas[ 0 ] -= prev_record->current_collateral;
+           }
+           
 
            const asset_record& record = item.second;
            deltas[ record.id ] += record.collected_fees;
+           deltas[ 0 ] += record.current_collateral;
        }
+       
        for( const asset_id_type id : _asset_id_remove )
        {
            const oasset_record prev_record = prev_state->get_asset_record( id );
            if( prev_record.valid() )
+           {
                deltas[ prev_record->id ] -= prev_record->collected_fees;
+               deltas[ 0 ] -= prev_record->current_collateral;
+           }
        }
 
        for( const auto& item : _balance_id_to_record )
