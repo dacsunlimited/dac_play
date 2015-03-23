@@ -11,12 +11,6 @@ namespace bts { namespace blockchain {
    struct transaction_evaluation_state;
    typedef std::shared_ptr<transaction_evaluation_state> transaction_evaluation_state_ptr;
 
-   struct block_summary
-   {
-      full_block                                    block_data;
-      pending_chain_state_ptr                       applied_changes;
-   };
-
    struct block_fork_data
    {
       block_fork_data():is_linked(false),is_included(false),is_known(false){}
@@ -73,17 +67,9 @@ namespace bts { namespace blockchain {
    class chain_observer
    {
       public:
-         virtual ~chain_observer(){}
-
-         /**
-          * This method is called anytime the blockchain state changes including
-          * undo operations.
-          */
-         virtual void state_changed( const pending_chain_state_ptr& state ) = 0;
-         /**
-          *  This method is called anytime a block is applied to the chain.
-          */
-         virtual void block_applied( const block_summary& summary ) = 0;
+         virtual ~chain_observer() {}
+         virtual void block_pushed( const full_block& ) = 0;
+         virtual void block_popped( const pending_chain_state_ptr& ) = 0;
    };
 
    class chain_database : public chain_interface, public std::enable_shared_from_this<chain_database>
@@ -157,8 +143,9 @@ namespace bts { namespace blockchain {
          oblock_record               get_block_record( const block_id_type& block_id )const;
          oblock_record               get_block_record( uint32_t block_num )const;
 
-         virtual oprice              get_active_feed_price( const asset_id_type quote_id,
-                                                            const asset_id_type base_id = 0 )const override;
+         virtual oprice              get_active_feed_price( const asset_id_type quote_id )const override;
+
+         void                        reindex_shorts_at_feed( const asset_id_type quote_id );
 
          vector<feed_record>         get_feeds_for_asset( const asset_id_type quote_id, const asset_id_type base_id )const;
          vector<feed_record>         get_feeds_from_delegate( const account_id_type delegate_id )const;
@@ -170,8 +157,6 @@ namespace bts { namespace blockchain {
                                                         const transaction_record&  ) override;
 
          vector<burn_record>         fetch_burn_records( const string& account_name )const;
-
-         virtual void                store_feed_record( const feed_record& r ) override;
 
          unordered_map<balance_id_type, balance_record>     get_balances( const balance_id_type& first,
                                                                           uint32_t limit )const;
@@ -294,9 +279,12 @@ namespace bts { namespace blockchain {
          {
              FC_ASSERT( false, "this shouldn't be called directly" );
          }
+         
+         vector<string> debug_get_matching_errors() const;
 
          // Applies only when pushing new blocks; gets enabled in delegate loop
          bool                               _verify_transaction_signatures = false;
+         bool _debug_verify_market_matching = false;
 
       private:
          unique_ptr<detail::chain_database_impl> my;

@@ -42,7 +42,7 @@ namespace bts { namespace blockchain {
                 try
                 {
                   transaction_evaluation_state_ptr eval_state = self->evaluate_transaction( trx, _relay_fee );
-                  share_type fees = eval_state->calculate_base_fees();
+                  const share_type fees = eval_state->total_base_equivalent_fees_paid;
                   _pending_fee_index[ fee_index( fees, trx_id ) ] = eval_state;
                   ilog( "revalidated pending transaction id ${id}", ("id", trx_id) );
                 }
@@ -699,9 +699,6 @@ namespace bts { namespace blockchain {
             record->chain_location = transaction_location( block_data.block_num, trx_num );
             pending_state->store_transaction( trx_id, *record );
 
-            // TODO:  capture the evaluation state with a callback for wallets...
-            // summary.transaction_states.emplace_back( std::move(trx_eval_state) );
-
             ++trx_num;
          }
       } FC_CAPTURE_AND_RETHROW( (block_data) ) }
@@ -760,7 +757,7 @@ namespace bts { namespace blockchain {
               return;
 
           pending_chain_state_ptr undo_state = std::make_shared<pending_chain_state>( pending_state );
-          pending_state->get_undo_state( undo_state );
+          pending_state->build_undo_state( undo_state );
 
           if( block_num > BTS_BLOCKCHAIN_MAX_UNDO_HISTORY )
           {
@@ -784,7 +781,7 @@ namespace bts { namespace blockchain {
              FC_CAPTURE_AND_THROW( time_in_past, (block_digest.timestamp)(_head_block_header.timestamp) );
 
           fc::time_point_sec now = bts::blockchain::now();
-          auto delta_seconds = (block_digest.timestamp - now).to_seconds();
+          const uint32_t delta_seconds = (block_digest.timestamp - now).to_seconds();
           if( block_digest.timestamp >  (now + BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC*2) )
              FC_CAPTURE_AND_THROW( time_in_future, (block_digest.timestamp)(now)(delta_seconds) );
 
@@ -793,7 +790,7 @@ namespace bts { namespace blockchain {
 
           FC_ASSERT( block_digest.validate_unique() );
 
-          auto expected_delegate = self->get_slot_signee( block_digest.timestamp, self->get_active_delegates() );
+          const auto expected_delegate = self->get_slot_signee( block_digest.timestamp, self->get_active_delegates() );
 
           if( block_signee != expected_delegate.signing_key() )
              FC_CAPTURE_AND_THROW( invalid_delegate_signee, (expected_delegate.id) );
@@ -945,7 +942,166 @@ namespace bts { namespace blockchain {
         }
 
         pending_state->set_market_transactions( std::move( market_transactions ) );
+        if( self->_debug_verify_market_matching )
+        {
+            debug_check_no_orders_overlap();
+        }
       } FC_CAPTURE_AND_RETHROW( (timestamp) ) }
+
+      void chain_database_impl::debug_check_no_orders_overlap() const
+      {
+          //
+          // the market engine does all kinds of fancy indexing to find
+          // and fill overlapping orders efficiently
+          //
+          // this method only exists for debugging purposes, so we
+          // don't care about efficiency.  we simply dump the orders
+          // and check the top bid-side order vs. top ask-side order
+          // for each market
+          //
+          // since this method doesn't fill orders, there is no fill
+          // logic here
+          //
+
+          ilog("running debug_check_no_orders_overlap()");
+          
+          std::map<std::pair<asset_id_type, asset_id_type>, std::pair<price, market_order>> mkt_to_best_bid;
+          std::map<std::pair<asset_id_type, asset_id_type>, std::pair<price, market_order>> mkt_to_best_ask;
+
+          auto process_bid = [&]( price p, market_order& order )
+          {
+              std::pair<asset_id_type, asset_id_type> mkt = p.asset_pair();
+              auto current_best = mkt_to_best_bid.find( mkt );
+              if( (current_best == mkt_to_best_bid.end()) ||
+                  (p > current_best->second.first) )
+                  mkt_to_best_bid[mkt] = std::pair<price, market_order>( p, order );
+          };
+          
+          auto process_ask = [&]( price p, market_order& order )
+          {
+              std::pair<asset_id_type, asset_id_type> mkt = p.asset_pair();
+              auto current_best = mkt_to_best_ask.find( mkt );
+              if( (current_best == mkt_to_best_ask.end()) ||
+                  (p < current_best->second.first) )
+                  mkt_to_best_ask[mkt] = std::pair<price, market_order>( p, order );
+          };
+
+          for( bts::db::cached_level_map< market_index_key, order_record >::iterator
+               bid_itr  = _bid_db.begin();
+               bid_itr.valid();
+               bid_itr++ )
+          {
+              market_order morder = market_order( bid_order, bid_itr.key(), bid_itr.value() );
+              process_bid( morder.get_price(), morder );
+          }
+          
+          for( bts::db::cached_level_map< market_index_key, order_record >::iterator
+               ask_itr  = _ask_db.begin();
+               ask_itr.valid();
+               ask_itr++ )
+          {
+              market_order morder = market_order( ask_order, ask_itr.key(), ask_itr.value() );
+              process_ask( morder.get_price(), morder );
+          }
+
+          for( bts::db::cached_level_map< market_index_key, order_record >::iterator
+               short_itr  = _short_db.begin();
+               short_itr.valid();
+               short_itr++ )
+          {
+              market_order morder = market_order( short_order, short_itr.key(), short_itr.value() );
+              oprice feed = self->get_active_feed_price(
+                  morder.get_price().quote_asset_id,
+                  morder.get_price().base_asset_id
+                  );
+              if( !feed.valid() )
+                  continue;
+              // TODO:  use different ctor
+              process_bid( morder.get_price( *feed ), morder );
+          }
+
+          for( bts::db::cached_level_map< market_index_key, collateral_record >::iterator
+               collateral_itr  = _collateral_db.begin();
+               collateral_itr.valid();
+               collateral_itr++ )
+          {
+              market_index_key k = collateral_itr.key();
+              collateral_record record = collateral_itr.value();
+              oprice feed = self->get_active_feed_price(
+                  k.order_price.quote_asset_id,
+                  k.order_price.base_asset_id
+                  );
+              if( !feed.valid() )
+                  continue;
+
+              market_order morder = market_order( cover_order,
+                k,
+                order_record(record.payoff_balance),
+                record.collateral_balance,
+                record.interest_rate,
+                record.expiration
+                );
+
+              if( k.order_price <= (*feed) )
+                  // margin called.  in reality the price may be raised
+                  // to force a match, but we'll ignore that subtlety
+                  // here...
+                  process_ask( k.order_price, morder );
+              else if( record.expiration <= now() )
+                  // expired
+                  process_ask( k.order_price, morder );
+          }
+          
+          uint64_t failure_count = 0;
+          
+          // best bid price <= best ask price
+          for( auto it=mkt_to_best_bid.begin(); it != mkt_to_best_bid.end(); it++ )
+          {
+              std::pair<asset_id_type, asset_id_type> k = it->first;
+              auto it_ask = mkt_to_best_ask.find( k );
+              if( it_ask == mkt_to_best_ask.end() )
+                  continue;
+              price bid_price = it->second.first;
+              price ask_price = it_ask->second.first;
+              if( bid_price < ask_price )
+                  continue;
+              oasset_record quote_asset = self->get_asset_record( k.first );
+              oasset_record base_asset = self->get_asset_record( k.second );
+              
+              FC_ASSERT( quote_asset.valid() );
+              FC_ASSERT( base_asset.valid() );
+              
+              elog("mismatch in market ${quote} / ${base} at block ${block}",
+                  ("quote", quote_asset->symbol)
+                  ("base" ,  base_asset->symbol)
+                  ("block", self->get_head_block_num())
+                  );
+              failure_count++;
+          }
+          if( failure_count == 0 )
+          {
+              ilog("debug_check_no_orders_overlap() on block ${b} ok",
+                   ("b", self->get_head_block_num())
+                  );
+          }
+          else
+          {
+              elog("debug_check_no_orders_overlap() on block ${b} found ${n} error(s)",
+                   ("b", self->get_head_block_num())
+                   ("n", failure_count)
+                  );
+              _debug_matching_error_log.push_back(
+              fc::format_string(
+                   "debug_check_no_orders_overlap() on block ${b} found ${n} error(s)",
+                   fc::mutable_variant_object()
+                   ("b", self->get_head_block_num())
+                   ("n", failure_count)
+                  )
+              );
+          }
+          
+          return;
+      }
 
       /**
        *  Performs all of the block validation steps and throws if error.
@@ -954,7 +1110,6 @@ namespace bts { namespace blockchain {
       { try {
          const time_point start_time = time_point::now();
          const block_id_type& block_id = block_data.id();
-         block_summary summary;
          try
          {
             public_key_type block_signee;
@@ -975,11 +1130,8 @@ namespace bts { namespace blockchain {
             // NOTE: Secret is validated later in update_delegate_production_info()
             verify_header( digest_block( block_data ), block_signee );
 
-            summary.block_data = block_data;
-
             // Create a pending state to track changes that would apply as we evaluate the block
             pending_chain_state_ptr pending_state = std::make_shared<pending_chain_state>( self->shared_from_this() );
-            summary.applied_changes = pending_state;
 
             /** Increment the blocks produced or missed for all delegates. This must be done
              *  before applying transactions because it depends upon the current active delegate order.
@@ -1034,11 +1186,15 @@ namespace bts { namespace blockchain {
          while( iter != _unique_transactions.end() && iter->expiration <= self->now() )
              iter = _unique_transactions.erase( iter );
 
-         //Schedule the observer notifications for later; the chain is in a
-         //non-premptable state right now, and observers may yield.
-         if( (now() - block_data.timestamp).to_seconds() < BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC )
-           for( chain_observer* o : _observers )
-              fc::async([o,summary]{o->block_applied( summary );}, "call_block_applied_observer");
+         // Schedule the observer notifications for later; the chain is in a
+         // non-premptable state right now, and observers may yield
+         if( (blockchain::now() - block_data.timestamp).to_seconds() < BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC )
+         {
+             for( chain_observer* o : _observers )
+             {
+                 fc::async( [ = ] { o->block_pushed( block_data ); }, "call_block_pushed_observer" );
+             }
+         }
       } FC_CAPTURE_AND_RETHROW( (block_data) ) }
 
       /**
@@ -1110,10 +1266,12 @@ namespace bts { namespace blockchain {
          else
              _head_block_header = self->get_block_header( _head_block_id );
 
-         //Schedule the observer notifications for later; the chain is in a
-         //non-premptable state right now, and observers may yield.
+         // Schedule the observer notifications for later; the chain is in a
+         // non-premptable state right now, and observers may yield
          for( chain_observer* o : _observers )
-            fc::async([o,undo_state_ptr]{ o->state_changed( undo_state_ptr ); }, "call_state_changed_observer");
+         {
+             fc::async( [ = ] { o->block_popped( undo_state_ptr ); }, "call_block_popped_observer" );
+         }
       } FC_CAPTURE_AND_RETHROW() }
 
    } // namespace detail
@@ -1350,7 +1508,7 @@ namespace bts { namespace blockchain {
                 const auto trx = pending_itr.value();
                 const auto trx_id = trx.id();
                 const auto eval_state = evaluate_transaction( trx, my->_relay_fee );
-                share_type fees = eval_state->calculate_base_fees();
+                const share_type fees = eval_state->total_base_equivalent_fees_paid;
                 my->_pending_fee_index[ fee_index( fees, trx_id ) ] = eval_state;
                 my->_pending_transaction_db.store( trx_id, trx );
              }
@@ -1492,7 +1650,7 @@ namespace bts { namespace blockchain {
       transaction_evaluation_state_ptr trx_eval_state = std::make_shared<transaction_evaluation_state>( pend_state );
 
       trx_eval_state->evaluate( trx );
-      const share_type fees = trx_eval_state->calculate_base_fees();
+      const share_type fees = trx_eval_state->total_base_equivalent_fees_paid;
       if( fees < required_fees )
       {
           ilog("Transaction ${id} needed relay fee ${required_fees} but only had ${fees}", ("id", trx.id())("required_fees",required_fees)("fees",fees));
@@ -1512,7 +1670,7 @@ namespace bts { namespace blockchain {
           transaction_evaluation_state_ptr eval_state = std::make_shared<transaction_evaluation_state>( pending_state );
 
           eval_state->evaluate( transaction );
-          const share_type fees = eval_state->calculate_base_fees();
+          const share_type fees = eval_state->total_base_equivalent_fees_paid;
           if( fees < min_fee )
              FC_CAPTURE_AND_THROW( insufficient_relay_fee, (fees)(min_fee) );
        }
@@ -1909,7 +2067,7 @@ namespace bts { namespace blockchain {
       }
 
       transaction_evaluation_state_ptr eval_state = evaluate_transaction( trx, relay_fee );
-      const share_type fees = eval_state->calculate_base_fees();
+      const share_type fees = eval_state->total_base_equivalent_fees_paid;
 
       //if( fees < my->_relay_fee )
       //   FC_CAPTURE_AND_THROW( insufficient_relay_fee, (fees)(my->_relay_fee) );
@@ -2010,7 +2168,7 @@ namespace bts { namespace blockchain {
                       trx_eval_state->evaluate( new_transaction );
 
                       // Check transaction fee limit
-                      const share_type transaction_fee = trx_eval_state->calculate_base_fees();
+                      const share_type transaction_fee = trx_eval_state->total_base_equivalent_fees_paid;
                       if( transaction_fee < config.transaction_min_fee )
                       {
                           wlog( "Excluding transaction ${id} with fee ${fee} because it does not meet transaction fee limit ${limit}",
@@ -2996,7 +3154,7 @@ namespace bts { namespace blockchain {
         return unclaimed_total;
    } FC_CAPTURE_AND_RETHROW() }
 
-   oprice chain_database::get_active_feed_price( const asset_id_type quote_id, const asset_id_type base_id )const
+   oprice chain_database::get_active_feed_price( const asset_id_type quote_id )const
    { try {
        const auto outer_iter = my->_nested_feed_map.find( quote_id );
        if( outer_iter == my->_nested_feed_map.end() )
@@ -3021,7 +3179,7 @@ namespace bts { namespace blockchain {
            if( time_point( now ) - time_point( record.last_update ) >= limit ) continue;
 
            if( record.value.quote_asset_id != quote_id ) continue;
-           if( record.value.base_asset_id != base_id ) continue;
+           if( record.value.base_asset_id != 0 ) continue;
 
            prices.push_back( record.value );
        }
@@ -3371,6 +3529,8 @@ namespace bts { namespace blockchain {
    {
        my->_feed_index_to_record.store( index, record );
        my->_nested_feed_map[ index.quote_id ][ index.delegate_id ] = record;
+
+       reindex_shorts_at_feed( index.quote_id );
    }
 
    void chain_database::feed_erase_from_index_map( const feed_index index )
@@ -3383,6 +3543,8 @@ namespace bts { namespace blockchain {
            if( inner_iter != outer_iter->second.end() )
                outer_iter->second.erase( index.delegate_id );
        }
+
+       reindex_shorts_at_feed( index.quote_id );
    }
 
    oslot_record chain_database::slot_lookup_by_index( const slot_index index )const
@@ -3415,6 +3577,11 @@ namespace bts { namespace blockchain {
    void chain_database::slot_erase_from_timestamp_map( const time_point_sec timestamp )
    {
        my->_slot_timestamp_to_delegate.remove( timestamp );
+   }
+
+   vector<string> chain_database::debug_get_matching_errors() const
+   {
+       return my->_debug_matching_error_log;
    }
 
 } } // bts::blockchain

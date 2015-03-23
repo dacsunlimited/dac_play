@@ -47,14 +47,30 @@ namespace bts { namespace blockchain { namespace detail {
 
           if( !_ask_itr.valid() ) _ask_itr = _db_impl._ask_db.begin();
 
-          // TODO:  does this really work if iterator is begin()?
+          //
+          // following logic depends on the internals of cached_level_map class.
+          // if lower_bound() argument is past the end of the collection,
+          // then result will point to end() which has valid() == false
+          //
+          // so we need to decrement the returned iterator, but
+          // decrement operator may be undefined for end(), so we
+          // special-case the result.
+          //
+          // one day we should write a greatest_element_below() method
+          // for our DB class to implement the logic we're doing
+          // directly here
+          //
+          // decrementing begin() OTOH is well-defined and returns
+          // end() which is invalid, thus overflow of --itr here is
+          // ok as long as we check valid() later
+          //
           if( _bid_itr.valid() )   --_bid_itr;
           else _bid_itr = _db_impl._bid_db.last();
 
           // Market issued assets cannot match until the first time there is a median feed; assume feed price base id 0
           if( quote_asset->is_market_issued() && base_asset->id == 0 )
           {
-              _feed_price = _db_impl.self->get_active_feed_price( _quote_id, _base_id );
+              _feed_price = _db_impl.self->get_active_feed_price( _quote_id );
               const omarket_status market_stat = _pending_state->get_market_status( _quote_id, _base_id );
               if( (!market_stat.valid() || !market_stat->last_valid_feed_price.valid()) && !_feed_price.valid() )
                   FC_CAPTURE_AND_THROW( insufficient_feeds, (quote_id)(base_id) );
@@ -162,8 +178,13 @@ namespace bts { namespace blockchain { namespace detail {
             if( opening_price == price() )
               opening_price = mtrx.bid_price;
             closing_price = mtrx.bid_price;
-            // Remark: only prices of matched orders be updated to market history
-            // TODO check here: since the orders have been sorted, maybe don't need the 2nd comparison
+            //
+            // Remark: only prices of matched orders are used to update market history
+            //
+            // Because of prioritization, we need the second comparison
+            // in the following if statements.  Ask-side orders are
+            // only sorted by price within a single pass.
+            //
             if( highest_price == price() || highest_price < mtrx.bid_price)
               highest_price = mtrx.bid_price;
             // TODO check here: store lowest ask price or lowest bid price?
@@ -180,7 +201,6 @@ namespace bts { namespace blockchain { namespace detail {
           {
               omarket_status market_stat = _pending_state->get_market_status( _quote_id, _base_id );
               if( !market_stat.valid() ) market_stat = market_status( _quote_id, _base_id );
-              market_stat->update_feed_price( _feed_price );
               market_stat->last_error.reset();
               _pending_state->store_market_status( *market_stat );
 
@@ -197,11 +217,6 @@ namespace bts { namespace blockchain { namespace detail {
         wlog( "error executing market ${quote} / ${base}\n ${e}", ("quote",quote_id)("base",base_id)("e",e.to_detail_string()) );
         omarket_status market_stat = _prior_state->get_market_status( _quote_id, _base_id );
         if( !market_stat.valid() ) market_stat = market_status( _quote_id, _base_id );
-        if( !(_feed_price == market_stat->current_feed_price) )
-        {
-           // TODO: update shorts at feed
-        }
-        market_stat->update_feed_price( _feed_price );
         market_stat->last_error = e;
         _prior_state->store_market_status( *market_stat );
     }
