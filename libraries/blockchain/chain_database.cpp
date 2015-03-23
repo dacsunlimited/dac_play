@@ -1003,54 +1003,6 @@ namespace bts { namespace blockchain {
               market_order morder = market_order( ask_order, ask_itr.key(), ask_itr.value() );
               process_ask( morder.get_price(), morder );
           }
-
-          for( bts::db::cached_level_map< market_index_key, order_record >::iterator
-               short_itr  = _short_db.begin();
-               short_itr.valid();
-               short_itr++ )
-          {
-              market_order morder = market_order( short_order, short_itr.key(), short_itr.value() );
-              oprice feed = self->get_active_feed_price(
-                  morder.get_price().quote_asset_id,
-                  morder.get_price().base_asset_id
-                  );
-              if( !feed.valid() )
-                  continue;
-              // TODO:  use different ctor
-              process_bid( morder.get_price( *feed ), morder );
-          }
-
-          for( bts::db::cached_level_map< market_index_key, collateral_record >::iterator
-               collateral_itr  = _collateral_db.begin();
-               collateral_itr.valid();
-               collateral_itr++ )
-          {
-              market_index_key k = collateral_itr.key();
-              collateral_record record = collateral_itr.value();
-              oprice feed = self->get_active_feed_price(
-                  k.order_price.quote_asset_id,
-                  k.order_price.base_asset_id
-                  );
-              if( !feed.valid() )
-                  continue;
-
-              market_order morder = market_order( cover_order,
-                k,
-                order_record(record.payoff_balance),
-                record.collateral_balance,
-                record.interest_rate,
-                record.expiration
-                );
-
-              if( k.order_price <= (*feed) )
-                  // margin called.  in reality the price may be raised
-                  // to force a match, but we'll ignore that subtlety
-                  // here...
-                  process_ask( k.order_price, morder );
-              else if( record.expiration <= now() )
-                  // expired
-                  process_ask( k.order_price, morder );
-          }
           
           uint64_t failure_count = 0;
           
@@ -2543,24 +2495,6 @@ namespace bts { namespace blockchain {
       FC_ASSERT( asset_rec.valid(), "Unknown Asset ID: ${id}", ("asset_id",asset_id) );
       return asset_rec->symbol;
    } FC_RETHROW_EXCEPTIONS( warn, "", ("asset_id",asset_id) ) }
-    
-    void chain_database::store_feed_record( const feed_record& record )
-    {
-        chain_interface::store_feed_record(record);
-        auto quote_id = record.value.quote_asset_id;
-        auto base_id  = record.value.base_asset_id;
-        auto  new_feed                   = get_active_feed_price( quote_id, base_id );
-        omarket_status market_stat = get_market_status( quote_id, base_id );
-        if( !market_stat ) market_stat = market_status( quote_id, base_id );
-        auto  old_feed =  market_stat->current_feed_price;
-        market_stat->current_feed_price = new_feed;
-        if( old_feed == new_feed )
-            return;
-        
-        store_market_status( *market_stat );
-        
-        // TODO: All market related actions are removed, refer upstream code
-    }
 
    /**
     *   Calculates the percentage of blocks produced in the last 10 rounds as an average
@@ -3530,7 +3464,7 @@ namespace bts { namespace blockchain {
        my->_feed_index_to_record.store( index, record );
        my->_nested_feed_map[ index.quote_id ][ index.delegate_id ] = record;
 
-       reindex_shorts_at_feed( index.quote_id );
+       //reindex_shorts_at_feed( index.quote_id );
    }
 
    void chain_database::feed_erase_from_index_map( const feed_index index )
@@ -3544,7 +3478,7 @@ namespace bts { namespace blockchain {
                outer_iter->second.erase( index.delegate_id );
        }
 
-       reindex_shorts_at_feed( index.quote_id );
+       //reindex_shorts_at_feed( index.quote_id );
    }
 
    oslot_record chain_database::slot_lookup_by_index( const slot_index index )const

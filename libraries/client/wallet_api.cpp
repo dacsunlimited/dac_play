@@ -604,7 +604,7 @@ wallet_transaction_record detail::client_impl::wallet_mia_create(
         const uint64_t precision = asset_record::share_string_to_precision_unsafe( max_divisibility );
         const share_type max_supply = BTS_BLOCKCHAIN_MAX_SHARES;
         const share_type initial_supply = asset_record::share_string_to_satoshi(init_supply, precision);
-        const share_type initial_collateral = asset_record::share_string_to_satoshi(init_collateral, precision);
+        const share_type initial_collateral = asset_record::share_string_to_satoshi(init_collateral, BTS_BLOCKCHAIN_PRECISION);
         
         ogame_record issuer_game_record = _chain_db->get_game_record(game_name);
         if( !issuer_game_record.valid() )
