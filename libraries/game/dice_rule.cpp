@@ -53,10 +53,39 @@ namespace bts { namespace game {
         
         rule_dice_record cur_data;
         
-        // this does not means the balance are now stored in balance record, just over pass the api
-        // the dice record are not in any balance record, they are over-fly-on-sky..
-        // TODO: Dice Review
-        eval_state.sub_balance(asset( this->amount, dice_asset_record->id ));
+        // Update Zero Balance
+        withdraw_condition zero_condition(withdraw_with_signature(), dice_asset_record->id);
+        
+        obalance_record zero_record = eval_state.pending_state()->get_balance_record( zero_condition.get_address() );
+        if( !zero_record.valid() )
+        {
+            zero_record = balance_record( zero_condition );
+        }
+        
+        if( zero_record->balance == 0 )
+        {
+            zero_record->deposit_date = eval_state.pending_state()->now();
+        }
+        else
+        {
+            fc::uint128 old_sec_since_epoch( zero_record->deposit_date.sec_since_epoch() );
+            fc::uint128 new_sec_since_epoch( eval_state.pending_state()->now().sec_since_epoch() );
+            
+            fc::uint128 avg = (old_sec_since_epoch * zero_record->balance) + (new_sec_since_epoch * this->amount);
+            avg /= (zero_record->balance + this->amount);
+            
+            zero_record->deposit_date = time_point_sec( avg.to_integer() );
+        }
+        
+        // We store the balance in a genesis common address, where the consensus agree that the rule can read from there.
+        // Another purpose for this is to over pass the check supply part of the consensus.
+        // TODO: what happens when balance is negetive
+        zero_record->balance += this->amount;
+        eval_state.sub_balance( asset( this->amount, dice_asset_record->id ) );
+        
+        zero_record->last_update = eval_state.pending_state()->now();
+        
+        eval_state.pending_state()->store_balance_record( *zero_record );
         
         cur_data.id               = eval_state.trx.id();
         cur_data.amount           = this->amount;
@@ -118,7 +147,7 @@ namespace bts { namespace game {
                     pending_state->store_balance_record( *jackpot_payout );
                     
                     // TODO: Dice, add the virtual transactions just like market transactions
-                    
+                    // Do not need update balance here
                     // balance created
                     
                     shares_created += jackpot;
@@ -143,6 +172,32 @@ namespace bts { namespace game {
                 rule_result_transactions.push_back(rule_result_transaction(dice_trx));
             }
         }
+        
+        // Update Zero Balance
+        withdraw_condition zero_condition(withdraw_with_signature(), asset_id_type(1));
+        obalance_record zero_record = pending_state->get_balance_record( zero_condition.get_address() );
+        if( !zero_record.valid() )
+        {
+            zero_record = balance_record( zero_condition );
+        }
+        if( zero_record->balance == 0 )
+        {
+            zero_record->deposit_date = pending_state->now();
+        }
+        else
+        {
+            fc::uint128 old_sec_since_epoch( zero_record->deposit_date.sec_since_epoch() );
+            fc::uint128 new_sec_since_epoch( pending_state->now().sec_since_epoch() );
+            
+            fc::uint128 avg = (old_sec_since_epoch * zero_record->balance) + (new_sec_since_epoch * (0 - - shares_destroyed));
+            avg /= (zero_record->balance - shares_destroyed);
+            
+            zero_record->deposit_date = time_point_sec( avg.to_integer() );
+        }
+        
+        zero_record->balance -= shares_destroyed;
+        // Do not need update balance here
+        pending_state->store_balance_record( *zero_record );
         
         pending_state->set_rule_result_transactions( std::move( rule_result_transactions ) );
         
