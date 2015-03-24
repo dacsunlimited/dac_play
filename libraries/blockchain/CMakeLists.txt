@@ -1,6 +1,6 @@
 ##################################################################################################
 # Magic to get the genesis.json converted to a .cpp file and compiled into the bts_client library
-set(genesis_json "${CMAKE_CURRENT_SOURCE_DIR}/genesis_dacplay.json")
+set(genesis_json "${CMAKE_CURRENT_SOURCE_DIR}/dac_play.json")
 
 set(genesis_prologue "${CMAKE_CURRENT_SOURCE_DIR}/binary_genesis.prologue")
 set(genesis_epilogue "${CMAKE_CURRENT_SOURCE_DIR}/binary_genesis.epilogue")
