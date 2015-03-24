@@ -74,10 +74,7 @@ module BitShares
         log "[#{@instance_name}] request: #{method} #{params.join(' ')}"
         result = nil
         Net::HTTP.start(@uri.hostname, @uri.port) do |http|
-          params = params.map do |item|
-            if item.is_a?(Numeric) then item.to_s else item end
-          end
-          @req.body = { method: method, params: params, id: 0 }.to_json
+          @req.body = { method: method, params: params.map{|p| p.is_a?(Float) ? p.to_s : p}, id: 0 }.to_json
           response = http.request(@req)
           begin
           result = JSON.parse(response.body)
