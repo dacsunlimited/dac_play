@@ -92,17 +92,11 @@ namespace bts { namespace blockchain {
         return *inst;
     } FC_CAPTURE_AND_RETHROW() }
 
-   game_executors& game_executors::instance()
-   {
-      static std::unique_ptr<game_executors> inst( new game_executors() );
-      return *inst;
-   }
-
-   operation_factory& operation_factory::instance()
-   {
-      static std::unique_ptr<operation_factory> inst( new operation_factory() );
-      return *inst;
-   }
+    game_executors& game_executors::instance()
+    {
+       static std::unique_ptr<game_executors> inst( new game_executors() );
+       return *inst;
+    }
 
     void operation_factory::to_variant( const bts::blockchain::operation& in, fc::variant& output )
     { try {
@@ -111,12 +105,6 @@ namespace bts { namespace blockchain {
         converter_itr->second->to_variant( in, output );
     } FC_CAPTURE_AND_RETHROW() }
    
-    game_executors& game_executors::instance()
-    {
-       static std::unique_ptr<game_executors> inst( new game_executors() );
-       return *inst;
-    }
-
     void operation_factory::from_variant( const fc::variant& in, bts::blockchain::operation& output )
     { try {
         auto obj = in.get_object();
