@@ -28,6 +28,26 @@ fc::variant_object client_impl::fetch_welcome_package(const fc::variant_object& 
 
    return welcome_package;
 }
+    
+    bool client_impl::request_register_account( const account_record& account_to_register )
+    { try {
+        FC_ASSERT( !_config.faucet_account_name.empty(), "This server isn't a faucet. Cannot register account." );
+        if( !_chain_db->is_valid_account_name(account_to_register.name) )
+            FC_THROW_EXCEPTION( invalid_account_name, "" );
+        if( _chain_db->get_account_record(account_to_register.name) )
+            FC_THROW_EXCEPTION( account_already_registered, "" );
+        if( _chain_db->get_account_record(account_to_register.owner_key) || _chain_db->get_account_record(account_to_register.active_key()) )
+            FC_THROW_EXCEPTION( account_key_in_use, "" );
+        
+        transaction_builder_ptr builder = _wallet->create_transaction_builder();
+        auto rec = builder->register_account(account_to_register.name, account_to_register.public_data, account_to_register.owner_key, account_to_register.active_key(),
+                                             -1, public_account, _wallet->get_account(_config.faucet_account_name))
+        .finalize().sign();
+        _wallet->cache_transaction(rec);
+        network_broadcast_transaction(rec.trx);
+        
+        return true;
+    } FC_CAPTURE_AND_RETHROW( ) }
 
 /**
  *  When a light weight client is attempting to register an account for the first time they will
@@ -39,20 +59,20 @@ fc::variant_object client_impl::fetch_welcome_package(const fc::variant_object& 
  *
  *  The account name must be globally unique.
  */
-bool client_impl::request_register_account( const account_record& account_to_register )
+    bool client_impl::request_register_account_with_key( const string& account_name_to_register,
+                                               const public_key_type& account_key )
 { try {
    FC_ASSERT( !_config.faucet_account_name.empty(), "This server isn't a faucet. Cannot register account." );
-   if( !_chain_db->is_valid_account_name(account_to_register.name) )
+   if( !_chain_db->is_valid_account_name(account_name_to_register) )
       FC_THROW_EXCEPTION( invalid_account_name, "" );
-   if( _chain_db->get_account_record(account_to_register.name) )
+   if( _chain_db->get_account_record(account_name_to_register) )
       FC_THROW_EXCEPTION( account_already_registered, "" );
-   if( _chain_db->get_account_record(account_to_register.owner_key) ||
-       _chain_db->get_account_record(account_to_register.active_key()) )
+   if( _chain_db->get_account_record(account_key) )
       FC_THROW_EXCEPTION( account_key_in_use, "" );
 
    transaction_builder_ptr builder = _wallet->create_transaction_builder();
-   auto rec = builder->register_account(account_to_register.name, account_to_register.public_data,
-                                        account_to_register.owner_key, account_to_register.active_key(),
+   auto rec = builder->register_account(account_name_to_register, "",
+                                        account_key, account_key,
                                         -1, public_account, _wallet->get_account(_config.faucet_account_name))
          .finalize().sign();
    _wallet->cache_transaction(rec);

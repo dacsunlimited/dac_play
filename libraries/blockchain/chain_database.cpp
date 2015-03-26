@@ -355,28 +355,6 @@ namespace bts { namespace blockchain {
          base_asset.last_update = timestamp;
          self->store_asset_record( base_asset );
 
-         for( const auto& asset : config.chip_assets )
-         {
-             ++asset_id;
-             asset_record rec;
-             rec.id = asset_id;
-             rec.symbol = asset.symbol;
-             rec.issuer.type = asset_record::game_issuer_id;
-             // TODO: No one can use the chip assets then
-             rec.issuer.issuer_id = -1;
-             rec.name = asset.name;
-             rec.description = asset.description;
-             rec.precision = asset.precision;
-             rec.max_supply = BTS_BLOCKCHAIN_MAX_SHARES;
-             rec.authority_flag_permissions = 0;
-             rec.registration_date = timestamp;
-             rec.last_update = timestamp;
-             rec.current_collateral = asset.init_collateral * BTS_BLOCKCHAIN_PRECISION;
-             rec.current_supply = asset.init_supply * asset.precision;
-
-             self->store_asset_record( rec );
-         }
-
          //add fork_data for the genesis block to the fork database
          block_fork_data gen_fork;
          gen_fork.is_valid = true;

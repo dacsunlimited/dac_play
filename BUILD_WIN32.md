@@ -13,11 +13,11 @@ Windows - Visual Studio 2013
 mkdir D:\BitShares
 ```
 
-* Clone the BitShares repository
+* Clone the BitShares PLAY repository
   ```
 cd D:\BitShares
-git clone https://github.com/bitshares/bitshares.git
-cd bitshares
+git clone https://github.com/bitsuperlab/bitshares_play.git
+cd bitshares_play
 git submodule init
 git submodule update
 ```
