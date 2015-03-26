@@ -4,7 +4,9 @@ namespace bts { namespace client {
 
 static const std::vector<std::string> SEED_NODES
 {
-    "178.62.30.193:2776"
+    "69.172.229.183:2881",
+    "69.172.229.183:2882",
+    "69.172.229.183:2883"
 };
 
 } } // bts::client
