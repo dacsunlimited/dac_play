@@ -17,4 +17,5 @@ public:
 
     void pack_web(fc::path path, std::string output_file);
     void sign_update(WebUpdateManifest::UpdateDetails& update, fc::path update_package, bts::blockchain::private_key_type signing_key);
+    void verify_update(WebUpdateManifest::UpdateDetails& update, fc::path update_package, std::string sig);
 };

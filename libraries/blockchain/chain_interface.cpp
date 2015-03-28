@@ -161,22 +161,18 @@ namespace bts { namespace blockchain {
     
    share_type chain_interface::get_account_registration_fee( uint8_t name_length )const
    {
-       // names with length >= 6 will cost extra 1 PLS, but for names less than 6 length
-       // 1 character will cost 100000 PLS, 2 cost 10000 PLS etc.
        if ( name_length > 6 )
        {
            return 1 * BTS_BLOCKCHAIN_PRECISION;
+       } else if ( name_length > 4 && name_length <= 6 )
+       {
+           return 1000 * BTS_BLOCKCHAIN_PRECISION;
+       } else if ( name_length > 1 && name_length <= 4 )
+       {
+           return 10000 * BTS_BLOCKCHAIN_PRECISION;
        } else
        {
-           uint8_t len = 7 - name_length;
-           share_type short_name_price = 1 * BTS_BLOCKCHAIN_PRECISION;
-           
-           while (len != 0) {
-               short_name_price *= 10;
-               --len;
-           }
-           
-           return short_name_price;
+           return 100000 * BTS_BLOCKCHAIN_PRECISION;
        }
    }
     

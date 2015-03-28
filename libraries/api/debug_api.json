@@ -361,6 +361,20 @@
         "cached"  : false,
         "prerequisites" : ["no_prerequisites"],
         "aliases" : []
-      }      
+      },
+      {
+          "method_name" : "debug_public_key_to_address",
+          "description" : "Convert a PLS public key to related address",
+          "return_type" : "string",
+          "parameters"  : [
+          {
+              "name" : "pubkey",
+              "type" : "string",
+              "description" : "The public key for converting to address",
+              "default_value" : ""
+          }
+          ],
+          "prerequisites" : ["no_prerequisites"]
+      }
     ]
 }

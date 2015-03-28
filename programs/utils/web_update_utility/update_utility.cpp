@@ -7,6 +7,8 @@
 #include <fc/reflect/variant.hpp>
 
 #include <boost/filesystem/fstream.hpp>
+#include <bts/utilities/key_conversion.hpp>
+#include <bts/blockchain/types.hpp>
 
 #include <iostream>
 #include <fstream>
@@ -82,4 +84,24 @@ void update_utility::sign_update(WebUpdateManifest::UpdateDetails& update, fc::p
     enc.write(desc.c_str(), desc.size());
 
     update.signatures.insert(signing_key.sign_compact(enc.result()));
+}
+
+void update_utility::verify_update(WebUpdateManifest::UpdateDetails& update, fc::path update_package, std::string sig)
+{
+    fc::sha256::encoder enc;
+    boost::filesystem::ifstream infile(update_package);
+    char c = infile.get();
+    while (infile)
+    {
+        enc.put(c);
+        c = infile.get();
+    }
+    infile.close();
+    std::string desc = update.signable_string();
+    enc.write(desc.c_str(), desc.size());
+
+    auto hash = enc.result();
+    auto signature = fc::variant(sig).as<fc::ecc::compact_signature>();
+
+    cout << std::string( bts::blockchain::address(fc::ecc::public_key(signature, hash, false)) ) << endl;
 }

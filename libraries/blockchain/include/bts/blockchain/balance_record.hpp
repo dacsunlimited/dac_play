@@ -44,7 +44,9 @@ namespace bts { namespace blockchain {
       withdraw_condition         condition;
       share_type                 balance = 0;
       optional<address>          restricted_owner;
+      // @deprecated, now only storing the last snapshor for same balance id(in most case)
       osnapshot_record           snapshot_info;
+      std::vector<osnapshot_record> multi_snapshot_infos;
       fc::time_point_sec         deposit_date;
       fc::time_point_sec         last_update;
       variant                    meta_data; // extra meta data about every balance
@@ -69,4 +71,4 @@ namespace bts { namespace blockchain {
 } } // bts::blockchain
 
 FC_REFLECT( bts::blockchain::snapshot_record, (original_address)(original_balance) )
-FC_REFLECT( bts::blockchain::balance_record, (condition)(balance)(restricted_owner)(snapshot_info)(deposit_date)(last_update)(meta_data) )
+FC_REFLECT( bts::blockchain::balance_record, (condition)(balance)(restricted_owner)(snapshot_info)(multi_snapshot_infos)(deposit_date)(last_update)(meta_data) )

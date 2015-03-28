@@ -303,11 +303,20 @@ namespace bts { namespace blockchain {
             const auto addr = convert_raw_address( genesis_balance.raw_address );
             balance_record initial_balance( addr, asset( genesis_balance.balance, 0 ), 0 );
 
+            //ilog("balance addr is ${addr} balance is ${num}", ("addr", addr)("num", genesis_balance.balance));
+             
             /* In case of redundant balances */
             const auto cur = self->get_balance_record( initial_balance.id() );
-            if( cur.valid() ) initial_balance.balance += cur->balance;
-
-            initial_balance.snapshot_info = snapshot_record( genesis_balance.raw_address, genesis_balance.balance );
+            if( cur.valid() )
+            {
+                initial_balance.balance += cur->balance;
+                initial_balance.multi_snapshot_infos = cur->multi_snapshot_infos;
+            }
+                
+            snapshot_record rec = snapshot_record( genesis_balance.raw_address, genesis_balance.balance );
+            initial_balance.snapshot_info = rec;
+            initial_balance.multi_snapshot_infos.push_back(rec);
+            
             initial_balance.last_update = config.timestamp;
             self->store_balance_record( initial_balance );
 
@@ -329,9 +338,16 @@ namespace bts { namespace blockchain {
 
             /* In case of redundant balances */
             const auto cur = self->get_balance_record( initial_balance.id() );
-            if( cur.valid() ) initial_balance.balance += cur->balance;
-
-            initial_balance.snapshot_info = snapshot_record( genesis_balance.raw_address, genesis_balance.balance );
+            if( cur.valid() )
+            {
+                initial_balance.balance += cur->balance;
+                initial_balance.multi_snapshot_infos = cur->multi_snapshot_infos;
+            }
+             
+             snapshot_record rec = snapshot_record( genesis_balance.raw_address, genesis_balance.balance );
+             initial_balance.snapshot_info = rec;
+             initial_balance.multi_snapshot_infos.push_back(rec);
+             
             initial_balance.last_update = vesting.start_time;
             self->store_balance_record( initial_balance );
 
@@ -354,28 +370,6 @@ namespace bts { namespace blockchain {
          base_asset.registration_date = timestamp;
          base_asset.last_update = timestamp;
          self->store_asset_record( base_asset );
-
-         for( const auto& asset : config.chip_assets )
-         {
-             ++asset_id;
-             asset_record rec;
-             rec.id = asset_id;
-             rec.symbol = asset.symbol;
-             rec.issuer.type = asset_record::game_issuer_id;
-             // TODO: No one can use the chip assets then
-             rec.issuer.issuer_id = -1;
-             rec.name = asset.name;
-             rec.description = asset.description;
-             rec.precision = asset.precision;
-             rec.max_supply = BTS_BLOCKCHAIN_MAX_SHARES;
-             rec.authority_flag_permissions = 0;
-             rec.registration_date = timestamp;
-             rec.last_update = timestamp;
-             rec.current_collateral = asset.init_collateral * BTS_BLOCKCHAIN_PRECISION;
-             rec.current_supply = asset.init_supply * asset.precision;
-
-             self->store_asset_record( rec );
-         }
 
          //add fork_data for the genesis block to the fork database
          block_fork_data gen_fork;

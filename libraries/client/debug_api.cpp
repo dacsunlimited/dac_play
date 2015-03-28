@@ -45,6 +45,17 @@ fc::variants client_impl::debug_list_matching_errors() const
     return result;
 }
 
+std::string client_impl::debug_public_key_to_address(const std::string& pubkey )
+{
+    try{
+        auto k = bts::blockchain::public_key_type(pubkey);
+        auto addr = bts::blockchain::address(k);
+        return std::string(addr);
+    } catch (fc::exception e) {
+        return "Error Format";
+    }
+}
+
 map<fc::time_point, fc::exception> client_impl::debug_list_errors( int32_t first_error_number, uint32_t limit, const string& filename )const
 {
    map<fc::time_point, fc::exception> result;

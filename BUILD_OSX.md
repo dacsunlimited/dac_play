@@ -36,10 +36,10 @@ BitShares OS X Build Instructions
 7. Clone the BitShares PLAY repository:
    ```
    git clone git@github.com:bitsuperlab/bitshares_play.git
-   cd bitshares
+   cd bitshares_play
    ```
 
-8. Build BitShares:
+8. Build BitShares PLAY:
    ```
    git submodule update --init
    cmake .
@@ -62,6 +62,8 @@ BitShares OS X Build Instructions
    make
    ```
    Note: By default, the web wallet will not be rebuilt even after pulling new changes. To force the web wallet to rebuild, use `make forcebuildweb`.
+   
+   Node2: In 'make buildweb' step, if there is any error, you can switch to 'programs/web_wallet' and run 'lineman build' to see more error details. Make sure 'lineman' is installed. 
 
 11. *Optional*. Create GUI installation package:
    ```

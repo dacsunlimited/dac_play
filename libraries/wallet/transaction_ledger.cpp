@@ -197,15 +197,21 @@ void wallet_impl::scan_balances()
                transaction_record->block_num = 1;
        }
 
-       auto entry = ledger_entry();
-       entry.to_account = public_key;
-       entry.amount = asset( bal_rec.snapshot_info->original_balance, bal_rec.condition.asset_id );
-       entry.memo = "claim " + bal_rec.snapshot_info->original_address;
+       for(const auto snapshot_info : bal_rec.multi_snapshot_infos)
+       {
+           auto entry = ledger_entry();
+           entry.to_account = public_key;
+           entry.amount = asset( snapshot_info->original_balance, bal_rec.condition.asset_id );
+           entry.memo = "claim " + snapshot_info->original_address;
+           
+           transaction_record->ledger_entries.push_back( entry );
+       }
+
 
        transaction_record->record_id = record_id;
        transaction_record->is_virtual = true;
        transaction_record->is_confirmed = true;
-       transaction_record->ledger_entries.push_back( entry );
+       
        _wallet_db.store_transaction( *transaction_record );
    };
    _blockchain->scan_balances( scan_balance );
