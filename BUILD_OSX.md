@@ -33,13 +33,13 @@ BitShares OS X Build Instructions
    
    Tip 2: 2.3 or above required. https://github.com/bitsuperlab/bitshares_play/issues/76
 
-7. Clone the BitShares PLAY repository:
+7. Clone the DAC PLAY repository:
    ```
-   git clone git@github.com:bitsuperlab/bitshares_play.git
-   cd bitshares_play
+   git clone git@github.com:dacsunlimited/dac_play.git
+   cd dac_play
    ```
 
-8. Build BitShares PLAY:
+8. Build DAC PLAY:
    ```
    git submodule update --init
    cmake .
