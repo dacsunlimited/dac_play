@@ -76,7 +76,8 @@ transaction_builder&transaction_builder::register_account(const string& name,
    if( !active_key ) active_key = owner_key;
    if( !delegate_pay ) delegate_pay = -1;
 
-   if( paying_account ) deduct_balance(paying_account->owner_address(), asset());
+   if( paying_account ) deduct_balance(paying_account->owner_address(),
+                                       asset( _wimpl->_blockchain->get_account_registration_fee(name.size()) ));
 
    trx.register_account(name, *public_data, owner_key, *active_key, *delegate_pay, meta_info);
 
