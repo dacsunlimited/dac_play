@@ -25,9 +25,9 @@ Additional information is available at [BitShares.org](http://bitshares.org/) an
 Building
 --------
 Different platforms have different build instructions:
-* [OS X](https://github.com/BitShares/bitshares/blob/master/BUILD_OSX.md)
-* [Ubuntu](https://github.com/BitShares/bitshares/blob/master/BUILD_UBUNTU.md)
-* [Windows](https://github.com/BitShares/bitshares/blob/master/BUILD_WIN32.md)
+* [OS X](https://github.com/bitsuperlab/bitshares_play/blob/master/BUILD_OSX.md)
+* [Ubuntu](https://github.com/bitsuperlab/bitshares_play/blob/master/BUILD_UBUNTU.md)
+* [Windows](https://github.com/bitsuperlab/bitshares_play/blob/master/BUILD_WIN32.md)
 
 
 Using the RPC server

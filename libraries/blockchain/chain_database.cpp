@@ -303,11 +303,20 @@ namespace bts { namespace blockchain {
             const auto addr = convert_raw_address( genesis_balance.raw_address );
             balance_record initial_balance( addr, asset( genesis_balance.balance, 0 ), 0 );
 
+            //ilog("balance addr is ${addr} balance is ${num}", ("addr", addr)("num", genesis_balance.balance));
+             
             /* In case of redundant balances */
             const auto cur = self->get_balance_record( initial_balance.id() );
-            if( cur.valid() ) initial_balance.balance += cur->balance;
-
-            initial_balance.snapshot_info = snapshot_record( genesis_balance.raw_address, genesis_balance.balance );
+            if( cur.valid() )
+            {
+                initial_balance.balance += cur->balance;
+                initial_balance.multi_snapshot_infos = cur->multi_snapshot_infos;
+            }
+                
+            snapshot_record rec = snapshot_record( genesis_balance.raw_address, genesis_balance.balance );
+            initial_balance.snapshot_info = rec;
+            initial_balance.multi_snapshot_infos.push_back(rec);
+            
             initial_balance.last_update = config.timestamp;
             self->store_balance_record( initial_balance );
 
@@ -329,9 +338,16 @@ namespace bts { namespace blockchain {
 
             /* In case of redundant balances */
             const auto cur = self->get_balance_record( initial_balance.id() );
-            if( cur.valid() ) initial_balance.balance += cur->balance;
-
-            initial_balance.snapshot_info = snapshot_record( genesis_balance.raw_address, genesis_balance.balance );
+            if( cur.valid() )
+            {
+                initial_balance.balance += cur->balance;
+                initial_balance.multi_snapshot_infos = cur->multi_snapshot_infos;
+            }
+             
+             snapshot_record rec = snapshot_record( genesis_balance.raw_address, genesis_balance.balance );
+             initial_balance.snapshot_info = rec;
+             initial_balance.multi_snapshot_infos.push_back(rec);
+             
             initial_balance.last_update = vesting.start_time;
             self->store_balance_record( initial_balance );
 
