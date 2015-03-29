@@ -729,5 +729,11 @@ void client_impl::blockchain_broadcast_transaction(const signed_transaction& trx
    }
    network_broadcast_transaction(trx);
 }
+    
+bts::blockchain::asset client_impl::blockchain_fee_register_account(const std::string& account_name)
+{
+    asset fee( _chain_db->get_account_registration_fee( account_name.size() ), 0 );
+    return fee;
+}
 
 } } } // namespace bts::client::detail
