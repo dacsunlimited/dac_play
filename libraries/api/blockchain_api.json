@@ -834,6 +834,21 @@
         ],
         "is_const"   : false,
         "prerequisites" : ["no_prerequisites"]
+      },
+      {
+          "method_name": "blockchain_fee_register_account",
+          "description": "Get the account fee for a account name",
+          "cached"      : true,
+          "return_type": "asset",
+          "parameters"  : [
+          {
+              "name" : "account_name",
+              "type" : "string",
+              "description" : "the account name to register"
+          }
+          ],
+          "is_const"   : false,
+          "prerequisites" : ["no_prerequisites"]
       }
     ]
 }
