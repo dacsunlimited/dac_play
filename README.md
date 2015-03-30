@@ -1,17 +1,11 @@
-BitShares PLAY
+DAC PLAY
 ===============================
-BitShares PLAY is a protocal and DAC designed to help coordinate voluntary decentralized game store and peer-to-peer game asset exchange.
-
-Status
-------
-The symbol of develop branch is XTS, for testing, please go to folder tests/bdd_tests.
+DAC PLAY is a protocal and DAC designed to help coordinate voluntary decentralized game store and peer-to-peer game asset exchange. It is also DACSunlimited's open source implementation of BitShares PLAY, which is originated and based on Bitshares Blockchain technology.
 
 
-[![Gitter](https://badges.gitter.im/Join Chat.svg)](https://gitter.im/Bitsuperlab/bitshares_play?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
-
-
-White Paper
+More Info Go to WebSite
 ------------------
+https://dacsunlimited.com/
 http://www.bitsuperlab.com/pdf/BitSharesPlayWhitePaper.pdf
 
 Build Instructions
@@ -25,9 +19,9 @@ Additional information is available at [BitShares.org](http://bitshares.org/) an
 Building
 --------
 Different platforms have different build instructions:
-* [OS X](https://github.com/bitsuperlab/bitshares_play/blob/master/BUILD_OSX.md)
-* [Ubuntu](https://github.com/bitsuperlab/bitshares_play/blob/master/BUILD_UBUNTU.md)
-* [Windows](https://github.com/bitsuperlab/bitshares_play/blob/master/BUILD_WIN32.md)
+* [OS X](https://github.com/dacsunlimited/dac_play/blob/master/BUILD_OSX.md)
+* [Ubuntu](https://github.com/dacsunlimited/dac_play/blob/master/BUILD_UBUNTU.md)
+* [Windows](https://github.com/dacsunlimited/dac_play/blob/master/BUILD_WIN32.md)
 
 
 Using the RPC server
@@ -50,7 +44,7 @@ After editing the configuration file and (re)starting the BitShares client, you 
 
 The POST request returns a JSON result like this (some data elided for brevity):
 
-    {"id":1,"result":{"id":31427,"name":"dev0.theoretical","public_data":{"version":"v0.4.27.1"},"owner_key":"BTS75vj8aaDWFwg7Wd6WinAAqVddUcSRJ1hSMDNayLAbCuxsmoQTf", ...},"meta_data":{"type":"public_account","data":""}}}
+    {"id":1,"result":{"id":31427,"name":"dev0.theoretical","public_data":{"version":"v0.4.27.1"},"owner_key":"PLS75vj8aaDWFwg7Wd6WinAAqVddUcSRJ1hSMDNayLAbCuxsmoQTf", ...},"meta_data":{"type":"public_account","data":""}}}
 
 Since HTTP basic authentication is used, the authentication credentials are sent over the socket in unencrypted plaintext.
 For this reason, binding to an interface other than localhost in the configuration file is not recommended.
@@ -61,7 +55,7 @@ Thus, your security procedures should protect the username, password, and socket
 
 Contributing
 ------------
-The source code can always be found at the [BitShares GitHub Repository](https://github.com/BitShares/bitshares). There are four main branches:
+BitShares source code can always be found at the [BitShares GitHub Repository](https://github.com/BitShares/bitshares). There are four main branches:
 - `master` - official BitShares releases are tagged from here; this should only change for a new release
 - `test` - for testing
 - `develop` - all new development happens here; this is what is used for internal BitShares XTS test networks
@@ -70,9 +64,9 @@ Some technical documentation is available at the [BitShares GitHub Wiki](https:/
 
 Support
 -------
-Bugs can be reported directly to the [BitShares Issue Tracker](https://github.com/BitShares/bitshares/issues).
+Bugs can be reported directly to the [DAC PLAY Issue Tracker](https://github.com/dacsunlimited/dac_play/issues).
 
-Technical support can be obtained from the [BitSharesTalk Technical Support Forum](https://bitsharestalk.org/index.php?board=45.0).
+Technical support can be obtained from the [PlayTalk Technical Support Forum](http://playtalk.org/).
 
 License
 -------
