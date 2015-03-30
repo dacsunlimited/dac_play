@@ -1,0 +1,10 @@
+/** @file bts/blockchain/fork_blocks.hpp
+ *  @brief Defines global block number constants for when hardforks take effect
+ */
+
+#pragma once
+
+#include <stdint.h>
+#include <vector>
+
+#define PLS_V0_0_3_FORK_BLOCK_NUM    4000

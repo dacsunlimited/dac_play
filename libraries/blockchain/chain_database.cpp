@@ -10,6 +10,7 @@
 #include <bts/blockchain/market_engine.hpp>
 #include <bts/blockchain/time.hpp>
 #include <bts/blockchain/game_executors.hpp>
+#include <bts/blockchain/fork_blocks.hpp>
 
 #include <fc/io/fstream.hpp>
 #include <fc/io/raw_variant.hpp>
@@ -713,10 +714,14 @@ namespace bts { namespace blockchain {
           const uint8_t pay_rate_percent = delegate_record->delegate_info->pay_rate;
           FC_ASSERT( pay_rate_percent >= 0 && pay_rate_percent <= 100 );
 
-          const share_type max_new_shares = self->get_max_delegate_pay_issued_per_block();
-          const share_type accepted_new_shares = (max_new_shares * pay_rate_percent) / 100;
-          FC_ASSERT( max_new_shares >= 0 && accepted_new_shares >= 0 );
-          base_asset_record->current_supply += accepted_new_shares;
+          share_type accepted_new_shares = 0;
+          if ( pending_state->get_head_block_num() < PLS_V0_0_3_FORK_BLOCK_NUM )
+          {
+              const share_type max_new_shares = self->get_max_delegate_pay_issued_per_block();
+              accepted_new_shares = (max_new_shares * pay_rate_percent) / 100;
+              FC_ASSERT( max_new_shares >= 0 && accepted_new_shares >= 0 );
+              base_asset_record->current_supply += accepted_new_shares;
+          }
 
           static const uint32_t blocks_per_two_weeks = 14 * BTS_BLOCKCHAIN_BLOCKS_PER_DAY;
           const share_type max_collected_fees = base_asset_record->collected_fees / blocks_per_two_weeks;
