@@ -1,5 +1,5 @@
-# Defines BitShares library target.
-project( BitShares )
+# Defines DACPLAY library target.
+project( DACPLAY )
 cmake_minimum_required( VERSION 2.8.12 )
 
 #place the executable programs and libraries in one specific path to prevent them being placed everywhere and mix with the source code
