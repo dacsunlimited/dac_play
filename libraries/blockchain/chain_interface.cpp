@@ -172,7 +172,7 @@ namespace bts { namespace blockchain {
            return 10000 * BTS_BLOCKCHAIN_PRECISION;
        } else
        {
-           return 100000L * BTS_BLOCKCHAIN_PRECISION;
+           return int64_t(100000) * BTS_BLOCKCHAIN_PRECISION;
        }
    }
     
