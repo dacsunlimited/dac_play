@@ -147,6 +147,8 @@ namespace bts { namespace blockchain {
             bts::db::level_map<address, unordered_set<transaction_id_type>>             _address_to_transaction_ids;
 
             bts::db::cached_level_map<burn_index, burn_record>                          _burn_index_to_record;
+            bts::db::cached_level_map<note_index, note_record>                          _note_index_to_record;
+            bts::db::fast_level_map<operation_type, operation_reward_record>            _operation_reward_id_to_record;
 
             bts::db::cached_level_map<feed_index, feed_record>                          _feed_index_to_record;
             unordered_map<asset_id_type, unordered_map<account_id_type, feed_record>>   _nested_feed_map;

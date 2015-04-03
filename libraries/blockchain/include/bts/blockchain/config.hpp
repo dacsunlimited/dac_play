@@ -50,6 +50,7 @@
 #define BTS_BLOCKCHAIN_MAX_SYMBOL_SIZE                      12 // characters
 
 #define BTS_BLOCKCHAIN_MIN_BURN_FEE                         BTS_BLOCKCHAIN_PRECISION * 1 // 1 XTS
+#define BTS_BLOCKCHAIN_MIN_NOTE_FEE                         BTS_BLOCKCHAIN_PRECISION * 5 // 1 XTS
 
 #ifdef BTS_TEST_NETWORK
 #define BTS_BLOCKCHAIN_VOTE_UPDATE_PERIOD_SEC               10

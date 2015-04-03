@@ -342,6 +342,14 @@ namespace bts { namespace blockchain {
          virtual oburn_record burn_lookup_by_index( const burn_index& )const override;
          virtual void burn_insert_into_index_map( const burn_index&, const burn_record& )override;
          virtual void burn_erase_from_index_map( const burn_index& )override;
+       
+        virtual onote_record note_lookup_by_index( const note_index& )const override;
+        virtual void note_insert_into_index_map( const note_index&, const note_record& )override;
+        virtual void note_erase_from_index_map( const note_index& )override;
+       
+       virtual ooperation_reward_record operation_reward_lookup_by_id( const operation_type )const override;
+       virtual void operation_reward_insert_into_id_map( const operation_type, const operation_reward_record& )override;
+       virtual void operation_reward_erase_from_id_map( const operation_type )override;
 
          virtual ofeed_record feed_lookup_by_index( const feed_index )const override;
          virtual void feed_insert_into_index_map( const feed_index, const feed_record& )override;

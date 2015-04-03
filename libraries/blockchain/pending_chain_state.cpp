@@ -48,6 +48,8 @@ namespace bts { namespace blockchain {
       apply_records( prev_state, _balance_id_to_record, _balance_id_remove );
       apply_records( prev_state, _transaction_id_to_record, _transaction_id_remove );
       apply_records( prev_state, _burn_index_to_record, _burn_index_remove );
+      apply_records( prev_state, _note_index_to_record, _note_index_remove );
+      apply_records( prev_state, _operation_reward_id_to_record, _operation_reward_id_remove );
       apply_records( prev_state, _slot_index_to_record, _slot_index_remove );
       apply_records( prev_state, _game_id_to_record, _game_id_remove );
 
@@ -100,6 +102,7 @@ namespace bts { namespace blockchain {
       populate_undo_state( undo_state, prev_state, _balance_id_to_record, _balance_id_remove );
       populate_undo_state( undo_state, prev_state, _transaction_id_to_record, _transaction_id_remove );
       populate_undo_state( undo_state, prev_state, _burn_index_to_record, _burn_index_remove );
+      populate_undo_state( undo_state, prev_state, _note_index_to_record, _note_index_remove );
       populate_undo_state( undo_state, prev_state, _feed_index_to_record, _feed_index_remove );
       populate_undo_state( undo_state, prev_state, _slot_index_to_record, _slot_index_remove );
       populate_undo_state( undo_state, prev_state, _game_id_to_record, _game_id_remove);
@@ -647,6 +650,50 @@ namespace bts { namespace blockchain {
        _burn_index_to_record.erase( index );
        _burn_index_remove.insert( index );
    }
+    
+    onote_record pending_chain_state::note_lookup_by_index( const note_index& index )const
+    {
+        const auto iter = _note_index_to_record.find( index );
+        if( iter != _note_index_to_record.end() ) return iter->second;
+        if( _note_index_remove.count( index ) > 0 ) return onote_record();
+        const chain_interface_ptr prev_state = _prev_state.lock();
+        if( !prev_state ) return onote_record();
+        return prev_state->lookup<note_record>( index );
+    }
+    
+    void pending_chain_state::note_insert_into_index_map( const note_index& index, const note_record& record )
+    {
+        _note_index_remove.erase( index );
+        _note_index_to_record[ index ] = record;
+    }
+    
+    void pending_chain_state::note_erase_from_index_map( const note_index& index )
+    {
+        _note_index_to_record.erase( index );
+        _note_index_remove.insert( index );
+    }
+    
+    ooperation_reward_record pending_chain_state::operation_reward_lookup_by_id( const operation_type id )const
+    {
+        const auto iter = _operation_reward_id_to_record.find( id );
+        if( iter != _operation_reward_id_to_record.end() ) return iter->second;
+        if( _operation_reward_id_remove.count( id ) > 0 ) return ooperation_reward_record();
+        const chain_interface_ptr prev_state = _prev_state.lock();
+        if( !prev_state ) return ooperation_reward_record();
+        return prev_state->lookup<operation_reward_record>( id );
+    }
+    
+    void pending_chain_state::operation_reward_insert_into_id_map( const operation_type id, const operation_reward_record& record )
+    {
+        _operation_reward_id_remove.erase( id );
+        _operation_reward_id_to_record[ id ] = record;
+    }
+    
+    void pending_chain_state::operation_reward_erase_from_id_map( const operation_type id )
+    {
+        _operation_reward_id_to_record.erase( id );
+        _operation_reward_id_remove.insert( id );
+    }
 
    ofeed_record pending_chain_state::feed_lookup_by_index( const feed_index index )const
    {

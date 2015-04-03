@@ -5,6 +5,35 @@
 #include <bts/blockchain/withdraw_types.hpp>
 
 namespace bts { namespace blockchain {
+    
+    enum message_type
+    {
+        public_messsage     = 0,
+        private_message     = 1
+    };
+    
+    struct message_meta_info
+    {
+        fc::enum_type<fc::unsigned_int,message_type> type = public_messsage;
+        vector<char>                                 data;
+        
+        message_meta_info( message_type atype = public_messsage )
+        :type( atype ){}
+        
+        template<typename MessageType>
+        message_meta_info(  const MessageType& t )
+        :type( MessageType::type )
+        {
+            data = fc::raw::pack( t );
+        }
+        
+        template<typename MessageType>
+        MessageType as()const
+        {
+            FC_ASSERT( type == MessageType::type, "", ("MessageType",MessageType::type) );
+            return fc::raw::unpack<MessageType>(data);
+        }
+    };
 
 /** withdraws funds and moves them into the transaction
 * balance making them available for deposit
@@ -77,6 +106,36 @@ struct burn_operation
 
     void evaluate( transaction_evaluation_state& eval_state )const;
 };
+    
+/**
+*  Writing notes by the account owner, encrypted or public types. signature of the owner account must be provided
+*  The fees for this operation is depended on the length of the message.
+*/
+struct note_operation
+{
+    static const operation_type_enum type;
+    
+    note_operation( asset amount_to_pay = asset(),
+                   account_id_type owner_id = 0,
+                   const string& message = "",
+                   optional<signature_type> sig = optional<signature_type>() )
+    :amount(amount_to_pay),owner_account_id(owner_id),message(message),message_signature(sig){}
+    
+    asset                        amount;
+    account_id_type              owner_account_id;
+    string                       message;
+    /**
+     *  Meta information is used by clients to evaluate
+     *  how the messege is generated.  This is designed to
+     *  support private notes
+     *
+     *  This data does not effect validation rules.
+     */
+    optional<message_meta_info>  meta_data;
+    optional<signature_type>     message_signature;
+    
+    void evaluate( transaction_evaluation_state& eval_state )const;
+};
 
 struct release_escrow_operation
 {
@@ -129,9 +188,18 @@ struct limit_fee_operation
 
 } } // bts::blockchain
 
+FC_REFLECT_ENUM( bts::blockchain::message_type,
+                (public_messsage)
+                (private_message)
+                )
+FC_REFLECT( bts::blockchain::message_meta_info,
+           (type)
+           (data)
+           )
 FC_REFLECT( bts::blockchain::withdraw_operation, (balance_id)(amount)(claim_input_data) )
 FC_REFLECT( bts::blockchain::deposit_operation, (amount)(condition) )
 FC_REFLECT( bts::blockchain::burn_operation, (amount)(account_id)(message)(message_signature) )
+FC_REFLECT( bts::blockchain::note_operation, (amount)(owner_account_id)(message)(meta_data)(message_signature) )
 FC_REFLECT( bts::blockchain::release_escrow_operation, (escrow_id)(released_by)(amount_to_receiver)(amount_to_sender) )
 FC_REFLECT( bts::blockchain::update_balance_vote_operation, (balance_id)(new_restricted_owner)(new_slate) )
 FC_REFLECT( bts::blockchain::limit_fee_operation, (max_fee) )

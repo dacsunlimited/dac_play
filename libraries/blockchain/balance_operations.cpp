@@ -281,6 +281,52 @@ namespace bts { namespace blockchain {
 
       eval_state.pending_state()->store_burn_record( std::move( record ) );
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
+    
+    void note_operation::evaluate( transaction_evaluation_state& eval_state )const
+    { try {
+        if( this->amount.amount <= 0 )
+            FC_CAPTURE_AND_THROW( negative_deposit, (amount) );
+        
+        FC_ASSERT( !message.empty() );
+        FC_ASSERT( amount.asset_id == 0 );
+        
+        const size_t message_kb = (message.size() / 1024) + 1;
+        const share_type required_fee = message_kb * BTS_BLOCKCHAIN_MIN_NOTE_FEE;
+        
+        FC_ASSERT( amount.amount >= required_fee, "Message of size ${s} KiB requires at least ${a} satoshis to be burned!",
+                  ("s",message_kb)("a",required_fee) );
+        
+        // half of the note fees goto collected fees(delegate pay), other go to the operation pool
+        eval_state.min_fees[amount.asset_id] += amount.amount / 2;
+        
+        // TODO: instead of burn, the left will go to a fee pool attached to this operation.
+        auto op_reward_record = eval_state.pending_state()->get_operation_reward_record(note_op_type);
+        auto reward_fee = amount.amount - amount.amount / 2;
+        op_reward_record->fees[amount.asset_id] += reward_fee;
+        eval_state.sub_balance( asset(reward_fee, amount.asset_id) );
+        eval_state.pending_state()->store_operation_reward_record( *op_reward_record );
+        
+        // the transaction check the signature of the owner
+        const oaccount_record account_rec = eval_state.pending_state()->get_account_record( abs( this->owner_account_id ) );
+        FC_ASSERT( account_rec.valid() );
+        
+        eval_state.check_signature( account_rec->active_key() );
+        
+        note_record record;
+        record.index.account_id = owner_account_id;
+        record.index.transaction_id = eval_state.trx.id();
+        record.amount = amount;
+        record.message = message;
+        record.meta_data = meta_data;
+        record.signer = message_signature;
+        
+        // verify the signature of the message, the message signer must be the account_id's active key
+        FC_ASSERT( account_rec->active_key() == record.signer_key() );
+        
+        FC_ASSERT( !eval_state.pending_state()->get_note_record( record.index ).valid() );
+        
+        eval_state.pending_state()->store_note_record( std::move( record ) );
+    } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
    void release_escrow_operation::evaluate( transaction_evaluation_state& eval_state )const
    { try {

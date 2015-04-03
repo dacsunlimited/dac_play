@@ -153,6 +153,10 @@ namespace bts { namespace blockchain {
           _address_to_transaction_ids.open( data_dir / "index/address_to_transaction_ids" );
 
           _burn_index_to_record.open( data_dir / "index/burn_index_to_record" );
+          
+          _note_index_to_record.open( data_dir / "index/note_index_to_record" );
+          
+          _operation_reward_id_to_record.open( data_dir / "index/operation_reward_id_to_record" );
 
           _feed_index_to_record.open( data_dir / "index/feed_index_to_record" );
 
@@ -385,6 +389,12 @@ namespace bts { namespace blockchain {
          self->set_statistics_enabled( statistics_enabled );
          // TODO: No game in genesis for now
          self->store_property_record( property_id_type::last_game_id, 0 );
+          
+          // enable reward for note operation
+          operation_reward_record op_reward;
+          op_reward.id = note_operation::type;
+          op_reward.fees[0] = 0;
+          self->store_operation_reward_record( std::move(op_reward) );
 
          return chain_id;
       } FC_CAPTURE_AND_RETHROW( (genesis_file)(statistics_enabled) ) }
@@ -1324,11 +1334,14 @@ namespace bts { namespace blockchain {
                   my->_slate_id_to_record.toggle_leveldb( enabled );
 
                   my->_balance_id_to_record.toggle_leveldb( enabled );
+                  
+                  my->_operation_reward_id_to_record.toggle_leveldb( enabled );
               };
 
               const auto set_db_cache_write_through = [ this ]( bool write_through )
               {
                   my->_burn_index_to_record.set_write_through( write_through );
+                  my->_note_index_to_record.set_write_through( write_through );
 
                   my->_rule_data_db.set_write_through( write_through );
                   my->_rule_result_transactions_db.set_write_through ( write_through );
@@ -1511,6 +1524,8 @@ namespace bts { namespace blockchain {
       my->_address_to_transaction_ids.close();
 
       my->_burn_index_to_record.close();
+       my->_note_index_to_record.close();
+       my->_operation_reward_id_to_record.close();
 
       my->_feed_index_to_record.close();
 
@@ -3042,6 +3057,15 @@ namespace bts { namespace blockchain {
            const asset_record& asset = iter->second;
            totals[ asset.id ] += asset.collected_fees;
        }
+       
+       for( auto iter = my->_operation_reward_id_to_record.unordered_begin(); iter != my->_operation_reward_id_to_record.unordered_end(); ++iter )
+       {
+           const operation_reward_record& reward = iter->second;
+           for ( auto it = reward.fees.begin(); it != reward.fees.end(); ++it )
+           {
+               totals[ it->first ] += it->second;
+           }
+       }
 
        for( auto iter = my->_balance_id_to_record.unordered_begin(); iter != my->_balance_id_to_record.unordered_end(); ++iter )
        {
@@ -3439,6 +3463,38 @@ namespace bts { namespace blockchain {
    {
        my->_burn_index_to_record.remove( index );
    }
+    
+    onote_record chain_database::note_lookup_by_index( const note_index& index )const
+    {
+        return my->_note_index_to_record.fetch_optional( index );
+    }
+    
+    void chain_database::note_insert_into_index_map( const note_index& index, const note_record& record )
+    {
+        my->_note_index_to_record.store( index, record );
+    }
+    
+    void chain_database::note_erase_from_index_map( const note_index& index )
+    {
+        my->_note_index_to_record.remove( index );
+    }
+    
+    ooperation_reward_record chain_database::operation_reward_lookup_by_id( const operation_type id )const
+    {
+        const auto iter = my->_operation_reward_id_to_record.unordered_find( id );
+        if( iter != my->_operation_reward_id_to_record.unordered_end() ) return iter->second;
+        return ooperation_reward_record();
+    }
+    
+    void chain_database::operation_reward_insert_into_id_map( const operation_type id, const operation_reward_record& record )
+    {
+        my->_operation_reward_id_to_record.store( id, record );
+    }
+    
+    void chain_database::operation_reward_erase_from_id_map( const operation_type id )
+    {
+        my->_operation_reward_id_to_record.remove( id );
+    }
 
    ofeed_record chain_database::feed_lookup_by_index( const feed_index index )const
    {

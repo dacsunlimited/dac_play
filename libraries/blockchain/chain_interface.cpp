@@ -449,6 +449,26 @@ namespace bts { namespace blockchain {
    { try {
        store( record.index, record );
    } FC_CAPTURE_AND_RETHROW( (record) ) }
+    
+    onote_record chain_interface::get_note_record( const note_index& index )const
+    { try {
+        return lookup<note_record>( index );
+    } FC_CAPTURE_AND_RETHROW( (index) ) }
+    
+    void chain_interface::store_note_record( const note_record& record )
+    { try {
+        store( record.index, record );
+    } FC_CAPTURE_AND_RETHROW( (record) ) }
+    
+    ooperation_reward_record           chain_interface::get_operation_reward_record( const operation_type_enum& type )const
+    { try {
+        return lookup<operation_reward_record>( type );
+    } FC_CAPTURE_AND_RETHROW( (type) ) }
+    
+    void                               chain_interface::store_operation_reward_record( const operation_reward_record& record )
+    { try {
+        store( record.id, record );
+    } FC_CAPTURE_AND_RETHROW( (record) ) }
 
    ofeed_record chain_interface::get_feed_record( const feed_index index )const
    { try {
