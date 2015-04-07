@@ -68,6 +68,12 @@ class wallet_impl : public chain_observer
               uint32_t block_num,
               const time_point_sec block_time
               );
+    
+      void scan_operation_reward_transaction(
+                                 const operation_reward_transaction& otrx,
+                                 uint32_t block_num,
+                                 const time_point_sec block_time
+                                 );
 
       secret_hash_type get_secret( uint32_t block_num,
                                    const private_key_type& delegate_key )const;

@@ -242,6 +242,11 @@ namespace bts { namespace blockchain {
       rule_result_transactions = std::move(trxs);
    }
 
+    void pending_chain_state::set_operation_reward_transactions( vector<operation_reward_transaction> trxs )
+    {
+        operation_reward_transactions = std::move(trxs);
+    }
+    
    omarket_status pending_chain_state::get_market_status( const asset_id_type quote_id, const asset_id_type base_id )const
    {
       auto itr = market_statuses.find( std::make_pair(quote_id,base_id) );
@@ -310,6 +315,37 @@ namespace bts { namespace blockchain {
            {
                deltas[ prev_record->id ] -= prev_record->collected_fees;
                deltas[ 0 ] -= prev_record->current_collateral;
+           }
+       }
+       
+       for ( const auto& item : _operation_reward_id_to_record )
+       {
+           const operation_type id = item.first;
+           const ooperation_reward_record prev_record = prev_state->get_operation_reward_record( id );
+           if ( prev_record.valid() )
+           {
+               for ( auto iter = prev_record->fees.begin(); iter != prev_record->fees.end(); ++iter )
+               {
+                   deltas[ iter->first ] -= iter->second;
+               }
+           }
+           
+           const operation_reward_record& record = item.second;
+           for ( auto iter = record.fees.begin(); iter != record.fees.end(); ++iter )
+           {
+               deltas[ iter->first ] += iter->second;
+           }
+       }
+       
+       for ( const operation_type id : _operation_reward_id_remove )
+       {
+           const ooperation_reward_record prev_record = prev_state->get_operation_reward_record( id );
+           if ( prev_record.valid() )
+           {
+               for ( auto iter = prev_record->fees.begin(); iter != prev_record->fees.end(); ++iter )
+               {
+                   deltas[ iter->first ] -= iter->second;
+               }
            }
        }
 

@@ -79,6 +79,7 @@ namespace bts { namespace blockchain {
 
          virtual void                   set_market_transactions( vector<market_transaction> trxs )override;
          virtual void                   set_rule_result_transactions( vector<rule_result_transaction> trxs ) override;
+         virtual void                   set_operation_reward_transactions( vector<operation_reward_transaction> trxs )override;
 
          void                           check_supplies()const;
 
@@ -136,6 +137,8 @@ namespace bts { namespace blockchain {
          map< std::pair<rule_id_type,data_id_type>, rule_data_record>       rules;
       
          vector<rule_result_transaction>                                    rule_result_transactions;
+       
+         vector<operation_reward_transaction>                               operation_reward_transactions;
 
       private:
          // Not serialized
@@ -258,4 +261,5 @@ FC_REFLECT( bts::blockchain::pending_chain_state,
             (market_history)
             (rules)
             (rule_result_transactions)
+            (operation_reward_transactions)
             )

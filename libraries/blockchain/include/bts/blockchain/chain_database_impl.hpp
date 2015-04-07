@@ -75,6 +75,9 @@ namespace bts { namespace blockchain {
 
             void                                        execute_markets( const time_point_sec timestamp,
                                                                          const pending_chain_state_ptr& pending_state )const;
+          
+            void                                        pay_operation_rewards( const uint32_t block_num, const time_point_sec timestamp,
+                                                                      const pending_chain_state_ptr& pending_state )const;
 
             void                                        apply_transactions( const full_block& block_data,
                                                                             const pending_chain_state_ptr& pending_state )const;
@@ -164,7 +167,8 @@ namespace bts { namespace blockchain {
             bts::db::level_map<time_point_sec, account_id_type>                         _slot_timestamp_to_delegate;
 
             bts::db::cached_level_map<std::pair<rule_id_type, data_id_type>, rule_data_record > _rule_data_db;
-            bts::db::cached_level_map<data_id_type, std::vector<rule_result_transaction> >      _rule_result_transactions_db;
+            bts::db::cached_level_map<uint32_t, std::vector<rule_result_transaction> >          _rule_result_transactions_db;
+            bts::db::cached_level_map<uint32_t, std::vector<operation_reward_transaction> >     _operation_reward_transactions_db;
 
             map<operation_type_enum, std::deque<operation>>                             _recent_operations;
             

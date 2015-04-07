@@ -460,7 +460,7 @@ namespace bts { namespace blockchain {
         store( record.index, record );
     } FC_CAPTURE_AND_RETHROW( (record) ) }
     
-    ooperation_reward_record           chain_interface::get_operation_reward_record( const operation_type_enum& type )const
+    ooperation_reward_record           chain_interface::get_operation_reward_record( const operation_type& type )const
     { try {
         return lookup<operation_reward_record>( type );
     } FC_CAPTURE_AND_RETHROW( (type) ) }

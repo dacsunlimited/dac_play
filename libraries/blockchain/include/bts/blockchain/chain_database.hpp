@@ -256,6 +256,8 @@ namespace bts { namespace blockchain {
          vector<market_transaction>         get_market_transactions( uint32_t block_num  )const;
          virtual void                       set_rule_result_transactions( vector<rule_result_transaction> trxs );
          vector<rule_result_transaction>    get_rule_result_transactions( uint32_t block_num  )const;
+         virtual void                       set_operation_reward_transactions( vector<operation_reward_transaction> trxs )override;
+         vector<operation_reward_transaction>         get_operation_reward_transactions( uint32_t block_num  )const;
 
          vector<pair<asset_id_type, asset_id_type>> get_market_pairs()const;
 

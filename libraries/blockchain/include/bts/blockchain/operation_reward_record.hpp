@@ -27,7 +27,17 @@ class operation_reward_db_interface
     virtual void operation_reward_insert_into_id_map( const operation_type, const operation_reward_record& ) = 0;
     virtual void operation_reward_erase_from_id_map( const operation_type ) = 0;
 };
+    
+    struct operation_reward_transaction
+    {
+        address                                   reward_owner;
+        operation_type                            op_type;
+        asset                                     reward;
+        string                                    info;
+    };
 
 } } // bts::blockchain
 
 FC_REFLECT( bts::blockchain::operation_reward_record, (id)(fees) )
+FC_REFLECT( bts::blockchain::operation_reward_transaction, (reward_owner)(op_type)(reward)(info) )
+FC_REFLECT_TYPENAME( std::vector<bts::blockchain::operation_reward_transaction> )

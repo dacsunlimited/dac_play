@@ -127,6 +127,7 @@ namespace bts { namespace blockchain {
 
          virtual void                       set_rule_result_transactions( vector<rule_result_transaction> trxs ) = 0;
          virtual void                       set_market_transactions( vector<market_transaction> trxs )      = 0;
+         virtual void                       set_operation_reward_transactions( vector<operation_reward_transaction> trxs )      = 0;
 
          oproperty_record                   get_property_record( const property_id_type id )const;
          void                               store_property_record( const property_id_type id, const variant& value);
@@ -156,7 +157,7 @@ namespace bts { namespace blockchain {
        onote_record                       get_note_record( const note_index& index )const;
        void                               store_note_record( const note_record& record );
        
-       ooperation_reward_record           get_operation_reward_record( const operation_type_enum& type )const;
+       ooperation_reward_record           get_operation_reward_record( const operation_type& type )const;
        void                               store_operation_reward_record( const operation_reward_record& record );
 
          ofeed_record                       get_feed_record( const feed_index index )const;
