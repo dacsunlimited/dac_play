@@ -5,6 +5,59 @@
 #include <bts/blockchain/withdraw_types.hpp>
 
 namespace bts { namespace blockchain {
+    
+    enum note_type
+    {
+        public_type         = 0,
+        secret_type        = 1
+    };
+    
+    struct note_message;
+    
+    struct public_note
+    {
+        static const note_type type;
+        
+        public_note(string m): message(m)
+        {}
+        
+        string message;
+    };
+    
+    struct secret_note
+    {
+        static const note_type type;
+        
+        note_message decrypt( const fc::ecc::private_key& e )const;
+        note_message decrypt( const fc::sha512& shared_secret )const;
+        
+        vector<char>         data;
+    };
+    
+    struct note_message
+    {
+        fc::enum_type<fc::unsigned_int,note_type> type = public_type;
+        vector<char>                                 data;
+        
+        note_message( note_type atype = public_type )
+        :type( atype ){}
+        
+        template<typename NoteType>
+        note_message(  const NoteType& t )
+        :type( NoteType::type )
+        {
+            data = fc::raw::pack( t );
+        }
+        
+        template<typename NoteType>
+        NoteType as()const
+        {
+            FC_ASSERT( type == NoteType::type, "", ("NoteType",NoteType::type) );
+            return fc::raw::unpack<NoteType>(data);
+        }
+        
+        secret_note encrypt( const fc::ecc::private_key& owner_private_key)const;
+    };
 
 /** withdraws funds and moves them into the transaction
 * balance making them available for deposit
@@ -77,6 +130,29 @@ struct burn_operation
 
     void evaluate( transaction_evaluation_state& eval_state )const;
 };
+    
+/**
+*  Writing notes by the account owner, encrypted or public types. signature of the owner account must be provided
+*  The fees for this operation is depended on the length of the message.
+*/
+struct note_operation
+{
+    static const operation_type_enum type;
+    
+    note_operation( asset amount_to_pay = asset(),
+                   account_id_type owner_id = 0,
+                   optional<note_message>   m = optional<note_message>(),
+                   optional<signature_type> sig = optional<signature_type>() )
+    :amount(amount_to_pay),owner_account_id(owner_id),message(m),message_signature(sig){}
+    
+    asset                        amount;
+    account_id_type              owner_account_id;
+
+    optional<note_message>       message;
+    optional<signature_type>     message_signature;
+    
+    void evaluate( transaction_evaluation_state& eval_state )const;
+};
 
 struct release_escrow_operation
 {
@@ -129,9 +205,20 @@ struct limit_fee_operation
 
 } } // bts::blockchain
 
+FC_REFLECT_ENUM( bts::blockchain::note_type,
+                (public_type)
+                (secret_type)
+                )
+FC_REFLECT( bts::blockchain::public_note, (message) )
+FC_REFLECT( bts::blockchain::secret_note, (data) )
+FC_REFLECT( bts::blockchain::note_message,
+           (type)
+           (data)
+           )
 FC_REFLECT( bts::blockchain::withdraw_operation, (balance_id)(amount)(claim_input_data) )
 FC_REFLECT( bts::blockchain::deposit_operation, (amount)(condition) )
 FC_REFLECT( bts::blockchain::burn_operation, (amount)(account_id)(message)(message_signature) )
+FC_REFLECT( bts::blockchain::note_operation, (amount)(owner_account_id)(message)(message_signature) )
 FC_REFLECT( bts::blockchain::release_escrow_operation, (escrow_id)(released_by)(amount_to_receiver)(amount_to_sender) )
 FC_REFLECT( bts::blockchain::update_balance_vote_operation, (balance_id)(new_restricted_owner)(new_slate) )
 FC_REFLECT( bts::blockchain::limit_fee_operation, (max_fee) )

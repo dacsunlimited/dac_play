@@ -65,6 +65,8 @@ enum operation_type_enum
     limit_fee_op_type                   = 28,
 
     data_op_type                        = 29,
+    
+    note_op_type                        = 40,
     game_op_type                  = 45,
     buy_chips_type                = 46,
    
@@ -152,6 +154,7 @@ FC_REFLECT_ENUM( bts::blockchain::operation_type_enum,
         (update_balance_vote_op_type)
         (limit_fee_op_type)
         (data_op_type)
+        (note_op_type)
         (game_op_type)
         (buy_chips_type)
         (create_game_operation_type)

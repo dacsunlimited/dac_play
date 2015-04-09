@@ -275,6 +275,13 @@ namespace bts { namespace wallet {
                  bool anonymous,
                  bool sign
                  );
+         wallet_transaction_record write_note(
+                                                    const asset& asset_to_pay,
+                                                    const string& owner_account_name,
+                                                    const string& message,
+                                                    bool encrypt,
+                                                    bool sign
+                                              );
          /**
           * if the active_key is null then the active key will be made the same as the master key.
           * if the name already exists then it will be updated if this wallet controls the active key

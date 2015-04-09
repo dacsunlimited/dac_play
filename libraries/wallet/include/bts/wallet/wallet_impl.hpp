@@ -68,6 +68,12 @@ class wallet_impl : public chain_observer
               uint32_t block_num,
               const time_point_sec block_time
               );
+    
+      void scan_operation_reward_transaction(
+                                 const operation_reward_transaction& otrx,
+                                 uint32_t block_num,
+                                 const time_point_sec block_time
+                                 );
 
       secret_hash_type get_secret( uint32_t block_num,
                                    const private_key_type& delegate_key )const;
@@ -127,6 +133,8 @@ class wallet_impl : public chain_observer
       bool scan_buy_chips( const buy_chips_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
 
       bool scan_burn( const burn_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
+    
+      bool scan_note( const note_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
 
       vector<wallet_transaction_record> get_pending_transactions()const;
 

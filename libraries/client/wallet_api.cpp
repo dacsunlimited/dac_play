@@ -338,6 +338,22 @@ wallet_transaction_record detail::client_impl::wallet_burn(
     network_broadcast_transaction( record.trx );
     return record;
 }
+    
+wallet_transaction_record detail::client_impl::wallet_note(
+                                      const std::string& amount_to_pay,
+                                      const std::string& asset_symbol,
+                                      const std::string& owner_account_name,
+                                      const std::string& message,
+                                      bool encrypted )
+{
+    const asset amount = _chain_db->to_ugly_asset( amount_to_pay, asset_symbol );
+    auto record = _wallet->write_note( amount,
+                                      owner_account_name,
+                                      message, encrypted, true );
+    _wallet->cache_transaction( record );
+    network_broadcast_transaction( record.trx );
+    return record;
+}
 
 string detail::client_impl::wallet_address_create( const string& account_name,
                                                     const string& label,

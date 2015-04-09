@@ -148,6 +148,40 @@ void wallet_impl::scan_market_transaction(
     }
 } FC_CAPTURE_AND_RETHROW() }
 
+void wallet_impl::scan_operation_reward_transaction(
+                                          const operation_reward_transaction& otrx,
+                                          uint32_t block_num,
+                                          const time_point_sec block_time
+                                          )
+{ try {
+    
+    auto okey = _wallet_db.lookup_key( otrx.reward_owner );
+    if( okey && okey->has_private_key() )
+    {
+        /* Construct a unique record id */
+        std::stringstream id_ss;
+        id_ss << block_num << string( otrx.reward_owner ) << string( otrx.reward );
+        
+        // TODO: Don't blow away memo, etc.
+        auto record = wallet_transaction_record();
+        record.record_id = fc::ripemd160::hash( id_ss.str() );
+        record.block_num = block_num;
+        record.is_virtual = true;
+        record.is_confirmed = true;
+        record.is_market = true;
+        record.created_time = block_time;
+        record.received_time = block_time;
+        
+        auto entry = ledger_entry();
+        //entry.from_account = "Note Operation";
+        entry.to_account = okey->public_key;
+        entry.amount = otrx.reward;
+        entry.memo = "Lucky! you got note reward " + _blockchain->to_pretty_asset( otrx.reward ) + "Info: " + otrx.info;
+        record.ledger_entries.push_back( entry );
+    }
+
+} FC_CAPTURE_AND_RETHROW() }
+
 // TODO: No longer needed with scan_genesis_experimental and get_account_balance_records
 void wallet_impl::scan_balances()
 {
@@ -252,6 +286,17 @@ void wallet_impl::scan_block( uint32_t block_num )
             rule_factory::instance().scan_result( rule_result_trxs[i], block_num, block_header.timestamp, i, self->shared_from_this());
         }
         catch( ... )
+        {
+        }
+    }
+    
+    const vector<operation_reward_transaction>& operation_reward_trxs = _blockchain->get_operation_reward_transactions( block_num );
+    for ( const operation_reward_transaction& operation_reward_trx : operation_reward_trxs )
+    {
+        try
+        {
+            scan_operation_reward_transaction( operation_reward_trx, block_num, block_header.timestamp );
+        } catch ( ... )
         {
         }
     }
@@ -361,6 +406,11 @@ wallet_transaction_record wallet_impl::scan_transaction(
             case burn_op_type:
             {
                 store_record |= scan_burn( op.as<burn_operation>(), *transaction_record, total_fee );
+                break;
+            }
+            case note_op_type:
+            {
+                store_record |= scan_note( op.as<note_operation>(), *transaction_record, total_fee );
                 break;
             }
             case game_op_type:
@@ -867,6 +917,20 @@ bool wallet_impl::scan_burn( const burn_operation& op, wallet_transaction_record
             trx_rec.ledger_entries.front().memo += ": " + op.message;
     }
 
+    return false;
+}
+
+bool wallet_impl::scan_note( const note_operation& op, wallet_transaction_record& trx_rec, asset& total_fee )
+{
+    if( op.amount.asset_id == total_fee.asset_id )
+        total_fee -= op.amount;
+    
+    if( trx_rec.ledger_entries.size() == 1 )
+    {
+        //trx_rec.ledger_entries.front().amount = op.amount;
+        trx_rec.ledger_entries.front().memo = "write note";
+    }
+    
     return false;
 }
 

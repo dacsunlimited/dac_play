@@ -153,6 +153,10 @@ namespace bts { namespace blockchain {
           _address_to_transaction_ids.open( data_dir / "index/address_to_transaction_ids" );
 
           _burn_index_to_record.open( data_dir / "index/burn_index_to_record" );
+          
+          _note_index_to_record.open( data_dir / "index/note_index_to_record" );
+          
+          _operation_reward_id_to_record.open( data_dir / "index/operation_reward_id_to_record" );
 
           _feed_index_to_record.open( data_dir / "index/feed_index_to_record" );
 
@@ -168,6 +172,7 @@ namespace bts { namespace blockchain {
           
           _rule_data_db.open( data_dir / "index/_rule_data_db");
           _rule_result_transactions_db.open( data_dir / "index/rule_result_transactions_db" );
+          _operation_reward_transactions_db.open( data_dir / "index/operation_reward_transactions_db" );
           
           _game_id_to_record.open ( data_dir / "index/_game_id_to_record");
           _game_name_to_id.open( data_dir / "index/game_symbol_to_id" );
@@ -385,6 +390,12 @@ namespace bts { namespace blockchain {
          self->set_statistics_enabled( statistics_enabled );
          // TODO: No game in genesis for now
          self->store_property_record( property_id_type::last_game_id, 0 );
+          
+          // enable reward for note operation
+          operation_reward_record op_reward;
+          op_reward.id = note_operation::type;
+          op_reward.fees[0] = 0;
+          self->store_operation_reward_record( std::move(op_reward) );
 
          return chain_id;
       } FC_CAPTURE_AND_RETHROW( (genesis_file)(statistics_enabled) ) }
@@ -941,6 +952,143 @@ namespace bts { namespace blockchain {
             debug_check_no_orders_overlap();
         }
       } FC_CAPTURE_AND_RETHROW( (timestamp) ) }
+       
+      void chain_database_impl::pay_operation_rewards( const uint32_t block_num, const time_point_sec timestamp,
+                                                                         const pending_chain_state_ptr& pending_state )const
+       { try {
+           vector<operation_reward_transaction> operation_reward_transactions;
+           
+           // TODO: pay in time, need to add timestamp index to block ids
+           // if ( timestamp.sec_since_epoch() % (60*60*24) == 0 )
+           // pay reward every 10000 blocks
+           static const uint32_t blocks_per_two_weeks = 14 * BTS_BLOCKCHAIN_BLOCKS_PER_DAY;
+           auto reward_record = pending_state->get_operation_reward_record(note_op_type);
+           if ( reward_record.valid() )
+           {
+               const share_type collected_fees = ( reward_record->fees[0] * BTS_BLOCKCHAIN_BLOCKS_PER_DAY ) / blocks_per_two_weeks;
+               share_type reward_fee = 0;
+               // 40% for level #1 with only 1, 30% for level #2 with only 2, 40% for the left with only 5
+               if ( block_num % BTS_BLOCKCHAIN_BLOCKS_PER_DAY == 0)
+               {
+                   vector<note_index> note_indexs;
+                   uint32_t begin = block_num - BTS_BLOCKCHAIN_BLOCKS_PER_DAY >= 1 ? block_num - BTS_BLOCKCHAIN_BLOCKS_PER_DAY : 1;
+                   for ( auto i = begin; i <= block_num; i ++)
+                   {
+                       auto blk = self->get_block(i);
+                       for ( auto trx = blk.user_transactions.begin(); trx != blk.user_transactions.end(); ++trx )
+                       {
+                           for ( auto op = trx->operations.begin(); op != trx->operations.end(); ++op )
+                           {
+                               if ( op->type == note_op_type )
+                               {
+                                   auto note_op = op->as<note_operation>();
+                                   note_index note_idx;
+                                   note_idx.account_id = note_op.owner_account_id;
+                                   note_idx.transaction_id = trx->id();
+                                   note_indexs.push_back( std::move(note_idx) );
+                               }
+                           }
+                       }
+                   }
+                   
+                   auto random_seed = self->get_current_random_seed();
+                   if ( note_indexs.size() > 0 )
+                   {
+                       auto level_1 = random_seed._hash[0] % note_indexs.size();
+                       auto note_record = pending_state->get_note_record( note_indexs[level_1] );
+                       operation_reward_transaction reward_trx;
+                       reward_trx.op_type = note_op_type;
+                       reward_trx.reward = asset(collected_fees * 40 / 100, 0);
+                       reward_trx.reward_owner = address( note_record->signer_key() );
+                       reward_trx.info = "It's the first level reward.";
+                       
+                       reward_fee += reward_trx.reward.amount;
+                       
+                       auto reward_balance = pending_state->get_balance_record(withdraw_condition( withdraw_with_signature(reward_trx.reward_owner), 0 ).get_address());
+                       if( !reward_balance )
+                           reward_balance = balance_record( reward_trx.reward_owner, asset(0, 0), 0 );
+                       
+                       reward_balance->balance += reward_trx.reward.amount;
+                       reward_balance->last_update = pending_state->now();
+                       reward_balance->deposit_date = pending_state->now();
+                       
+                       pending_state->store_balance_record( *reward_balance );
+                       
+                       operation_reward_transactions.push_back(reward_trx);
+                       note_indexs.erase( note_indexs.begin() + level_1 );
+                   }
+                   
+                   // TODO: Use CNS in https://github.com/HackFisher/bitshares_snapshot/blob/lotto_experi/libraries/lotto/lotto_rule.cpp instead
+                   uint32_t count = 0;
+                   while ( note_indexs.size() > 0 )
+                   {
+                       uint32_t level_2 = random_seed._hash[1]%note_indexs.size();
+                       auto note_record = pending_state->get_note_record( note_indexs[level_2] );
+                       operation_reward_transaction reward_trx;
+                       reward_trx.op_type = note_op_type;
+                       reward_trx.reward = asset(collected_fees * 15 / 100, 0);
+                       reward_trx.reward_owner = address( note_record->signer_key() );
+                       reward_trx.info = "It's the second level reward.";
+                       
+                       reward_fee += reward_trx.reward.amount;
+                       
+                       auto reward_balance = pending_state->get_balance_record(withdraw_condition( withdraw_with_signature(reward_trx.reward_owner), 0 ).get_address());
+                       if( !reward_balance )
+                           reward_balance = balance_record( reward_trx.reward_owner, asset(0, 0), 0 );
+                       
+                       reward_balance->balance += reward_trx.reward.amount;
+                       reward_balance->last_update = pending_state->now();
+                       reward_balance->deposit_date = pending_state->now();
+                       
+                       pending_state->store_balance_record( *reward_balance );
+                       
+                       operation_reward_transactions.push_back(reward_trx);
+                       note_indexs.erase( note_indexs.begin() + level_2 );
+                       
+                       count ++;
+                       if ( count >= 2 )
+                           break;
+                   }
+                   
+                   count = 0;
+                   while ( note_indexs.size() > 0 )
+                   {
+                       uint32_t level_3 = random_seed._hash[2]%note_indexs.size();
+                       auto note_record = pending_state->get_note_record( note_indexs[level_3] );
+                       operation_reward_transaction reward_trx;
+                       reward_trx.op_type = note_op_type;
+                       reward_trx.reward = asset(collected_fees * 8 / 100, 0);
+                       reward_trx.reward_owner = address( note_record->signer_key() );
+                       reward_trx.info = "It's the third level reward.";
+                       
+                       reward_fee += reward_trx.reward.amount;
+                       
+                       auto reward_balance = pending_state->get_balance_record(withdraw_condition( withdraw_with_signature(reward_trx.reward_owner), 0 ).get_address());
+                       if( !reward_balance )
+                           reward_balance = balance_record( reward_trx.reward_owner, asset(0, 0), 0 );
+                       
+                       reward_balance->balance += reward_trx.reward.amount;
+                       reward_balance->last_update = pending_state->now();
+                       reward_balance->deposit_date = pending_state->now();
+                       
+                       pending_state->store_balance_record( *reward_balance );
+                       
+                       operation_reward_transactions.push_back(reward_trx);
+                       note_indexs.erase( note_indexs.begin() + level_3 );
+                       
+                       count ++;
+                       if ( count >= 5 )
+                           break;
+                   }
+               }
+               
+               reward_record->fees[0] -= reward_fee;
+               pending_state->store_operation_reward_record( *reward_record );
+               
+               pending_state->set_operation_reward_transactions( std::move( operation_reward_transactions ) );
+           }
+           
+       } FC_CAPTURE_AND_RETHROW( (timestamp) ) }
 
       void chain_database_impl::debug_check_no_orders_overlap() const
       {
@@ -1088,7 +1236,7 @@ namespace bts { namespace blockchain {
             if( self->get_statistics_enabled() ) block_record = self->get_block_record( block_id );
 
             pay_delegate( block_id, block_signee, pending_state, block_record );
-
+             
             execute_markets( block_data.timestamp, pending_state );
 
             apply_transactions( block_data, pending_state );
@@ -1096,6 +1244,8 @@ namespace bts { namespace blockchain {
             update_active_delegate_list( block_data.block_num, pending_state );
              
             update_random_seed( block_data.previous_secret, pending_state, block_record );
+             
+            pay_operation_rewards( block_data.block_num, block_data.timestamp, pending_state );
 
             game_executors::instance().execute( self->shared_from_this(), block_data.block_num, pending_state);
 
@@ -1324,14 +1474,18 @@ namespace bts { namespace blockchain {
                   my->_slate_id_to_record.toggle_leveldb( enabled );
 
                   my->_balance_id_to_record.toggle_leveldb( enabled );
+                  
+                  my->_operation_reward_id_to_record.toggle_leveldb( enabled );
               };
 
               const auto set_db_cache_write_through = [ this ]( bool write_through )
               {
                   my->_burn_index_to_record.set_write_through( write_through );
+                  my->_note_index_to_record.set_write_through( write_through );
 
                   my->_rule_data_db.set_write_through( write_through );
                   my->_rule_result_transactions_db.set_write_through ( write_through );
+                  my->_operation_reward_transactions_db.set_write_through( write_through );
                   my->_feed_index_to_record.set_write_through( write_through );
 
                   my->_ask_db.set_write_through( write_through );
@@ -1511,6 +1665,8 @@ namespace bts { namespace blockchain {
       my->_address_to_transaction_ids.close();
 
       my->_burn_index_to_record.close();
+       my->_note_index_to_record.close();
+       my->_operation_reward_id_to_record.close();
 
       my->_feed_index_to_record.close();
 
@@ -1530,6 +1686,8 @@ namespace bts { namespace blockchain {
       my->_game_name_to_id.close();
       my->_rule_data_db.close();
       my->_rule_result_transactions_db.close();
+       
+      my->_operation_reward_transactions_db.close();
 
    } FC_CAPTURE_AND_RETHROW() }
 
@@ -2782,6 +2940,25 @@ namespace bts { namespace blockchain {
         if( tmp ) return *tmp;
         return vector<rule_result_transaction>();
     }
+    
+    void chain_database::set_operation_reward_transactions( vector<operation_reward_transaction> trxs )
+    {
+        if( trxs.size() == 0 )
+        {
+            my->_operation_reward_transactions_db.remove( get_head_block_num()+1 );
+        }
+        else
+        {
+            my->_operation_reward_transactions_db.store( get_head_block_num()+1, trxs );
+        }
+    }
+    
+    vector<operation_reward_transaction> chain_database::get_operation_reward_transactions( const uint32_t block_num )const
+    { try {
+        const auto oresult = my->_operation_reward_transactions_db.fetch_optional( block_num );
+        if( oresult.valid() ) return *oresult;
+        return vector<operation_reward_transaction>();
+    } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
    vector<market_transaction> chain_database::get_market_transactions( const uint32_t block_num )const
    { try {
@@ -3042,6 +3219,15 @@ namespace bts { namespace blockchain {
            const asset_record& asset = iter->second;
            totals[ asset.id ] += asset.collected_fees;
        }
+       
+       for( auto iter = my->_operation_reward_id_to_record.unordered_begin(); iter != my->_operation_reward_id_to_record.unordered_end(); ++iter )
+       {
+           const operation_reward_record& reward = iter->second;
+           for ( auto it = reward.fees.begin(); it != reward.fees.end(); ++it )
+           {
+               totals[ it->first ] += it->second;
+           }
+       }
 
        for( auto iter = my->_balance_id_to_record.unordered_begin(); iter != my->_balance_id_to_record.unordered_end(); ++iter )
        {
@@ -3170,6 +3356,22 @@ namespace bts { namespace blockchain {
 
       return results;
    } FC_CAPTURE_AND_RETHROW( (account_name) ) }
+    
+    vector<note_record> chain_database::fetch_note_records( const string& account_name )const
+    { try {
+        vector<note_record> results;
+        const auto opt_account_record = get_account_record( account_name );
+        FC_ASSERT( opt_account_record.valid() );
+        
+        auto itr = my->_note_index_to_record.lower_bound( {opt_account_record->id} );
+        while( itr.valid() && itr.key().account_id == opt_account_record->id )
+        {
+            results.push_back( itr.value() );
+            ++itr;
+        }
+        
+        return results;
+    } FC_CAPTURE_AND_RETHROW( (account_name) ) }
 
    vector<transaction_record> chain_database::fetch_address_transactions( const address& addr )
    { try {
@@ -3439,6 +3641,38 @@ namespace bts { namespace blockchain {
    {
        my->_burn_index_to_record.remove( index );
    }
+    
+    onote_record chain_database::note_lookup_by_index( const note_index& index )const
+    {
+        return my->_note_index_to_record.fetch_optional( index );
+    }
+    
+    void chain_database::note_insert_into_index_map( const note_index& index, const note_record& record )
+    {
+        my->_note_index_to_record.store( index, record );
+    }
+    
+    void chain_database::note_erase_from_index_map( const note_index& index )
+    {
+        my->_note_index_to_record.remove( index );
+    }
+    
+    ooperation_reward_record chain_database::operation_reward_lookup_by_id( const operation_type id )const
+    {
+        const auto iter = my->_operation_reward_id_to_record.unordered_find( id );
+        if( iter != my->_operation_reward_id_to_record.unordered_end() ) return iter->second;
+        return ooperation_reward_record();
+    }
+    
+    void chain_database::operation_reward_insert_into_id_map( const operation_type id, const operation_reward_record& record )
+    {
+        my->_operation_reward_id_to_record.store( id, record );
+    }
+    
+    void chain_database::operation_reward_erase_from_id_map( const operation_type id )
+    {
+        my->_operation_reward_id_to_record.remove( id );
+    }
 
    ofeed_record chain_database::feed_lookup_by_index( const feed_index index )const
    {

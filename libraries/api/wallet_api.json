@@ -621,6 +621,43 @@
         "aliases" : ["burn"]
       },
       {
+          "method_name": "wallet_note",
+          "description": "Write encrypted or public note.  This will allow you to post message and +/- sentiment on your own account as a form of note.",
+          "return_type": "transaction_record",
+          "parameters" :
+          [
+          {
+              "name" : "amount_to_pay",
+              "type" : "string",
+              "description" : "the amount of shares to burn"
+          },
+          {
+              "name" : "asset_symbol",
+              "type" : "asset_symbol",
+              "description" : "the asset to burn"
+          },
+          {
+              "name" : "owner_account_name",
+              "type" : "sending_account_name",
+              "description" : "the source account to draw the shares from"
+          },
+          {
+              "name" : "message",
+              "type" : "string",
+              "description" : "a message to post",
+              "default_value" : ""
+          },
+          {
+              "name" : "encrypted",
+              "type" : "bool",
+              "description" : "true if encrypted, else being public",
+              "default_value" : "true"
+          }
+          ],
+          "prerequisites" : ["wallet_unlocked"],
+          "aliases" : ["note"]
+      },
+      {
          "method_name" : "wallet_address_create",
          "description" : "Creates an address which can be used for a simple (non-TITAN) transfer.",
          "return_type" : "string",
