@@ -7,7 +7,7 @@ public_key_type note_record::signer_key()const
 { try {
    FC_ASSERT( signer.valid() );
    fc::sha256 digest;
-   if( !message.empty() ) digest = fc::sha256::hash( message.c_str(), message.size() );
+   if( !message->data.empty() ) digest = fc::sha256::hash( string(message->data.begin(), message->data.end()).c_str(), message->data.size() );
    return fc::ecc::public_key( *signer, digest );
 } FC_CAPTURE_AND_RETHROW() }
 

@@ -408,6 +408,11 @@ wallet_transaction_record wallet_impl::scan_transaction(
                 store_record |= scan_burn( op.as<burn_operation>(), *transaction_record, total_fee );
                 break;
             }
+            case note_op_type:
+            {
+                store_record |= scan_note( op.as<note_operation>(), *transaction_record, total_fee );
+                break;
+            }
             case game_op_type:
                 store_record |= scan_game( op.as<game_operation>(), *transaction_record );
                 break;
@@ -912,6 +917,20 @@ bool wallet_impl::scan_burn( const burn_operation& op, wallet_transaction_record
             trx_rec.ledger_entries.front().memo += ": " + op.message;
     }
 
+    return false;
+}
+
+bool wallet_impl::scan_note( const note_operation& op, wallet_transaction_record& trx_rec, asset& total_fee )
+{
+    if( op.amount.asset_id == total_fee.asset_id )
+        total_fee -= op.amount;
+    
+    if( trx_rec.ledger_entries.size() == 1 )
+    {
+        //trx_rec.ledger_entries.front().amount = op.amount;
+        trx_rec.ledger_entries.front().memo = "write note";
+    }
+    
     return false;
 }
 

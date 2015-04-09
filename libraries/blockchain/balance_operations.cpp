@@ -2,7 +2,33 @@
 #include <bts/blockchain/exceptions.hpp>
 #include <bts/blockchain/pending_chain_state.hpp>
 
+#include <fc/crypto/aes.hpp>
+
 namespace bts { namespace blockchain {
+    
+    const note_type public_note::type       = public_type;
+    const note_type secret_note::type       = secret_type;
+    
+    secret_note note_message::encrypt( const fc::ecc::private_key& owner_private_key)const
+    {
+        public_key_type  owner_public_key   = owner_private_key.get_public_key();
+        auto shared_secret = owner_private_key.get_shared_secret( owner_public_key );
+        secret_note result;
+        result.data = fc::aes_encrypt( shared_secret, fc::raw::pack( *this ) );
+        return  result;
+    }
+    
+    note_message secret_note::decrypt( const fc::ecc::private_key& e )const
+    {
+        auto shared_secret = e.get_shared_secret(e.get_public_key());
+        return decrypt(shared_secret);
+    }
+    
+    note_message secret_note::decrypt(const fc::sha512& shared_secret) const
+    {
+        auto decrypted_data = fc::aes_decrypt( shared_secret, data );
+        return fc::raw::unpack<note_message>( decrypted_data );
+    }
 
    asset balance_record::calculate_yield( fc::time_point_sec now, share_type amount, share_type yield_pool, share_type share_supply )const
    {
@@ -287,10 +313,10 @@ namespace bts { namespace blockchain {
         if( this->amount.amount <= 0 )
             FC_CAPTURE_AND_THROW( negative_deposit, (amount) );
         
-        FC_ASSERT( !message.empty() );
+        FC_ASSERT( !message->data.empty() );
         FC_ASSERT( amount.asset_id == 0 );
         
-        const size_t message_kb = (message.size() / 1024) + 1;
+        const size_t message_kb = (message->data.size() / 1024) + 1;
         const share_type required_fee = message_kb * BTS_BLOCKCHAIN_MIN_NOTE_FEE;
         
         FC_ASSERT( amount.amount >= required_fee, "Message of size ${s} KiB requires at least ${a} satoshis to be burned!",
@@ -317,7 +343,6 @@ namespace bts { namespace blockchain {
         record.index.transaction_id = eval_state.trx.id();
         record.amount = amount;
         record.message = message;
-        record.meta_data = meta_data;
         record.signer = message_signature;
         
         // verify the signature of the message, the message signer must be the account_id's active key

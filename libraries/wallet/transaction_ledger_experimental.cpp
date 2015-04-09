@@ -599,6 +599,32 @@ void detail::wallet_impl::scan_transaction_experimental( const transaction_evalu
 
         return false;
     };
+    
+    const auto scan_note = [&]( const note_operation& op ) -> bool
+    {
+        const string delta_label = "INCINERATOR";
+        const asset& delta_amount = op.amount;
+        raw_delta_amounts[ delta_label ][ delta_amount.asset_id ] += delta_amount.amount;
+        
+        const account_id_type account_id = op.owner_account_id;
+        const oaccount_record account_record = _blockchain->get_account_record( abs( account_id ) );
+        
+        if( account_record.valid() )
+        {
+            const string& account_name = account_record->name;
+            
+            if( record.operation_notes.count( op_index ) == 0 )
+            {
+                string note = "note by";
+                note += account_name;
+                record.operation_notes[ op_index ] = note;
+            }
+            
+            return account_names.count( account_name ) > 0;
+        }
+        
+        return false;
+    };
 
     const auto scan_update_signing_key = [&]( const update_signing_key_operation& op ) -> bool
     {
@@ -657,6 +683,9 @@ void detail::wallet_impl::scan_transaction_experimental( const transaction_evalu
                 break;
             case burn_op_type:
                 result = scan_burn( op.as<burn_operation>() );
+                break;
+            case note_op_type:
+                result = scan_note( op.as<note_operation>() );
                 break;
             case release_escrow_op_type:
                 // TODO

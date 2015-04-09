@@ -3356,6 +3356,22 @@ namespace bts { namespace blockchain {
 
       return results;
    } FC_CAPTURE_AND_RETHROW( (account_name) ) }
+    
+    vector<note_record> chain_database::fetch_note_records( const string& account_name )const
+    { try {
+        vector<note_record> results;
+        const auto opt_account_record = get_account_record( account_name );
+        FC_ASSERT( opt_account_record.valid() );
+        
+        auto itr = my->_note_index_to_record.lower_bound( {opt_account_record->id} );
+        while( itr.valid() && itr.key().account_id == opt_account_record->id )
+        {
+            results.push_back( itr.value() );
+            ++itr;
+        }
+        
+        return results;
+    } FC_CAPTURE_AND_RETHROW( (account_name) ) }
 
    vector<transaction_record> chain_database::fetch_address_transactions( const address& addr )
    { try {

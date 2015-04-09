@@ -6,33 +6,57 @@
 
 namespace bts { namespace blockchain {
     
-    enum message_type
+    enum note_type
     {
-        public_messsage     = 0,
-        private_message     = 1
+        public_type         = 0,
+        secret_type        = 1
     };
     
-    struct message_meta_info
+    struct note_message;
+    
+    struct public_note
     {
-        fc::enum_type<fc::unsigned_int,message_type> type = public_messsage;
+        static const note_type type;
+        
+        public_note(string m): message(m)
+        {}
+        
+        string message;
+    };
+    
+    struct secret_note
+    {
+        static const note_type type;
+        
+        note_message decrypt( const fc::ecc::private_key& e )const;
+        note_message decrypt( const fc::sha512& shared_secret )const;
+        
+        vector<char>         data;
+    };
+    
+    struct note_message
+    {
+        fc::enum_type<fc::unsigned_int,note_type> type = public_type;
         vector<char>                                 data;
         
-        message_meta_info( message_type atype = public_messsage )
+        note_message( note_type atype = public_type )
         :type( atype ){}
         
-        template<typename MessageType>
-        message_meta_info(  const MessageType& t )
-        :type( MessageType::type )
+        template<typename NoteType>
+        note_message(  const NoteType& t )
+        :type( NoteType::type )
         {
             data = fc::raw::pack( t );
         }
         
-        template<typename MessageType>
-        MessageType as()const
+        template<typename NoteType>
+        NoteType as()const
         {
-            FC_ASSERT( type == MessageType::type, "", ("MessageType",MessageType::type) );
-            return fc::raw::unpack<MessageType>(data);
+            FC_ASSERT( type == NoteType::type, "", ("NoteType",NoteType::type) );
+            return fc::raw::unpack<NoteType>(data);
         }
+        
+        secret_note encrypt( const fc::ecc::private_key& owner_private_key)const;
     };
 
 /** withdraws funds and moves them into the transaction
@@ -117,21 +141,14 @@ struct note_operation
     
     note_operation( asset amount_to_pay = asset(),
                    account_id_type owner_id = 0,
-                   const string& message = "",
+                   optional<note_message>   m = optional<note_message>(),
                    optional<signature_type> sig = optional<signature_type>() )
-    :amount(amount_to_pay),owner_account_id(owner_id),message(message),message_signature(sig){}
+    :amount(amount_to_pay),owner_account_id(owner_id),message(m),message_signature(sig){}
     
     asset                        amount;
     account_id_type              owner_account_id;
-    string                       message;
-    /**
-     *  Meta information is used by clients to evaluate
-     *  how the messege is generated.  This is designed to
-     *  support private notes
-     *
-     *  This data does not effect validation rules.
-     */
-    optional<message_meta_info>  meta_data;
+
+    optional<note_message>       message;
     optional<signature_type>     message_signature;
     
     void evaluate( transaction_evaluation_state& eval_state )const;
@@ -188,18 +205,20 @@ struct limit_fee_operation
 
 } } // bts::blockchain
 
-FC_REFLECT_ENUM( bts::blockchain::message_type,
-                (public_messsage)
-                (private_message)
+FC_REFLECT_ENUM( bts::blockchain::note_type,
+                (public_type)
+                (secret_type)
                 )
-FC_REFLECT( bts::blockchain::message_meta_info,
+FC_REFLECT( bts::blockchain::public_note, (message) )
+FC_REFLECT( bts::blockchain::secret_note, (data) )
+FC_REFLECT( bts::blockchain::note_message,
            (type)
            (data)
            )
 FC_REFLECT( bts::blockchain::withdraw_operation, (balance_id)(amount)(claim_input_data) )
 FC_REFLECT( bts::blockchain::deposit_operation, (amount)(condition) )
 FC_REFLECT( bts::blockchain::burn_operation, (amount)(account_id)(message)(message_signature) )
-FC_REFLECT( bts::blockchain::note_operation, (amount)(owner_account_id)(message)(meta_data)(message_signature) )
+FC_REFLECT( bts::blockchain::note_operation, (amount)(owner_account_id)(message)(message_signature) )
 FC_REFLECT( bts::blockchain::release_escrow_operation, (escrow_id)(released_by)(amount_to_receiver)(amount_to_sender) )
 FC_REFLECT( bts::blockchain::update_balance_vote_operation, (balance_id)(new_restricted_owner)(new_slate) )
 FC_REFLECT( bts::blockchain::limit_fee_operation, (max_fee) )

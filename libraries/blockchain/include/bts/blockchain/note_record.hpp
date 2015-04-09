@@ -29,9 +29,8 @@ struct note_record
 {
     note_index                  index;
     asset                       amount;
-    string                      message;
     optional<signature_type>    signer;
-    optional<message_meta_info> meta_data;
+    optional<note_message>      message;
 
     public_key_type signer_key()const;
 
@@ -53,4 +52,4 @@ class note_db_interface
 } } // bts::blockchain
 
 FC_REFLECT( bts::blockchain::note_index, (account_id)(transaction_id) )
-FC_REFLECT( bts::blockchain::note_record, (index)(amount)(message)(signer)(meta_data) )
+FC_REFLECT( bts::blockchain::note_record, (index)(amount)(message)(signer) )
