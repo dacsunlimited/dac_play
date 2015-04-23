@@ -156,6 +156,8 @@ namespace bts { namespace blockchain {
 
          vector<burn_record>         fetch_burn_records( const string& account_name )const;
        
+         vector<ad_record>           fetch_ad_records( const string& account_name )const;
+       
          vector<note_record>         fetch_note_records( const string& account_name )const;
 
          unordered_map<balance_id_type, balance_record>     get_balances( const balance_id_type& first,
@@ -346,6 +348,10 @@ namespace bts { namespace blockchain {
          virtual oburn_record burn_lookup_by_index( const burn_index& )const override;
          virtual void burn_insert_into_index_map( const burn_index&, const burn_record& )override;
          virtual void burn_erase_from_index_map( const burn_index& )override;
+       
+       virtual oad_record ad_lookup_by_index( const ad_index& )const override;
+       virtual void ad_insert_into_index_map( const ad_index&, const ad_record& )override;
+       virtual void ad_erase_from_index_map( const ad_index& )override;
        
         virtual onote_record note_lookup_by_index( const note_index& )const override;
         virtual void note_insert_into_index_map( const note_index&, const note_record& )override;

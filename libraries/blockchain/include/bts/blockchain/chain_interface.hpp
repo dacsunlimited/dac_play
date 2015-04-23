@@ -5,6 +5,7 @@
 #include <bts/blockchain/balance_record.hpp>
 #include <bts/blockchain/block_record.hpp>
 #include <bts/blockchain/burn_record.hpp>
+#include <bts/blockchain/ad_record.hpp>
 #include <bts/blockchain/note_record.hpp>
 #include <bts/blockchain/operation_reward_record.hpp>
 #include <bts/blockchain/condition.hpp>
@@ -28,6 +29,7 @@ namespace bts { namespace blockchain {
      public balance_db_interface,
      public transaction_db_interface,
      public burn_db_interface,
+     public ad_db_interface,
      public note_db_interface,
      public operation_reward_db_interface,
      public feed_db_interface,
@@ -153,6 +155,9 @@ namespace bts { namespace blockchain {
 
          oburn_record                       get_burn_record( const burn_index& index )const;
          void                               store_burn_record( const burn_record& record );
+       
+       oad_record                           get_ad_record( const ad_index& index )const;
+       void                                 store_ad_record( const ad_record& record );
        
        onote_record                       get_note_record( const note_index& index )const;
        void                               store_note_record( const note_record& record );

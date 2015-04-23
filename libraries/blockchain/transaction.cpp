@@ -58,6 +58,12 @@ namespace bts { namespace blockchain {
       operations.emplace_back( burn_operation( quantity, for_or_against, message, sig) );
    }
     
+    void transaction::buy_ad( const asset& quantity, account_id_type owner_account_id, account_id_type publisher_account_id, const string& message, const optional<signature_type>& sig )
+    {
+        if( message.size() ) FC_ASSERT( quantity.asset_id == 0 );
+        operations.emplace_back( ad_operation( quantity, owner_account_id, publisher_account_id, message, sig) );
+    }
+    
     void transaction::note( const asset& quantity, account_id_type owner_account_id, const optional<note_message>& message, const optional<signature_type>& sig )
     {
         FC_ASSERT( quantity.asset_id == 0 );

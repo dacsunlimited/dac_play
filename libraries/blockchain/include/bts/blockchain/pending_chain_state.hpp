@@ -112,6 +112,9 @@ namespace bts { namespace blockchain {
          map<burn_index, burn_record>                                       _burn_index_to_record;
          set<burn_index>                                                    _burn_index_remove;
        
+         map<ad_index, ad_record>                                           _ad_index_to_record;
+         set<ad_index>                                                      _ad_index_remove;
+       
          map<note_index, note_record>                                       _note_index_to_record;
          set<note_index>                                                    _note_index_remove;
        
@@ -200,6 +203,10 @@ namespace bts { namespace blockchain {
          virtual void burn_insert_into_index_map( const burn_index&, const burn_record& )override;
          virtual void burn_erase_from_index_map( const burn_index& )override;
        
+       virtual oad_record ad_lookup_by_index( const ad_index& )const override;
+       virtual void ad_insert_into_index_map( const ad_index&, const ad_record& )override;
+       virtual void ad_erase_from_index_map( const ad_index& )override;
+       
        virtual onote_record note_lookup_by_index( const note_index& )const override;
        virtual void note_insert_into_index_map( const note_index&, const note_record& )override;
        virtual void note_erase_from_index_map( const note_index& )override;
@@ -244,6 +251,8 @@ FC_REFLECT( bts::blockchain::pending_chain_state,
             (_transaction_digests)
             (_burn_index_to_record)
             (_burn_index_remove)
+            (_ad_index_to_record)
+            (_ad_index_remove)
             (_note_index_to_record)
             (_note_index_remove)
             (_operation_reward_id_to_record)

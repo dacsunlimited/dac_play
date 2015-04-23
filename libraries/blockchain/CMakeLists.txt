@@ -38,6 +38,7 @@ add_library( bts_blockchain
              balance_record.cpp
              transaction_record.cpp
              burn_record.cpp
+             ad_record.cpp
              note_record.cpp
              operation_reward_record.cpp
              feed_record.cpp

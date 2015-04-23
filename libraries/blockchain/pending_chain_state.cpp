@@ -48,6 +48,7 @@ namespace bts { namespace blockchain {
       apply_records( prev_state, _balance_id_to_record, _balance_id_remove );
       apply_records( prev_state, _transaction_id_to_record, _transaction_id_remove );
       apply_records( prev_state, _burn_index_to_record, _burn_index_remove );
+      apply_records( prev_state, _ad_index_to_record, _ad_index_remove );
       apply_records( prev_state, _note_index_to_record, _note_index_remove );
       apply_records( prev_state, _operation_reward_id_to_record, _operation_reward_id_remove );
       apply_records( prev_state, _slot_index_to_record, _slot_index_remove );
@@ -686,6 +687,28 @@ namespace bts { namespace blockchain {
        _burn_index_to_record.erase( index );
        _burn_index_remove.insert( index );
    }
+    
+    oad_record pending_chain_state::ad_lookup_by_index( const ad_index& index )const
+    {
+        const auto iter = _ad_index_to_record.find( index );
+        if( iter != _ad_index_to_record.end() ) return iter->second;
+        if( _ad_index_remove.count( index ) > 0 ) return oad_record();
+        const chain_interface_ptr prev_state = _prev_state.lock();
+        if( !prev_state ) return oad_record();
+        return prev_state->lookup<ad_record>( index );
+    }
+    
+    void pending_chain_state::ad_insert_into_index_map( const ad_index& index, const ad_record& record )
+    {
+        _ad_index_remove.erase( index );
+        _ad_index_to_record[ index ] = record;
+    }
+    
+    void pending_chain_state::ad_erase_from_index_map( const ad_index& index )
+    {
+        _ad_index_to_record.erase( index );
+        _ad_index_remove.insert( index );
+    }
     
     onote_record pending_chain_state::note_lookup_by_index( const note_index& index )const
     {

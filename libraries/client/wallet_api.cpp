@@ -339,6 +339,22 @@ wallet_transaction_record detail::client_impl::wallet_burn(
     return record;
 }
     
+wallet_transaction_record detail::client_impl::wallet_buy_ad(
+                                                               const std::string& amount_to_pay,
+                                                               const std::string& asset_symbol,
+                                                                                                                                                                                                                                  const std::string& publisher_account_name,
+                                                               const std::string& owner_account_name,
+                                                               const std::string& message)
+{
+        const asset amount = _chain_db->to_ugly_asset( amount_to_pay, asset_symbol );
+        auto record = _wallet->buy_ad( amount, publisher_account_name,
+                                          owner_account_name,
+                                          message, true);
+        _wallet->cache_transaction( record );
+        network_broadcast_transaction( record.trx );
+        return record;
+}
+    
 wallet_transaction_record detail::client_impl::wallet_note(
                                       const std::string& amount_to_pay,
                                       const std::string& asset_symbol,

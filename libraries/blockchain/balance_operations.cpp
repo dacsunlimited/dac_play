@@ -308,6 +308,64 @@ namespace bts { namespace blockchain {
       eval_state.pending_state()->store_burn_record( std::move( record ) );
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
     
+    void ad_operation::evaluate( transaction_evaluation_state& eval_state )const
+    { try {
+        if( this->amount.amount <= 0 )
+            FC_CAPTURE_AND_THROW( negative_deposit, (amount) );
+        
+        FC_ASSERT( !message.empty() );
+        
+        FC_ASSERT( amount.asset_id == 0 );
+        
+        const size_t message_kb = (message.size() / 1024) + 1;
+        const share_type required_fee = message_kb * BTS_BLOCKCHAIN_MIN_AD_FEE;
+        
+        FC_ASSERT( amount.amount >= required_fee, "Message of size ${s} KiB requires at least ${a} satoshis to be burned!",
+                  ("s",message_kb)("a",required_fee) );
+        // half of the note fees goto collected fees(delegate pay), other go to ad owner
+        eval_state.min_fees[amount.asset_id] += amount.amount / 2;
+        
+        FC_ASSERT( owner_account_id != 0 );
+        const oaccount_record owner_account_rec = eval_state.pending_state()->get_account_record( abs( this->owner_account_id ) );
+        FC_ASSERT( owner_account_rec.valid() );
+        
+        auto owner_address = owner_account_rec->active_address();
+        auto ad_income_balance = eval_state.pending_state()->get_balance_record(withdraw_condition( withdraw_with_signature(owner_address), 0 ).get_address());
+        if( !ad_income_balance )
+            ad_income_balance = balance_record( owner_address, asset(0, 0), 0 );
+        
+        auto ad_pay = amount.amount - amount.amount / 2;
+        ad_income_balance->balance += ad_pay;
+        ad_income_balance->last_update = eval_state.pending_state()->now();
+        ad_income_balance->deposit_date = eval_state.pending_state()->now();
+        
+        eval_state.pending_state()->store_balance_record( *ad_income_balance );
+        
+        eval_state.sub_balance( asset(ad_pay, amount.asset_id) );
+        
+        // checking the signature of the publisher.
+        FC_ASSERT( publisher_account_id != 0 );
+        const oaccount_record publisher_account_rec = eval_state.pending_state()->get_account_record( abs( this->publisher_account_id ) );
+        FC_ASSERT( publisher_account_rec.valid() );
+        
+        eval_state.check_signature( publisher_account_rec->active_key() );
+        
+        ad_record record;
+        record.index.account_id = owner_account_id;
+        record.index.transaction_id = eval_state.trx.id();
+        record.publisher_id = publisher_account_id;
+        record.amount = amount;
+        record.message = message;
+        record.signer = message_signature;
+        
+        // the message must be signed by the claimed publisher account
+        FC_ASSERT( publisher_account_rec->active_key() == record.signer_key() );
+        
+        FC_ASSERT( !eval_state.pending_state()->get_ad_record( record.index ).valid() );
+        
+        eval_state.pending_state()->store_ad_record( std::move( record ) );
+    } FC_CAPTURE_AND_RETHROW( (*this) ) }
+    
     void note_operation::evaluate( transaction_evaluation_state& eval_state )const
     { try {
         if( this->amount.amount <= 0 )

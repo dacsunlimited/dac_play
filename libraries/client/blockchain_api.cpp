@@ -695,6 +695,11 @@ vector<burn_record> client_impl::blockchain_get_account_wall( const string& acco
    return _chain_db->fetch_burn_records( account );
 }
     
+    vector<ad_record> client_impl::blockchain_get_account_ads( const string& account )const
+    {
+        return _chain_db->fetch_ad_records( account );
+    }
+    
 vector<note_record> client_impl::blockchain_get_account_notes( const string& account )const
 {
    return _chain_db->fetch_note_records( account );
