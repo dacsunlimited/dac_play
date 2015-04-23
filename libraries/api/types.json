@@ -182,6 +182,10 @@
          "cpp_return_type" : "std::vector<bts::blockchain::burn_record>"
       },
       {
+          "type_name" : "ad_records",
+          "cpp_return_type" : "std::vector<bts::blockchain::ad_record>"
+      },
+      {
           "type_name" : "note_records",
           "cpp_return_type" : "std::vector<bts::blockchain::note_record>"
       },

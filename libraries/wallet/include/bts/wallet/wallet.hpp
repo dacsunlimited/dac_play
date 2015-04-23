@@ -275,6 +275,15 @@ namespace bts { namespace wallet {
                  bool anonymous,
                  bool sign
                  );
+       
+         wallet_transaction_record buy_ad(
+                                                const asset& asset_to_pay,
+                                                const string& publisher_account_name,
+                                                const string& owner_account_name,
+                                                const string& message,
+                                                bool sign
+                                                );
+       
          wallet_transaction_record write_note(
                                                     const asset& asset_to_pay,
                                                     const string& owner_account_name,

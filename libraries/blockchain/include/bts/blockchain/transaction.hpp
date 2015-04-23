@@ -88,6 +88,8 @@ namespace bts { namespace blockchain {
                  const string& public_message,
                  const fc::optional<signature_type>& message_sig );
        
+       void buy_ad( const asset& quantity, account_id_type owner_account_id, account_id_type publisher_account_id, const string& message, const optional<signature_type>& sig );
+       
        void note( const asset& quantity,
                  account_id_type owner_account_id,
                  const optional<note_message>& message,

@@ -154,6 +154,8 @@ namespace bts { namespace blockchain {
 
           _burn_index_to_record.open( data_dir / "index/burn_index_to_record" );
           
+          _ad_index_to_record.open( data_dir / "index/ad_index_to_record" );
+          
           _note_index_to_record.open( data_dir / "index/note_index_to_record" );
           
           _operation_reward_id_to_record.open( data_dir / "index/operation_reward_id_to_record" );
@@ -1481,6 +1483,7 @@ namespace bts { namespace blockchain {
               const auto set_db_cache_write_through = [ this ]( bool write_through )
               {
                   my->_burn_index_to_record.set_write_through( write_through );
+                  my->_ad_index_to_record.set_write_through( write_through );
                   my->_note_index_to_record.set_write_through( write_through );
 
                   my->_rule_data_db.set_write_through( write_through );
@@ -1665,6 +1668,7 @@ namespace bts { namespace blockchain {
       my->_address_to_transaction_ids.close();
 
       my->_burn_index_to_record.close();
+       my->_ad_index_to_record.close();
        my->_note_index_to_record.close();
        my->_operation_reward_id_to_record.close();
 
@@ -3357,6 +3361,22 @@ namespace bts { namespace blockchain {
       return results;
    } FC_CAPTURE_AND_RETHROW( (account_name) ) }
     
+    vector<ad_record> chain_database::fetch_ad_records( const string& account_name )const
+    { try {
+        vector<ad_record> results;
+        const auto opt_account_record = get_account_record( account_name );
+        FC_ASSERT( opt_account_record.valid() );
+        
+        auto itr = my->_ad_index_to_record.lower_bound( {opt_account_record->id} );
+        while( itr.valid() && itr.key().account_id == opt_account_record->id )
+        {
+            results.push_back( itr.value() );
+            ++itr;
+        }
+        
+        return results;
+    } FC_CAPTURE_AND_RETHROW( (account_name) ) }
+    
     vector<note_record> chain_database::fetch_note_records( const string& account_name )const
     { try {
         vector<note_record> results;
@@ -3641,6 +3661,21 @@ namespace bts { namespace blockchain {
    {
        my->_burn_index_to_record.remove( index );
    }
+    
+    oad_record chain_database::ad_lookup_by_index( const ad_index& index )const
+    {
+        return my->_ad_index_to_record.fetch_optional( index );
+    }
+    
+    void chain_database::ad_insert_into_index_map( const ad_index& index, const ad_record& record )
+    {
+        my->_ad_index_to_record.store( index, record );
+    }
+    
+    void chain_database::ad_erase_from_index_map( const ad_index& index )
+    {
+        my->_ad_index_to_record.remove( index );
+    }
     
     onote_record chain_database::note_lookup_by_index( const note_index& index )const
     {

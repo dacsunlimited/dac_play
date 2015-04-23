@@ -162,6 +162,23 @@
         "aliases" : ["wall"]
       },
       {
+          "method_name": "blockchain_get_account_ads",
+          "description": "returns all ad records associated with an account",
+          "cached"   : true,
+          "return_type": "ad_records",
+          "parameters" : [
+          {
+              "name" : "account_name",
+              "type" : "account_name",
+              "description" : "the name of the account to fetch the ad records for",
+              "default_value" : ""
+          }
+          ],
+          "is_const"   : true,
+          "prerequisites" : ["no_prerequisites"],
+          "aliases" : ["list_account_ads"]
+      },
+      {
           "method_name": "blockchain_get_account_notes",
           "description": "returns all note records associated with an account",
           "cached"   : true,

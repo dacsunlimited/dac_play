@@ -621,6 +621,42 @@
         "aliases" : ["burn"]
       },
       {
+          "method_name": "wallet_buy_ad",
+          "description": "Post an advertise under a given account's advertise places. This will allow accounts to sell their advertise places to others.",
+          "return_type": "transaction_record",
+          "parameters" :
+          [
+          {
+              "name" : "amount_to_pay",
+              "type" : "string",
+              "description" : "the amount of shares to pay for the advertise"
+          },
+          {
+              "name" : "asset_symbol",
+              "type" : "asset_symbol",
+              "description" : "the asset to buy the ad"
+          },
+          {
+              "name" : "publisher_account_name",
+              "type" : "sending_account_name",
+              "description" : "the source account to draw the shares from"
+          },
+          {
+              "name" : "owner_account_name",
+              "type" : "receive_account_name",
+              "description" : "the account to which the burn should be credited (for or against) and on which the public message will appear"
+          },
+          {
+              "name" : "public_message",
+              "type" : "string",
+              "description" : "a public message to post",
+              "default_value" : ""
+          }
+          ],
+          "prerequisites" : ["wallet_unlocked"],
+          "aliases" : ["buy_ad"]
+      },
+      {
           "method_name": "wallet_note",
           "description": "Write encrypted or public note.  This will allow you to post message and +/- sentiment on your own account as a form of note.",
           "return_type": "transaction_record",

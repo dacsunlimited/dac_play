@@ -130,6 +130,29 @@ struct burn_operation
 
     void evaluate( transaction_evaluation_state& eval_state )const;
 };
+
+    struct ad_operation
+    {
+        static const operation_type_enum type;
+        
+        ad_operation( asset amount_to_burn = asset(),
+                       account_id_type owner_id = 0,
+                       account_id_type publisher_id = 0,
+                       const string& public_message = "",
+                       optional<signature_type> sig = optional<signature_type>() )
+        :amount(amount_to_burn),owner_account_id(owner_id),publisher_account_id(publisher_id),message(public_message),message_signature(sig){}
+        
+        /** the condition that the funds may be withdrawn,
+         *  this is only necessary if the address is new.
+         */
+        asset                        amount;
+        account_id_type              owner_account_id;
+        account_id_type              publisher_account_id;
+        string                       message;
+        optional<signature_type>     message_signature;
+        
+        void evaluate( transaction_evaluation_state& eval_state )const;
+    };
     
 /**
 *  Writing notes by the account owner, encrypted or public types. signature of the owner account must be provided
@@ -218,6 +241,7 @@ FC_REFLECT( bts::blockchain::note_message,
 FC_REFLECT( bts::blockchain::withdraw_operation, (balance_id)(amount)(claim_input_data) )
 FC_REFLECT( bts::blockchain::deposit_operation, (amount)(condition) )
 FC_REFLECT( bts::blockchain::burn_operation, (amount)(account_id)(message)(message_signature) )
+FC_REFLECT( bts::blockchain::ad_operation, (amount)(owner_account_id)(publisher_account_id)(message)(message_signature) )
 FC_REFLECT( bts::blockchain::note_operation, (amount)(owner_account_id)(message)(message_signature) )
 FC_REFLECT( bts::blockchain::release_escrow_operation, (escrow_id)(released_by)(amount_to_receiver)(amount_to_sender) )
 FC_REFLECT( bts::blockchain::update_balance_vote_operation, (balance_id)(new_restricted_owner)(new_slate) )

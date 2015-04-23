@@ -2715,6 +2715,88 @@ namespace detail {
       return record;
    } FC_CAPTURE_AND_RETHROW( (asset_to_transfer)(paying_account_name)(for_or_against)(to_account_name)(public_message)(anonymous)(sign) ) }
     
+    wallet_transaction_record wallet::buy_ad(
+                                                 const asset& asset_to_pay,
+                                                 const string& publisher_account_name,
+                                                 const string& owner_account_name,
+                                                 const string& public_message,
+                                                 bool sign
+                                                 )
+    { try {
+        FC_ASSERT( is_open() );
+        FC_ASSERT( is_unlocked() );
+        
+        private_key_type sender_private_key  = get_active_private_key( publisher_account_name );
+        public_key_type  sender_public_key   = sender_private_key.get_public_key();
+        address          sender_account_address( sender_private_key.get_public_key() );
+        
+        signed_transaction     trx;
+        unordered_set<address> required_signatures;
+        
+        trx.expiration = blockchain::now() + get_transaction_expiration();
+        
+        const auto required_fees = get_transaction_fee( );
+        if( required_fees.asset_id == asset_to_pay.asset_id )
+        {
+            my->withdraw_to_transaction( required_fees + asset_to_pay,
+                                        owner_account_name,
+                                        trx,
+                                        required_signatures );
+        }
+        else
+        {
+            my->withdraw_to_transaction( asset_to_pay,
+                                        owner_account_name,
+                                        trx,
+                                        required_signatures );
+            
+            my->withdraw_to_transaction( required_fees,
+                                        owner_account_name,
+                                        trx,
+                                        required_signatures );
+        }
+        
+        const auto publisher_account_rec = my->_blockchain->get_account_record( publisher_account_name );
+        FC_ASSERT( publisher_account_rec.valid() );
+        
+        if( publisher_account_rec->is_retracted() )
+            FC_CAPTURE_AND_THROW( account_retracted, (publisher_account_rec) );
+        
+        const auto owner_account_rec = my->_blockchain->get_account_record( owner_account_name );
+        FC_ASSERT( owner_account_rec.valid() );
+        
+        if( owner_account_rec->is_retracted() )
+            FC_CAPTURE_AND_THROW( account_retracted, (owner_account_rec) );
+        
+        
+        fc::sha256 digest;
+        
+        if( public_message.size() )
+            digest = fc::sha256::hash( public_message.c_str(), public_message.size() );
+        
+        optional<signature_type> message_sig = sender_private_key.sign_compact( digest );
+        
+        trx.buy_ad(asset_to_pay, owner_account_rec->id, publisher_account_rec->id, public_message, message_sig);
+        
+        auto entry = ledger_entry();
+        entry.from_account = sender_public_key;
+        entry.to_account = owner_account_rec->active_key();
+        entry.amount = asset_to_pay;
+        entry.memo = "buy ad:";
+        if( !public_message.empty() )
+            entry.memo += ": " + public_message;
+        
+        auto record = wallet_transaction_record();
+        record.ledger_entries.push_back( entry );
+        record.fee = required_fees;
+        
+        if( sign )
+            my->sign_transaction( trx, required_signatures );
+        
+        record.trx = trx;
+        return record;
+    } FC_CAPTURE_AND_RETHROW( (asset_to_pay)(owner_account_name)(public_message)(sign) ) }
+    
     wallet_transaction_record wallet::write_note(
                                                  const asset& asset_to_pay,
                                                  const string& owner_account_name,
