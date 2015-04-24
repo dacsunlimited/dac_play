@@ -86,7 +86,7 @@ else()
   endif()
 endif()
 
-target_link_libraries( bts_blockchain fc bts_db leveldb )
+target_link_libraries( bts_blockchain fc bts_utilities bts_db leveldb )
 target_include_directories( bts_blockchain
                             PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" )
 

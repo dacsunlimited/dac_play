@@ -10,6 +10,7 @@
 #include <bts/blockchain/market_engine.hpp>
 #include <bts/blockchain/time.hpp>
 #include <bts/blockchain/game_executors.hpp>
+#include <bts/utilities/combinatorics.hpp>
 
 #include <fc/io/fstream.hpp>
 #include <fc/io/raw_variant.hpp>
@@ -1020,12 +1021,31 @@ namespace bts { namespace blockchain {
                        note_indexs.erase( note_indexs.begin() + level_1 );
                    }
                    
-                   // TODO: Use CNS in https://github.com/HackFisher/bitshares_snapshot/blob/lotto_experi/libraries/lotto/lotto_rule.cpp instead
-                   uint32_t count = 0;
-                   while ( note_indexs.size() > 0 )
+                   // Using CNS in https://github.com/HackFisher/bitshares_snapshot/blob/lotto_experi/libraries/lotto/lotto_rule.cpp
+                   vector<note_index> second_indexs;
+                   if ( note_indexs.size() <= 2 )
                    {
-                       uint32_t level_2 = random_seed._hash[1]%note_indexs.size();
-                       auto note_record = pending_state->get_note_record( note_indexs[level_2] );
+                       second_indexs.insert(second_indexs.end(), note_indexs.begin(), note_indexs.end() );
+                       
+                       note_indexs.erase( note_indexs.begin(), note_indexs.end() );
+                   } else {
+                       auto lucky_guys = bts::utilities::unranking(
+                                             random_seed._hash[1] % bts::utilities::cnr( note_indexs.size(), 2 ), 2, note_indexs.size());
+                       
+                       for ( const auto& n : lucky_guys )
+                       {
+                           second_indexs.push_back( note_indexs[ n ] );
+                       }
+                       
+                       for ( uint16_t i = lucky_guys.size() - 1; i >= 0; i -- )
+                       {
+                           note_indexs.erase(note_indexs.begin() + lucky_guys[i] );
+                       }
+                   }
+                   
+                   for ( const auto& i : second_indexs )
+                   {
+                       auto note_record = pending_state->get_note_record( i );
                        operation_reward_transaction reward_trx;
                        reward_trx.op_type = note_op_type;
                        reward_trx.reward = asset(collected_fees * 15 / 100, 0);
@@ -1045,18 +1065,31 @@ namespace bts { namespace blockchain {
                        pending_state->store_balance_record( *reward_balance );
                        
                        operation_reward_transactions.push_back(reward_trx);
-                       note_indexs.erase( note_indexs.begin() + level_2 );
-                       
-                       count ++;
-                       if ( count >= 2 )
-                           break;
                    }
                    
-                   count = 0;
-                   while ( note_indexs.size() > 0 )
+                   vector<note_index> third_indexs;
+                   if ( note_indexs.size() <= 5 )
                    {
-                       uint32_t level_3 = random_seed._hash[2]%note_indexs.size();
-                       auto note_record = pending_state->get_note_record( note_indexs[level_3] );
+                       third_indexs.insert(second_indexs.end(), note_indexs.begin(), note_indexs.end() );
+                       note_indexs.erase( note_indexs.begin(), note_indexs.end() );
+                   } else {
+                       auto lucky_guys = bts::utilities::unranking(
+                                                                   random_seed._hash[2] % bts::utilities::cnr( note_indexs.size(), 5 ), 5, note_indexs.size());
+                       
+                       for ( const auto& n : lucky_guys )
+                       {
+                           third_indexs.push_back( note_indexs[ n ] );
+                       }
+                       
+                       for ( uint16_t i = lucky_guys.size() - 1; i >= 0; i -- )
+                       {
+                           third_indexs.erase(note_indexs.begin() + lucky_guys[i] );
+                       }
+                   }
+                   
+                   for ( const auto& i : second_indexs )
+                   {
+                       auto note_record = pending_state->get_note_record( i );
                        operation_reward_transaction reward_trx;
                        reward_trx.op_type = note_op_type;
                        reward_trx.reward = asset(collected_fees * 8 / 100, 0);
@@ -1076,11 +1109,6 @@ namespace bts { namespace blockchain {
                        pending_state->store_balance_record( *reward_balance );
                        
                        operation_reward_transactions.push_back(reward_trx);
-                       note_indexs.erase( note_indexs.begin() + level_3 );
-                       
-                       count ++;
-                       if ( count >= 5 )
-                           break;
                    }
                }
                

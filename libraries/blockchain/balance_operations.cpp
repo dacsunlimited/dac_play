@@ -380,12 +380,12 @@ namespace bts { namespace blockchain {
         FC_ASSERT( amount.amount >= required_fee, "Message of size ${s} KiB requires at least ${a} satoshis to be burned!",
                   ("s",message_kb)("a",required_fee) );
         
-        // half of the note fees goto collected fees(delegate pay), other go to the operation pool
-        eval_state.min_fees[amount.asset_id] += amount.amount / 2;
+        // 30% of the note fees goto collected fees(delegate pay), other go to the operation pool
+        eval_state.min_fees[amount.asset_id] += amount.amount * 3 / 10;
         
         // TODO: instead of burn, the left will go to a fee pool attached to this operation.
         auto op_reward_record = eval_state.pending_state()->get_operation_reward_record(note_op_type);
-        auto reward_fee = amount.amount - amount.amount / 2;
+        auto reward_fee = amount.amount - amount.amount * 3 / 10;
         op_reward_record->fees[amount.asset_id] += reward_fee;
         eval_state.sub_balance( asset(reward_fee, amount.asset_id) );
         eval_state.pending_state()->store_operation_reward_record( *op_reward_record );

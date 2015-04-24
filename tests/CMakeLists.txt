@@ -96,6 +96,9 @@ endif (WIN32)
 add_executable( deterministic_signature_test deterministic_signature_test.cpp)
 target_link_libraries( deterministic_signature_test bts_utilities deterministic_openssl_rand fc )
 
+add_executable( util_cnr_test util_cnr_test.cpp)
+target_link_libraries( util_cnr_test bts_utilities fc )
+
 
 #if( false )
 #   add_executable( simple_net_test_client simple_net_test_client.cpp )
