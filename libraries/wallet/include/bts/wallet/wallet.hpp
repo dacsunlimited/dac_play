@@ -482,7 +482,6 @@ namespace bts { namespace wallet {
                                                      const string& description,
                                                      const variant& data,
                                                      const string& issuer_account_name,
-                                                     const string& asset_symbol,
                                                      const string& script_url,
                                                      const string& script_hash,
                                                        bool sign );

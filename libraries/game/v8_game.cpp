@@ -84,7 +84,7 @@ namespace bts { namespace game {
       //context->Global()->Set(String::NewFromUtf8(isolate, "scan_result_trx"), External::New(isolate, rtrx));
       
       // TODO: Rewriting the global of the context
-      context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "evaluate_block_num"), v8_evalstate::New(my->GetIsolate(), eval_state.shared_from_this()));
+      // context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "evaluate_block_num"), v8_evalstate::New(my->GetIsolate(), eval_state.shared_from_this()));
       
       v8::TryCatch try_catch;
       v8::Handle<v8::Script> script = v8::Script::Compile(

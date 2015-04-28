@@ -199,7 +199,7 @@ global.evaluate = function(self, eval_state, eval_state_current_state){
     // V8_API: dice_asset_record.id
     // V8_API: self::balance_id and self.amount what the self here.
     // V8_API: eval_state::sub_balance
-    eval_state.sub_balance(self.balance_id(), asset(self.amount, dice_asset_record.id));
+    eval_state.sub_balance( asset(self.amount, dice_asset_record.id));
     
     
     // rule_dice_record cur_data;

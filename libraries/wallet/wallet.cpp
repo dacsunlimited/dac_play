@@ -3213,20 +3213,16 @@ namespace detail {
    } FC_CAPTURE_AND_RETHROW( (responsible_account_name)(symbol)(name)(description)(max_supply)(precision)(issued_type)(sign) ) }
     
    wallet_transaction_record wallet::create_game(
-                                                   const string& symbol,
                                                    const string& game_name,
                                                    const string& description,
                                                    const variant& data,
-                                                   const string& issuer_account_name,
-                                                   const string& asset_symbol,
+                                                   const string& owner_account_name,
                                                    const string& script_url,
                                                    const string& script_hash,
                                                    bool sign )
     { try {
         FC_ASSERT( is_open() );
         FC_ASSERT( is_unlocked() );
-        FC_ASSERT( my->_blockchain->is_valid_symbol_name( symbol ) ); // valid length and characters
-        FC_ASSERT( ! my->_blockchain->is_valid_game_symbol( symbol ) ); // not yet registered
         
         signed_transaction     trx;
         unordered_set<address> required_signatures;
@@ -3236,44 +3232,41 @@ namespace detail {
         auto required_fees = get_transaction_fee();
         
         // TODO Change to game registration fee
-        required_fees += asset(my->_blockchain->get_asset_registration_fee(symbol.size()),0);
+        required_fees += asset(my->_blockchain->get_game_registration_fee(game_name.size()),0);
         
-        if( !my->_blockchain->is_valid_account_name( issuer_account_name ) )
-            FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("issuer_account_name",issuer_account_name) );
-        auto from_account_address = get_owner_public_key( issuer_account_name );
-        auto oname_rec = my->_blockchain->get_account_record( issuer_account_name );
+        if( !my->_blockchain->is_valid_account_name( owner_account_name ) )
+            FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("issuer_account_name",owner_account_name) );
+        
+        auto from_account_address = get_owner_public_key( owner_account_name );
+        auto oname_rec = my->_blockchain->get_account_record( owner_account_name );
         if( !oname_rec.valid() )
-            FC_THROW_EXCEPTION( account_not_registered, "Assets can only be created by registered accounts", ("issuer_account_name",issuer_account_name) );
+            FC_THROW_EXCEPTION( account_not_registered, "Assets can only be created by registered accounts", ("issuer_account_name",owner_account_name) );
         
-        auto asset_record = my->_blockchain->get_asset_record( asset_symbol );
-        FC_ASSERT(asset_record.valid(), "no such asset record");
-        auto asset_issuer_account = my->_blockchain->get_account_record( asset_record->issuer_account_id );
-        FC_ASSERT(asset_issuer_account, "uh oh! no account for valid asset");
-        
-        required_signatures.insert( asset_issuer_account->active_key() );
+        // Only needs the agree of the asset by setting issuer_id to game id of asset
+        // required_signatures.insert( asset_issuer_account->active_key() );
         
         optional<account_id_type> issuer_account_id;
-        if( issuer_account_name != "" )
+        if( owner_account_name != "" )
         {
-            auto issuer_account = my->_blockchain->get_account_record( issuer_account_name );
+            auto issuer_account = my->_blockchain->get_account_record( owner_account_name );
             FC_ASSERT( issuer_account.valid() );
             issuer_account_id = issuer_account->id;
         }
         
         my->withdraw_to_transaction( required_fees,
-                                    issuer_account_name,
+                                    owner_account_name,
                                     trx,
-                                    required_signatures );
+                                    required_signatures);
         
         // TODO: rename require the signature of asset issuer's signature.
-        trx.create_game( symbol, game_name,
+        trx.create_game( game_name,
                          description, data,
-                         oname_rec->id, asset_record->id, script_url, script_hash);
+                         oname_rec->id, script_url, script_hash);
         
         auto entry = ledger_entry();
         entry.from_account = from_account_address;
         entry.to_account = from_account_address;
-        entry.memo = "create " + symbol + " (" + game_name + ")";
+        entry.memo = "create game (" + game_name + ")";
         
         auto record = wallet_transaction_record();
         record.ledger_entries.push_back( entry );
@@ -3284,7 +3277,7 @@ namespace detail {
         
         record.trx = trx;
         return record;
-   } FC_CAPTURE_AND_RETHROW( (symbol)(game_name)(description)(issuer_account_name)(asset_symbol) ) }
+   } FC_CAPTURE_AND_RETHROW( (game_name)(description)(owner_account_name)(script_url)(script_hash) ) }
 
    wallet_transaction_record wallet::uia_issue_or_collect_fees(
            const bool issue_new,
@@ -3347,71 +3340,6 @@ namespace detail {
       return record;
    } FC_CAPTURE_AND_RETHROW( (issue_new)(amount)(generic_recipient)(memo)(sign) ) }
 
-   wallet_transaction_record wallet::create_game(
-                                                 const string& game_name,
-                                                 const string& description,
-                                                 const variant& data,
-                                                 const string& owner_account_name,
-                                                 uint32_t rule_id,
-                                                 bool sign )
-   { try {
-      FC_ASSERT( is_open() );
-      FC_ASSERT( is_unlocked() );
-      
-      signed_transaction     trx;
-      unordered_set<address> required_signatures;
-      
-      trx.expiration = blockchain::now() + get_transaction_expiration();
-      
-      auto required_fees = get_transaction_fee();
-      
-      // TODO Change to game registration fee
-      required_fees += asset(my->_blockchain->get_game_registration_fee(game_name.size()),0);
-      
-      if( !my->_blockchain->is_valid_account_name( owner_account_name ) )
-         FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("issuer_account_name",owner_account_name) );
-      auto from_account_address = get_owner_public_key( owner_account_name );
-      auto oname_rec = my->_blockchain->get_account_record( owner_account_name );
-      if( !oname_rec.valid() )
-         FC_THROW_EXCEPTION( account_not_registered, "Assets can only be created by registered accounts", ("issuer_account_name",owner_account_name) );
-      
-      // Only needs the agree of the asset by setting issuer_id to game id of asset
-      // required_signatures.insert( asset_issuer_account->active_key() );
-      
-      optional<account_id_type> issuer_account_id;
-      if( owner_account_name != "" )
-      {
-         auto issuer_account = my->_blockchain->get_account_record( owner_account_name );
-         FC_ASSERT( issuer_account.valid() );
-         issuer_account_id = issuer_account->id;
-      }
-      
-      my->withdraw_to_transaction( required_fees,
-                                  owner_account_name,
-                                  trx,
-                                  required_signatures );
-      
-      // TODO: rename require the signature of asset issuer's signature.
-      trx.create_game( game_name,
-                      description, data,
-                      oname_rec->id, rule_id);
-      
-      auto entry = ledger_entry();
-      entry.from_account = from_account_address;
-      entry.to_account = from_account_address;
-      entry.memo = "create game (" + game_name + ")";
-      
-      auto record = wallet_transaction_record();
-      record.ledger_entries.push_back( entry );
-      record.fee = required_fees;
-      
-      if( sign )
-         my->sign_transaction( trx, required_signatures );
-      
-      record.trx = trx;
-      return record;
-   } FC_CAPTURE_AND_RETHROW( (game_name)(description)(owner_account_name) ) }
-
    wallet_transaction_record wallet::play_game( const string& symbol,
                                                 const variant& params,
                                                 bool sign  )
@@ -3424,7 +3352,7 @@ namespace detail {
        auto game_record  = my->_blockchain->get_game_record( symbol );
        
        if( NOT game_record )
-           FC_CAPTURE_AND_THROW( unknown_game_symbol, (symbol) );
+           FC_CAPTURE_AND_THROW( unknown_game_id, (symbol) );
        
        auto record =bts::game::rule_factory::instance().play(game_record->id, my->_blockchain, shared_from_this(), params, sign);
        

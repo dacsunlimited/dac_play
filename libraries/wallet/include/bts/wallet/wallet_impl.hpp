@@ -20,6 +20,7 @@ class wallet_impl : public chain_observer
       bool                                             _is_enabled = true;
       wallet_db                                        _wallet_db;
       chain_database_ptr                               _blockchain = nullptr;
+      bts::game::game_client_ptr                       _game_client = nullptr;
       path                                             _data_directory;
       path                                             _current_wallet_path;
       fc::sha512                                       _wallet_password;

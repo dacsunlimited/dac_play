@@ -381,10 +381,9 @@ namespace bts { namespace game {
       Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
       void* ptr = wrap->Value();
       
-      Local<External> wrapper_balance_id = Local<External>::Cast(args[0]);
       Local<External> wrap_asset = Local<External>::Cast(args[1]);
       
       // TODO: parse json to C++ struct, from variant
-      static_cast<v8_evalstate*>(ptr)->_eval_state->sub_balance( * static_cast<address*>(wrapper_balance_id->Value()), * static_cast<asset*>(wrap_asset->Value() ) );
+      static_cast<v8_evalstate*>(ptr)->_eval_state->sub_balance( * static_cast<asset*>(wrap_asset->Value() ) );
    }
 } } // bts::game
