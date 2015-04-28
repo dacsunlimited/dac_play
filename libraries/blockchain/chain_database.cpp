@@ -10,6 +10,7 @@
 #include <bts/blockchain/market_engine.hpp>
 #include <bts/blockchain/time.hpp>
 #include <bts/blockchain/game_executors.hpp>
+#include <bts/utilities/combinatorics.hpp>
 
 #include <fc/io/fstream.hpp>
 #include <fc/io/raw_variant.hpp>
@@ -42,7 +43,7 @@ namespace bts { namespace blockchain {
                 try
                 {
                   transaction_evaluation_state_ptr eval_state = self->evaluate_transaction( trx, _relay_fee );
-                  share_type fees = eval_state->get_fees();
+                  const share_type fees = eval_state->total_base_equivalent_fees_paid;
                   _pending_fee_index[ fee_index( fees, trx_id ) ] = eval_state;
                   ilog( "revalidated pending transaction id ${id}", ("id", trx_id) );
                 }
@@ -153,6 +154,12 @@ namespace bts { namespace blockchain {
           _address_to_transaction_ids.open( data_dir / "index/address_to_transaction_ids" );
 
           _burn_index_to_record.open( data_dir / "index/burn_index_to_record" );
+          
+          _ad_index_to_record.open( data_dir / "index/ad_index_to_record" );
+          
+          _note_index_to_record.open( data_dir / "index/note_index_to_record" );
+          
+          _operation_reward_id_to_record.open( data_dir / "index/operation_reward_id_to_record" );
 
           _feed_index_to_record.open( data_dir / "index/feed_index_to_record" );
 
@@ -166,11 +173,10 @@ namespace bts { namespace blockchain {
           _market_status_db.open( data_dir / "index/market_status_db" );
           _market_history_db.open( data_dir / "index/market_history_db" );
           
-          _game_data_db.open( data_dir / "index/_game_data_db");
-          _game_result_transactions_db.open( data_dir / "index/game_result_transactions_db" );
+          _operation_reward_transactions_db.open( data_dir / "index/operation_reward_transactions_db" );
           
           _game_id_to_record.open ( data_dir / "index/_game_id_to_record");
-          _game_symbol_to_id.open( data_dir / "index/game_symbol_to_id" );
+          _game_name_to_id.open( data_dir / "index/game_symbol_to_id" );
 
           _slot_index_to_record.open( data_dir / "index/slot_index_to_record" );
           _slot_timestamp_to_delegate.open( data_dir / "index/slot_timestamp_to_delegate" );
@@ -271,6 +277,7 @@ namespace bts { namespace blockchain {
              rec.delegate_info = delegate_stats();
              rec.delegate_info->pay_rate = 100;
              rec.set_signing_key( 0, delegate.owner );
+             rec.meta_data = account_meta_info( titan_account );
              self->store_account_record( rec );
          }
 
@@ -302,11 +309,20 @@ namespace bts { namespace blockchain {
             const auto addr = convert_raw_address( genesis_balance.raw_address );
             balance_record initial_balance( addr, asset( genesis_balance.balance, 0 ), 0 );
 
+            //ilog("balance addr is ${addr} balance is ${num}", ("addr", addr)("num", genesis_balance.balance));
+             
             /* In case of redundant balances */
             const auto cur = self->get_balance_record( initial_balance.id() );
-            if( cur.valid() ) initial_balance.balance += cur->balance;
-
-            initial_balance.snapshot_info = snapshot_record( genesis_balance.raw_address, genesis_balance.balance );
+            if( cur.valid() )
+            {
+                initial_balance.balance += cur->balance;
+                initial_balance.multi_snapshot_infos = cur->multi_snapshot_infos;
+            }
+                
+            snapshot_record rec = snapshot_record( genesis_balance.raw_address, genesis_balance.balance );
+            initial_balance.snapshot_info = rec;
+            initial_balance.multi_snapshot_infos.push_back(rec);
+            
             initial_balance.last_update = config.timestamp;
             self->store_balance_record( initial_balance );
 
@@ -328,9 +344,16 @@ namespace bts { namespace blockchain {
 
             /* In case of redundant balances */
             const auto cur = self->get_balance_record( initial_balance.id() );
-            if( cur.valid() ) initial_balance.balance += cur->balance;
-
-            initial_balance.snapshot_info = snapshot_record( genesis_balance.raw_address, genesis_balance.balance );
+            if( cur.valid() )
+            {
+                initial_balance.balance += cur->balance;
+                initial_balance.multi_snapshot_infos = cur->multi_snapshot_infos;
+            }
+             
+             snapshot_record rec = snapshot_record( genesis_balance.raw_address, genesis_balance.balance );
+             initial_balance.snapshot_info = rec;
+             initial_balance.multi_snapshot_infos.push_back(rec);
+             
             initial_balance.last_update = vesting.start_time;
             self->store_balance_record( initial_balance );
 
@@ -342,40 +365,17 @@ namespace bts { namespace blockchain {
          asset_record base_asset;
          base_asset.id = asset_id;
          base_asset.symbol = BTS_BLOCKCHAIN_SYMBOL;
+         base_asset.issuer.type = asset_record::god_issuer_id;
+         base_asset.issuer.issuer_id = -1;
          base_asset.name = BTS_BLOCKCHAIN_NAME;
          base_asset.description = BTS_BLOCKCHAIN_DESCRIPTION;
-         base_asset.public_data = variant("");
-         base_asset.issuer_account_id = 0;
          base_asset.precision = BTS_BLOCKCHAIN_PRECISION;
+         base_asset.max_supply = BTS_BLOCKCHAIN_MAX_SHARES;
+         base_asset.current_supply = total_base_supply;
+         base_asset.authority_flag_permissions = 0;
          base_asset.registration_date = timestamp;
          base_asset.last_update = timestamp;
-         base_asset.current_share_supply = total_base_supply;
-         base_asset.maximum_share_supply = BTS_BLOCKCHAIN_MAX_SHARES;
-         base_asset.collected_fees = 0;
-         base_asset.flags = asset_permissions::none;
-         base_asset.issuer_permissions = asset_permissions::none;
          self->store_asset_record( base_asset );
-
-         for( const auto& asset : config.chip_assets )
-         {
-            ++asset_id;
-            asset_record rec;
-            rec.id = asset_id;
-            rec.symbol = asset.symbol;
-            rec.name = asset.name;
-            rec.description = asset.description;
-            rec.public_data = variant("");
-            rec.issuer_account_id = asset_record::market_issuer_id;
-            rec.precision = asset.precision;
-            rec.registration_date = timestamp;
-            rec.last_update = timestamp;
-            rec.current_collateral = asset.init_collateral * BTS_BLOCKCHAIN_PRECISION;
-            rec.current_share_supply = asset.init_supply * asset.precision;
-            rec.maximum_share_supply = BTS_BLOCKCHAIN_MAX_SHARES;
-            rec.collected_fees = 0;
-
-            self->store_asset_record( rec );
-         }
 
          //add fork_data for the genesis block to the fork database
          block_fork_data gen_fork;
@@ -391,6 +391,12 @@ namespace bts { namespace blockchain {
          self->set_statistics_enabled( statistics_enabled );
          // TODO: No game in genesis for now
          self->store_property_record( property_id_type::last_game_id, 0 );
+          
+          // enable reward for note operation
+          operation_reward_record op_reward;
+          op_reward.id = note_operation::type;
+          op_reward.fees[0] = 0;
+          self->store_operation_reward_record( std::move(op_reward) );
 
          return chain_id;
       } FC_CAPTURE_AND_RETHROW( (genesis_file)(statistics_enabled) ) }
@@ -689,7 +695,7 @@ namespace bts { namespace blockchain {
          uint32_t trx_num = 0;
          for( const auto& trx : block_data.user_transactions )
          {
-            transaction_evaluation_state_ptr trx_eval_state = std::make_shared<transaction_evaluation_state>( pending_state.get() );
+            transaction_evaluation_state_ptr trx_eval_state = std::make_shared<transaction_evaluation_state>( pending_state );
             trx_eval_state->_skip_signature_check = !self->_verify_transaction_signatures;
             trx_eval_state->evaluate( trx );
 
@@ -698,9 +704,6 @@ namespace bts { namespace blockchain {
             FC_ASSERT( record.valid() );
             record->chain_location = transaction_location( block_data.block_num, trx_num );
             pending_state->store_transaction( trx_id, *record );
-
-            // TODO:  capture the evaluation state with a callback for wallets...
-            // summary.transaction_states.emplace_back( std::move(trx_eval_state) );
 
             ++trx_num;
          }
@@ -711,39 +714,45 @@ namespace bts { namespace blockchain {
                                               const pending_chain_state_ptr& pending_state,
                                               oblock_record& record )const
       { try {
-            // TODO: record paprameter is added in upstream, since play are using different algorithm than upstream, so need to check the usage of record in upstream
-            oaccount_record delegate_record = self->get_account_record( address( block_signee ) );
-            FC_ASSERT( delegate_record.valid() );
-            delegate_record = pending_state->get_account_record( delegate_record->id );
-            FC_ASSERT( delegate_record.valid() && delegate_record->is_delegate() && delegate_record->delegate_info.valid() );
+          oasset_record base_asset_record = pending_state->get_asset_record( asset_id_type( 0 ) );
+          FC_ASSERT( base_asset_record.valid() );
 
-            const uint8_t pay_rate_percent = delegate_record->delegate_info->pay_rate;
-            FC_ASSERT( pay_rate_percent >= 0 && pay_rate_percent <= 100 );
+          oaccount_record delegate_record = self->get_account_record( address( block_signee ) );
+          FC_ASSERT( delegate_record.valid() );
+          delegate_record = pending_state->get_account_record( delegate_record->id );
+          FC_ASSERT( delegate_record.valid() && delegate_record->is_delegate() && delegate_record->delegate_info.valid() );
 
-            const share_type max_available_paycheck = self->get_max_delegate_pay_issued_per_block();
-            const share_type accepted_paycheck = (max_available_paycheck * pay_rate_percent) / 100;
-            FC_ASSERT( max_available_paycheck >= accepted_paycheck );
-            FC_ASSERT( accepted_paycheck >= 0 );
+          const uint8_t pay_rate_percent = delegate_record->delegate_info->pay_rate;
+          FC_ASSERT( pay_rate_percent >= 0 && pay_rate_percent <= 100 );
 
-            delegate_record->delegate_info->votes_for += accepted_paycheck;
-            delegate_record->delegate_info->pay_balance += accepted_paycheck;
-            delegate_record->delegate_info->total_paid += accepted_paycheck;
-            pending_state->store_account_record( *delegate_record );
+          const share_type max_new_shares = self->get_max_delegate_pay_issued_per_block();
+          const share_type accepted_new_shares = (max_new_shares * pay_rate_percent) / 100;
+          FC_ASSERT( max_new_shares >= 0 && accepted_new_shares >= 0 );
+          base_asset_record->current_supply += accepted_new_shares;
 
-            oasset_record base_asset_record = pending_state->get_asset_record( asset_id_type( 0 ) );
-            FC_ASSERT( base_asset_record.valid() );
+          static const uint32_t blocks_per_two_weeks = 14 * BTS_BLOCKCHAIN_BLOCKS_PER_DAY;
+          const share_type max_collected_fees = base_asset_record->collected_fees / blocks_per_two_weeks;
+          const share_type accepted_collected_fees = (max_collected_fees * pay_rate_percent) / 100;
+          const share_type destroyed_collected_fees = max_collected_fees - accepted_collected_fees;
+          FC_ASSERT( max_collected_fees >= 0 && accepted_collected_fees >= 0 && destroyed_collected_fees >= 0 );
+          base_asset_record->collected_fees -= max_collected_fees;
+          base_asset_record->current_supply -= destroyed_collected_fees;
 
-            base_asset_record->collected_fees -= max_available_paycheck;
-            base_asset_record->current_share_supply -= (max_available_paycheck - accepted_paycheck);
-            pending_state->store_asset_record( *base_asset_record );
+          const share_type accepted_paycheck = accepted_new_shares + accepted_collected_fees;
+          FC_ASSERT( accepted_paycheck >= 0 );
+          delegate_record->delegate_info->votes_for += accepted_paycheck;
+          delegate_record->delegate_info->pay_balance += accepted_paycheck;
+          delegate_record->delegate_info->total_paid += accepted_paycheck;
 
-            // TODO: update the right suitable value for block record
-            if( record.valid() )
-            {
-                record->signee_shares_issued = 0;
-                record->signee_fees_collected = max_available_paycheck;
-                record->signee_fees_destroyed = (max_available_paycheck - accepted_paycheck);
-            }
+          pending_state->store_account_record( *delegate_record );
+          pending_state->store_asset_record( *base_asset_record );
+
+          if( record.valid() )
+          {
+              record->signee_shares_issued = accepted_new_shares;
+              record->signee_fees_collected = accepted_collected_fees;
+              record->signee_fees_destroyed = destroyed_collected_fees;
+          }
       } FC_CAPTURE_AND_RETHROW( (block_id)(block_signee)(record) ) }
 
       void chain_database_impl::save_undo_state( const uint32_t block_num,
@@ -754,7 +763,7 @@ namespace bts { namespace blockchain {
               return;
 
           pending_chain_state_ptr undo_state = std::make_shared<pending_chain_state>( pending_state );
-          pending_state->get_undo_state( undo_state );
+          pending_state->build_undo_state( undo_state );
 
           if( block_num > BTS_BLOCKCHAIN_MAX_UNDO_HISTORY )
           {
@@ -778,7 +787,7 @@ namespace bts { namespace blockchain {
              FC_CAPTURE_AND_THROW( time_in_past, (block_digest.timestamp)(_head_block_header.timestamp) );
 
           fc::time_point_sec now = bts::blockchain::now();
-          auto delta_seconds = (block_digest.timestamp - now).to_seconds();
+          const uint32_t delta_seconds = (block_digest.timestamp - now).to_seconds();
           if( block_digest.timestamp >  (now + BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC*2) )
              FC_CAPTURE_AND_THROW( time_in_future, (block_digest.timestamp)(now)(delta_seconds) );
 
@@ -787,7 +796,7 @@ namespace bts { namespace blockchain {
 
           FC_ASSERT( block_digest.validate_unique() );
 
-          auto expected_delegate = self->get_slot_signee( block_digest.timestamp, self->get_active_delegates() );
+          const auto expected_delegate = self->get_slot_signee( block_digest.timestamp, self->get_active_delegates() );
 
           if( block_signee != expected_delegate.signing_key() )
              FC_CAPTURE_AND_THROW( invalid_delegate_signee, (expected_delegate.id) );
@@ -847,19 +856,15 @@ namespace bts { namespace blockchain {
 
           /* Update production info for missing delegates */
 
-          uint64_t required_confirmations = self->get_required_confirmations();
-
           time_point_sec block_timestamp;
           auto head_block = self->get_head_block();
           if( head_block.block_num > 0 ) block_timestamp = head_block.timestamp + BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC;
           else block_timestamp = block_header.timestamp;
           const auto& active_delegates = self->get_active_delegates();
 
-          for( ; block_timestamp < block_header.timestamp;
-                 block_timestamp += BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC,
-                 required_confirmations += 2 )
+          for( ; block_timestamp < block_header.timestamp; block_timestamp += BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC )
           {
-              /* Note: Active delegate list has not been updated yet so we can use the timestamp */
+              /* Note: Active delegate list has not been updated yet so we can safely use the timestamp */
               delegate_id = self->get_slot_signee( block_timestamp, active_delegates ).id;
               delegate_record = pending_state->get_account_record( delegate_id );
               FC_ASSERT( delegate_record.valid() && delegate_record->is_delegate() );
@@ -870,15 +875,6 @@ namespace bts { namespace blockchain {
               if( self->get_statistics_enabled() )
                   pending_state->store_slot_record( slot_record( block_timestamp, delegate_id )  );
           }
-
-          /* Update required confirmation count */
-
-          required_confirmations -= 1;
-          if( required_confirmations < 1 ) required_confirmations = 1;
-          if( required_confirmations > BTS_BLOCKCHAIN_NUM_DELEGATES*3 )
-             required_confirmations = 3*BTS_BLOCKCHAIN_NUM_DELEGATES;
-
-          pending_state->set_required_confirmations( required_confirmations );
       } FC_CAPTURE_AND_RETHROW( (block_header)(block_id)(block_signee) ) }
 
       void chain_database_impl::update_random_seed( const secret_hash_type& new_secret,
@@ -952,7 +948,282 @@ namespace bts { namespace blockchain {
         }
 
         pending_state->set_market_transactions( std::move( market_transactions ) );
+        if( self->_debug_verify_market_matching )
+        {
+            debug_check_no_orders_overlap();
+        }
       } FC_CAPTURE_AND_RETHROW( (timestamp) ) }
+       
+      void chain_database_impl::pay_operation_rewards( const uint32_t block_num, const time_point_sec timestamp,
+                                                                         const pending_chain_state_ptr& pending_state )const
+       { try {
+           vector<operation_reward_transaction> operation_reward_transactions;
+           
+           // TODO: pay in time, need to add timestamp index to block ids
+           // if ( timestamp.sec_since_epoch() % (60*60*24) == 0 )
+           // pay reward every 10000 blocks
+           static const uint32_t blocks_per_two_weeks = 14 * BTS_BLOCKCHAIN_BLOCKS_PER_DAY;
+           auto reward_record = pending_state->get_operation_reward_record(note_op_type);
+           if ( reward_record.valid() )
+           {
+               const share_type collected_fees = ( reward_record->fees[0] * BTS_BLOCKCHAIN_BLOCKS_PER_DAY ) / blocks_per_two_weeks;
+               share_type reward_fee = 0;
+               // 40% for level #1 with only 1, 30% for level #2 with only 2, 40% for the left with only 5
+               if ( block_num % BTS_BLOCKCHAIN_BLOCKS_PER_DAY == 0)
+               {
+                   vector<note_index> note_indexs;
+                   uint32_t begin = block_num - BTS_BLOCKCHAIN_BLOCKS_PER_DAY >= 1 ? block_num - BTS_BLOCKCHAIN_BLOCKS_PER_DAY : 1;
+                   for ( auto i = begin; i <= block_num; i ++)
+                   {
+                       auto blk = self->get_block(i);
+                       for ( auto trx = blk.user_transactions.begin(); trx != blk.user_transactions.end(); ++trx )
+                       {
+                           for ( auto op = trx->operations.begin(); op != trx->operations.end(); ++op )
+                           {
+                               if ( op->type == note_op_type )
+                               {
+                                   auto note_op = op->as<note_operation>();
+                                   note_index note_idx;
+                                   note_idx.account_id = note_op.owner_account_id;
+                                   note_idx.transaction_id = trx->id();
+                                   note_indexs.push_back( std::move(note_idx) );
+                               }
+                           }
+                       }
+                   }
+                   
+                   auto random_seed = self->get_current_random_seed();
+                   if ( note_indexs.size() > 0 )
+                   {
+                       auto level_1 = random_seed._hash[0] % note_indexs.size();
+                       auto note_record = pending_state->get_note_record( note_indexs[level_1] );
+                       operation_reward_transaction reward_trx;
+                       reward_trx.op_type = note_op_type;
+                       reward_trx.reward = asset(collected_fees * 40 / 100, 0);
+                       reward_trx.reward_owner = address( note_record->signer_key() );
+                       reward_trx.info = "It's the first level reward.";
+                       
+                       reward_fee += reward_trx.reward.amount;
+                       
+                       auto reward_balance = pending_state->get_balance_record(withdraw_condition( withdraw_with_signature(reward_trx.reward_owner), 0 ).get_address());
+                       if( !reward_balance )
+                           reward_balance = balance_record( reward_trx.reward_owner, asset(0, 0), 0 );
+                       
+                       reward_balance->balance += reward_trx.reward.amount;
+                       reward_balance->last_update = pending_state->now();
+                       reward_balance->deposit_date = pending_state->now();
+                       
+                       pending_state->store_balance_record( *reward_balance );
+                       
+                       operation_reward_transactions.push_back(reward_trx);
+                       note_indexs.erase( note_indexs.begin() + level_1 );
+                   }
+                   
+                   // Using CNS in https://github.com/HackFisher/bitshares_snapshot/blob/lotto_experi/libraries/lotto/lotto_rule.cpp
+                   vector<note_index> second_indexs;
+                   if ( note_indexs.size() <= 2 )
+                   {
+                       second_indexs.insert(second_indexs.end(), note_indexs.begin(), note_indexs.end() );
+                       
+                       note_indexs.erase( note_indexs.begin(), note_indexs.end() );
+                   } else {
+                       auto lucky_guys = bts::utilities::unranking(
+                                             random_seed._hash[1] % bts::utilities::cnr( note_indexs.size(), 2 ), 2, note_indexs.size());
+                       
+                       for ( const auto& n : lucky_guys )
+                       {
+                           second_indexs.push_back( note_indexs[ n ] );
+                       }
+                       
+                       for ( uint16_t i = lucky_guys.size() - 1; i >= 0; i -- )
+                       {
+                           note_indexs.erase(note_indexs.begin() + lucky_guys[i] );
+                       }
+                   }
+                   
+                   for ( const auto& i : second_indexs )
+                   {
+                       auto note_record = pending_state->get_note_record( i );
+                       operation_reward_transaction reward_trx;
+                       reward_trx.op_type = note_op_type;
+                       reward_trx.reward = asset(collected_fees * 15 / 100, 0);
+                       reward_trx.reward_owner = address( note_record->signer_key() );
+                       reward_trx.info = "It's the second level reward.";
+                       
+                       reward_fee += reward_trx.reward.amount;
+                       
+                       auto reward_balance = pending_state->get_balance_record(withdraw_condition( withdraw_with_signature(reward_trx.reward_owner), 0 ).get_address());
+                       if( !reward_balance )
+                           reward_balance = balance_record( reward_trx.reward_owner, asset(0, 0), 0 );
+                       
+                       reward_balance->balance += reward_trx.reward.amount;
+                       reward_balance->last_update = pending_state->now();
+                       reward_balance->deposit_date = pending_state->now();
+                       
+                       pending_state->store_balance_record( *reward_balance );
+                       
+                       operation_reward_transactions.push_back(reward_trx);
+                   }
+                   
+                   vector<note_index> third_indexs;
+                   if ( note_indexs.size() <= 5 )
+                   {
+                       third_indexs.insert(second_indexs.end(), note_indexs.begin(), note_indexs.end() );
+                       note_indexs.erase( note_indexs.begin(), note_indexs.end() );
+                   } else {
+                       auto lucky_guys = bts::utilities::unranking(
+                                                                   random_seed._hash[2] % bts::utilities::cnr( note_indexs.size(), 5 ), 5, note_indexs.size());
+                       
+                       for ( const auto& n : lucky_guys )
+                       {
+                           third_indexs.push_back( note_indexs[ n ] );
+                       }
+                       
+                       for ( uint16_t i = lucky_guys.size() - 1; i >= 0; i -- )
+                       {
+                           third_indexs.erase(note_indexs.begin() + lucky_guys[i] );
+                       }
+                   }
+                   
+                   for ( const auto& i : second_indexs )
+                   {
+                       auto note_record = pending_state->get_note_record( i );
+                       operation_reward_transaction reward_trx;
+                       reward_trx.op_type = note_op_type;
+                       reward_trx.reward = asset(collected_fees * 8 / 100, 0);
+                       reward_trx.reward_owner = address( note_record->signer_key() );
+                       reward_trx.info = "It's the third level reward.";
+                       
+                       reward_fee += reward_trx.reward.amount;
+                       
+                       auto reward_balance = pending_state->get_balance_record(withdraw_condition( withdraw_with_signature(reward_trx.reward_owner), 0 ).get_address());
+                       if( !reward_balance )
+                           reward_balance = balance_record( reward_trx.reward_owner, asset(0, 0), 0 );
+                       
+                       reward_balance->balance += reward_trx.reward.amount;
+                       reward_balance->last_update = pending_state->now();
+                       reward_balance->deposit_date = pending_state->now();
+                       
+                       pending_state->store_balance_record( *reward_balance );
+                       
+                       operation_reward_transactions.push_back(reward_trx);
+                   }
+               }
+               
+               reward_record->fees[0] -= reward_fee;
+               pending_state->store_operation_reward_record( *reward_record );
+               
+               pending_state->set_operation_reward_transactions( std::move( operation_reward_transactions ) );
+           }
+           
+       } FC_CAPTURE_AND_RETHROW( (timestamp) ) }
+
+      void chain_database_impl::debug_check_no_orders_overlap() const
+      {
+          //
+          // the market engine does all kinds of fancy indexing to find
+          // and fill overlapping orders efficiently
+          //
+          // this method only exists for debugging purposes, so we
+          // don't care about efficiency.  we simply dump the orders
+          // and check the top bid-side order vs. top ask-side order
+          // for each market
+          //
+          // since this method doesn't fill orders, there is no fill
+          // logic here
+          //
+
+          ilog("running debug_check_no_orders_overlap()");
+          
+          std::map<std::pair<asset_id_type, asset_id_type>, std::pair<price, market_order>> mkt_to_best_bid;
+          std::map<std::pair<asset_id_type, asset_id_type>, std::pair<price, market_order>> mkt_to_best_ask;
+
+          auto process_bid = [&]( price p, market_order& order )
+          {
+              std::pair<asset_id_type, asset_id_type> mkt = p.asset_pair();
+              auto current_best = mkt_to_best_bid.find( mkt );
+              if( (current_best == mkt_to_best_bid.end()) ||
+                  (p > current_best->second.first) )
+                  mkt_to_best_bid[mkt] = std::pair<price, market_order>( p, order );
+          };
+          
+          auto process_ask = [&]( price p, market_order& order )
+          {
+              std::pair<asset_id_type, asset_id_type> mkt = p.asset_pair();
+              auto current_best = mkt_to_best_ask.find( mkt );
+              if( (current_best == mkt_to_best_ask.end()) ||
+                  (p < current_best->second.first) )
+                  mkt_to_best_ask[mkt] = std::pair<price, market_order>( p, order );
+          };
+
+          for( bts::db::cached_level_map< market_index_key, order_record >::iterator
+               bid_itr  = _bid_db.begin();
+               bid_itr.valid();
+               bid_itr++ )
+          {
+              market_order morder = market_order( bid_order, bid_itr.key(), bid_itr.value() );
+              process_bid( morder.get_price(), morder );
+          }
+          
+          for( bts::db::cached_level_map< market_index_key, order_record >::iterator
+               ask_itr  = _ask_db.begin();
+               ask_itr.valid();
+               ask_itr++ )
+          {
+              market_order morder = market_order( ask_order, ask_itr.key(), ask_itr.value() );
+              process_ask( morder.get_price(), morder );
+          }
+          
+          uint64_t failure_count = 0;
+          
+          // best bid price <= best ask price
+          for( auto it=mkt_to_best_bid.begin(); it != mkt_to_best_bid.end(); it++ )
+          {
+              std::pair<asset_id_type, asset_id_type> k = it->first;
+              auto it_ask = mkt_to_best_ask.find( k );
+              if( it_ask == mkt_to_best_ask.end() )
+                  continue;
+              price bid_price = it->second.first;
+              price ask_price = it_ask->second.first;
+              if( bid_price < ask_price )
+                  continue;
+              oasset_record quote_asset = self->get_asset_record( k.first );
+              oasset_record base_asset = self->get_asset_record( k.second );
+              
+              FC_ASSERT( quote_asset.valid() );
+              FC_ASSERT( base_asset.valid() );
+              
+              elog("mismatch in market ${quote} / ${base} at block ${block}",
+                  ("quote", quote_asset->symbol)
+                  ("base" ,  base_asset->symbol)
+                  ("block", self->get_head_block_num())
+                  );
+              failure_count++;
+          }
+          if( failure_count == 0 )
+          {
+              ilog("debug_check_no_orders_overlap() on block ${b} ok",
+                   ("b", self->get_head_block_num())
+                  );
+          }
+          else
+          {
+              elog("debug_check_no_orders_overlap() on block ${b} found ${n} error(s)",
+                   ("b", self->get_head_block_num())
+                   ("n", failure_count)
+                  );
+              _debug_matching_error_log.push_back(
+              fc::format_string(
+                   "debug_check_no_orders_overlap() on block ${b} found ${n} error(s)",
+                   fc::mutable_variant_object()
+                   ("b", self->get_head_block_num())
+                   ("n", failure_count)
+                  )
+              );
+          }
+          
+          return;
+      }
 
       /**
        *  Performs all of the block validation steps and throws if error.
@@ -961,7 +1232,6 @@ namespace bts { namespace blockchain {
       { try {
          const time_point start_time = time_point::now();
          const block_id_type& block_id = block_data.id();
-         block_summary summary;
          try
          {
             public_key_type block_signee;
@@ -982,11 +1252,8 @@ namespace bts { namespace blockchain {
             // NOTE: Secret is validated later in update_delegate_production_info()
             verify_header( digest_block( block_data ), block_signee );
 
-            summary.block_data = block_data;
-
             // Create a pending state to track changes that would apply as we evaluate the block
             pending_chain_state_ptr pending_state = std::make_shared<pending_chain_state>( self->shared_from_this() );
-            summary.applied_changes = pending_state;
 
             /** Increment the blocks produced or missed for all delegates. This must be done
              *  before applying transactions because it depends upon the current active delegate order.
@@ -997,7 +1264,7 @@ namespace bts { namespace blockchain {
             if( self->get_statistics_enabled() ) block_record = self->get_block_record( block_id );
 
             pay_delegate( block_id, block_signee, pending_state, block_record );
-
+             
             execute_markets( block_data.timestamp, pending_state );
 
             apply_transactions( block_data, pending_state );
@@ -1005,12 +1272,16 @@ namespace bts { namespace blockchain {
             update_active_delegate_list( block_data.block_num, pending_state );
              
             update_random_seed( block_data.previous_secret, pending_state, block_record );
+             
+            pay_operation_rewards( block_data.block_num, block_data.timestamp, pending_state );
 
             game_executors::instance().execute( self->shared_from_this(), block_data.block_num, pending_state);
 
+#ifdef BTS_TEST_NETWORK
+            pending_state->check_supplies();
+#endif
             save_undo_state( block_data.block_num, block_id, pending_state );
 
-            // TODO: Verify idempotency
             pending_state->apply_changes();
 
             mark_included( block_id, true );
@@ -1039,11 +1310,15 @@ namespace bts { namespace blockchain {
          while( iter != _unique_transactions.end() && iter->expiration <= self->now() )
              iter = _unique_transactions.erase( iter );
 
-         //Schedule the observer notifications for later; the chain is in a
-         //non-premptable state right now, and observers may yield.
-         if( (now() - block_data.timestamp).to_seconds() < BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC )
-           for( chain_observer* o : _observers )
-              fc::async([o,summary]{o->block_applied( summary );}, "call_block_applied_observer");
+         // Schedule the observer notifications for later; the chain is in a
+         // non-premptable state right now, and observers may yield
+         if( (blockchain::now() - block_data.timestamp).to_seconds() < BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC )
+         {
+             for( chain_observer* o : _observers )
+             {
+                 fc::async( [ = ] { o->block_pushed( block_data ); }, "call_block_pushed_observer" );
+             }
+         }
       } FC_CAPTURE_AND_RETHROW( (block_data) ) }
 
       /**
@@ -1115,10 +1390,12 @@ namespace bts { namespace blockchain {
          else
              _head_block_header = self->get_block_header( _head_block_id );
 
-         //Schedule the observer notifications for later; the chain is in a
-         //non-premptable state right now, and observers may yield.
+         // Schedule the observer notifications for later; the chain is in a
+         // non-premptable state right now, and observers may yield
          for( chain_observer* o : _observers )
-            fc::async([o,undo_state_ptr]{ o->state_changed( undo_state_ptr ); }, "call_state_changed_observer");
+         {
+             fc::async( [ = ] { o->block_popped( undo_state_ptr ); }, "call_block_popped_observer" );
+         }
       } FC_CAPTURE_AND_RETHROW() }
 
    } // namespace detail
@@ -1225,14 +1502,19 @@ namespace bts { namespace blockchain {
                   my->_slate_id_to_record.toggle_leveldb( enabled );
 
                   my->_balance_id_to_record.toggle_leveldb( enabled );
+                  
+                  my->_operation_reward_id_to_record.toggle_leveldb( enabled );
               };
 
               const auto set_db_cache_write_through = [ this ]( bool write_through )
               {
                   my->_burn_index_to_record.set_write_through( write_through );
+                  my->_ad_index_to_record.set_write_through( write_through );
+                  my->_note_index_to_record.set_write_through( write_through );
 
                   my->_game_data_db.set_write_through( write_through );
                   my->_game_result_transactions_db.set_write_through ( write_through );
+                  my->_operation_reward_transactions_db.set_write_through( write_through );
                   my->_feed_index_to_record.set_write_through( write_through );
 
                   my->_ask_db.set_write_through( write_through );
@@ -1355,7 +1637,7 @@ namespace bts { namespace blockchain {
                 const auto trx = pending_itr.value();
                 const auto trx_id = trx.id();
                 const auto eval_state = evaluate_transaction( trx, my->_relay_fee );
-                share_type fees = eval_state->get_fees();
+                const share_type fees = eval_state->total_base_equivalent_fees_paid;
                 my->_pending_fee_index[ fee_index( fees, trx_id ) ] = eval_state;
                 my->_pending_transaction_db.store( trx_id, trx );
              }
@@ -1412,6 +1694,9 @@ namespace bts { namespace blockchain {
       my->_address_to_transaction_ids.close();
 
       my->_burn_index_to_record.close();
+       my->_ad_index_to_record.close();
+       my->_note_index_to_record.close();
+       my->_operation_reward_id_to_record.close();
 
       my->_feed_index_to_record.close();
 
@@ -1431,6 +1716,8 @@ namespace bts { namespace blockchain {
       my->_game_symbol_to_id.close();
       my->_game_data_db.close();
       my->_game_result_transactions_db.close();
+      
+      my->_operation_reward_transactions_db.close();
 
    } FC_CAPTURE_AND_RETHROW() }
 
@@ -1494,10 +1781,10 @@ namespace bts { namespace blockchain {
          my->_pending_trx_state = std::make_shared<pending_chain_state>( shared_from_this() );
 
       pending_chain_state_ptr          pend_state = std::make_shared<pending_chain_state>(my->_pending_trx_state);
-      transaction_evaluation_state_ptr trx_eval_state = std::make_shared<transaction_evaluation_state>( pend_state.get() );
+      transaction_evaluation_state_ptr trx_eval_state = std::make_shared<transaction_evaluation_state>( pend_state );
 
       trx_eval_state->evaluate( trx );
-      const share_type fees = trx_eval_state->get_fees() + trx_eval_state->alt_fees_paid.amount;
+      const share_type fees = trx_eval_state->total_base_equivalent_fees_paid;
       if( fees < required_fees )
       {
           ilog("Transaction ${id} needed relay fee ${required_fees} but only had ${fees}", ("id", trx.id())("required_fees",required_fees)("fees",fees));
@@ -1514,10 +1801,10 @@ namespace bts { namespace blockchain {
        try
        {
           auto pending_state = std::make_shared<pending_chain_state>( shared_from_this() );
-          transaction_evaluation_state_ptr eval_state = std::make_shared<transaction_evaluation_state>( pending_state.get() );
+          transaction_evaluation_state_ptr eval_state = std::make_shared<transaction_evaluation_state>( pending_state );
 
           eval_state->evaluate( transaction );
-          const share_type fees = eval_state->get_fees() + eval_state->alt_fees_paid.amount;
+          const share_type fees = eval_state->total_base_equivalent_fees_paid;
           if( fees < min_fee )
              FC_CAPTURE_AND_THROW( insufficient_relay_fee, (fees)(min_fee) );
        }
@@ -1914,7 +2201,7 @@ namespace bts { namespace blockchain {
       }
 
       transaction_evaluation_state_ptr eval_state = evaluate_transaction( trx, relay_fee );
-      const share_type fees = eval_state->get_fees() + eval_state->alt_fees_paid.amount;
+      const share_type fees = eval_state->total_base_equivalent_fees_paid;
 
       //if( fees < my->_relay_fee )
       //   FC_CAPTURE_AND_THROW( insufficient_relay_fee, (fees)(my->_relay_fee) );
@@ -2010,12 +2297,12 @@ namespace bts { namespace blockchain {
                   // Validate transaction
                   auto pending_trx_state = std::make_shared<pending_chain_state>( pending_state );
                   {
-                      auto trx_eval_state = std::make_shared<transaction_evaluation_state>( pending_trx_state.get() );
+                      auto trx_eval_state = std::make_shared<transaction_evaluation_state>( pending_trx_state );
                       trx_eval_state->_enforce_canonical_signatures = config.transaction_canonical_signatures_required;
                       trx_eval_state->evaluate( new_transaction );
 
                       // Check transaction fee limit
-                      const share_type transaction_fee = trx_eval_state->get_fees( 0 ) + trx_eval_state->alt_fees_paid.amount;
+                      const share_type transaction_fee = trx_eval_state->total_base_equivalent_fees_paid;
                       if( transaction_fee < config.transaction_min_fee )
                       {
                           wlog( "Excluding transaction ${id} with fee ${fee} because it does not meet transaction fee limit ${limit}",
@@ -2164,8 +2451,8 @@ namespace bts { namespace blockchain {
     vector<game_record>        chain_database::get_games(const string& first, uint32_t limit)const
     { try {
         vector<game_record> records;
-        records.reserve( std::min( size_t( limit ), my->_game_symbol_to_id.size() ) );
-        for( auto iter = my->_game_symbol_to_id.ordered_lower_bound( first ); iter.valid(); ++iter )
+        records.reserve( std::min( size_t( limit ), my->_game_name_to_id.size() ) );
+        for( auto iter = my->_game_name_to_id.ordered_lower_bound( first ); iter.valid(); ++iter )
         {
             const ogame_record& record = lookup<game_record>( iter.value() );
             if( record.valid() ) records.push_back( *record );
@@ -2342,7 +2629,7 @@ namespace bts { namespace blockchain {
    omarket_order chain_database::get_lowest_ask_record( const asset_id_type quote_id, const asset_id_type base_id )
    {
       omarket_order result;
-      auto itr = my->_ask_db.lower_bound( market_index_key( price(0,quote_id,base_id) ) );
+      auto itr = my->_ask_db.lower_bound( market_index_key( price( 0, quote_id, base_id ) ) );
       if( itr.valid() )
       {
          auto market_index = itr.key();
@@ -2390,24 +2677,6 @@ namespace bts { namespace blockchain {
       FC_ASSERT( asset_rec.valid(), "Unknown Asset ID: ${id}", ("asset_id",asset_id) );
       return asset_rec->symbol;
    } FC_RETHROW_EXCEPTIONS( warn, "", ("asset_id",asset_id) ) }
-    
-    void chain_database::store_feed_record( const feed_record& record )
-    {
-        chain_interface::store_feed_record(record);
-        auto quote_id = record.value.quote_asset_id;
-        auto base_id  = record.value.base_asset_id;
-        auto  new_feed                   = get_active_feed_price( quote_id, base_id );
-        omarket_status market_stat = get_market_status( quote_id, base_id );
-        if( !market_stat ) market_stat = market_status( quote_id, base_id );
-        auto  old_feed =  market_stat->current_feed_price;
-        market_stat->current_feed_price = new_feed;
-        if( old_feed == new_feed )
-            return;
-        
-        store_market_status( *market_stat );
-        
-        // TODO: All market related actions are removed, refer upstream code
-    }
 
    /**
     *   Calculates the percentage of blocks produced in the last 10 rounds as an average
@@ -2450,7 +2719,7 @@ namespace bts { namespace blockchain {
        return optional<market_order>();
    } FC_CAPTURE_AND_RETHROW( (key) ) }
 
-   vector<market_order> chain_database::get_market_bids( const string& quote_symbol, const string& base_symbol, uint32_t limit  )
+   vector<market_order> chain_database::get_market_bids( const string& quote_symbol, const string& base_symbol, uint32_t limit )const
    { try {
        auto quote_id = get_asset_id( quote_symbol );
        auto base_id  = get_asset_id( base_symbol );
@@ -2496,9 +2765,7 @@ namespace bts { namespace blockchain {
        return optional<market_order>();
    } FC_CAPTURE_AND_RETHROW( (key) ) }
 
-   vector<market_order> chain_database::get_market_asks( const string& quote_symbol,
-                                                         const string& base_symbol,
-                                                         uint32_t limit )
+   vector<market_order> chain_database::get_market_asks( const string& quote_symbol, const string& base_symbol, uint32_t limit )const
    { try {
        auto quote_asset_id = get_asset_id( quote_symbol );
        auto base_asset_id  = get_asset_id( base_symbol );
@@ -2607,7 +2874,7 @@ namespace bts { namespace blockchain {
        return pairs;
    }
 
-   omarket_status chain_database::get_market_status( const asset_id_type quote_id, const asset_id_type base_id )
+   omarket_status chain_database::get_market_status( const asset_id_type quote_id, const asset_id_type base_id )const
    {
       return my->_market_status_db.fetch_optional( std::make_pair(quote_id,base_id) );
    }
@@ -2628,7 +2895,7 @@ namespace bts { namespace blockchain {
                                                                    const asset_id_type base_id,
                                                                    const fc::time_point start_time,
                                                                    const fc::microseconds duration,
-                                                                   market_history_key::time_granularity_enum granularity)
+                                                                   market_history_key::time_granularity_enum granularity )const
    {
       time_point_sec end_time = start_time + duration;
       auto record_itr = my->_market_history_db.lower_bound( market_history_key(quote_id, base_id, granularity, start_time) );
@@ -2646,10 +2913,10 @@ namespace bts { namespace blockchain {
       {
         history.push_back( {
                              record_itr.key().timestamp,
-                             fc::variant(string(record_itr.value().highest_bid.ratio * base->precision / quote->precision)).as_double() / (BTS_BLOCKCHAIN_MAX_SHARES*1000),
-                             fc::variant(string(record_itr.value().lowest_ask.ratio * base->precision / quote->precision)).as_double() / (BTS_BLOCKCHAIN_MAX_SHARES*1000),
-                             fc::variant(string(record_itr.value().opening_price.ratio * base->precision / quote->precision)).as_double() / (BTS_BLOCKCHAIN_MAX_SHARES*1000),
-                             fc::variant(string(record_itr.value().closing_price.ratio * base->precision / quote->precision)).as_double() / (BTS_BLOCKCHAIN_MAX_SHARES*1000),
+                             to_pretty_price( record_itr.value().highest_bid, false ),
+                             to_pretty_price( record_itr.value().lowest_ask, false ),
+                             to_pretty_price( record_itr.value().opening_price, false ),
+                             to_pretty_price( record_itr.value().closing_price, false ),
                              record_itr.value().volume
                            } );
         ++record_itr;
@@ -2703,6 +2970,25 @@ namespace bts { namespace blockchain {
         if( tmp ) return *tmp;
         return vector<game_result_transaction>();
     }
+    
+    void chain_database::set_operation_reward_transactions( vector<operation_reward_transaction> trxs )
+    {
+        if( trxs.size() == 0 )
+        {
+            my->_operation_reward_transactions_db.remove( get_head_block_num()+1 );
+        }
+        else
+        {
+            my->_operation_reward_transactions_db.store( get_head_block_num()+1, trxs );
+        }
+    }
+    
+    vector<operation_reward_transaction> chain_database::get_operation_reward_transactions( const uint32_t block_num )const
+    { try {
+        const auto oresult = my->_operation_reward_transactions_db.fetch_optional( block_num );
+        if( oresult.valid() ) return *oresult;
+        return vector<operation_reward_transaction>();
+    } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
    vector<market_transaction> chain_database::get_market_transactions( const uint32_t block_num )const
    { try {
@@ -2947,62 +3233,54 @@ namespace bts { namespace blockchain {
        fc::json::save_to_file( snapshot, filename );
    } FC_CAPTURE_AND_RETHROW( (filename) ) }
 
-   asset chain_database::calculate_supply( const asset_id_type asset_id )const
-   {
-       const auto record = get_asset_record( asset_id );
-       FC_ASSERT( record.valid() );
+   unordered_map<asset_id_type, share_type> chain_database::calculate_supplies()const
+   { try {
+       unordered_map<asset_id_type, share_type> totals;
 
-       // Add fees
-       asset total( record->collected_fees, asset_id );
+       for( auto iter = my->_account_id_to_record.unordered_begin(); iter != my->_account_id_to_record.unordered_end(); ++iter )
+       {
+           const account_record& account = iter->second;
+           if( account.delegate_info.valid() )
+               totals[ 0 ] += account.delegate_info->pay_balance;
+       }
 
-       // Add balances
-       for( auto iter = my->_balance_id_to_record.unordered_begin();
-            iter != my->_balance_id_to_record.unordered_end(); ++iter )
+       for( auto iter = my->_asset_id_to_record.unordered_begin(); iter != my->_asset_id_to_record.unordered_end(); ++iter )
+       {
+           const asset_record& asset = iter->second;
+           totals[ asset.id ] += asset.collected_fees;
+       }
+       
+       for( auto iter = my->_operation_reward_id_to_record.unordered_begin(); iter != my->_operation_reward_id_to_record.unordered_end(); ++iter )
+       {
+           const operation_reward_record& reward = iter->second;
+           for ( auto it = reward.fees.begin(); it != reward.fees.end(); ++it )
+           {
+               totals[ it->first ] += it->second;
+           }
+       }
+
+       for( auto iter = my->_balance_id_to_record.unordered_begin(); iter != my->_balance_id_to_record.unordered_end(); ++iter )
        {
            const balance_record& balance = iter->second;
-           if( balance.asset_id() == total.asset_id )
-               total.amount += balance.balance;
+           totals[ balance.asset_id() ] += balance.balance;
        }
 
-       // Add ask balances
-       for( auto ask_itr = my->_ask_db.begin(); ask_itr.valid(); ++ask_itr )
+       for( auto iter = my->_ask_db.begin(); iter.valid(); ++iter )
        {
-           const market_index_key market_index = ask_itr.key();
-           if( market_index.order_price.base_asset_id == total.asset_id )
-           {
-               const order_record ask = ask_itr.value();
-               total.amount += ask.balance;
-           }
+           const market_index_key& index = iter.key();
+           const order_record& ask = iter.value();
+           totals[ index.order_price.base_asset_id ] += ask.balance;
        }
 
-       // If base asset
-       if( asset_id == asset_id_type( 0 ) )
+       for( auto iter = my->_bid_db.begin(); iter.valid(); ++iter )
        {
-           // Add pay balances
-           for( auto account_itr = my->_account_id_to_record.unordered_begin();
-                account_itr != my->_account_id_to_record.unordered_end(); ++account_itr )
-           {
-               const account_record& account = account_itr->second;
-               if( account.delegate_info.valid() )
-                   total.amount += account.delegate_info->pay_balance;
-           }
-       }
-       else // If non-base asset
-       {
-           // Add bid balances
-           for( auto bid_itr = my->_bid_db.begin(); bid_itr.valid(); ++bid_itr )
-           {
-               const market_index_key market_index = bid_itr.key();
-               if( market_index.order_price.quote_asset_id == total.asset_id )
-               {
-                   const order_record bid = bid_itr.value();
-                   total.amount += bid.balance;
-               }
-           }
+           const market_index_key& index = iter.key();
+           const order_record& bid = iter.value();
+           totals[ index.order_price.quote_asset_id ] += bid.balance;
        }
 
-       return total;
-   }
+       return totals;
+   } FC_CAPTURE_AND_RETHROW() }
 
    asset chain_database::unclaimed_genesis()
    { try {
@@ -3020,7 +3298,7 @@ namespace bts { namespace blockchain {
         return unclaimed_total;
    } FC_CAPTURE_AND_RETHROW() }
 
-   oprice chain_database::get_active_feed_price( const asset_id_type quote_id, const asset_id_type base_id )const
+   oprice chain_database::get_active_feed_price( const asset_id_type quote_id )const
    { try {
        const auto outer_iter = my->_nested_feed_map.find( quote_id );
        if( outer_iter == my->_nested_feed_map.end() )
@@ -3045,7 +3323,7 @@ namespace bts { namespace blockchain {
            if( time_point( now ) - time_point( record.last_update ) >= limit ) continue;
 
            if( record.value.quote_asset_id != quote_id ) continue;
-           if( record.value.base_asset_id != base_id ) continue;
+           if( record.value.base_asset_id != 0 ) continue;
 
            prices.push_back( record.value );
        }
@@ -3108,6 +3386,38 @@ namespace bts { namespace blockchain {
 
       return results;
    } FC_CAPTURE_AND_RETHROW( (account_name) ) }
+    
+    vector<ad_record> chain_database::fetch_ad_records( const string& account_name )const
+    { try {
+        vector<ad_record> results;
+        const auto opt_account_record = get_account_record( account_name );
+        FC_ASSERT( opt_account_record.valid() );
+        
+        auto itr = my->_ad_index_to_record.lower_bound( {opt_account_record->id} );
+        while( itr.valid() && itr.key().account_id == opt_account_record->id )
+        {
+            results.push_back( itr.value() );
+            ++itr;
+        }
+        
+        return results;
+    } FC_CAPTURE_AND_RETHROW( (account_name) ) }
+    
+    vector<note_record> chain_database::fetch_note_records( const string& account_name )const
+    { try {
+        vector<note_record> results;
+        const auto opt_account_record = get_account_record( account_name );
+        FC_ASSERT( opt_account_record.valid() );
+        
+        auto itr = my->_note_index_to_record.lower_bound( {opt_account_record->id} );
+        while( itr.valid() && itr.key().account_id == opt_account_record->id )
+        {
+            results.push_back( itr.value() );
+            ++itr;
+        }
+        
+        return results;
+    } FC_CAPTURE_AND_RETHROW( (account_name) ) }
 
    vector<transaction_record> chain_database::fetch_address_transactions( const address& addr )
    { try {
@@ -3245,10 +3555,10 @@ namespace bts { namespace blockchain {
       return ogame_record();
    }
    
-   ogame_record chain_database::game_lookup_by_symbol( const string& symbol )const
+   ogame_record chain_database::game_lookup_by_name( const string& symbol )const
    {
-      const auto iter = my->_game_symbol_to_id.unordered_find( symbol );
-      if( iter != my->_game_symbol_to_id.unordered_end() ) return game_lookup_by_id( iter->second );
+      const auto iter = my->_game_name_to_id.unordered_find( symbol );
+      if( iter != my->_game_name_to_id.unordered_end() ) return game_lookup_by_id( iter->second );
       return ogame_record();
    }
    
@@ -3257,9 +3567,9 @@ namespace bts { namespace blockchain {
       my->_game_id_to_record.store( id, record );
    }
    
-   void chain_database::game_insert_into_symbol_map( const string& symbol, const game_id_type id )
+   void chain_database::game_insert_into_name_map( const string& symbol, const game_id_type id )
    {
-      my->_game_symbol_to_id.store( symbol, id );
+      my->_game_name_to_id.store( symbol, id );
    }
    
    void chain_database::game_erase_from_id_map( const game_id_type id )
@@ -3267,9 +3577,9 @@ namespace bts { namespace blockchain {
       my->_game_id_to_record.remove( id );
    }
    
-   void chain_database::game_erase_from_symbol_map( const string& symbol )
+   void chain_database::game_erase_from_name_map( const string& symbol )
    {
-      my->_game_symbol_to_id.remove( symbol );
+      my->_game_name_to_id.remove( symbol );
    }
 
    oslate_record chain_database::slate_lookup_by_id( const slate_id_type id )const
@@ -3377,6 +3687,53 @@ namespace bts { namespace blockchain {
    {
        my->_burn_index_to_record.remove( index );
    }
+    
+    oad_record chain_database::ad_lookup_by_index( const ad_index& index )const
+    {
+        return my->_ad_index_to_record.fetch_optional( index );
+    }
+    
+    void chain_database::ad_insert_into_index_map( const ad_index& index, const ad_record& record )
+    {
+        my->_ad_index_to_record.store( index, record );
+    }
+    
+    void chain_database::ad_erase_from_index_map( const ad_index& index )
+    {
+        my->_ad_index_to_record.remove( index );
+    }
+    
+    onote_record chain_database::note_lookup_by_index( const note_index& index )const
+    {
+        return my->_note_index_to_record.fetch_optional( index );
+    }
+    
+    void chain_database::note_insert_into_index_map( const note_index& index, const note_record& record )
+    {
+        my->_note_index_to_record.store( index, record );
+    }
+    
+    void chain_database::note_erase_from_index_map( const note_index& index )
+    {
+        my->_note_index_to_record.remove( index );
+    }
+    
+    ooperation_reward_record chain_database::operation_reward_lookup_by_id( const operation_type id )const
+    {
+        const auto iter = my->_operation_reward_id_to_record.unordered_find( id );
+        if( iter != my->_operation_reward_id_to_record.unordered_end() ) return iter->second;
+        return ooperation_reward_record();
+    }
+    
+    void chain_database::operation_reward_insert_into_id_map( const operation_type id, const operation_reward_record& record )
+    {
+        my->_operation_reward_id_to_record.store( id, record );
+    }
+    
+    void chain_database::operation_reward_erase_from_id_map( const operation_type id )
+    {
+        my->_operation_reward_id_to_record.remove( id );
+    }
 
    ofeed_record chain_database::feed_lookup_by_index( const feed_index index )const
    {
@@ -3395,6 +3752,8 @@ namespace bts { namespace blockchain {
    {
        my->_feed_index_to_record.store( index, record );
        my->_nested_feed_map[ index.quote_id ][ index.delegate_id ] = record;
+
+       //reindex_shorts_at_feed( index.quote_id );
    }
 
    void chain_database::feed_erase_from_index_map( const feed_index index )
@@ -3407,6 +3766,8 @@ namespace bts { namespace blockchain {
            if( inner_iter != outer_iter->second.end() )
                outer_iter->second.erase( index.delegate_id );
        }
+
+       //reindex_shorts_at_feed( index.quote_id );
    }
 
    oslot_record chain_database::slot_lookup_by_index( const slot_index index )const
@@ -3439,6 +3800,11 @@ namespace bts { namespace blockchain {
    void chain_database::slot_erase_from_timestamp_map( const time_point_sec timestamp )
    {
        my->_slot_timestamp_to_delegate.remove( timestamp );
+   }
+
+   vector<string> chain_database::debug_get_matching_errors() const
+   {
+       return my->_debug_matching_error_log;
    }
 
 } } // bts::blockchain

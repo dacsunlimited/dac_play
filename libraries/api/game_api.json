@@ -13,7 +13,7 @@
           },
           {
               "name" : "quantity",
-              "type" : "real_amount",
+              "type" : "string",
               "description" : "the quantity of items you would like to buy"
           },
           {
@@ -31,24 +31,14 @@
           "return_type" : "transaction_record",
           "parameters"  : [
           {
-              "name" : "symbol",
-              "type" : "game_symbol",
-              "description" : "the ticker symbol for the new game"
-          },
-          {
               "name" : "game_name",
               "type" : "string",
               "description" : "the name of the game"
           },
           {
-              "name" : "issuer_name",
+              "name" : "owner_name",
               "type" : "string",
-              "description" : "the name of the issuer of the game"
-          },
-          {
-              "name" : "asset_symbol",
-              "type" : "asset_symbol",
-              "description" : "the ticker symbol for the new asset"
+              "description" : "the name of the owner of the game"
           },
           {
               "name" : "script_url",

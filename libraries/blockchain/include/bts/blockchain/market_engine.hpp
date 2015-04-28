@@ -16,25 +16,19 @@ namespace bts { namespace blockchain { namespace detail {
   private:
     void push_market_transaction( const market_transaction& mtrx );
 
-    void pay_current_bid( const market_transaction& mtrx, 
-                          asset_record& base, 
+    void pay_current_bid( market_transaction& mtrx,
+                          asset_record& base,
                           asset_record& quote_asset );
-    void pay_current_ask( const market_transaction& mtrx, 
-                          asset_record& base, 
+
+    void pay_current_ask( market_transaction& mtrx,
+                          asset_record& base,
                           asset_record& quote_asset );
 
     bool get_next_bid();
     bool get_next_ask();
+    bool get_next_ask_order();
 
-    price minimum_ask()const
-    {
-        FC_ASSERT( _feed_price.valid() );
-        price min_ask = *_feed_price;
-        min_ask.ratio *= 9;
-        min_ask.ratio /= 10;
-        return min_ask;
-    }
-   void handle_liquidation( const price& liqudation_price );
+    void handle_liquidation( const price& liqudation_price );
 
     /**
       *  This method should not affect market execution or validation and
@@ -61,6 +55,7 @@ namespace bts { namespace blockchain { namespace detail {
     oprice                        _feed_price;
 
     int                           _orders_filled = 0;
+    int                           _current_pass;
 
   public:
     vector<market_transaction>    _market_transactions;

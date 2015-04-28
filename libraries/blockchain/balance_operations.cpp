@@ -2,7 +2,33 @@
 #include <bts/blockchain/exceptions.hpp>
 #include <bts/blockchain/pending_chain_state.hpp>
 
+#include <fc/crypto/aes.hpp>
+
 namespace bts { namespace blockchain {
+    
+    const note_type public_note::type       = public_type;
+    const note_type secret_note::type       = secret_type;
+    
+    secret_note note_message::encrypt( const fc::ecc::private_key& owner_private_key)const
+    {
+        public_key_type  owner_public_key   = owner_private_key.get_public_key();
+        auto shared_secret = owner_private_key.get_shared_secret( owner_public_key );
+        secret_note result;
+        result.data = fc::aes_encrypt( shared_secret, fc::raw::pack( *this ) );
+        return  result;
+    }
+    
+    note_message secret_note::decrypt( const fc::ecc::private_key& e )const
+    {
+        auto shared_secret = e.get_shared_secret(e.get_public_key());
+        return decrypt(shared_secret);
+    }
+    
+    note_message secret_note::decrypt(const fc::sha512& shared_secret) const
+    {
+        auto decrypted_data = fc::aes_decrypt( shared_secret, data );
+        return fc::raw::unpack<note_message>( decrypted_data );
+    }
 
    asset balance_record::calculate_yield( fc::time_point_sec now, share_type amount, share_type yield_pool, share_type share_supply )const
    {
@@ -100,7 +126,7 @@ namespace bts { namespace blockchain {
 
        const balance_id_type deposit_balance_id = this->balance_id();
 
-       obalance_record cur_record = eval_state._current_state->get_balance_record( deposit_balance_id );
+       obalance_record cur_record = eval_state.pending_state()->get_balance_record( deposit_balance_id );
        if( !cur_record.valid() )
        {
           cur_record = balance_record( this->condition );
@@ -110,12 +136,12 @@ namespace bts { namespace blockchain {
 
        if( cur_record->balance == 0 )
        {
-          cur_record->deposit_date = eval_state._current_state->now();
+          cur_record->deposit_date = eval_state.pending_state()->now();
        }
        else
        {
           fc::uint128 old_sec_since_epoch( cur_record->deposit_date.sec_since_epoch() );
-          fc::uint128 new_sec_since_epoch( eval_state._current_state->now().sec_since_epoch() );
+          fc::uint128 new_sec_since_epoch( eval_state.pending_state()->now().sec_since_epoch() );
 
           fc::uint128 avg = (old_sec_since_epoch * cur_record->balance) + (new_sec_since_epoch * this->amount);
           avg /= (cur_record->balance + this->amount);
@@ -124,14 +150,14 @@ namespace bts { namespace blockchain {
        }
 
        cur_record->balance += this->amount;
-       eval_state.sub_balance( deposit_balance_id, asset( this->amount, cur_record->condition.asset_id ) );
+       eval_state.sub_balance( asset( this->amount, cur_record->asset_id() ) );
 
        if( cur_record->condition.asset_id == 0 && cur_record->condition.slate_id )
           eval_state.adjust_vote( cur_record->condition.slate_id, this->amount );
 
-       cur_record->last_update = eval_state._current_state->now();
+       cur_record->last_update = eval_state.pending_state()->now();
 
-       const oasset_record asset_rec = eval_state._current_state->get_asset_record( cur_record->condition.asset_id );
+       const oasset_record asset_rec = eval_state.pending_state()->get_asset_record( cur_record->condition.asset_id );
        FC_ASSERT( asset_rec.valid() );
 
        if( asset_rec->is_market_issued() )
@@ -140,12 +166,12 @@ namespace bts { namespace blockchain {
        }
 
        const auto& owners = cur_record->owners();
-       for(const address& owner : owners)
+       for( const address& owner : owners )
        {
-           FC_ASSERT(asset_rec->is_authorized(owner));
+           FC_ASSERT( asset_rec->address_is_whitelisted( owner ) );
        }
 
-       eval_state._current_state->store_balance_record( *cur_record );
+       eval_state.pending_state()->store_balance_record( *cur_record );
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
    void withdraw_operation::evaluate( transaction_evaluation_state& eval_state )const
@@ -153,20 +179,22 @@ namespace bts { namespace blockchain {
        if( this->amount <= 0 )
           FC_CAPTURE_AND_THROW( negative_withdraw, (amount) );
 
-      obalance_record current_balance_record = eval_state._current_state->get_balance_record( this->balance_id );
+      obalance_record current_balance_record = eval_state.pending_state()->get_balance_record( this->balance_id );
       if( !current_balance_record.valid() )
          FC_CAPTURE_AND_THROW( unknown_balance_record, (balance_id) );
 
-      if( this->amount > current_balance_record->get_spendable_balance( eval_state._current_state->now() ).amount )
+      if( this->amount > current_balance_record->get_spendable_balance( eval_state.pending_state()->now() ).amount )
          FC_CAPTURE_AND_THROW( insufficient_funds, (current_balance_record)(amount) );
 
-      auto asset_rec = eval_state._current_state->get_asset_record( current_balance_record->condition.asset_id );
+      auto asset_rec = eval_state.pending_state()->get_asset_record( current_balance_record->condition.asset_id );
       FC_ASSERT( asset_rec.valid() );
-      bool issuer_override = asset_rec->is_retractable() && eval_state.verify_authority( asset_rec->authority );
 
-      if( !issuer_override )
+      const bool authority_is_retracting = asset_rec->flag_is_active( asset_record::retractable_balances )
+                                           && eval_state.verify_authority( asset_rec->authority );
+
+      if( !authority_is_retracting )
       {
-         FC_ASSERT( !asset_rec->is_balance_frozen() );
+         FC_ASSERT( !asset_rec->flag_is_active( asset_record::halted_withdrawals ) );
 
          switch( (withdraw_condition_types)current_balance_record->condition.type )
          {
@@ -174,7 +202,6 @@ namespace bts { namespace blockchain {
             {
                 const withdraw_with_signature condition = current_balance_record->condition.as<withdraw_with_signature>();
                 const address owner = condition.owner;
-                FC_ASSERT( asset_rec->is_authorized( owner ) );
                 if( !eval_state.check_signature( owner ) )
                     FC_CAPTURE_AND_THROW( missing_signature, (owner) );
                 break;
@@ -184,7 +211,6 @@ namespace bts { namespace blockchain {
             {
                 const withdraw_vesting condition = current_balance_record->condition.as<withdraw_vesting>();
                 const address owner = condition.owner;
-                FC_ASSERT( asset_rec->is_authorized( owner ) );
                 if( !eval_state.check_signature( owner ) )
                     FC_CAPTURE_AND_THROW( missing_signature, (owner) );
                 break;
@@ -193,12 +219,11 @@ namespace bts { namespace blockchain {
             case withdraw_multisig_type:
             {
                auto multisig = current_balance_record->condition.as<withdraw_with_multisig>();
+
                uint32_t valid_signatures = 0;
                for( const auto& sig : multisig.owners )
-               {
-                    FC_ASSERT( asset_rec->is_authorized( sig ) );
                     valid_signatures += eval_state.check_signature( sig );
-               }
+
                if( valid_signatures < multisig.required )
                    FC_CAPTURE_AND_THROW( missing_signature, (valid_signatures)(multisig) );
                break;
@@ -215,26 +240,28 @@ namespace bts { namespace blockchain {
 
       if( asset_rec->is_market_issued() )
       {
-         auto yield = current_balance_record->calculate_yield( eval_state._current_state->now(),
+         auto yield = current_balance_record->calculate_yield( eval_state.pending_state()->now(),
                                                                current_balance_record->balance,
                                                                asset_rec->collected_fees,
-                                                               asset_rec->current_share_supply );
+                                                               asset_rec->current_supply );
          if( yield.amount > 0 )
          {
             asset_rec->collected_fees       -= yield.amount;
             current_balance_record->balance += yield.amount;
-            current_balance_record->deposit_date = eval_state._current_state->now();
-            eval_state.yield[current_balance_record->condition.asset_id] += yield.amount;
-            eval_state._current_state->store_asset_record( *asset_rec );
+            current_balance_record->deposit_date = eval_state.pending_state()->now();
+            eval_state.yield_claimed[ current_balance_record->asset_id() ] += yield.amount;
+            eval_state.pending_state()->store_asset_record( *asset_rec );
          }
       }
 
       current_balance_record->balance -= this->amount;
-      eval_state.add_balance( asset(this->amount, current_balance_record->condition.asset_id) );
+      current_balance_record->last_update = eval_state.pending_state()->now();
+      eval_state.pending_state()->store_balance_record( *current_balance_record );
 
-      current_balance_record->last_update = eval_state._current_state->now();
+      if( asset_rec->withdrawal_fee != 0 && !eval_state.verify_authority( asset_rec->authority ) )
+          eval_state.min_fees[ asset_rec->id ] = std::max( asset_rec->withdrawal_fee, eval_state.min_fees[ asset_rec->id ] );
 
-      eval_state._current_state->store_balance_record( *current_balance_record );
+      eval_state.add_balance( asset( this->amount, current_balance_record->condition.asset_id ) );
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
    void burn_operation::evaluate( transaction_evaluation_state& eval_state )const
@@ -242,28 +269,30 @@ namespace bts { namespace blockchain {
       if( this->amount.amount <= 0 )
          FC_CAPTURE_AND_THROW( negative_deposit, (amount) );
 
-      if( message.size() )
+      if( !message.empty() )
           FC_ASSERT( amount.asset_id == 0 );
 
       if( amount.asset_id == 0 )
       {
-          FC_ASSERT( amount.amount >= BTS_BLOCKCHAIN_MIN_BURN_FEE, "",
-                     ("amount",amount)
-                     ("BTS_BLOCKCHAIN_MIN_BURN_FEE",BTS_BLOCKCHAIN_MIN_BURN_FEE) );
+          const size_t message_kb = (message.size() / 1024) + 1;
+          const share_type required_fee = message_kb * BTS_BLOCKCHAIN_MIN_BURN_FEE;
+
+          FC_ASSERT( amount.amount >= required_fee, "Message of size ${s} KiB requires at least ${a} satoshis to be burned!",
+                     ("s",message_kb)("a",required_fee) );
       }
 
-      oasset_record asset_rec = eval_state._current_state->get_asset_record( amount.asset_id );
+      oasset_record asset_rec = eval_state.pending_state()->get_asset_record( amount.asset_id );
       FC_ASSERT( asset_rec.valid() );
       FC_ASSERT( !asset_rec->is_market_issued() );
 
-      asset_rec->current_share_supply -= this->amount.amount;
-      eval_state.sub_balance( address(), this->amount );
+      asset_rec->current_supply -= this->amount.amount;
+      eval_state.sub_balance( this->amount );
 
-      eval_state._current_state->store_asset_record( *asset_rec );
+      eval_state.pending_state()->store_asset_record( *asset_rec );
 
       if( account_id != 0 ) // you can offer burnt offerings to God if you like... otherwise it must be an account
       {
-          const oaccount_record account_rec = eval_state._current_state->get_account_record( abs( this->account_id ) );
+          const oaccount_record account_rec = eval_state.pending_state()->get_account_record( abs( this->account_id ) );
           FC_ASSERT( account_rec.valid() );
       }
 
@@ -274,14 +303,117 @@ namespace bts { namespace blockchain {
       record.message = message;
       record.signer = message_signature;
 
-      FC_ASSERT( !eval_state._current_state->get_burn_record( record.index ).valid() );
+      FC_ASSERT( !eval_state.pending_state()->get_burn_record( record.index ).valid() );
 
-      eval_state._current_state->store_burn_record( std::move( record ) );
+      eval_state.pending_state()->store_burn_record( std::move( record ) );
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
+    
+    void ad_operation::evaluate( transaction_evaluation_state& eval_state )const
+    { try {
+        if( this->amount.amount <= 0 )
+            FC_CAPTURE_AND_THROW( negative_deposit, (amount) );
+        
+        FC_ASSERT( !message.empty() );
+        
+        FC_ASSERT( amount.asset_id == 0 );
+        
+        const size_t message_kb = (message.size() / 1024) + 1;
+        const share_type required_fee = message_kb * BTS_BLOCKCHAIN_MIN_AD_FEE;
+        
+        FC_ASSERT( amount.amount >= required_fee, "Message of size ${s} KiB requires at least ${a} satoshis to be burned!",
+                  ("s",message_kb)("a",required_fee) );
+        // half of the note fees goto collected fees(delegate pay), other go to ad owner
+        eval_state.min_fees[amount.asset_id] += amount.amount / 2;
+        
+        FC_ASSERT( owner_account_id != 0 );
+        const oaccount_record owner_account_rec = eval_state.pending_state()->get_account_record( abs( this->owner_account_id ) );
+        FC_ASSERT( owner_account_rec.valid() );
+        
+        auto owner_address = owner_account_rec->active_address();
+        auto ad_income_balance = eval_state.pending_state()->get_balance_record(withdraw_condition( withdraw_with_signature(owner_address), 0 ).get_address());
+        if( !ad_income_balance )
+            ad_income_balance = balance_record( owner_address, asset(0, 0), 0 );
+        
+        auto ad_pay = amount.amount - amount.amount / 2;
+        ad_income_balance->balance += ad_pay;
+        ad_income_balance->last_update = eval_state.pending_state()->now();
+        ad_income_balance->deposit_date = eval_state.pending_state()->now();
+        
+        eval_state.pending_state()->store_balance_record( *ad_income_balance );
+        
+        eval_state.sub_balance( asset(ad_pay, amount.asset_id) );
+        
+        // checking the signature of the publisher.
+        FC_ASSERT( publisher_account_id != 0 );
+        const oaccount_record publisher_account_rec = eval_state.pending_state()->get_account_record( abs( this->publisher_account_id ) );
+        FC_ASSERT( publisher_account_rec.valid() );
+        
+        eval_state.check_signature( publisher_account_rec->active_key() );
+        
+        ad_record record;
+        record.index.account_id = owner_account_id;
+        record.index.transaction_id = eval_state.trx.id();
+        record.publisher_id = publisher_account_id;
+        record.amount = amount;
+        record.message = message;
+        record.signer = message_signature;
+        
+        // the message must be signed by the claimed publisher account
+        FC_ASSERT( publisher_account_rec->active_key() == record.signer_key() );
+        
+        FC_ASSERT( !eval_state.pending_state()->get_ad_record( record.index ).valid() );
+        
+        eval_state.pending_state()->store_ad_record( std::move( record ) );
+    } FC_CAPTURE_AND_RETHROW( (*this) ) }
+    
+    void note_operation::evaluate( transaction_evaluation_state& eval_state )const
+    { try {
+        if( this->amount.amount <= 0 )
+            FC_CAPTURE_AND_THROW( negative_deposit, (amount) );
+        
+        FC_ASSERT( !message->data.empty() );
+        FC_ASSERT( amount.asset_id == 0 );
+        
+        const size_t message_kb = (message->data.size() / 1024) + 1;
+        const share_type required_fee = message_kb * BTS_BLOCKCHAIN_MIN_NOTE_FEE;
+        
+        FC_ASSERT( amount.amount >= required_fee, "Message of size ${s} KiB requires at least ${a} satoshis to be burned!",
+                  ("s",message_kb)("a",required_fee) );
+        
+        // 30% of the note fees goto collected fees(delegate pay), other go to the operation pool
+        eval_state.min_fees[amount.asset_id] += amount.amount * 3 / 10;
+        
+        // TODO: instead of burn, the left will go to a fee pool attached to this operation.
+        auto op_reward_record = eval_state.pending_state()->get_operation_reward_record(note_op_type);
+        auto reward_fee = amount.amount - amount.amount * 3 / 10;
+        op_reward_record->fees[amount.asset_id] += reward_fee;
+        eval_state.sub_balance( asset(reward_fee, amount.asset_id) );
+        eval_state.pending_state()->store_operation_reward_record( *op_reward_record );
+        
+        // the transaction check the signature of the owner
+        const oaccount_record account_rec = eval_state.pending_state()->get_account_record( abs( this->owner_account_id ) );
+        FC_ASSERT( account_rec.valid() );
+        
+        eval_state.check_signature( account_rec->active_key() );
+        
+        note_record record;
+        record.index.account_id = owner_account_id;
+        record.index.transaction_id = eval_state.trx.id();
+        record.amount = amount;
+        record.message = message;
+        record.signer = message_signature;
+        
+        // verify the signature of the message, the message signer must be the account_id's active key
+        FC_ASSERT( account_rec->active_key() == record.signer_key() );
+        
+        FC_ASSERT( !eval_state.pending_state()->get_note_record( record.index ).valid() );
+        
+        eval_state.pending_state()->store_note_record( std::move( record ) );
+    } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
    void release_escrow_operation::evaluate( transaction_evaluation_state& eval_state )const
    { try {
-      auto escrow_balance_record = eval_state._current_state->get_balance_record( this->escrow_id );
+      auto escrow_balance_record = eval_state.pending_state()->get_balance_record( this->escrow_id );
       FC_ASSERT( escrow_balance_record.valid() );
 
       if( this->amount_to_receiver < 0 )
@@ -301,124 +433,118 @@ namespace bts { namespace blockchain {
       FC_ASSERT( total_released >= amount_to_receiver ); // check for addition overflow
 
       escrow_balance_record->balance -= total_released;
-      auto asset_rec = eval_state._current_state->get_asset_record( escrow_balance_record->condition.asset_id );
+      auto asset_rec = eval_state.pending_state()->get_asset_record( escrow_balance_record->condition.asset_id );
 
       if( amount_to_sender > 0 )
-          FC_ASSERT( asset_rec->is_authorized( escrow_condition.sender ) );
+          FC_ASSERT( asset_rec->address_is_whitelisted( escrow_condition.sender ) );
       if( amount_to_receiver > 0 )
-          FC_ASSERT( asset_rec->is_authorized( escrow_condition.receiver ) );
+          FC_ASSERT( asset_rec->address_is_whitelisted( escrow_condition.receiver ) );
 
-      bool retracting = false;
-      if( asset_rec->is_retractable() )
-      {
-         if( eval_state.verify_authority( asset_rec->authority ) )
-         {
-            retracting = true;
-         }
-      }
+      const bool authority_is_retracting = asset_rec->flag_is_active( asset_record::retractable_balances )
+                                           && eval_state.verify_authority( asset_rec->authority );
 
       if( escrow_condition.sender == this->released_by )
       {
          FC_ASSERT( amount_to_sender == 0 );
          FC_ASSERT( amount_to_receiver <= escrow_balance_record->balance );
 
-         if( !eval_state.check_signature( escrow_condition.sender ) && !retracting)
+         if( !eval_state.check_signature( escrow_condition.sender ) && !authority_is_retracting)
              FC_CAPTURE_AND_THROW( missing_signature, (escrow_condition.sender) );
 
          balance_record new_balance_record( escrow_condition.receiver,
                                             asset( amount_to_receiver, escrow_balance_record->asset_id() ),
                                             escrow_balance_record->slate_id() );
-         auto current_receiver_balance = eval_state._current_state->get_balance_record( new_balance_record.id());
+         auto current_receiver_balance = eval_state.pending_state()->get_balance_record( new_balance_record.id());
 
          if( current_receiver_balance )
             current_receiver_balance->balance += amount_to_receiver;
          else
             current_receiver_balance = new_balance_record;
 
-          eval_state._current_state->store_balance_record( *current_receiver_balance );
+          eval_state.pending_state()->store_balance_record( *current_receiver_balance );
       }
       else if( escrow_condition.receiver == this->released_by )
       {
          FC_ASSERT( amount_to_receiver == 0 );
          FC_ASSERT( amount_to_sender <= escrow_balance_record->balance );
 
-         if( !eval_state.check_signature( escrow_condition.receiver ) && !retracting)
+         if( !eval_state.check_signature( escrow_condition.receiver ) && !authority_is_retracting)
              FC_CAPTURE_AND_THROW( missing_signature, (escrow_condition.receiver) );
 
          balance_record new_balance_record( escrow_condition.sender,
                                             asset( amount_to_sender, escrow_balance_record->asset_id() ),
                                             escrow_balance_record->slate_id() );
-         auto current_sender_balance = eval_state._current_state->get_balance_record( new_balance_record.id());
+         auto current_sender_balance = eval_state.pending_state()->get_balance_record( new_balance_record.id());
 
          if( current_sender_balance )
             current_sender_balance->balance += amount_to_sender;
          else
             current_sender_balance = new_balance_record;
 
-         eval_state._current_state->store_balance_record( *current_sender_balance );
+         eval_state.pending_state()->store_balance_record( *current_sender_balance );
       }
       else if( escrow_condition.escrow == this->released_by )
       {
-         if( !eval_state.check_signature( escrow_condition.escrow ) && !retracting )
+         if( !eval_state.check_signature( escrow_condition.escrow ) && !authority_is_retracting )
              FC_CAPTURE_AND_THROW( missing_signature, (escrow_condition.escrow) );
          // get a balance record for the receiver, create it if necessary and deposit funds
          {
             balance_record new_balance_record( escrow_condition.receiver,
                                                asset( amount_to_receiver, escrow_balance_record->asset_id() ),
                                                escrow_balance_record->slate_id() );
-            auto current_receiver_balance = eval_state._current_state->get_balance_record( new_balance_record.id());
+            auto current_receiver_balance = eval_state.pending_state()->get_balance_record( new_balance_record.id());
 
             if( current_receiver_balance )
                current_receiver_balance->balance += amount_to_receiver;
             else
                current_receiver_balance = new_balance_record;
-            eval_state._current_state->store_balance_record( *current_receiver_balance );
+            eval_state.pending_state()->store_balance_record( *current_receiver_balance );
          }
          //  get a balance record for the sender, create it if necessary and deposit funds
          {
             balance_record new_balance_record( escrow_condition.sender,
                                                asset( amount_to_sender, escrow_balance_record->asset_id() ),
                                                escrow_balance_record->slate_id() );
-            auto current_sender_balance = eval_state._current_state->get_balance_record( new_balance_record.id());
+            auto current_sender_balance = eval_state.pending_state()->get_balance_record( new_balance_record.id());
 
             if( current_sender_balance )
                current_sender_balance->balance += amount_to_sender;
             else
                current_sender_balance = new_balance_record;
-            eval_state._current_state->store_balance_record( *current_sender_balance );
+            eval_state.pending_state()->store_balance_record( *current_sender_balance );
          }
       }
       else if( address() == this->released_by )
       {
-         if( !eval_state.check_signature( escrow_condition.sender ) && !retracting)
+         if( !eval_state.check_signature( escrow_condition.sender ) && !authority_is_retracting)
              FC_CAPTURE_AND_THROW( missing_signature, (escrow_condition.sender) );
-         if( !eval_state.check_signature( escrow_condition.receiver ) && !retracting)
+         if( !eval_state.check_signature( escrow_condition.receiver ) && !authority_is_retracting)
              FC_CAPTURE_AND_THROW( missing_signature, (escrow_condition.receiver) );
          // get a balance record for the receiver, create it if necessary and deposit funds
          {
             balance_record new_balance_record( escrow_condition.receiver,
                                                asset( amount_to_receiver, escrow_balance_record->asset_id() ),
                                                escrow_balance_record->slate_id() );
-            auto current_receiver_balance = eval_state._current_state->get_balance_record( new_balance_record.id());
+            auto current_receiver_balance = eval_state.pending_state()->get_balance_record( new_balance_record.id());
 
             if( current_receiver_balance )
                current_receiver_balance->balance += amount_to_receiver;
             else
                current_receiver_balance = new_balance_record;
-            eval_state._current_state->store_balance_record( *current_receiver_balance );
+            eval_state.pending_state()->store_balance_record( *current_receiver_balance );
          }
          //  get a balance record for the sender, create it if necessary and deposit funds
          {
             balance_record new_balance_record( escrow_condition.sender,
                                                asset( amount_to_sender, escrow_balance_record->asset_id() ),
                                                escrow_balance_record->slate_id() );
-            auto current_sender_balance = eval_state._current_state->get_balance_record( new_balance_record.id());
+            auto current_sender_balance = eval_state.pending_state()->get_balance_record( new_balance_record.id());
 
             if( current_sender_balance )
                current_sender_balance->balance += amount_to_sender;
             else
                current_sender_balance = new_balance_record;
-            eval_state._current_state->store_balance_record( *current_sender_balance );
+            eval_state.pending_state()->store_balance_record( *current_sender_balance );
          }
       }
       else
@@ -426,12 +552,12 @@ namespace bts { namespace blockchain {
           FC_ASSERT( false, "not released by a party to the escrow transaction" );
       }
 
-      eval_state._current_state->store_balance_record( *escrow_balance_record );
+      eval_state.pending_state()->store_balance_record( *escrow_balance_record );
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
    void update_balance_vote_operation::evaluate( transaction_evaluation_state& eval_state )const
    { try {
-      auto current_balance_record = eval_state._current_state->get_balance_record( this->balance_id );
+      auto current_balance_record = eval_state.pending_state()->get_balance_record( this->balance_id );
       FC_ASSERT( current_balance_record.valid(), "No such balance!" );
       FC_ASSERT( current_balance_record->condition.asset_id == 0, "Only BTS balances can have restricted owners." );
       FC_ASSERT( current_balance_record->condition.type == withdraw_signature_type, "Restricted owners not enabled for anything but basic balances" );
@@ -443,7 +569,7 @@ namespace bts { namespace blockchain {
       auto fee = BTS_BLOCKCHAIN_PRECISION / 2;
       FC_ASSERT( balance > fee );
 
-      auto asset_rec = eval_state._current_state->get_asset_record( current_balance_record->condition.asset_id );
+      auto asset_rec = eval_state.pending_state()->get_asset_record( current_balance_record->condition.asset_id );
       if( asset_rec->is_market_issued() ) FC_ASSERT( current_balance_record->condition.slate_id == 0 );
 
       if( current_balance_record->condition.slate_id )
@@ -451,10 +577,10 @@ namespace bts { namespace blockchain {
           eval_state.adjust_vote( current_balance_record->condition.slate_id, -balance );
       }
       current_balance_record->balance -= balance;
-      current_balance_record->last_update = eval_state._current_state->now();
+      current_balance_record->last_update = eval_state.pending_state()->now();
 
       ilog("I'm storing a balance record whose last update is: ${secs}", ("secs", current_balance_record->last_update) );
-      eval_state._current_state->store_balance_record( *current_balance_record );
+      eval_state.pending_state()->store_balance_record( *current_balance_record );
 
       auto new_restricted_owner = current_balance_record->restricted_owner;
       auto new_slate = current_balance_record->condition.slate_id;
@@ -477,9 +603,9 @@ namespace bts { namespace blockchain {
           FC_ASSERT( restricted_owner.valid(),
                      "Didn't specify a new restricted owner, but one currently exists." );
                      */
-          ilog( "@n now: ${secs}", ("secs", eval_state._current_state->now().sec_since_epoch()) );
+          ilog( "@n now: ${secs}", ("secs", eval_state.pending_state()->now().sec_since_epoch()) );
           ilog( "@n last update: ${secs}", ("secs", last_update_secs ) );
-          FC_ASSERT( eval_state._current_state->now().sec_since_epoch() - last_update_secs
+          FC_ASSERT( eval_state.pending_state()->now().sec_since_epoch() - last_update_secs
                      >= BTS_BLOCKCHAIN_VOTE_UPDATE_PERIOD_SEC,
                      "You cannot update your vote this frequently with only the voting key!" );
 
@@ -499,19 +625,19 @@ namespace bts { namespace blockchain {
       FC_ASSERT( owner.valid() );
       withdraw_condition new_condition( withdraw_with_signature( *owner ), 0, new_slate );
       balance_record newer_balance_record( new_condition );
-      auto new_balance_record = eval_state._current_state->get_balance_record( newer_balance_record.id() );
+      auto new_balance_record = eval_state.pending_state()->get_balance_record( newer_balance_record.id() );
       if( !new_balance_record.valid() )
           new_balance_record = current_balance_record;
       new_balance_record->condition = new_condition;
 
       if( new_balance_record->balance == 0 )
       {
-         new_balance_record->deposit_date = eval_state._current_state->now();
+         new_balance_record->deposit_date = eval_state.pending_state()->now();
       }
       else
       {
          fc::uint128 old_sec_since_epoch( current_balance_record->deposit_date.sec_since_epoch() );
-         fc::uint128 new_sec_since_epoch( eval_state._current_state->now().sec_since_epoch() );
+         fc::uint128 new_sec_since_epoch( eval_state.pending_state()->now().sec_since_epoch() );
 
          fc::uint128 avg = (old_sec_since_epoch * new_balance_record->balance) + (new_sec_since_epoch * balance);
          avg /= (new_balance_record->balance + balance);
@@ -519,7 +645,7 @@ namespace bts { namespace blockchain {
          new_balance_record->deposit_date = time_point_sec( avg.to_integer() );
       }
 
-      new_balance_record->last_update = eval_state._current_state->now();
+      new_balance_record->last_update = eval_state.pending_state()->now();
       new_balance_record->balance += (balance - fee);
       new_balance_record->restricted_owner = new_restricted_owner;
 
@@ -530,13 +656,14 @@ namespace bts { namespace blockchain {
          eval_state.adjust_vote( new_balance_record->condition.slate_id, (balance-fee) );
 
       ilog("I'm storing a balance record whose last update is: ${secs}", ("secs", new_balance_record->last_update) );
-      eval_state._current_state->store_balance_record( *new_balance_record );
+      eval_state.pending_state()->store_balance_record( *new_balance_record );
 
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
-   void pay_fee_operation::evaluate( transaction_evaluation_state& eval_state )const
+   void limit_fee_operation::evaluate( transaction_evaluation_state& eval_state )const
    { try {
-      eval_state._max_fee[this->amount.asset_id] += this->amount.amount;
+       FC_ASSERT( eval_state.max_fees.count( this->max_fee.asset_id ) == 0 );
+       eval_state.max_fees[ this->max_fee.asset_id ] = this->max_fee.amount;
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
 } } // bts::blockchain

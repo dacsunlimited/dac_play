@@ -15,24 +15,35 @@
          "prerequisites" : ["no_prerequisites"]
       },
       {
-         "method_name" : "request_register_account",
+          "method_name" : "request_register_account",
+          "description" : "Adds an account record to the request queue",
+          "return_type" : "bool",
+          "parameters" : [
+          {
+              "name" : "account",
+              "type" : "account_record",
+              "description" : "the account to be registered"
+          }
+          ],
+          "prerequisites" : ["no_prerequisites"]
+      },
+      {
+         "method_name" : "request_register_account_with_key",
          "description" : "Adds an account record to the request queue",
          "return_type" : "bool",
          "parameters" : [
             {
-               "name" : "account",
-               "type" : "account_record",
-               "description" : "the account to be registered"
+                "name" : "account_name_to_register",
+                "type" : "account_name",
+                "description" : "the name to register"
+            },
+            {
+                "name" : "account_key",
+                "type" : "public_key",
+                "description" : "the key associated with this registered account"
             }
          ],
          "prerequisites" : ["no_prerequisites"]
-      },
-      {
-         "method_name" : "get_registration_requests",
-         "description" : "list pending registration requests",
-         "return_type" : "account_record_array",
-         "parameters" : [],
-         "prerequisites" :["json_authenticated"]
       },
       {
          "method_name" : "approve_register_account",

@@ -19,13 +19,13 @@ int main()
     update_utility util;
     char option;
 
-    cout << "Welcome to the BitShares Web Update Utility. This tool is not particularly well-written. This tool is not user friendly. It is not for users. It is for developers. Deal with it.\n\nWould you like to (p)repare a new update, or (s)ign an existing one? ";
+    cout << "Welcome to the BitShares Web Update Utility. This tool is not particularly well-written. This tool is not user friendly. It is not for users. It is for developers. Deal with it.\n\nWould you like to (p)repare a new update, or (s)ign an existing one, or (v)erify an exsiting one? ";
     cin >> option;
     option = tolower(option);
 
-    while (option != 'p' && option != 's')
+    while (option != 'p' && option != 's' && option != 'v')
     {
-        cout << "Unrecognized input. Please enter either 'p' or 's': ";
+        cout << "Unrecognized input. Please enter either 'p' or 's' or 'v': ";
         cin >> option;
         option = tolower(option);
     }
@@ -126,7 +126,7 @@ int main()
         }
 
         util.manifest().updates.insert(update);
-    } else {
+    } else if ( option == 's'){
         string filename;
         cout << "Enter the update package file name: ";
         getline(cin, filename);
@@ -175,6 +175,53 @@ int main()
         util.sign_update(update, filename, *key);
         util.manifest().updates.erase(update);
         util.manifest().updates.insert(update);
+    } else {
+        string filename;
+        cout << "Enter the update package file name: ";
+        getline(cin, filename);
+
+        while (!fc::exists(filename))
+        {
+            cout << "No such file. Enter the update package file name: ";
+            getline(cin, filename);
+        }
+
+        string version;
+        WebUpdateManifest::UpdateDetails update;
+        cout << "Enter the version number of the update to verify: ";
+        getline(cin, version);
+        QStringList parts = QString(version.c_str()).replace('-', '.').split(".");
+        while (parts.size() != 4)
+        {
+            cout << "Wat? Enter the version number of the update to verify: ";
+            getline(cin, version);
+            parts = QString(version.c_str()).replace('-', '.').split(".");
+        }
+
+        //What could possibly go wrong??
+        update.majorVersion = parts[0].toInt();
+        update.forkVersion = parts[1].toInt();
+        update.minorVersion = parts[2].toInt();
+        update.patchVersion = parts[3].toStdString()[0];
+        
+        if (util.manifest().updates.find(update) == util.manifest().updates.end())
+        {
+            cout << "That version isn't in this manifest. Seriously, can't you get anything right? I really don't need this. I'm done. Ugh.";
+            return 666;
+        }
+        update = *util.manifest().updates.find(update);
+
+
+        string sig;
+        cout << "Enter the signature of the file: ";
+        getline(cin, sig);
+        while (sig.size() == 0)
+        {
+            cout << "Couldn't parse that key. Enter signature: ";
+            getline(cin, sig);
+        }
+
+       util.verify_update(update, filename, sig);
     }
 
     cout << "Writing manifest.\n";

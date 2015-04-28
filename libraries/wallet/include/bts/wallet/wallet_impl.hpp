@@ -16,62 +16,52 @@ namespace bts { namespace wallet { namespace detail {
 class wallet_impl : public chain_observer
 {
    public:
-       wallet*                                          self = nullptr;
-       bool                                             _is_enabled = true;
-       wallet_db                                        _wallet_db;
-       chain_database_ptr                               _blockchain = nullptr;
-       bts::game::game_client_ptr                       _game_client = nullptr;
-       path                                             _data_directory;
-       path                                             _current_wallet_path;
-       fc::sha512                                       _wallet_password;
-       fc::optional<fc::time_point>                     _scheduled_lock_time;
-       fc::future<void>                                 _relocker_done;
-       fc::future<void>                                 _scan_in_progress;
+      wallet*                                          self = nullptr;
+      bool                                             _is_enabled = true;
+      wallet_db                                        _wallet_db;
+      chain_database_ptr                               _blockchain = nullptr;
+      path                                             _data_directory;
+      path                                             _current_wallet_path;
+      fc::sha512                                       _wallet_password;
+      fc::optional<fc::time_point>                     _scheduled_lock_time;
+      fc::future<void>                                 _relocker_done;
+      fc::future<void>                                 _scan_in_progress;
 
-       unsigned                                         _num_scanner_threads = 1;
-       vector<std::unique_ptr<fc::thread>>              _scanner_threads;
-       float                                            _scan_progress = 1;
+      unsigned                                         _num_scanner_threads = 1;
+      vector<std::unique_ptr<fc::thread>>              _scanner_threads;
+      float                                            _scan_progress = 1;
 
-       bool                                             _dirty_balances = true;
-       unordered_map<balance_id_type, balance_record>   _balance_records;
+      bool                                             _dirty_balances = true;
+      unordered_map<balance_id_type, balance_record>   _balance_records;
 
-       bool                                             _dirty_accounts = true;
-       vector<private_key_type>                         _stealth_private_keys;
+      bool                                             _dirty_accounts = true;
+      vector<private_key_type>                         _stealth_private_keys;
 
-       struct login_record
-       {
-           private_key_type key;
-           fc::time_point_sec insertion_time;
-       };
-       std::map<public_key_type, login_record>          _login_map;
-       fc::future<void>                                 _login_map_cleaner_done;
-       const static short                               _login_cleaner_interval_seconds = 60;
-       const static short                               _login_lifetime_seconds = 300;
+      struct login_record
+      {
+          private_key_type key;
+          fc::time_point_sec insertion_time;
+      };
+      std::map<public_key_type, login_record>          _login_map;
+      fc::future<void>                                 _login_map_cleaner_done;
+      const static short                               _login_cleaner_interval_seconds = 60;
+      const static short                               _login_lifetime_seconds = 300;
 
-       vector<function<void( void )>>                   _unlocked_upgrade_tasks;
+      vector<function<void( void )>>                   _unlocked_upgrade_tasks;
 
-       wallet_impl();
-       ~wallet_impl();
+      wallet_impl();
 
-       void create_file( const path& wallet_file_name,
-                         const string& password,
-                         const string& brainkey = string() );
+      void create_file( const path& wallet_file_name,
+                        const string& password,
+                        const string& brainkey = string() );
 
-       void open_file( const path& wallet_filename );
+      void open_file( const path& wallet_filename );
 
-       void reschedule_relocker();
-       void relocker();
+      void reschedule_relocker();
+      void relocker();
 
-      /**
-       * This method is called anytime the blockchain state changes including
-       * undo operations.
-       */
-      virtual void state_changed( const pending_chain_state_ptr& state )override;
-
-      /**
-       *  This method is called anytime a block is applied to the chain.
-       */
-      virtual void block_applied( const block_summary& summary )override;
+      virtual void block_pushed( const full_block& )override;
+      virtual void block_popped( const pending_chain_state_ptr& )override;
 
       void scan_balances_experimental();
 
@@ -80,6 +70,12 @@ class wallet_impl : public chain_observer
               uint32_t block_num,
               const time_point_sec block_time
               );
+    
+      void scan_operation_reward_transaction(
+                                 const operation_reward_transaction& otrx,
+                                 uint32_t block_num,
+                                 const time_point_sec block_time
+                                 );
 
       secret_hash_type get_secret( uint32_t block_num,
                                    const private_key_type& delegate_key )const;
@@ -139,13 +135,24 @@ class wallet_impl : public chain_observer
       bool scan_buy_chips( const buy_chips_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
 
       bool scan_burn( const burn_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
+    
+    bool scan_ad( const ad_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
+    
+      bool scan_note( const note_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
 
       vector<wallet_transaction_record> get_pending_transactions()const;
 
       void withdraw_to_transaction( const asset& amount_to_withdraw,
                                     const string& from_account_name,
                                     signed_transaction& trx,
-                                    unordered_set<address>& required_signatures );
+                                    unordered_set<address>& required_signatures )const;
+
+      wallet_contact_record generic_recipient_to_contact( const string& generic_recipient )const;
+
+      public_key_type deposit_from_transaction( signed_transaction& transaction, const asset& amount,
+                                                const wallet_account_record& sender, const wallet_contact_record& recipient,
+                                                const string& memo );
+
       void authorize_update( unordered_set<address>& required_signatures, oaccount_record account, bool need_owner_key = false );
 
       void start_scan_task( const uint32_t start_block_num, const uint32_t limit );

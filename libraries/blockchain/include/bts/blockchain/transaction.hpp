@@ -3,6 +3,7 @@
 #include <bts/blockchain/account_record.hpp>
 #include <bts/blockchain/operations.hpp>
 #include <bts/blockchain/slate_record.hpp>
+#include <bts/blockchain/note_record.hpp>
 #include <bts/blockchain/withdraw_types.hpp>
 
 #include <fc/reflect/variant.hpp>
@@ -19,17 +20,11 @@ namespace bts { namespace blockchain {
 
       digest_type digest( const digest_type& chain_id )const;
 
-      void issue( const asset& amount_to_issue );
-
       void define_slate( const set<account_id_type>& slate );
 
       void withdraw( const balance_id_type& account, share_type amount );
 
       void withdraw_pay( const account_id_type account, share_type amount );
-
-      void deposit( const address& addr, const asset& amount );
-
-      void authorize_key( const asset_id_type asset_id, const address& owner );
 
       void deposit_multisig( const multisig_meta_info& info, const asset& amount );
 
@@ -48,15 +43,14 @@ namespace bts { namespace blockchain {
                               fc::ecc::private_key one_time_private_key,
                               memo_flags_enum memo_type = from_memo );
 
-      public_key_type deposit_to_account(fc::ecc::public_key receiver_key,
-                                         asset amount,
-                                         fc::ecc::private_key from_key,
-                                         const string& memo_message,
-                                         const fc::ecc::public_key& memo_public_key,
-                                         fc::ecc::private_key one_time_private_key,
-                                         memo_flags_enum memo_type = from_memo,
-                                         bool use_stealth_address = true);
+      void deposit_to_address( const asset& amount, const address& recipient_address );
 
+      public_key_type deposit_with_encrypted_memo( const asset& amount,
+                                                   const private_key_type& sender_private_key,
+                                                   const public_key_type& recipient_public_key,
+                                                   const private_key_type& one_time_private_key,
+                                                   const string& memo,
+                                                   bool stealth_deposit = false );
 
       void register_account( const string& name,
                              const variant& public_data,
@@ -73,21 +67,13 @@ namespace bts { namespace blockchain {
       void create_asset( const string& symbol,
                          const string& name,
                          const string& description,
-                         const variant& data,
-                         account_id_type issuer_id,
-                         share_type max_share_supply,
-                         uint64_t precision,
-                         share_type initial_supply,
-                         share_type initial_collateral,
-                         uint32_t flags);
-
-      void update_asset( const asset_id_type asset_id,
-                         const optional<string>& name,
-                         const optional<string>& description,
-                         const optional<variant>& public_data,
-                         const optional<double>& maximum_share_supply,
-                         const optional<uint64_t>& precision );
-
+                         const uint8_t& issuer_type,
+                         const issuer_id_type issuer_id,
+                         const share_type max_supply,
+                         const uint64_t precision,
+                         const share_type initial_supply,
+                         const share_type initial_collateral);
+      
       void buy_chips( const asset& quantity,
                 const address& owner );
        
@@ -100,25 +86,17 @@ namespace bts { namespace blockchain {
                                      const std::string& script_url,
                                      const std::string& script_hash );
 
-      void update_asset_ext( const asset_id_type asset_id,
-                         const optional<string>& name,
-                         const optional<string>& description,
-                         const optional<variant>& public_data,
-                         const optional<double>& maximum_share_supply,
-                         const optional<uint64_t>& precision,
-                         const share_type issuer_fee,
-                         uint16_t market_fee,
-                         uint32_t flags,
-                         uint32_t issuer_permissions,
-                         account_id_type issuer_account_id,
-                         uint32_t required_sigs,
-                         const vector<address>& authority
-                         );
-
       void burn( const asset& quantity,
                  account_id_type for_or_against,
                  const string& public_message,
                  const fc::optional<signature_type>& message_sig );
+       
+       void buy_ad( const asset& quantity, account_id_type owner_account_id, account_id_type publisher_account_id, const string& message, const optional<signature_type>& sig );
+       
+       void note( const asset& quantity,
+                 account_id_type owner_account_id,
+                 const optional<note_message>& message,
+                 const optional<signature_type>& sig );
 
       void bid( const asset& quantity,
                 const price& price_per_unit,
@@ -137,6 +115,20 @@ namespace bts { namespace blockchain {
       void update_balance_vote( const balance_id_type& balance_id, const optional<address>& new_restricted_owner );
 
       void set_slates( const slate_id_type slate_id );
+
+      void limit_fee( const asset& max_fee );
+
+      void uia_issue( const asset& amount );
+
+      void uia_withdraw_fees( const asset& amount );
+
+      void uia_update_authority_flag_permissions( const asset_id_type asset_id, const uint32_t authority_flag_permissions );
+
+      void uia_update_active_flags( const asset_id_type asset_id, const uint32_t active_flags );
+
+      void uia_add_to_whitelist( const asset_id_type asset_id, const address& owner );
+
+      void uia_remove_from_whitelist( const asset_id_type asset_id, const address& owner );
 
       bool is_cancel()const;
    }; // transaction

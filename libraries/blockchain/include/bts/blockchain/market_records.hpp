@@ -12,7 +12,7 @@
 
 namespace bts { namespace blockchain {
 
-   /** 
+   /**
     *  Note: this data structure is used for operation serialization, modifications
     *        will break existing operations.
     */
@@ -27,17 +27,17 @@ namespace bts { namespace blockchain {
 
       friend bool operator == ( const market_index_key& a, const market_index_key& b )
       {
-        return std::tie(a.order_price, a.owner) == std::tie(b.order_price, b.owner);
+        return std::tie( a.order_price, a.owner ) == std::tie( b.order_price, b.owner );
       }
       friend bool operator < ( const market_index_key& a, const market_index_key& b )
       {
-        return std::tie(a.order_price, a.owner) < std::tie(b.order_price, b.owner);
+        return std::tie( a.order_price, a.owner ) < std::tie( b.order_price, b.owner );
       }
    };
 
    struct market_index_key_ext : public market_index_key
    {
-      market_index_key_ext( const market_index_key b = market_index_key(), 
+      market_index_key_ext( const market_index_key b = market_index_key(),
                             optional<price> limit = optional<price>() )
       :market_index_key(b),limit_price(limit){}
 
@@ -62,13 +62,14 @@ namespace bts { namespace blockchain {
    {
       price             order_price;    // min(feed,limit)
       market_index_key  index;
+
       friend bool operator < ( const short_price_index_key& a, const short_price_index_key& b )
       {
-        return std::tie(a.order_price, a.index ) < std::tie( b.order_price, b.index );
+        return std::tie( a.order_price, a.index ) < std::tie( b.order_price, b.index );
       }
       friend bool operator == ( const short_price_index_key& a, const short_price_index_key& b )
       {
-        return std::tie(a.order_price, a.index ) == std::tie( b.order_price, b.index );
+        return std::tie( a.order_price, a.index ) == std::tie( b.order_price, b.index );
       }
    };
 
@@ -80,11 +81,11 @@ namespace bts { namespace blockchain {
 
       friend bool operator < ( const expiration_index& a, const expiration_index& b )
       {
-         return std::tie( a.quote_id, a.expiration, a.key )  < std::tie( b.quote_id, b.expiration, b.key );
+         return std::tie( a.quote_id, a.expiration, a.key ) < std::tie( b.quote_id, b.expiration, b.key );
       }
       friend bool operator == ( const expiration_index& a, const expiration_index& b )
       {
-         return std::tie( a.quote_id, a.expiration, a.key )  == std::tie( b.quote_id, b.expiration, b.key );
+         return std::tie( a.quote_id, a.expiration, a.key ) == std::tie( b.quote_id, b.expiration, b.key );
       }
 
    };
@@ -100,7 +101,7 @@ namespace bts { namespace blockchain {
        market_history_key( asset_id_type quote_id = 0,
                            asset_id_type base_id = 1,
                            time_granularity_enum granularity = each_block,
-                           fc::time_point_sec timestamp = fc::time_point_sec())
+                           time_point_sec timestamp = time_point_sec() )
          : quote_id(quote_id),
            base_id(base_id),
            granularity(granularity),
@@ -110,18 +111,17 @@ namespace bts { namespace blockchain {
        asset_id_type quote_id;
        asset_id_type base_id;
        time_granularity_enum granularity;
-       fc::time_point_sec timestamp;
+       time_point_sec timestamp;
 
-       bool operator < ( const market_history_key& other ) const
-       {
-         return std::tie(base_id, quote_id, granularity, timestamp) < std::tie(other.base_id, other.quote_id, other.granularity, other.timestamp);
-       }
        bool operator == ( const market_history_key& other ) const
        {
-         return quote_id == other.quote_id
-             && base_id == other.base_id
-             && granularity == other.granularity
-             && timestamp == other.timestamp;
+         return std::tie( quote_id, base_id, granularity, timestamp )
+                == std::tie( other.quote_id, other.base_id, other.granularity, other.timestamp );
+       }
+       bool operator < ( const market_history_key& other ) const
+       {
+         return std::tie( quote_id, base_id, granularity, timestamp )
+                < std::tie( other.quote_id, other.base_id, other.granularity, other.timestamp );
        }
    };
 
@@ -143,24 +143,23 @@ namespace bts { namespace blockchain {
        price lowest_ask;
        price opening_price;
        price closing_price;
-       share_type volume;
+       share_type volume = 0;
 
        bool operator == ( const market_history_record& other ) const
        {
-         return highest_bid == other.highest_bid
-              && lowest_ask == other.lowest_ask
-                  && volume == other.volume;
+           return std::tie( highest_bid, lowest_ask, opening_price, closing_price, volume )
+                  == std::tie( other.highest_bid, other.lowest_ask, other.opening_price, other.closing_price, other.volume );
        }
    };
-   typedef fc::optional<market_history_record> omarket_history_record;
+   typedef optional<market_history_record> omarket_history_record;
 
    struct market_history_point
    {
-       fc::time_point_sec timestamp;
-       double highest_bid;
-       double lowest_ask;
-       double opening_price;
-       double closing_price;
+       time_point_sec timestamp;
+       string highest_bid;
+       string lowest_ask;
+       string opening_price;
+       string closing_price;
        share_type volume;
    };
    typedef vector<market_history_point> market_history_points;
@@ -173,11 +172,11 @@ namespace bts { namespace blockchain {
 
       bool is_null() const { return balance == 0; }
 
-      share_type            balance;
-      optional<price>       limit_price;
-      fc::time_point_sec    last_update;
+      share_type        balance = 0;
+      optional<price>   limit_price;
+      time_point_sec    last_update;
    };
-   typedef fc::optional<order_record> oorder_record;
+   typedef optional<order_record> oorder_record;
 
    enum order_type_enum
    {
@@ -235,18 +234,20 @@ namespace bts { namespace blockchain {
       optional<asset>                           returned_collateral;
       fc::enum_type<uint8_t, order_type_enum>   bid_type = null_order;
       fc::enum_type<uint8_t, order_type_enum>   ask_type = null_order;
-      asset                                     fees_collected;
+      asset                                     quote_fees;
+      asset                                     base_fees;
    };
    typedef optional<market_order> omarket_order;
 
    struct order_history_record : public market_transaction
    {
-      order_history_record(const market_transaction& market_trans = market_transaction(), fc::time_point_sec timestamp = fc::time_point_sec())
+      order_history_record( const market_transaction& market_trans = market_transaction(),
+                            time_point_sec timestamp = fc::time_point_sec() )
         : market_transaction(market_trans),
           timestamp(timestamp)
       {}
 
-      fc::time_point_sec                        timestamp;
+      time_point_sec timestamp;
    };
 
    struct market_status
@@ -278,8 +279,8 @@ namespace bts { namespace blockchain {
        api_market_status(const market_status& market_stat = market_status())
          : market_status(market_stat)
        {}
-       double                   current_feed_price;
-       double                   last_valid_feed_price;
+       optional<string>         current_feed_price;
+       optional<string>         last_valid_feed_price;
    };
 
 } } // bts::blockchain

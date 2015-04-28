@@ -148,6 +148,40 @@ void wallet_impl::scan_market_transaction(
     }
 } FC_CAPTURE_AND_RETHROW() }
 
+void wallet_impl::scan_operation_reward_transaction(
+                                          const operation_reward_transaction& otrx,
+                                          uint32_t block_num,
+                                          const time_point_sec block_time
+                                          )
+{ try {
+    
+    auto okey = _wallet_db.lookup_key( otrx.reward_owner );
+    if( okey && okey->has_private_key() )
+    {
+        /* Construct a unique record id */
+        std::stringstream id_ss;
+        id_ss << block_num << string( otrx.reward_owner ) << string( otrx.reward );
+        
+        // TODO: Don't blow away memo, etc.
+        auto record = wallet_transaction_record();
+        record.record_id = fc::ripemd160::hash( id_ss.str() );
+        record.block_num = block_num;
+        record.is_virtual = true;
+        record.is_confirmed = true;
+        record.is_market = true;
+        record.created_time = block_time;
+        record.received_time = block_time;
+        
+        auto entry = ledger_entry();
+        //entry.from_account = "Note Operation";
+        entry.to_account = okey->public_key;
+        entry.amount = otrx.reward;
+        entry.memo = "Lucky! you got note reward " + _blockchain->to_pretty_asset( otrx.reward ) + "Info: " + otrx.info;
+        record.ledger_entries.push_back( entry );
+    }
+
+} FC_CAPTURE_AND_RETHROW() }
+
 // TODO: No longer needed with scan_genesis_experimental and get_account_balance_records
 void wallet_impl::scan_balances()
 {
@@ -197,15 +231,21 @@ void wallet_impl::scan_balances()
                transaction_record->block_num = 1;
        }
 
-       auto entry = ledger_entry();
-       entry.to_account = public_key;
-       entry.amount = asset( bal_rec.snapshot_info->original_balance, bal_rec.condition.asset_id );
-       entry.memo = "claim " + bal_rec.snapshot_info->original_address;
+       for(const auto snapshot_info : bal_rec.multi_snapshot_infos)
+       {
+           auto entry = ledger_entry();
+           entry.to_account = public_key;
+           entry.amount = asset( snapshot_info->original_balance, bal_rec.condition.asset_id );
+           entry.memo = "claim " + snapshot_info->original_address;
+           
+           transaction_record->ledger_entries.push_back( entry );
+       }
+
 
        transaction_record->record_id = record_id;
        transaction_record->is_virtual = true;
        transaction_record->is_confirmed = true;
-       transaction_record->ledger_entries.push_back( entry );
+       
        _wallet_db.store_transaction( *transaction_record );
    };
    _blockchain->scan_balances( scan_balance );
@@ -246,6 +286,17 @@ void wallet_impl::scan_block( uint32_t block_num )
             rule_factory::instance().scan_result( game_result_trxs[i], block_num, block_header.timestamp, i, self->shared_from_this());
         }
         catch( ... )
+        {
+        }
+    }
+    
+    const vector<operation_reward_transaction>& operation_reward_trxs = _blockchain->get_operation_reward_transactions( block_num );
+    for ( const operation_reward_transaction& operation_reward_trx : operation_reward_trxs )
+    {
+        try
+        {
+            scan_operation_reward_transaction( operation_reward_trx, block_num, block_header.timestamp );
+        } catch ( ... )
         {
         }
     }
@@ -357,6 +408,18 @@ wallet_transaction_record wallet_impl::scan_transaction(
                 store_record |= scan_burn( op.as<burn_operation>(), *transaction_record, total_fee );
                 break;
             }
+            case ad_op_type:
+            {
+                const auto ad_op = op.as<ad_operation>();
+                if ( ad_op.amount.amount >= 0 )
+                    has_deposit |= scan_ad( ad_op, *transaction_record, total_fee );
+                break;
+            }
+            case note_op_type:
+            {
+                store_record |= scan_note( op.as<note_operation>(), *transaction_record, total_fee );
+                break;
+            }
             case game_op_type:
                 store_record |= scan_game( op.as<game_operation>(), *transaction_record );
                 break;
@@ -412,9 +475,6 @@ wallet_transaction_record wallet_impl::scan_transaction(
             case create_asset_op_type:
                 store_record |= scan_create_asset( op.as<create_asset_operation>(), *transaction_record );
                 break;
-            case update_asset_op_type:
-                // TODO
-                break;
             case issue_asset_op_type:
                 store_record |= scan_issue_asset( op.as<issue_asset_operation>(), *transaction_record );
                 break;
@@ -440,7 +500,7 @@ wallet_transaction_record wallet_impl::scan_transaction(
                   transaction_record->ledger_entries.pop_back();
               }
 
-              for( const auto& yield_item : blockchain_trx_state->yield )
+              for( const auto& yield_item : blockchain_trx_state->yield_claimed )
               {
                  auto entry = ledger_entry();
                  entry.amount = asset( yield_item.second, yield_item.first );
@@ -451,7 +511,7 @@ wallet_transaction_record wallet_impl::scan_transaction(
                  self->wallet_claimed_transaction( transaction_record->ledger_entries.back() );
               }
 
-              if( !blockchain_trx_state->yield.empty() )
+              if( !blockchain_trx_state->yield_claimed.empty() )
                  _wallet_db.store_transaction( *transaction_record );
           }
        }
@@ -655,9 +715,9 @@ bool wallet_impl::scan_update_account( const update_account_operation& op, walle
 
 bool wallet_impl::scan_create_asset( const create_asset_operation& op, wallet_transaction_record& trx_rec )
 {
-   if( op.issuer_account_id != asset_record::market_issuer_id )
+   if( op.issuer_type == asset_record::user_issuer_id )
    {
-      auto oissuer = _blockchain->get_account_record( op.issuer_account_id );
+      auto oissuer = _blockchain->get_account_record( op.issuer_id );
       FC_ASSERT( oissuer.valid() );
       auto opt_key_rec = _wallet_db.lookup_key( oissuer->owner_key );
       if( opt_key_rec.valid() && opt_key_rec->has_private_key() )
@@ -678,6 +738,31 @@ bool wallet_impl::scan_create_asset( const create_asset_operation& op, wallet_tr
              }
          }
       }
+   } else if ( op.issuer_type == asset_record::game_issuer_id )
+   {
+       auto oissuer = _blockchain->get_game_record( op.issuer_id );
+       FC_ASSERT( oissuer.valid() );
+       auto oissuer_game_owner = _blockchain->get_account_record( oissuer->owner_account_id );
+       FC_ASSERT( oissuer.valid() );
+       auto opt_key_rec = _wallet_db.lookup_key( oissuer_game_owner->owner_key );
+       if( opt_key_rec.valid() && opt_key_rec->has_private_key() )
+       {
+           for( auto& entry : trx_rec.ledger_entries )
+           {
+               if( !entry.to_account.valid() )
+               {
+                   entry.to_account = oissuer_game_owner->owner_key;
+                   entry.amount = asset( 0 ); // Assume scan_withdraw came first
+                   entry.memo = "create " + op.symbol + " (" + op.name + ") for your game";
+                   return true;
+               }
+               else if( entry.to_account == oissuer_game_owner->owner_key )
+               {
+                   entry.amount = asset( 0 ); // Assume scan_withdraw came first
+                   return true;
+               }
+           }
+       }
    }
    return false;
 }
@@ -841,6 +926,48 @@ bool wallet_impl::scan_burn( const burn_operation& op, wallet_transaction_record
             trx_rec.ledger_entries.front().memo += ": " + op.message;
     }
 
+    return false;
+}
+
+bool wallet_impl::scan_ad( const ad_operation& op, wallet_transaction_record& trx_rec, asset& total_fee )
+{
+    bool has_deposit = false;
+    
+    if( op.amount.asset_id == total_fee.asset_id )
+        total_fee -= op.amount;
+    
+    auto account_rec = _blockchain->get_account_record( op.owner_account_id );
+    if ( account_rec.valid() )
+    {
+        auto okey_rec = _wallet_db.lookup_key( account_rec->active_key() );
+        if( okey_rec.valid() && okey_rec->has_private_key() )
+        {
+            has_deposit = true;
+        }
+    }
+    
+    if( trx_rec.ledger_entries.size() == 1 )
+    {
+        //trx_rec.ledger_entries.front().amount = op.amount;
+        trx_rec.ledger_entries.front().memo = "advertise";
+        if( !op.message.empty() )
+            trx_rec.ledger_entries.front().memo += ": " + op.message;
+    }
+    
+    return has_deposit;
+}
+
+bool wallet_impl::scan_note( const note_operation& op, wallet_transaction_record& trx_rec, asset& total_fee )
+{
+    if( op.amount.asset_id == total_fee.asset_id )
+        total_fee -= op.amount;
+    
+    if( trx_rec.ledger_entries.size() == 1 )
+    {
+        //trx_rec.ledger_entries.front().amount = op.amount;
+        trx_rec.ledger_entries.front().memo = "write note";
+    }
+    
     return false;
 }
 
@@ -1383,11 +1510,19 @@ vector<pretty_transaction> wallet::get_pretty_transaction_history( const string&
     }
 
     /* Tally up running balances */
+    const bool end_before_head = end_block_num != -1
+                                 && end_block_num <= my->_blockchain->get_head_block_num();
+    const fc::time_point_sec now( my->_blockchain->now() );
     for( const auto& name : account_names )
     {
         map<asset_id_type, asset> running_balances;
         for( auto& trx : pretties )
         {
+            if( !trx.is_virtual && !trx.is_confirmed
+                    && ( end_before_head || trx.expiration_timestamp < now ) )
+            {
+                continue;
+            }
             const auto fee_asset_id = trx.fee.asset_id;
             if( running_balances.count( fee_asset_id ) <= 0 )
                 running_balances[ fee_asset_id ] = asset( 0, fee_asset_id );

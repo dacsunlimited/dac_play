@@ -64,15 +64,6 @@
         "aliases" : ["supply", "calculate_supply"]
       },
       {
-        "method_name": "blockchain_is_synced",
-        "description": "Returns true if the local blockchain is synced with the network; false otherwise",
-        "return_type": "bool",
-        "parameters" : [],
-        "is_const" : true,
-        "prerequisites" : ["no_prerequisites"],
-        "aliases" : ["synced"]
-      },
-      {
         "method_name": "blockchain_get_block_count",
         "description": "Returns the current head block number",
         "return_type": "uint32_t",
@@ -81,16 +72,6 @@
         "is_const" : true,
         "prerequisites" : ["no_prerequisites"],
         "aliases" : ["blockchain_get_blockcount", "getblockcount"]
-      },
-      {
-        "method_name": "blockchain_get_security_state",
-        "description": "Returns information about blockchain security level",
-        "return_type": "blockchain_security_state",
-        "cached"   : true,
-        "parameters" : [],
-        "is_const" : true,
-        "prerequisites" : ["no_prerequisites"],
-        "aliases" : ["alert_state", "security_state"]
       },
       {
         "method_name": "blockchain_list_accounts",
@@ -158,7 +139,7 @@
         "method_name": "blockchain_list_feed_prices",
         "description": "Returns a list of all currently valid feed prices",
         "cached"   : true,
-        "return_type": "price_map",
+        "return_type": "string_map",
         "parameters" : [],
         "is_const" : true,
         "prerequisites" : ["no_prerequisites"]
@@ -181,6 +162,40 @@
         "aliases" : ["wall"]
       },
       {
+          "method_name": "blockchain_get_account_ads",
+          "description": "returns all ad records associated with an account",
+          "cached"   : true,
+          "return_type": "ad_records",
+          "parameters" : [
+          {
+              "name" : "account_name",
+              "type" : "account_name",
+              "description" : "the name of the account to fetch the ad records for",
+              "default_value" : ""
+          }
+          ],
+          "is_const"   : true,
+          "prerequisites" : ["no_prerequisites"],
+          "aliases" : ["list_account_ads"]
+      },
+      {
+          "method_name": "blockchain_get_account_notes",
+          "description": "returns all note records associated with an account",
+          "cached"   : true,
+          "return_type": "note_records",
+          "parameters" : [
+          {
+              "name" : "account_name",
+              "type" : "account_name",
+              "description" : "the name of the account to fetch the note records for",
+              "default_value" : ""
+          }
+          ],
+          "is_const"   : true,
+          "prerequisites" : ["no_prerequisites"],
+          "aliases" : ["list_account_notes"]
+      },
+      {
         "method_name": "blockchain_list_pending_transactions",
         "description": "Return a list of transactions that are not yet in a block.",
         "return_type": "signed_transaction_array",
@@ -191,7 +206,7 @@
       },
       {
         "method_name": "blockchain_get_transaction",
-        "description": "Get detailed information about an in-wallet transaction",
+        "description": "Get detailed information about the specified transaction in the blockchain",
         "cached"   : true,
         "return_type": "transaction_record_pair",
         "parameters" : [
@@ -358,24 +373,24 @@
       },
       {
          "method_name" : "blockchain_get_account_public_balance",
-         "description" : "Get the account record for a given name",
-        "cached"   : true,
-         "return_type" : "account_balance_summary_type",
+         "description" : "Get the public balances associated with the specified account name; this command can take a long time",
+         "return_type" : "asset_balance_map",
          "parameters"  : [
                {
                   "name" : "account_name",
                   "type" : "account_name",
-                  "description" : "the name of the account whose public address you want"
+                  "description" : "the account name to query public balances for"
                }
             ],
          "is_const" : true,
-         "prerequisites" : ["wallet_open"]
+         "prerequisites" : ["no_prerequisites"],
+         "cached"   : true
       },
       {
          "method_name" : "blockchain_median_feed_price",
          "description" : "Get the account record for a given name",
          "cached"   : true,
-         "return_type" : "real_amount",
+         "return_type" : "string",
          "parameters"  : [
                {
                   "name" : "symbol",
@@ -471,6 +486,7 @@
               "default_value" : "-1"
            }
         ],
+        "is_const" : true,
         "prerequisites" : ["no_prerequisites"],
         "aliases" : ["market_bids"]
       },
@@ -497,6 +513,7 @@
               "default_value" : "-1"
            }
         ],
+        "is_const" : true,
         "prerequisites" : ["no_prerequisites"],
         "aliases" : ["market_asks"]
       },
@@ -523,6 +540,7 @@
               "default_value" : "10"
            }
         ],
+        "is_const" : true,
         "prerequisites" : ["no_prerequisites"],
         "aliases" : ["market_book"]
       },
@@ -566,7 +584,7 @@
       },
       {
         "method_name": "blockchain_market_price_history",
-        "description": "Returns a list of price spreads in the given timeframe for the specified market.",
+        "description": "Returns historical data on orders matched within the given timeframe for the specified market",
         "cached"     : true,
         "return_type": "market_history_points",
         "parameters" : [
@@ -850,6 +868,21 @@
         ],
         "is_const"   : false,
         "prerequisites" : ["no_prerequisites"]
+      },
+      {
+          "method_name": "blockchain_fee_register_account",
+          "description": "Get the account fee for a account name",
+          "cached"      : true,
+          "return_type": "asset",
+          "parameters"  : [
+          {
+              "name" : "account_name",
+              "type" : "string",
+              "description" : "the account name to register"
+          }
+          ],
+          "is_const"   : false,
+          "prerequisites" : ["no_prerequisites"]
       }
     ]
 }

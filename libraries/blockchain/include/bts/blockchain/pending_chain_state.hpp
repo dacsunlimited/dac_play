@@ -9,27 +9,24 @@ namespace bts { namespace blockchain {
    {
       public:
                                         pending_chain_state( chain_interface_ptr prev_state = chain_interface_ptr() );
-         pending_chain_state&           operator = ( const pending_chain_state& ) = default;
 
          void                           set_prev_state( chain_interface_ptr prev_state );
-
-         virtual void                   set_market_dirty( const asset_id_type quote_id, const asset_id_type base_id )override;
 
          virtual fc::time_point_sec     now()const override;
 
          virtual ogame_data_record      get_game_data_record( const game_id_type& game_id, const data_id_type& data_id )const override;
-
-         virtual oprice                 get_active_feed_price( const asset_id_type quote_id,
-                                                               const asset_id_type base_id = 0 )const override;
 
          virtual bool                   is_known_transaction( const transaction& trx )const override;
          virtual otransaction_record    get_transaction( const transaction_id_type& trx_id, bool exact = true )const override;
 
          virtual void                   store_transaction( const transaction_id_type&, const transaction_record&  ) override;
 
-         virtual omarket_status         get_market_status( const asset_id_type quote_id, const asset_id_type base_id )override;
+         virtual void                   set_market_dirty( const asset_id_type quote_id, const asset_id_type base_id )override;
 
+         virtual omarket_status         get_market_status( const asset_id_type quote_id, const asset_id_type base_id )const override;
          virtual void                   store_market_status( const market_status& s ) override;
+
+         virtual oprice                 get_active_feed_price( const asset_id_type quote_id )const override;
 
          virtual omarket_order          get_lowest_ask_record( const asset_id_type quote_id,
                                                                const asset_id_type base_id )override;
@@ -45,13 +42,8 @@ namespace bts { namespace blockchain {
                                                                      const market_history_record& record )override;
          virtual omarket_history_record get_market_history_record( const market_history_key& key )const override;
 
-         /** apply changes from this pending state to the previous state */
-         virtual void                   apply_changes()const;
-
-         /** populate undo state with everything that would be necessary to revert this
-          * pending state to the previous state.
-          */
-         virtual void                   get_undo_state( const chain_interface_ptr& undo_state )const;
+         void                           build_undo_state( const chain_interface_ptr& undo_state )const;
+         void                           apply_changes()const;
 
          template<typename T, typename U>
          void populate_undo_state( const chain_interface_ptr& undo_state, const chain_interface_ptr& prev_state,
@@ -80,15 +72,16 @@ namespace bts { namespace blockchain {
              for( const auto& item : store_map ) prev_state->store( item.first, item.second );
          }
 
-         /** load the state from a variant */
-         virtual void                   from_variant( const variant& v );
-         /** convert the state to a variant */
-         virtual variant                to_variant()const;
+         void                           from_variant( const variant& v );
+         variant                        to_variant()const;
 
          virtual uint32_t               get_head_block_num()const override;
 
          virtual void                   set_market_transactions( vector<market_transaction> trxs )override;
          virtual void                   set_game_result_transactions( vector<game_result_transaction> trxs ) override;
+         virtual void                   set_operation_reward_transactions( vector<operation_reward_transaction> trxs )override;
+
+         void                           check_supplies()const;
 
          map<property_id_type, property_record>                             _property_id_to_record;
          set<property_id_type>                                              _property_id_remove;
@@ -104,7 +97,7 @@ namespace bts { namespace blockchain {
        
          unordered_map< game_id_type, game_record>                          _game_id_to_record;
          unordered_set<game_id_type>                                        _game_id_remove;
-         unordered_map<string, game_id_type>                                _game_symbol_to_id;
+         unordered_map<string, game_id_type>                                _game_name_to_id;
 
          unordered_map<slate_id_type, slate_record>                         _slate_id_to_record;
          unordered_set<slate_id_type>                                       _slate_id_remove;
@@ -118,6 +111,15 @@ namespace bts { namespace blockchain {
 
          map<burn_index, burn_record>                                       _burn_index_to_record;
          set<burn_index>                                                    _burn_index_remove;
+       
+         map<ad_index, ad_record>                                           _ad_index_to_record;
+         set<ad_index>                                                      _ad_index_remove;
+       
+         map<note_index, note_record>                                       _note_index_to_record;
+         set<note_index>                                                    _note_index_remove;
+       
+         map<operation_type, operation_reward_record>                       _operation_reward_id_to_record;
+         set<operation_type>                                                _operation_reward_id_remove;
 
          map<feed_index, feed_record>                                       _feed_index_to_record;
          set<feed_index>                                                    _feed_index_remove;
@@ -138,6 +140,8 @@ namespace bts { namespace blockchain {
          map< std::pair<game_id_type, data_id_type>, game_data_record>      game_datas;
       
          vector<game_result_transaction>                                    game_result_transactions;
+       
+         vector<operation_reward_transaction>                               operation_reward_transactions;
 
       private:
          // Not serialized
@@ -171,13 +175,13 @@ namespace bts { namespace blockchain {
          virtual void asset_erase_from_symbol_map( const string& )override;
       
          virtual ogame_record game_lookup_by_id( const game_id_type )const override;
-         virtual ogame_record game_lookup_by_symbol( const string& )const override;
+         virtual ogame_record game_lookup_by_name( const string& )const override;
       
          virtual void game_insert_into_id_map( const game_id_type, const game_record& )override;
-         virtual void game_insert_into_symbol_map( const string&, const game_id_type )override;
+         virtual void game_insert_into_name_map( const string&, const game_id_type )override;
       
          virtual void game_erase_from_id_map( const game_id_type )override;
-         virtual void game_erase_from_symbol_map( const string& )override;
+         virtual void game_erase_from_name_map( const string& )override;
 
          virtual oslate_record slate_lookup_by_id( const slate_id_type )const override;
          virtual void slate_insert_into_id_map( const slate_id_type, const slate_record& )override;
@@ -198,6 +202,18 @@ namespace bts { namespace blockchain {
          virtual oburn_record burn_lookup_by_index( const burn_index& )const override;
          virtual void burn_insert_into_index_map( const burn_index&, const burn_record& )override;
          virtual void burn_erase_from_index_map( const burn_index& )override;
+       
+       virtual oad_record ad_lookup_by_index( const ad_index& )const override;
+       virtual void ad_insert_into_index_map( const ad_index&, const ad_record& )override;
+       virtual void ad_erase_from_index_map( const ad_index& )override;
+       
+       virtual onote_record note_lookup_by_index( const note_index& )const override;
+       virtual void note_insert_into_index_map( const note_index&, const note_record& )override;
+       virtual void note_erase_from_index_map( const note_index& )override;
+       
+       virtual ooperation_reward_record operation_reward_lookup_by_id( const operation_type )const override;
+       virtual void operation_reward_insert_into_id_map( const operation_type, const operation_reward_record& )override;
+       virtual void operation_reward_erase_from_id_map( const operation_type )override;
 
          virtual ofeed_record feed_lookup_by_index( const feed_index )const override;
          virtual void feed_insert_into_index_map( const feed_index, const feed_record& )override;
@@ -235,6 +251,12 @@ FC_REFLECT( bts::blockchain::pending_chain_state,
             (_transaction_digests)
             (_burn_index_to_record)
             (_burn_index_remove)
+            (_ad_index_to_record)
+            (_ad_index_remove)
+            (_note_index_to_record)
+            (_note_index_remove)
+            (_operation_reward_id_to_record)
+            (_operation_reward_id_remove)
             (_feed_index_to_record)
             (_feed_index_remove)
             (_slot_index_to_record)
@@ -248,4 +270,5 @@ FC_REFLECT( bts::blockchain::pending_chain_state,
             (market_history)
             (game_datas)
             (game_result_transactions)
+            (operation_reward_transactions)
             )

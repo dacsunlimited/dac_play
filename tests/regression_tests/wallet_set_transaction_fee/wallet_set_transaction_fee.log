@@ -28,7 +28,7 @@ wallet_set_transaction_fee <fee>                                                
 Set the fee to add to new transactions
 
 Parameters:
-  fee (real_amount, required): the wallet transaction fee to set
+  fee (string, required): the wallet transaction fee to set
 
 Returns:
   asset
@@ -70,6 +70,7 @@ default (unlocked) >>> wallet_get_transaction_fee XTS
 0.00001 XTS
 default (unlocked) >>> wallet_transfer 100 XTS delegate0 test
 Command failed with exception: insufficient relay fee (36005)
+
 
 
 
