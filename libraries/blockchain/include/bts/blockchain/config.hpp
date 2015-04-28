@@ -15,10 +15,10 @@
  *
  *  Changing these parameters will result in a hard fork.
  */
-#define BTS_ADDRESS_PREFIX                                  "PLS"
-#define BTS_BLOCKCHAIN_SYMBOL                               "PLS"
-#define BTS_BLOCKCHAIN_NAME                                 "BitShares PLAY"
-#define BTS_BLOCKCHAIN_DESCRIPTION                          "BitShares PLAY DryRun Network"
+#define BTS_ADDRESS_PREFIX                                  "PDV"
+#define BTS_BLOCKCHAIN_SYMBOL                               "PDV"
+#define BTS_BLOCKCHAIN_NAME                                 "PLAY PDV Network"
+#define BTS_BLOCKCHAIN_DESCRIPTION                          "PLAY PDV Network for long-term and hardfork testing"
 
 #define BTS_BLOCKCHAIN_PRECISION                            100000
 
