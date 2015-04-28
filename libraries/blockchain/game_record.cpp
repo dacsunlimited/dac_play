@@ -6,7 +6,7 @@ namespace bts { namespace blockchain {
     game_record game_record::make_null()const
     {
         game_record cpy(*this);
-        cpy.owner_account_id = -1;
+        cpy.owner_account_id = null_owner_id;
         return cpy;
     }
 

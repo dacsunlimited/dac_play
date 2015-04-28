@@ -23,8 +23,7 @@ namespace bts { namespace blockchain {
         std::string         name;
         std::string         description;
         fc::variant         public_data;
-        account_id_type     issuer_account_id;
-        asset_id_type       asset_id;
+        account_id_type     owner_account_id;
         std::string         script_url;
         std::string         script_hash;
         fc::time_point_sec  registration_date;
@@ -115,8 +114,7 @@ FC_REFLECT( bts::blockchain::game_record,
            (name)
            (description)
            (public_data)
-           (issuer_account_id)
-           (asset_id)
+           (owner_account_id)
            (script_url)
            (script_hash)
            (registration_date)

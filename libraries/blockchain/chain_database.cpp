@@ -1713,7 +1713,7 @@ namespace bts { namespace blockchain {
       my->_slot_timestamp_to_delegate.close();
 
       my->_game_id_to_record.close();
-      my->_game_symbol_to_id.close();
+      my->_game_name_to_id.close();
       my->_game_data_db.close();
       my->_game_result_transactions_db.close();
       

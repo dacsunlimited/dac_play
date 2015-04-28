@@ -258,6 +258,10 @@ namespace bts { namespace blockchain {
 
          virtual void                       set_market_transactions( vector<market_transaction> trxs )override;
          vector<market_transaction>         get_market_transactions( uint32_t block_num  )const;
+       
+         virtual void                       set_game_result_transactions( vector<game_result_transaction> trxs );
+         vector<game_result_transaction>    get_game_result_transactions( uint32_t block_num  )const;
+       
          virtual void                       set_operation_reward_transactions( vector<operation_reward_transaction> trxs )override;
          vector<operation_reward_transaction>         get_operation_reward_transactions( uint32_t block_num  )const;
 

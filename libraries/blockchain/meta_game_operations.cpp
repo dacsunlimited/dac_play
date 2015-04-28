@@ -19,33 +19,22 @@ namespace bts { namespace blockchain {
       if( current_game_record.valid() )
           FC_CAPTURE_AND_THROW( game_id_in_use, (game_id) );
 
-      oaccount_record issuer_account_record = eval_state._current_state->get_account_record( this->issuer_account_id );
-      if( NOT issuer_account_record.valid() )
-           FC_CAPTURE_AND_THROW( unknown_account_id, (issuer_account_id) );
+      oaccount_record owner_account_record = eval_state.pending_state()->get_account_record( this->owner_account_id );
+      if( NOT owner_account_record.valid() )
+           FC_CAPTURE_AND_THROW( unknown_account_id, (owner_account_id) );
        
-      oasset_record game_asset_record = eval_state._current_state->get_asset_record( this->asset_id );
-      FC_ASSERT( game_asset_record.valid() );
-       
-      oaccount_record game_asset_issuer_account_record = eval_state._current_state->get_account_record( game_asset_record->issuer_account_id );
-      FC_ASSERT( game_asset_issuer_account_record.valid() );
-       
-      if( !eval_state.check_signature( game_asset_issuer_account_record->active_key() ) )
-           FC_CAPTURE_AND_THROW( missing_signature, (game_asset_issuer_account_record) );
-      
-      // TODO: replace with game fee
-      const asset reg_fee( eval_state._current_state->get_asset_registration_fee( this->symbol.size() ), 0 );
-      eval_state.required_fees += reg_fee;
+      const asset reg_fee( eval_state.pending_state()->get_game_registration_fee( this->name.size() ), 0 );
+      eval_state.min_fees[reg_fee.asset_id] += reg_fee.amount;
 
       game_record new_record;
       new_record.id                     = eval_state.pending_state()->new_game_id();
       new_record.name                   = this->name;
       new_record.description            = this->description;
       new_record.public_data            = this->public_data;
-      new_record.issuer_account_id      = this->issuer_account_id;
-      new_record.asset_id               = this->asset_id;
+      new_record.owner_account_id      = this->owner_account_id;
       new_record.script_url             = this->script_url;
       new_record.script_hash            = this->script_hash;
-      new_record.registration_date      = eval_state._current_state->now();
+      new_record.registration_date      = eval_state.pending_state()->now();
       new_record.last_update            = new_record.registration_date;
 
       eval_state.pending_state()->store_game_record( new_record );

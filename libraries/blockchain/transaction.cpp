@@ -247,8 +247,7 @@ namespace bts { namespace blockchain {
    void transaction::create_game(  const std::string& name,
                                    const std::string& description,
                                    const fc::variant& data,
-                                   account_id_type issuer_id,
-                                   asset_id_type asset_id,
+                                   account_id_type owner_id,
                                  const std::string& script_url,
                                  const std::string& script_hash )
    {
@@ -256,8 +255,7 @@ namespace bts { namespace blockchain {
         op.name = name;
         op.description = description;
         op.public_data = data;
-        op.issuer_account_id = issuer_id;
-        op.asset_id = asset_id;
+        op.owner_account_id = owner_id;
         op.script_url = script_url;
         op.script_hash = script_hash;
         operations.push_back( op );
