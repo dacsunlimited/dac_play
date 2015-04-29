@@ -2739,19 +2739,19 @@ namespace detail {
         if( required_fees.asset_id == asset_to_pay.asset_id )
         {
             my->withdraw_to_transaction( required_fees + asset_to_pay,
-                                        owner_account_name,
+                                        publisher_account_name,
                                         trx,
                                         required_signatures );
         }
         else
         {
             my->withdraw_to_transaction( asset_to_pay,
-                                        owner_account_name,
+                                        publisher_account_name,
                                         trx,
                                         required_signatures );
             
             my->withdraw_to_transaction( required_fees,
-                                        owner_account_name,
+                                        publisher_account_name,
                                         trx,
                                         required_signatures );
         }
