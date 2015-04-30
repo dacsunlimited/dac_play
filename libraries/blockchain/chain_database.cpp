@@ -159,6 +159,9 @@ namespace bts { namespace blockchain {
           
           _note_index_to_record.open( data_dir / "index/note_index_to_record" );
           
+          _game_data_db.open( data_dir / "index/game_data_db" );
+          _game_result_transactions_db.open( data_dir / "game_result_transactions_db" );
+          
           _operation_reward_id_to_record.open( data_dir / "index/operation_reward_id_to_record" );
 
           _feed_index_to_record.open( data_dir / "index/feed_index_to_record" );
