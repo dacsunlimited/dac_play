@@ -9,12 +9,12 @@
 #include <bts/wallet/wallet_records.hpp>
 
 #include <bts/game/rule_record.hpp>
-#include <bts/game/client.hpp>
 
 namespace bts { namespace game {
    using namespace bts::blockchain;
    using namespace bts::wallet;
    
+   class client;
    namespace detail { class v8_game_engine_impl; }
    
    /**

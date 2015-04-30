@@ -12,17 +12,17 @@ namespace bts { namespace game {
     {
         static const operation_type_enum type;
         
-        bts::game::rule  rule;
+        bts::game::game_input  input;
         
         game_operation(){}
         
-        game_operation( const bts::game::rule& r)
+        game_operation( const bts::game::game_input& i)
         {
-            rule = r;
+            input = i;
         }
         
         void evaluate( transaction_evaluation_state& eval_state ) const;
     };
 } } // bts::game
 
-FC_REFLECT( bts::game::game_operation, (rule) )
+FC_REFLECT( bts::game::game_operation, (input) )

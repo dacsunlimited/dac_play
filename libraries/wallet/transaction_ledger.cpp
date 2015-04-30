@@ -6,8 +6,7 @@
 #include <bts/wallet/wallet_impl.hpp>
 
 #include <bts/blockchain/time.hpp>
-
-#include <bts/game/rule_factory.hpp>
+#include <bts/game/v8_game.hpp>
 
 #include <sstream>
 
@@ -283,7 +282,7 @@ void wallet_impl::scan_block( uint32_t block_num )
     {
         try
         {
-            rule_factory::instance().scan_result( game_result_trxs[i], block_num, block_header.timestamp, i, self->shared_from_this());
+            _game_client->get_v8_engine(game_result_trxs[i].type)->scan_result( game_result_trxs[i], block_num, block_header.timestamp, i, self->shared_from_this());
         }
         catch( ... )
         {
@@ -1755,7 +1754,7 @@ wallet_transaction_record wallet::get_transaction( const string& transaction_id_
 
 bool wallet_impl::scan_game( const game_operation& op, wallet_transaction_record& trx_rec )
 {
-    return bts::game::rule_factory::instance().scan(op.rule, trx_rec, self->shared_from_this() );
+    return _game_client->get_v8_engine(op.input.game_id)->scan(trx_rec, self->shared_from_this() );
 }
 
 bool wallet_impl::scan_buy_chips( const buy_chips_operation& op, wallet_transaction_record& trx_rec, asset& total_fee )

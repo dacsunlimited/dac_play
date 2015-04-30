@@ -13,6 +13,9 @@ namespace bts { namespace blockchain {
 
       if( this->name.empty() )
           FC_CAPTURE_AND_THROW( invalid_game_name, (this->name) );
+       
+      if( !eval_state.pending_state()->is_valid_account_name( this->name ) )
+           FC_THROW_EXCEPTION( invalid_game_name, "Invalid name for a game!", ("game_name",this->name) );
 
       const game_id_type game_id = eval_state.pending_state()->last_game_id() + 1;
       current_game_record = eval_state.pending_state()->get_game_record( game_id );
@@ -31,7 +34,7 @@ namespace bts { namespace blockchain {
       new_record.name                   = this->name;
       new_record.description            = this->description;
       new_record.public_data            = this->public_data;
-      new_record.owner_account_id      = this->owner_account_id;
+      new_record.owner_account_id       = this->owner_account_id;
       new_record.script_url             = this->script_url;
       new_record.script_hash            = this->script_hash;
       new_record.registration_date      = eval_state.pending_state()->now();

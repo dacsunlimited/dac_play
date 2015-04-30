@@ -26,9 +26,9 @@ wallet_transaction_record client_impl::game_create( const std::string& game_name
    return record;
 }
 
-wallet_transaction_record client_impl::game_play(const std::string& asset_symbol, const fc::variant& param )
+wallet_transaction_record client_impl::game_play(const std::string& game_name, const fc::variant& param )
 {
-    auto record = _wallet->play_game(asset_symbol, param, true);
+    auto record = _wallet->play_game(game_name, param, true);
     _wallet->cache_transaction(record);
     network_broadcast_transaction(record.trx);
     return record;

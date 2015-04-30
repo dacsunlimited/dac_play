@@ -70,9 +70,9 @@
           "return_type" : "transaction_record",
           "parameters"  : [
           {
-              "name" : "asset_symbol",
-              "type" : "asset_symbol",
-              "description" : "the asset of the game asset"
+              "name" : "game_name",
+              "type" : "string",
+              "description" : "the name of the game"
           },
           {   "name" : "param",
               "type" : "json_variant",

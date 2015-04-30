@@ -1,7 +1,6 @@
 #include <bts/game/game_operations.hpp>
 #include <bts/blockchain/chain_interface.hpp>
 #include <bts/blockchain/exceptions.hpp>
-#include <bts/game/rule_factory.hpp>
 
 namespace bts { namespace game {
     using namespace bts::blockchain;
@@ -13,7 +12,7 @@ namespace bts { namespace game {
     void game_operation::evaluate( transaction_evaluation_state& eval_state ) const
     { try {
         
-        rule_factory::instance().evaluate( eval_state, rule );
+        //bts::game::client::evaluate( eval_state, input );
 
     } FC_CAPTURE_AND_RETHROW( (*this) ) }
 

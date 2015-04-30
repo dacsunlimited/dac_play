@@ -139,6 +139,7 @@ global.play = function (blockchain, wallet, input, record, trx) {
     // TODO: Dice, specify to account, the receiver who can claim jackpot
     
     // bts::game::dice_rule(address( play_account->active_key() ), amount_to_play, input.odds, input.guess )
+	// TODO: changed to game_input
     var dice_rule = {
         address : address( play_account.active_key() ),     // TODO, address constructor
         amount  : amount_to_play,

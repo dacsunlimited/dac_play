@@ -23,7 +23,7 @@ Feature: Create Dice game, buy game chip and play game DICE
     And I print DICE balance
     Then Bob should have 10 DICE
     And I should have 499 XTS minus 1*fee
-    When I play game DICE using 10 DICE providing with 2 odds and 1 guess
+    When I play game dice using 10 DICE providing with 2 odds and 1 guess
     And I wait for one block
     Then Bob should have 0 DICE
     When I wait for 9 block

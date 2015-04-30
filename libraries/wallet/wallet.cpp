@@ -7,7 +7,8 @@
 #include <bts/cli/pretty.hpp>
 #include <bts/utilities/git_revision.hpp>
 #include <bts/utilities/key_conversion.hpp>
-#include <bts/game/rule_factory.hpp>
+
+#include <bts/game/v8_game.hpp>
 
 #include <algorithm>
 #include <fstream>
@@ -3224,6 +3225,9 @@ namespace detail {
         FC_ASSERT( is_open() );
         FC_ASSERT( is_unlocked() );
         
+        if( !my->_blockchain->is_valid_account_name( game_name ) )
+            FC_THROW_EXCEPTION( invalid_name, "Invalid name for a game!", ("game_name",game_name) );
+        
         signed_transaction     trx;
         unordered_set<address> required_signatures;
         
@@ -3340,21 +3344,23 @@ namespace detail {
       return record;
    } FC_CAPTURE_AND_RETHROW( (issue_new)(amount)(generic_recipient)(memo)(sign) ) }
 
-   wallet_transaction_record wallet::play_game( const string& symbol,
+   wallet_transaction_record wallet::play_game( const string& game_name,
                                                 const variant& params,
                                                 bool sign  )
    { try {
        
        FC_ASSERT( is_open() );
        FC_ASSERT( is_unlocked() );
-       FC_ASSERT( my->_blockchain->is_valid_game_symbol( symbol ) );
+       if( !my->_blockchain->is_valid_account_name( game_name ) )
+           FC_THROW_EXCEPTION( invalid_name, "Invalid name for a game!", ("game_name",game_name) );
+       //FC_ASSERT( my->_blockchain->is_valid_game_symbol( symbol ) );
        
-       auto game_record  = my->_blockchain->get_game_record( symbol );
+       auto game_record  = my->_blockchain->get_game_record( game_name );
        
        if( NOT game_record )
-           FC_CAPTURE_AND_THROW( unknown_game_id, (symbol) );
+           FC_CAPTURE_AND_THROW( unknown_game_id, (game_name) );
        
-       auto record =bts::game::rule_factory::instance().play(game_record->id, my->_blockchain, shared_from_this(), params, sign);
+       auto record = my->_game_client->get_v8_engine(game_record->id)->play(my->_blockchain, shared_from_this(), params, sign);
        
        return record;
        
