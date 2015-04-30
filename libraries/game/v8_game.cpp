@@ -73,6 +73,7 @@ namespace bts { namespace game {
       my->init();
    }
    
+    // TODO: shoud provide with game_input
    void v8_game_engine::evaluate( transaction_evaluation_state& eval_state )
    {
       // TODO: what is isolate scope.

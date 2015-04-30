@@ -39,11 +39,14 @@ namespace bts { namespace game {
        
        void execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state );
       
+       static client& get_current();
+       
       // TODO: store the script to related game id
       fc::signal<void( std::string, std::string, std::string )> game_claimed_script;
        
    private:
       std::shared_ptr<detail::client_impl> my;
+      static client* current;
    };
    
    typedef std::shared_ptr<client> game_client_ptr;

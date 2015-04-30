@@ -22,6 +22,8 @@ namespace bts { namespace game {
    using namespace bts::blockchain;
    
    const operation_type_enum game_operation::type              = game_op_type;
+    
+    client* client::current = nullptr;
    
    namespace detail {
       class client_impl {
@@ -166,6 +168,8 @@ namespace bts { namespace game {
    void client::open(const path& data_dir) {
       my->_data_dir = data_dir;
       my->open(data_dir);
+       
+       current = this;
    };
    
    bool client::scan_create_game( const create_game_operation& op )
@@ -207,6 +211,11 @@ namespace bts { namespace game {
         if( itr == my->_engines.end() )
             FC_THROW_EXCEPTION( bts::blockchain::unsupported_chain_operation, "", ("game_id", game_id) );
         return itr->second;
+    }
+    
+    client& client::get_current()
+    {
+        return *current;
     }
    
    void    client::close()
