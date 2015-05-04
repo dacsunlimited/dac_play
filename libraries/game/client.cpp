@@ -1,4 +1,4 @@
-#include <bts/blockchain/operation_factory.hpp>
+    #include <bts/blockchain/operation_factory.hpp>
 
 #include <bts/game/rule_record.hpp>
 #include <bts/game/game_operations.hpp>
@@ -49,6 +49,20 @@ namespace bts { namespace game {
          : self(self)
          {}
          ~client_impl(){
+             
+             // explicitly release enginer obj here
+             // before we release isolate things.
+             
+             for(auto itr=_engines.begin(); itr!=_engines.end(); itr++)
+             //for(auto e: _engines) not work???
+             {
+ 
+                 //int count = itr->second.use_count();
+                 itr->second.reset();
+                 
+             }
+             
+             
              
             _isolate->Exit();
             _isolate->Dispose();
@@ -106,7 +120,11 @@ namespace bts { namespace game {
           {
               FC_ASSERT( _engines.find( game_id ) == _engines.end(),
                         "Game ID already Registered ${id}", ("id", game_id) );
-              _engines[game_id] = engine_ptr;
+              
+              if(engine_ptr != NULL)
+              {
+                  _engines[game_id] = engine_ptr;
+              }
           }
           
           void init_game_engine_if_not_exist(uint8_t game_id)
@@ -194,6 +212,8 @@ namespace bts { namespace game {
         
         for ( const auto& g : games)
         {
+            my->init_game_engine_if_not_exist(g.id);
+            
             auto converter_itr = my->_engines.find( g.id );
             
             if ( converter_itr != my->_engines.end() )

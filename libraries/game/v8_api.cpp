@@ -71,6 +71,16 @@ namespace bts { namespace game {
       pendingstate_proto->Set(isolate, "set_asset_record", FunctionTemplate::New(isolate, v8_chainstate::Store_Asset_Record));
       pendingstate_proto->Set(isolate, "set_game_data_record", FunctionTemplate::New(isolate, v8_chainstate::Store_Game_Data_Record));
       
+       
+       //access the instance pointer of our new class template
+       Handle<ObjectTemplate> inst = result->InstanceTemplate();
+       
+       //set the internal fields of the class as we have the Point class internally
+       inst->SetInternalFieldCount(1);
+       
+       //associates the name "x" with its Get/Set functions
+       //inst->SetAccessor();
+       
       // Again, return the result through the current handle scope.
       return handle_scope.Escape(result);
    }
@@ -259,6 +269,7 @@ namespace bts { namespace game {
    
    Local<Object> v8_chainstate::New(v8::Isolate* isolate, const pending_chain_state_ptr& pending_state)
    {
+       
       EscapableHandleScope handle_scope(isolate);
       
       v8_chainstate* v8_pendingstate = new v8_chainstate(pending_state);

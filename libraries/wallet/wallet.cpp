@@ -3225,9 +3225,9 @@ namespace detail {
         FC_ASSERT( is_open() );
         FC_ASSERT( is_unlocked() );
         
-        if( !my->_blockchain->is_valid_account_name( game_name ) )
-            FC_THROW_EXCEPTION( invalid_name, "Invalid name for a game!", ("game_name",game_name) );
-        
+//        if( !my->_blockchain->is_valid_game_symbol( game_name ) )
+//            FC_THROW_EXCEPTION( invalid_name, "Invalid name for a game!", ("game_name",game_name) );
+//        
         signed_transaction     trx;
         unordered_set<address> required_signatures;
         
@@ -3351,7 +3351,8 @@ namespace detail {
        
        FC_ASSERT( is_open() );
        FC_ASSERT( is_unlocked() );
-       if( !my->_blockchain->is_valid_account_name( game_name ) )
+       
+       if( !my->_blockchain->is_valid_game_symbol(game_name) )
            FC_THROW_EXCEPTION( invalid_name, "Invalid name for a game!", ("game_name",game_name) );
        //FC_ASSERT( my->_blockchain->is_valid_game_symbol( symbol ) );
        
@@ -3360,7 +3361,8 @@ namespace detail {
        if( NOT game_record )
            FC_CAPTURE_AND_THROW( unknown_game_id, (game_name) );
        
-       auto record = my->_game_client->get_v8_engine(game_record->id)->play(my->_blockchain, shared_from_this(), params, sign);
+       auto engine = my->_game_client->get_v8_engine(game_record->id);
+       auto record = engine->play(my->_blockchain, shared_from_this(), params, sign);
        
        return record;
        

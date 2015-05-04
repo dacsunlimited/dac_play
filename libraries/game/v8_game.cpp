@@ -22,23 +22,29 @@ namespace bts { namespace game {
          v8_game_engine_impl(v8_game_engine* self, bts::game::client* client)
          : self(self), _client(client)
          {
+             //_context.Reset();
          }
          
          ~v8_game_engine_impl(){
+             
             _context.Reset();
+
          }
          
          void init()
          {
             // Refer http://v8.googlecode.com/svn/trunk/samples/process.cc
             // TODO, read from the script according to rule type
-            fc::path script_1(_client->get_data_dir() / "rule_1.js");
+            fc::path script_1(_client->get_data_dir() / "dice.js");
             _isolate = v8::Isolate::GetCurrent();
             
+            v8::Locker locker(_isolate);
+             
             HandleScope handle_scope(_isolate);
             v8::Handle<v8::Context> context = v8_helper::CreateShellContext(_isolate);
             if (context.IsEmpty()) {
-               fprintf(stderr, "Error creating context\n");
+                fprintf(stderr, "Error creating context\n");
+                FC_CAPTURE_AND_THROW(failed_game_engine_init);
             }
             _context.Reset(_isolate, context);
             
@@ -48,11 +54,13 @@ namespace bts { namespace game {
             
             v8::Handle<v8::String> source = v8_helper::ReadFile( _isolate, script_1.to_native_ansi_path().c_str() );
             
+             if (source.IsEmpty()) {
+                 GetIsolate()->ThrowException( v8::String::NewFromUtf8(GetIsolate(), "Error loading file" ) );
+                 FC_CAPTURE_AND_THROW(failed_game_engine_init);
+             }
+             
             String::Utf8Value utf8_source(source);
             ilog("The source is ${s}", ("s", std::string(*utf8_source) ));
-            if (source.IsEmpty()) {
-               GetIsolate()->ThrowException( v8::String::NewFromUtf8(GetIsolate(), "Error loading file" ) );
-            }
             
             Handle<Script> script = Script::Compile(source);
             
@@ -71,6 +79,7 @@ namespace bts { namespace game {
    {
       my->_rule_type = rule_type;
       my->init();
+     
    }
    
     // TODO: shoud provide with game_input
@@ -78,6 +87,7 @@ namespace bts { namespace game {
    {
       // TODO: what is isolate scope.
       // v8::Isolate::Scope isolate_scope(isolate);
+       v8::Locker locker(my->GetIsolate());
       v8::HandleScope handle_scope(my->GetIsolate());
       v8::Local<v8::Context> context = v8::Local<v8::Context>::New(my->GetIsolate(), my->_context);
       // Entering the context
@@ -107,6 +117,8 @@ namespace bts { namespace game {
       
       auto record = wallet_transaction_record();
       
+       auto isolate = my->GetIsolate();
+       v8::Locker locker(isolate);
       v8::HandleScope handle_scope(my->GetIsolate());
       v8::Local<v8::Context> context = v8::Local<v8::Context>::New(my->GetIsolate(), my->_context);
       // Entering the context
@@ -147,6 +159,7 @@ namespace bts { namespace game {
                     const time_point_sec& block_time,
                     const uint32_t trx_index, bts::wallet::wallet_ptr w)
    {
+       v8::Locker locker(my->GetIsolate());
       v8::HandleScope handle_scope(my->GetIsolate());
       v8::Local<v8::Context> context = v8::Local<v8::Context>::New(my->GetIsolate(), my->_context);
       v8::Context::Scope context_scope(context);
@@ -170,6 +183,7 @@ namespace bts { namespace game {
    
    void v8_game_engine::execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
    {
+      v8::Locker locker(my->GetIsolate());
       v8::HandleScope handle_scope(my->GetIsolate());
       v8::Local<v8::Context> context = v8::Local<v8::Context>::New(my->GetIsolate(), my->_context);
       v8::Context::Scope context_scope(context);

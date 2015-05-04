@@ -109,5 +109,6 @@ FC_DECLARE_DERIVED_EXCEPTION( game_id_in_use,                    bts::blockchain
                                  "game id in use" );
 FC_DECLARE_DERIVED_EXCEPTION( unknown_game_id,                   bts::blockchain::evaluation_error, 100006, "unknown game id" );
 FC_DECLARE_DERIVED_EXCEPTION( unknown_game,                      bts::blockchain::evaluation_error, 100007, "unknown game" );
+FC_DECLARE_DERIVED_EXCEPTION( failed_game_engine_init,           bts::blockchain::evaluation_error, 100007, "failed to init game engine" );
 
 } } // bts::blockchain
