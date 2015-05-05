@@ -8,6 +8,43 @@
 namespace bts { namespace game {
     using namespace bts::blockchain;
     
+    /**
+     *  Creates / defines an asset type but does not
+     *  allocate it to anyone. Use issue_asset_operation
+     */
+    struct create_game_operation
+    {
+        static const operation_type_enum type;
+
+        /**
+         * Names are a more complete description and may
+         * contain any kind of characters or spaces.
+         */
+        std::string      name;
+        /**
+         *  Describes the asset and its purpose.
+         */
+        std::string      description;
+        /**
+         * Other information relevant to this asset.
+         */
+        fc::variant      public_data;
+
+        /**
+         *  Game only be issued by individuals that
+         *  have registered a name.
+         */
+        account_id_type  owner_account_id;
+
+        /** The url of the game's rule script */
+        std::string      script_url;
+       
+        /** The hash of the game's rule script */
+        std::string      script_hash;
+
+        void evaluate( transaction_evaluation_state& eval_state ) const;
+    };
+
     struct game_operation
     {
         static const operation_type_enum type;
@@ -24,5 +61,14 @@ namespace bts { namespace game {
         void evaluate( transaction_evaluation_state& eval_state ) const;
     };
 } } // bts::game
+
+FC_REFLECT( bts::game::create_game_operation,
+            (name)
+            (description)
+            (public_data)
+            (owner_account_id)
+            (script_url)
+            (script_hash)
+            )
 
 FC_REFLECT( bts::game::game_operation, (input) )

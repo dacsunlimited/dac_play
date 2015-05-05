@@ -21,7 +21,8 @@
 namespace bts { namespace game {
    using namespace bts::blockchain;
    
-   const operation_type_enum game_operation::type              = game_op_type;
+   const operation_type_enum create_game_operation::type        = create_game_operation_type;
+   const operation_type_enum game_operation::type               = game_op_type;
     
     client* client::current = nullptr;
    
@@ -91,6 +92,7 @@ namespace bts { namespace game {
                // TODO: To check whether the wallet and blockchain object are the same with the ones that should be used in script.
                
                bts::blockchain::operation_factory::instance().register_operation<game_operation>();
+               bts::blockchain::operation_factory::instance().register_operation<create_game_operation>();
                
                game_executors::instance().register_game_executor(
                      std::function<void( chain_database_ptr, uint32_t, const pending_chain_state_ptr&)>(
@@ -183,9 +185,10 @@ namespace bts { namespace game {
    {
       // Scan the create game operation and download the script from remote
       
-      game_claimed_script( op.script_url, op.name, op.script_hash );
+       // TODO: Check this, now moved to create_game_operation.eval(...)
+      // game_claimed_script( op.script_url, op.name, op.script_hash );
        
-      my->init_game_engine_if_not_exist( op.name );
+      // my->init_game_engine_if_not_exist( op.name );
       
       return false;
    }

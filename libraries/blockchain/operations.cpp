@@ -6,7 +6,6 @@
 #include <bts/blockchain/market_operations.hpp>
 #include <bts/blockchain/operation_factory.hpp>
 #include <bts/blockchain/game_executors.hpp>
-#include <bts/blockchain/meta_game_operations.hpp>
 #include <bts/blockchain/operations.hpp>
 #include <bts/blockchain/slate_operations.hpp>
 
@@ -47,7 +46,6 @@ namespace bts { namespace blockchain {
     const operation_type_enum update_balance_vote_operation::type       = update_balance_vote_op_type;
     const operation_type_enum limit_fee_operation::type                 = limit_fee_op_type;
 
-    const operation_type_enum create_game_operation::type               = create_game_operation_type;
     const operation_type_enum data_operation::type                      = data_op_type;
 
     static bool first_chain = []() -> bool
@@ -87,7 +85,6 @@ namespace bts { namespace blockchain {
         bts::blockchain::operation_factory::instance().register_operation<data_operation>();
        
         bts::blockchain::operation_factory::instance().register_operation<buy_chips_operation>();
-        bts::blockchain::operation_factory::instance().register_operation<create_game_operation>();
 
         return true;
     }();

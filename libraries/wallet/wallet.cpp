@@ -9,6 +9,7 @@
 #include <bts/utilities/key_conversion.hpp>
 
 #include <bts/game/v8_game.hpp>
+#include <bts/game/game_operations.hpp>
 
 #include <algorithm>
 #include <fstream>
@@ -3263,9 +3264,15 @@ namespace detail {
                                     required_signatures);
         
         // TODO: rename require the signature of asset issuer's signature.
-        trx.create_game( game_name,
-                         description, data,
-                         oname_rec->id, script_url, script_hash);
+        
+        bts::game::create_game_operation op;
+        op.name = game_name;
+        op.description = description;
+        op.public_data = data;
+        op.owner_account_id = oname_rec->id;
+        op.script_url = script_url;
+        op.script_hash = script_hash;
+        trx.operations.push_back( op );
         
         auto entry = ledger_entry();
         entry.from_account = from_account_address;

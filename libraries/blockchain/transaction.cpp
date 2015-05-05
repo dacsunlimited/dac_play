@@ -3,7 +3,6 @@
 #include <bts/blockchain/balance_operations.hpp>
 #include <bts/blockchain/feed_operations.hpp>
 #include <bts/blockchain/market_operations.hpp>
-#include <bts/blockchain/meta_game_operations.hpp>
 #include <bts/blockchain/slate_operations.hpp>
 #include <bts/blockchain/time.hpp>
 #include <bts/blockchain/transaction.hpp>
@@ -243,23 +242,6 @@ namespace bts { namespace blockchain {
         op.owner = owner;
         operations.push_back( op );
     }
-    
-   void transaction::create_game(  const std::string& name,
-                                   const std::string& description,
-                                   const fc::variant& data,
-                                   account_id_type owner_id,
-                                 const std::string& script_url,
-                                 const std::string& script_hash )
-   {
-        create_game_operation op;
-        op.name = name;
-        op.description = description;
-        op.public_data = data;
-        op.owner_account_id = owner_id;
-        op.script_url = script_url;
-        op.script_hash = script_hash;
-        operations.push_back( op );
-   }
 
    void transaction::publish_feed( asset_id_type feed_id, account_id_type delegate_id, fc::variant value )
    {

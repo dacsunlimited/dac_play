@@ -7,7 +7,6 @@
 #include <bts/blockchain/balance_operations.hpp>
 #include <bts/blockchain/feed_operations.hpp>
 #include <bts/blockchain/market_operations.hpp>
-#include <bts/blockchain/meta_game_operations.hpp>
 #include <bts/game/game_operations.hpp>
 #include <bts/game/client.hpp>
 

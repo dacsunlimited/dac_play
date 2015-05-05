@@ -1,7 +1,6 @@
 #pragma once
 
 #include <bts/blockchain/address.hpp>
-#include <bts/blockchain/meta_game_operations.hpp>
 #include <bts/mail/message.hpp>
 #include <bts/mail/config.hpp>
 
@@ -17,8 +16,9 @@
 namespace bts { namespace game {
    using namespace bts::blockchain;
     
-    class v8_game_engine;
-    typedef std::shared_ptr<v8_game_engine> v8_game_engine_ptr;
+   class v8_game_engine;
+   typedef std::shared_ptr<v8_game_engine> v8_game_engine_ptr;
+   struct create_game_operation;
    namespace detail { class client_impl; }
     
    class client
