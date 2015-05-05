@@ -4,7 +4,7 @@ Feature: Create Dice game, buy game chip and play game DICE
   I want to buy some game chip and play game DICE
   So that I might win or lose
 
-  Background: Create an asset and a game binding to that asset
+  Background: Create an game and a asset accessible to that game
     Given I'm Alice
     And I received 5200000 XTS from angel
 	 And I wait for one block

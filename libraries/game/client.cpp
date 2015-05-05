@@ -125,9 +125,9 @@ namespace bts { namespace game {
                   try
                   {
                       register_game_engine(game_name, std::make_shared< v8_game_engine > (game_name, self));
-                  } catch (...)
+                  } catch ( const fc::exception& e )
                   {
-                      
+                      wlog("game engine register failed: ${x}", ("x",e.to_detail_string()));
                   }
               }
           }
@@ -173,8 +173,8 @@ namespace bts { namespace game {
    }
    
    void client::open(const path& data_dir) {
-      my->_data_dir = data_dir;
-      my->open(data_dir);
+       my->_data_dir = data_dir;
+       my->open(data_dir);
        
        current = this;
    };
