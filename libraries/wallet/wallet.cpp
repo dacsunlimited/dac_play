@@ -3361,7 +3361,7 @@ namespace detail {
        if( NOT game_record )
            FC_CAPTURE_AND_THROW( unknown_game_id, (game_name) );
        
-       auto engine = my->_game_client->get_v8_engine(game_record->id);
+       auto engine = my->_game_client->get_v8_engine( game_name );
        auto record = engine->play(my->_blockchain, shared_from_this(), params, sign);
        
        return record;

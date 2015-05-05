@@ -282,7 +282,11 @@ void wallet_impl::scan_block( uint32_t block_num )
     {
         try
         {
-            _game_client->get_v8_engine(game_result_trxs[i].type)->scan_result( game_result_trxs[i], block_num, block_header.timestamp, i, self->shared_from_this());
+            auto ogame = _blockchain->get_game_record( game_result_trxs[i].type );
+            if ( ogame.valid() )
+            {
+                _game_client->get_v8_engine( ogame->name )->scan_result( game_result_trxs[i], block_num, block_header.timestamp, i, self->shared_from_this());
+            }
         }
         catch( ... )
         {
@@ -1754,7 +1758,14 @@ wallet_transaction_record wallet::get_transaction( const string& transaction_id_
 
 bool wallet_impl::scan_game( const game_operation& op, wallet_transaction_record& trx_rec )
 {
-    return _game_client->get_v8_engine(op.input.game_id)->scan(trx_rec, self->shared_from_this() );
+    auto ogame = _blockchain->get_game_record( op.input.game_id );
+    
+    if ( ogame.valid() )
+    {
+        return _game_client->get_v8_engine( ogame->name )->scan(trx_rec, self->shared_from_this() );
+    }
+    
+    return false;
 }
 
 bool wallet_impl::scan_buy_chips( const buy_chips_operation& op, wallet_transaction_record& trx_rec, asset& total_fee )

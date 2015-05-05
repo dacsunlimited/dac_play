@@ -25,7 +25,7 @@ namespace bts { namespace game {
    class v8_game_engine
    {
    public:
-      v8_game_engine(uint8_t rule_type, bts::game::client* client);
+       v8_game_engine(std::string game_name, bts::game::client* client);
       
       ~v8_game_engine(){};
       

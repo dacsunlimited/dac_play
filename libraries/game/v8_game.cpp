@@ -13,11 +13,11 @@ namespace bts { namespace game {
       class v8_game_engine_impl {
          
       public:
-         bts::game::v8_game_engine* self;
-         bts::game::client*         _client;
-         uint8_t                    _rule_type;
-         Isolate*                            _isolate;
-         v8::Persistent<Context>             _context;
+         bts::game::v8_game_engine*         self;
+         bts::game::client*                 _client;
+          std::string                       _game_name;
+         Isolate*                           _isolate;
+         v8::Persistent<Context>            _context;
          
          v8_game_engine_impl(v8_game_engine* self, bts::game::client* client)
          : self(self), _client(client)
@@ -35,7 +35,7 @@ namespace bts { namespace game {
          {
             // Refer http://v8.googlecode.com/svn/trunk/samples/process.cc
             // TODO, read from the script according to rule type
-            fc::path script_1(_client->get_data_dir() / "dice.js");
+            fc::path script_1(_client->get_data_dir() / _game_name / ".js");
             _isolate = v8::Isolate::GetCurrent();
             
             v8::Locker locker(_isolate);
@@ -75,9 +75,9 @@ namespace bts { namespace game {
       };
    }
    
-   v8_game_engine::v8_game_engine(uint8_t rule_type, bts::game::client* client): my(new detail::v8_game_engine_impl(this, client))
+    v8_game_engine::v8_game_engine(std::string game_name, bts::game::client* client): my(new detail::v8_game_engine_impl(this, client))
    {
-      my->_rule_type = rule_type;
+      my->_game_name = game_name;
       my->init();
      
    }

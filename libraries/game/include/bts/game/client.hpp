@@ -35,7 +35,7 @@ namespace bts { namespace game {
       
       fc::path get_data_dir()const;
        
-       v8_game_engine_ptr get_v8_engine(game_id_type game_id);
+       v8_game_engine_ptr get_v8_engine(const std::string& game_name);
        
        void execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state );
       

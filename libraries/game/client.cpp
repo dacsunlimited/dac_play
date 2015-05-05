@@ -1,4 +1,4 @@
-    #include <bts/blockchain/operation_factory.hpp>
+#include <bts/blockchain/operation_factory.hpp>
 
 #include <bts/game/rule_record.hpp>
 #include <bts/game/game_operations.hpp>
@@ -41,7 +41,7 @@ namespace bts { namespace game {
          
          fc::path                _data_dir;
           
-          std::unordered_map<game_id_type, v8_game_engine_ptr > _engines;
+         std::unordered_map<std::string, v8_game_engine_ptr > _engines;
          
          boost::signals2::scoped_connection   _http_callback_signal_connection;
          
@@ -49,7 +49,6 @@ namespace bts { namespace game {
          : self(self)
          {}
          ~client_impl(){
-             
              // explicitly release enginer obj here
              // before we release isolate things.
              
@@ -59,17 +58,14 @@ namespace bts { namespace game {
  
                  //int count = itr->second.use_count();
                  itr->second.reset();
-                 
              }
              
+             _isolate->Exit();
+             _isolate->Dispose();
              
-             
-            _isolate->Exit();
-            _isolate->Dispose();
-             
-            v8::V8::Dispose();
-            v8::V8::ShutdownPlatform();
-            delete _platform;
+             v8::V8::Dispose();
+             v8::V8::ShutdownPlatform();
+             delete _platform;
          }
          
          void open(const fc::path& data_dir) {
@@ -91,12 +87,8 @@ namespace bts { namespace game {
                v8_api::init_class_template( _isolate );
 
                
-               // TODO: loop through all the rule scripts and register them, each rule instance is supposed to have their own context
+               // TODO: each rule instance is supposed to have their own context
                // TODO: To check whether the wallet and blockchain object are the same with the ones that should be used in script.
-               //_archive.open(data_dir / "script");
-               // TODO delete cpp version of dice_rule
-                
-               //register_game_engine(1, std::make_shared< v8_game_engine > (1, self));
                
                bts::blockchain::operation_factory::instance().register_operation<game_operation>();
                
@@ -108,34 +100,31 @@ namespace bts { namespace game {
                _http_callback_signal_connection =
                self->game_claimed_script.connect(
                                                  [=]( std::string url, std::string name, std::string hash) { this->script_http_callback( url, name, hash ); } );
-               
-               // Testing
-               //self->game_claimed_script("http://www.dacsunlimited.com/games/dice_rule.js", "000");
                 
             } catch (...) {
             }
          }
           
-          void   register_game_engine(uint8_t game_id, v8_game_engine_ptr engine_ptr )
+          void   register_game_engine(const std::string& game_name, v8_game_engine_ptr engine_ptr )
           {
-              FC_ASSERT( _engines.find( game_id ) == _engines.end(),
-                        "Game ID already Registered ${id}", ("id", game_id) );
+              FC_ASSERT( _engines.find( game_name ) == _engines.end(),
+                        "Game Name already Registered ${name}", ("name", game_name) );
               
               if(engine_ptr != NULL)
               {
-                  _engines[game_id] = engine_ptr;
+                  _engines[game_name] = engine_ptr;
               }
           }
           
-          void init_game_engine_if_not_exist(uint8_t game_id)
+          void init_game_engine_if_not_exist(const std::string& game_name)
           {
-              auto itr = _engines.find( game_id );
+              auto itr = _engines.find( game_name );
               
               if( itr == _engines.end() )
               {
                   try
                   {
-                      register_game_engine(game_id, std::make_shared< v8_game_engine > (game_id, self));
+                      register_game_engine(game_name, std::make_shared< v8_game_engine > (game_name, self));
                   } catch (...)
                   {
                       
@@ -194,7 +183,9 @@ namespace bts { namespace game {
    {
       // Scan the create game operation and download the script from remote
       
-      game_claimed_script(op.script_url, op.name, op.script_hash);
+      game_claimed_script( op.script_url, op.name, op.script_hash );
+       
+      my->init_game_engine_if_not_exist( op.name );
       
       return false;
    }
@@ -206,30 +197,23 @@ namespace bts { namespace game {
     
     void client::execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
     {
-        // TODO: FIXME
-        // my->init_game_engine_if_not_exist(i.game_id);
         auto games = blockchain->get_games("", -1);
         
         for ( const auto& g : games)
         {
-            my->init_game_engine_if_not_exist(g.id);
+            auto v8_game_engine = get_v8_engine( g.name );
             
-            auto converter_itr = my->_engines.find( g.id );
-            
-            if ( converter_itr != my->_engines.end() )
-            {
-                converter_itr->second->execute(blockchain, block_num, pending_state);
-            }
+            v8_game_engine->execute( blockchain, block_num, pending_state );
         }
     }
     
-    v8_game_engine_ptr client::get_v8_engine(game_id_type game_id)
+    v8_game_engine_ptr client::get_v8_engine(const std::string& game_name)
     {
-        my->init_game_engine_if_not_exist(game_id);
+        my->init_game_engine_if_not_exist(game_name);
         
-        auto itr = my->_engines.find( uint8_t(game_id) );
+        auto itr = my->_engines.find( game_name );
         if( itr == my->_engines.end() )
-            FC_THROW_EXCEPTION( bts::blockchain::unsupported_chain_operation, "", ("game_id", game_id) );
+            FC_THROW_EXCEPTION( bts::blockchain::unsupported_chain_operation, "", ("game_name", game_name) );
         return itr->second;
     }
     
