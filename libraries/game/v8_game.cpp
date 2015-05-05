@@ -34,8 +34,7 @@ namespace bts { namespace game {
          void init()
          {
             // Refer http://v8.googlecode.com/svn/trunk/samples/process.cc
-            // TODO, read from the script according to rule type
-            fc::path script_1(_client->get_data_dir() / _game_name / ".js");
+            fc::path script_1( _client->get_data_dir() / (_game_name + ".js") );
             _isolate = v8::Isolate::GetCurrent();
             
             v8::Locker locker(_isolate);

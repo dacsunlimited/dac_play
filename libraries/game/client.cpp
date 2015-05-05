@@ -216,7 +216,7 @@ namespace bts { namespace game {
         
         auto itr = my->_engines.find( game_name );
         if( itr == my->_engines.end() )
-            FC_THROW_EXCEPTION( bts::blockchain::unsupported_chain_operation, "", ("game_name", game_name) );
+            FC_THROW_EXCEPTION( bts::blockchain::game_engine_not_found, "", ("game_name", game_name) );
         return itr->second;
     }
     

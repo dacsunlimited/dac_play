@@ -47,7 +47,14 @@ namespace bts { namespace game {
         // TODO: maybe it is better to move following steps to blockchain.extend_chain, in case script download failed or other exception.
         // Downloading the script file, and init the script engine.
         bts::game::client::get_current().game_claimed_script( script_url, name, script_hash );
-        bts::game::client::get_current().get_v8_engine( name );
+        try {
+            bts::game::client::get_current().get_v8_engine( name );
+        }
+        catch (const game_engine_not_found& e)
+        {
+            wlog("game engine failed to init for unknown reason during evaluate operation");
+        }
+        
     } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
     /**
