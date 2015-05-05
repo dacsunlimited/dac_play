@@ -52,7 +52,7 @@ namespace bts { namespace game {
         }
         catch (const game_engine_not_found& e)
         {
-            wlog("game engine failed to init for unknown reason during evaluate operation");
+            wlog("game engine note found, failed to init for unknown reason during evaluate operation");
         }
         
     } FC_CAPTURE_AND_RETHROW( (*this) ) }

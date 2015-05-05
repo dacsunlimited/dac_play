@@ -34,7 +34,7 @@ namespace bts { namespace game {
          void init()
          {
             // Refer http://v8.googlecode.com/svn/trunk/samples/process.cc
-            fc::path script_1( _client->get_data_dir() / (_game_name + ".js") );
+            fc::path script_file( _client->get_data_dir() / (_game_name + ".js") );
             _isolate = v8::Isolate::GetCurrent();
             
             v8::Locker locker(_isolate);
@@ -42,16 +42,16 @@ namespace bts { namespace game {
             HandleScope handle_scope(_isolate);
             v8::Handle<v8::Context> context = v8_helper::CreateShellContext(_isolate);
             if (context.IsEmpty()) {
-                fprintf(stderr, "Error creating context\n");
+                wlog("Error creating context in game ${name}", ("name", _game_name));
                 FC_CAPTURE_AND_THROW(failed_game_engine_init);
             }
             _context.Reset(_isolate, context);
             
             Context::Scope context_scope(context);
             
-            ilog("The path is ${s}", ("s", script_1.to_native_ansi_path().c_str() ));
+            ilog("The path is ${s}", ("s", script_file.to_native_ansi_path().c_str() ));
             
-            v8::Handle<v8::String> source = v8_helper::ReadFile( _isolate, script_1.to_native_ansi_path().c_str() );
+            v8::Handle<v8::String> source = v8_helper::ReadFile( _isolate, script_file.to_native_ansi_path().c_str() );
             
              if (source.IsEmpty()) {
                  GetIsolate()->ThrowException( v8::String::NewFromUtf8(GetIsolate(), "Error loading file" ) );
@@ -59,7 +59,7 @@ namespace bts { namespace game {
              }
              
             String::Utf8Value utf8_source(source);
-            ilog("The source is ${s}", ("s", std::string(*utf8_source) ));
+            // ilog("The source is ${s}", ("s", std::string(*utf8_source) ));
             
             Handle<Script> script = Script::Compile(source);
             
@@ -67,7 +67,7 @@ namespace bts { namespace game {
             Handle<Value> result = script->Run();
             
             String::Utf8Value utf8(result);
-            printf("%s\n", *utf8);
+            wlog("The result of the running of script is ${s}", ("s",  *utf8));
          }
          
          Isolate* GetIsolate() { return _isolate; }

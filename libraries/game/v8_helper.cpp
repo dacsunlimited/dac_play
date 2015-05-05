@@ -7,20 +7,19 @@ namespace bts { namespace game {
       // Create a template for the global object.
       v8::Handle<v8::ObjectTemplate> global = v8::ObjectTemplate::New(isolate);
       // Bind the global 'print' function to the C++ Print callback.
-      global->Set(v8::String::NewFromUtf8(isolate, "print"),
-                  v8::FunctionTemplate::New(isolate, Print));
+      //global->Set(v8::String::NewFromUtf8(isolate, "print"), v8::FunctionTemplate::New(isolate, Print));
+      
       // Bind the global 'read' function to the C++ Read callback.
-      global->Set(v8::String::NewFromUtf8(isolate, "read"),
-                  v8::FunctionTemplate::New(isolate, Read));
-      // Bind the global 'load' function to the C++ Load callback.
-      global->Set(v8::String::NewFromUtf8(isolate, "load"),
-                  v8::FunctionTemplate::New(isolate, Load));
-      // Bind the 'quit' function
-      global->Set(v8::String::NewFromUtf8(isolate, "quit"),
-                  v8::FunctionTemplate::New(isolate, Quit));
-      // Bind the 'version' function
-      global->Set(v8::String::NewFromUtf8(isolate, "version"),
-                  v8::FunctionTemplate::New(isolate, Version));
+      //global->Set(v8::String::NewFromUtf8(isolate, "read"), v8::FunctionTemplate::New(isolate, Read));
+      
+       // Bind the global 'load' function to the C++ Load callback.
+      //global->Set(v8::String::NewFromUtf8(isolate, "load"), v8::FunctionTemplate::New(isolate, Load));
+      
+       // Bind the 'quit' function
+      // global->Set(v8::String::NewFromUtf8(isolate, "quit"), v8::FunctionTemplate::New(isolate, Quit));
+      
+       // Bind the 'version' function
+      //global->Set(v8::String::NewFromUtf8(isolate, "version"), v8::FunctionTemplate::New(isolate, Version));
       
       // TODO Reset
       // TODO Transaction Template
