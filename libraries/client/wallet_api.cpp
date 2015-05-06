@@ -370,6 +370,31 @@ wallet_transaction_record detail::client_impl::wallet_note(
     network_broadcast_transaction( record.trx );
     return record;
 }
+    
+    string detail::client_impl::wallet_decrypt_secret_note(
+                                                               const std::string& owner_account_name,
+                                                               const std::string& transaction_id)
+    { try {
+        auto owner_account_rec = _chain_db->get_account_record( owner_account_name );
+        FC_ASSERT( owner_account_rec.valid() );
+        auto trx_record = _wallet->get_transaction( transaction_id );
+        
+        note_index index;
+        index.account_id = owner_account_rec->id;
+        index.transaction_id = trx_record.trx.id();
+        
+        auto onote_record = _chain_db->get_note_record( index );
+        
+        FC_ASSERT( onote_record->message->type == secret_type );
+        
+        auto secret = onote_record->message->as<secret_note>();
+        
+        auto priv_key = _wallet->get_private_key( owner_account_rec->active_key() );
+        
+        auto message = secret.decrypt( priv_key ).as<public_note>();
+        
+        return message.message;
+    } FC_CAPTURE_AND_RETHROW( (owner_account_name)(transaction_id) ) }
 
 string detail::client_impl::wallet_address_create( const string& account_name,
                                                     const string& label,
