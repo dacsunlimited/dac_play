@@ -54,7 +54,7 @@ namespace bts { namespace game {
             ilog("The path is ${s}", ("s", script_file.to_native_ansi_path().c_str() ));
             
             v8::Handle<v8::String> source = v8_helper::ReadFile( _isolate, script_file.to_native_ansi_path().c_str() );
-            
+             
              if (source.IsEmpty()) {
                  // GetIsolate()->ThrowException( v8::String::NewFromUtf8(GetIsolate(), "Error loading file" ) );
                  String::Utf8Value error(try_catch.Exception());
@@ -67,7 +67,7 @@ namespace bts { namespace game {
             {
                 // The TryCatch above is still in effect and will have caught the error.
                 String::Utf8Value error(try_catch.Exception());
-                FC_CAPTURE_AND_THROW(failed_compile_script, (source)(*error));
+                FC_CAPTURE_AND_THROW(failed_compile_script, (*utf8_source)(*error));
             } else
             {
                 // Run the script to get the result.
