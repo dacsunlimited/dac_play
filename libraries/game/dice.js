@@ -68,19 +68,28 @@
 // TODO: Mapping between js object and C++ variant
 // TODO: Input: {game_input}, Output: {operation_game_data, wallet_transaction_record, game_result_transaction}
 
-var BTS_BLOCKCHAIN_NUM_DELEGATES = 101;
-var BTS_BLOCKCHAIN_NUM_DICE = BTS_BLOCKCHAIN_NUM_DELEGATES / 10;
-var BTS_BLOCKCHAIN_DICE_RANGE = 10000;
-var BTS_BLOCKCHAIN_DICE_HOUSE_EDGE = 0;
+var
+
+PLAY = PLAY || {},
+
+versoin = "0.0.1",
+
+BTS_BLOCKCHAIN_NUM_DELEGATES = 101,
+
+BTS_BLOCKCHAIN_NUM_DICE = BTS_BLOCKCHAIN_NUM_DELEGATES / 10,
+
+BTS_BLOCKCHAIN_DICE_RANGE = 10000,
+
+BTS_BLOCKCHAIN_DICE_HOUSE_EDGE = 0,
 
 // TODO: We should not have the assumption that the asset id equals to game id.
-var dice_game = {
+dice_game = {
         asset_id : 1,
         asset : "DICE",
         game_symbol: "DICE"
-    };
+    },
 
-var game_type = 1;
+	game_type = 1;
 
 /*
  * Play this game with input in the context to blockchain and wallet
@@ -89,7 +98,7 @@ var game_type = 1;
  * sign indicates that the result transaction should be signed or not
  * { operations, ledger_entries, required_signatures}
  */
-global.play = function (blockchain, wallet, input, record, trx) {
+PLAY.play = function (blockchain, wallet, input, record, trx) {
     //try {  
     
     // V8_Vaild
@@ -168,12 +177,12 @@ global.play = function (blockchain, wallet, input, record, trx) {
     record.fee = required_fees;
         
     //} FC_CAPTURE_AND_RETHROW( (params) )
-}
+};
 
 /*
  * Instead of defining the evaluate function as a method of rule, pass the rule to the function
  */
-global.evaluate = function(self, eval_state, eval_state_current_state){
+PLAY.evaluate = function(self, eval_state, eval_state_current_state){
     // V8_Valid
     //if( self.odds < 1 || self.odds < self.guess || self.guess < 1)
     //    FC_CAPTURE_AND_THROW( invalid_dice_odds, (odds) );
@@ -218,7 +227,7 @@ global.evaluate = function(self, eval_state, eval_state_current_state){
 };
 
 // game execute during extain chain and deterministrix transaction apply
-global.execute = function (blockchain, block_num, pending_state){
+PLAY.execute = function (blockchain, block_num, pending_state){
 	if (block_num <= BTS_BLOCKCHAIN_NUM_DICE){
    	    return;
 	}
@@ -294,9 +303,9 @@ global.execute = function (blockchain, block_num, pending_state){
 	// FC_ASSERT( base_asset_record.valid() );
 	base_asset_record.current_share_supply += (shares_created - shares_destroyed);
 	pending_state.store_asset_record( base_asset_record );
-}
+};
 
-global.scan_result = function( game_result_trx, block_num, block_time, trx_index, wallet)
+PLAY.scan_result = function( game_result_trx, block_num, block_time, trx_index, wallet)
 {
     //try {
     // auto gtrx = rtrx.as<dice_transaction>(); game_result_trx now is a variant/js_object it self, so no need to convert
@@ -360,9 +369,9 @@ global.scan_result = function( game_result_trx, block_num, block_time, trx_index
     return true;
     
     //} FC_CAPTURE_AND_RETHROW((rtrx)) 
-}
+};
     
-global.scan = function( rule, wallet_transaction_record, wallet )
+PLAY.scan = function( rule, wallet_transaction_record, wallet )
 {
     // TODO: Accessor to type, (withdraw_condition_types) 
     // TODO: Define withdraw type constants
