@@ -34,7 +34,7 @@ namespace bts { namespace game {
          void init()
          {
             // Refer http://v8.googlecode.com/svn/trunk/samples/process.cc
-            fc::path script_file( _client->get_data_dir() / (_game_name + ".js") );
+            fc::path script_path( _client->get_data_dir() / (_game_name + ".js") );
             _isolate = v8::Isolate::GetCurrent();
             
             v8::Locker locker(_isolate);
@@ -51,14 +51,15 @@ namespace bts { namespace game {
             
             Context::Scope context_scope(context);
             
-            ilog("The path is ${s}", ("s", script_file.to_native_ansi_path().c_str() ));
+            ilog("The path is ${s}", ("s", script_path.to_native_ansi_path().c_str() ));
             
-            v8::Handle<v8::String> source = v8_helper::ReadFile( _isolate, script_file.to_native_ansi_path().c_str() );
+            v8::Handle<v8::String> source = v8_helper::ReadFile( _isolate, script_path.to_native_ansi_path().c_str() );
              
              if (source.IsEmpty()) {
-                 // GetIsolate()->ThrowException( v8::String::NewFromUtf8(GetIsolate(), "Error loading file" ) );
+                 wlog("The souce is empty, error loading file");
+                 GetIsolate()->ThrowException( v8::String::NewFromUtf8(GetIsolate(), "Error loading file" ) );
                  String::Utf8Value error(try_catch.Exception());
-                 FC_CAPTURE_AND_THROW(failed_loading_source_file, (script_file)(*error));
+                 FC_CAPTURE_AND_THROW(failed_loading_source_file, (script_path)(*error));
              }
              
             String::Utf8Value utf8_source(source);
