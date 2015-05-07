@@ -40,9 +40,11 @@ namespace bts { namespace game {
             v8::Locker locker(_isolate);
              
             HandleScope handle_scope(_isolate);
+            v8::TryCatch try_catch( _isolate );
             v8::Handle<v8::Context> context = v8_helper::CreateShellContext(_isolate);
             if (context.IsEmpty()) {
-                wlog("Error creating context in game ${name}", ("name", _game_name));
+                String::Utf8Value error(try_catch.Exception());
+                wlog("Error creating context in game ${name}, error is ${e}", ("name", _game_name)("e", *error));
                 FC_CAPTURE_AND_THROW(failed_game_engine_init);
             }
             _context.Reset(_isolate, context);
@@ -62,12 +64,28 @@ namespace bts { namespace game {
             // ilog("The source is ${s}", ("s", std::string(*utf8_source) ));
             
             Handle<Script> script = Script::Compile(source);
-            
-            // Run the script to get the result.
-            Handle<Value> result = script->Run();
-            
-            String::Utf8Value utf8(result);
-            wlog("The result of the running of script is ${s}", ("s",  *utf8));
+            if ( script.IsEmpty() )
+            {
+                // The TryCatch above is still in effect and will have caught the error.
+                String::Utf8Value error(try_catch.Exception());
+                elog("Error when compiling the source. The error is ${e}", ("e", *error));
+                FC_CAPTURE_AND_THROW(failed_game_engine_init);
+            } else
+            {
+                // Run the script to get the result.
+                Handle<Value> result = script->Run();
+                
+                if ( result.IsEmpty() )
+                {
+                    String::Utf8Value run_error(try_catch.Exception());
+                    elog("Error when loading the script. The error is ${e}", ("e", *run_error));
+                    FC_CAPTURE_AND_THROW(failed_game_engine_init);
+                } else
+                {
+                    String::Utf8Value utf8(result);
+                    wlog("The result of the running of script is ${s}", ("s",  *utf8));
+                }
+            }
          }
          
          Isolate* GetIsolate() { return _isolate; }

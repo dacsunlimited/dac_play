@@ -199,7 +199,7 @@ namespace bts { namespace game {
    }
     
     void client::execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
-    {
+    { try {
         auto games = blockchain->get_games("", -1);
         
         for ( const auto& g : games)
@@ -208,7 +208,7 @@ namespace bts { namespace game {
             
             v8_game_engine->execute( blockchain, block_num, pending_state );
         }
-    }
+    } FC_CAPTURE_AND_RETHROW( (block_num) ) }
     
     v8_game_engine_ptr client::get_v8_engine(const std::string& game_name)
     {

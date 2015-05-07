@@ -290,7 +290,7 @@ global.execute = function (blockchain, block_num, pending_state){
 	pending_state.set_game_result_transactions( game_result_transactions );
     
     // TODO: what is asset_id_type?
-	auto base_asset_record = pending_state.get_asset_record( asset_id_type(1) );
+	var base_asset_record = pending_state.get_asset_record( asset_id_type(1) );
 	// FC_ASSERT( base_asset_record.valid() );
 	base_asset_record.current_share_supply += (shares_created - shares_destroyed);
 	pending_state.store_asset_record( base_asset_record );
@@ -340,7 +340,7 @@ global.scan_result = function( game_result_trx, block_num, block_time, trx_index
         // TODO: Don't blow away memo, etc.
         var wallet_transaction_record = {
             //  Construct a unique record id, TODO: js method for fc::ripemd160::hash, could refer bitshares-js repository
-            record_id : fc::ripemd160::hash( "" + block_num + game_result_trx.jackpot_owner + trx_index ),
+            // TODO: record_id : fc::ripemd160::hash( "" + block_num + game_result_trx.jackpot_owner + trx_index ),
             block_num : block_num,
             is_virtual : true,
             is_confirmed : true,
@@ -386,11 +386,11 @@ global.scan = function( rule, wallet_transaction_record, wallet )
             } else
             {
                 
-                auto opt_key_rec = wallet.get_wallet_key_for_address(rule.condtion.owner);
+                var opt_key_rec = wallet.get_wallet_key_for_address(rule.condtion.owner);
                 if( opt_key_rec.valid() && opt_key_rec.has_private_key() )
                 {
                     // TODO: Refactor this
-                    for( var entry : trx_rec.ledger_entries )
+                    for( var entry in trx_rec.ledger_entries )
                     {
                         // TODO: Read Accessor to_account
                         if( !entry.to_account.valid() )

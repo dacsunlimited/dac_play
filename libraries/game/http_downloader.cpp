@@ -8,7 +8,7 @@ using namespace std;
 
 size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream) {
     string data((const char*) ptr, (size_t) size * nmemb);
-    *((stringstream*) stream) << data << endl;
+    *((stringstream*) stream) << data;
     return size * nmemb;
 }
 
