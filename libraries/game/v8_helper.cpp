@@ -1,6 +1,33 @@
 #include <bts/game/v8_helper.hpp>
 
 namespace bts { namespace game {
+    Handle<Value> v8_helper::parseJson(Isolate* isolate, Handle<Value> jsonString) {
+        EscapableHandleScope handle_scope(isolate);
+        
+        Handle<Context> context = isolate->GetCurrentContext();
+        Handle<Object> global = context->Global();
+        
+        Handle<Object> JSON = global->Get(String::NewFromUtf8(isolate, "JSON"))->ToObject();
+        Handle<Function> JSON_parse = Handle<Function>::Cast(JSON->Get(String::NewFromUtf8(isolate, "parse")));
+        
+        // return JSON.parse.apply(JSON, jsonString);
+        return handle_scope.Escape(JSON_parse->Call(JSON, 1, &jsonString));
+    }
+    
+    Handle<String> v8_helper::toJson(Isolate* isolate, Handle<Value> object)
+    {
+        EscapableHandleScope handle_scope(isolate);
+        
+        Handle<Context> context = isolate->GetCurrentContext();
+        Handle<Object> global = context->Global();
+        
+        Handle<Object> JSON = global->Get(String::NewFromUtf8(isolate, "JSON"))->ToObject();
+        Handle<Function> JSON_stringify = Handle<Function>::Cast(JSON->Get(String::NewFromUtf8(isolate, "stringify")));
+        
+        return handle_scope.Escape(JSON_stringify->Call(JSON, 1, &object)->ToString());
+    }
+    
+    
    // Creates a new execution environment containing the built-in
    // functions.
    v8::Handle<v8::Context> v8_helper::CreateShellContext(v8::Isolate* isolate) {

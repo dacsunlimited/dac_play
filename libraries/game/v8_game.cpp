@@ -154,9 +154,16 @@ namespace bts { namespace game {
        v8::Local<v8::Context> context = v8::Local<v8::Context>::New(my->GetIsolate(), my->_context);
        // Entering the context
        Context::Scope context_scope(context);
+       context->Global()->Set(String::NewFromUtf8(isolate, "$blockchain"), v8_blockchain::New(isolate, blockchain, blockchain->get_head_block_num()) );
+       // context->Global()->Set(String::NewFromUtf8(isolate, "$wallet"),  );
+       
+       auto _input = var; // TODO: convert/parse it to a v8 javascript object
+       context->Global()->Set(String::NewFromUtf8(isolate, "$input"),  v8_helper::cpp_to_json(isolate, _input));
+       context->Global()->Set(String::NewFromUtf8(isolate, "$record"),  External::New(isolate, &record ));
+       context->Global()->Set(String::NewFromUtf8(isolate, "$trx"),  External::New(isolate, &trx ));
          
        v8::TryCatch try_catch;
-       auto source =  "PLAY.scan_result(scan_rtx, scan_result_block_num, scan_result_block_time, scan_result_received_time, scan_result_trx_index, scan_w);";
+       auto source =  "PLAY.play($blockchain, $wallet, $input, $record, $trx);";
        
        v8::Handle<v8::Script> script = v8::Script::Compile( String::NewFromUtf8( my->GetIsolate(), source) );
        if ( script.IsEmpty() )

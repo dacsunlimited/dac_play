@@ -4,6 +4,8 @@ namespace bts { namespace game {
    Persistent<ObjectTemplate> v8_api::global;
    
    Persistent<FunctionTemplate> v8_api::blockchain_templ;
+    
+   Persistent<FunctionTemplate> v8_api::wallet_templ;
    
    Persistent<FunctionTemplate> v8_api::block_templ;
    
@@ -40,6 +42,25 @@ namespace bts { namespace game {
       // Again, return the result through the current handle scope.
       return handle_scope.Escape(result);
    }
+    
+    Handle<FunctionTemplate> MakeWalletTemplate( Isolate* isolate) {
+        EscapableHandleScope handle_scope(isolate);
+        
+        Local<FunctionTemplate> result = FunctionTemplate::New(isolate);
+        
+        //assign the "BlockchainContext" name to the new class template
+        result->SetClassName(String::NewFromUtf8(isolate, "Wallet"));
+        
+        //access the class template
+        Handle<ObjectTemplate> proto = result->PrototypeTemplate();
+        
+        //associates the "method" string to the callback PointMethod in the class template
+        //enabling point.method_a() constructions inside the javascript
+        proto->Set(isolate, "get_transaction_fee", FunctionTemplate::New(isolate, v8_wallet::Get_Transaction_Fee));
+        
+        // Again, return the result through the current handle scope.
+        return handle_scope.Escape(result);
+    }
    
    Handle<FunctionTemplate> MakeBlockTemplate( Isolate* isolate) {
       EscapableHandleScope handle_scope(isolate);
@@ -107,6 +128,12 @@ namespace bts { namespace game {
          Handle<FunctionTemplate> raw_template = MakeBlockChainTemplate(isolate);
          blockchain_templ.Reset(isolate, raw_template);
       }
+       
+       if ( wallet_templ.IsEmpty() )
+       {
+           Handle<FunctionTemplate> raw_template = MakeWalletTemplate(isolate);
+           wallet_templ.Reset(isolate, raw_template);
+       }
       
       if ( block_templ.IsEmpty() )
       {
@@ -266,6 +293,40 @@ namespace bts { namespace game {
       //return the value
       args.GetReturnValue().Set( Integer::New(args.GetIsolate(), value) );
    }
+    
+    Local<Object> v8_wallet::New(v8::Isolate* isolate, wallet_ptr blockchain)
+    {
+        EscapableHandleScope handle_scope(isolate);
+        // FIXME TODO: Delete this.
+        v8_wallet* local_v8_wallet = new v8_wallet(blockchain);
+        //get class template
+        Handle<FunctionTemplate> templ = Local<FunctionTemplate>::New(isolate, v8_api::wallet_templ);
+        Handle<Function> wallet_ctor = templ->GetFunction();
+        
+        //get class instance
+        Local<Object> g_wallet = wallet_ctor->NewInstance();
+        
+        //build the "bridge" between c++ and javascript by associating the 'p' pointer to the first internal
+        //field of the object
+        g_wallet->SetInternalField(0, External::New(isolate, local_v8_wallet));
+        
+        // delete v8_blockchain;
+        
+        return handle_scope.Escape(g_wallet);
+    }
+    
+    void v8_wallet::Get_Transaction_Fee( const v8::FunctionCallbackInfo<Value> &args )
+    {
+        Local<Object> self = args.Holder();
+        Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+        void* ptr = wrap->Value();
+        //get member variable value
+        auto value = static_cast<v8_wallet*>(ptr)->_wallet->get_transaction_fee();
+        v8::Isolate* isolate = v8::Isolate::GetCurrent(); // TODO: parse isolate in?
+        
+        //return the value
+        args.GetReturnValue().Set( v8_helper::cpp_to_json(isolate, value) );
+    }
    
    Local<Object> v8_chainstate::New(v8::Isolate* isolate, const pending_chain_state_ptr& pending_state)
    {

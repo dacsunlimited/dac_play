@@ -9,6 +9,8 @@
 #include <bts/wallet/wallet.hpp>
 #include <bts/wallet/wallet_records.hpp>
 
+#include <bts/game/v8_helper.hpp>
+
 #include <include/v8.h>
 #include <include/libplatform/libplatform.h>
 
@@ -41,6 +43,8 @@ namespace bts { namespace game {
       static Persistent<ObjectTemplate> global;
       
       static Persistent<FunctionTemplate> blockchain_templ;
+       
+      static Persistent<FunctionTemplate> wallet_templ;
       
       static Persistent<FunctionTemplate> block_templ;
       
@@ -71,6 +75,23 @@ namespace bts { namespace game {
         //variables
         chain_database_ptr _blockchain;
         uint32_t _block_num;
+    };
+    
+    /**
+     *  @class v8_wallet
+     *  @brief wrappers blockchain pointer to js object, wallet
+     */
+    class v8_wallet
+    {
+    public:
+        v8_wallet(wallet_ptr wallet):_wallet(wallet){}
+        
+        static Local<Object> New(v8::Isolate* isolate, wallet_ptr wallet);
+        
+        static void Get_Transaction_Fee(const v8::FunctionCallbackInfo<Value>& args);
+        
+        //variables
+        wallet_ptr _wallet;
     };
     
     /**
