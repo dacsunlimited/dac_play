@@ -320,10 +320,10 @@ namespace bts { namespace blockchain {
         const size_t message_kb = (message.size() / 1024) + 1;
         const share_type required_fee = message_kb * BTS_BLOCKCHAIN_MIN_AD_FEE;
         
-        FC_ASSERT( amount.amount >= required_fee, "Message of size ${s} KiB requires at least ${a} satoshis to be burned!",
+        FC_ASSERT( amount.amount >= required_fee, "Message of size ${s} KiB requires at least ${a} satoshis to be pay!",
                   ("s",message_kb)("a",required_fee) );
         // half of the note fees goto collected fees(delegate pay), other go to ad owner
-        eval_state.min_fees[amount.asset_id] += amount.amount / 2;
+        eval_state.min_fees[amount.asset_id] += required_fee;
         
         FC_ASSERT( owner_account_id != 0 );
         const oaccount_record owner_account_rec = eval_state.pending_state()->get_account_record( abs( this->owner_account_id ) );
@@ -334,7 +334,7 @@ namespace bts { namespace blockchain {
         if( !ad_income_balance )
             ad_income_balance = balance_record( owner_address, asset(0, 0), 0 );
         
-        auto ad_pay = amount.amount - amount.amount / 2;
+        auto ad_pay = amount.amount - required_fee;
         ad_income_balance->balance += ad_pay;
         ad_income_balance->last_update = eval_state.pending_state()->now();
         ad_income_balance->deposit_date = eval_state.pending_state()->now();
