@@ -153,8 +153,7 @@
             {
               "name" : "account_name",
               "type" : "account_name",
-              "description" : "the name of the account to fetch the burn records for",
-              "default_value" : ""
+              "description" : "the name of the account to fetch the burn records for"
             }
            ],
         "is_const"   : true,
@@ -170,8 +169,7 @@
           {
               "name" : "account_name",
               "type" : "account_name",
-              "description" : "the name of the account to fetch the ad records for",
-              "default_value" : ""
+              "description" : "the name of the account to fetch the ad records for"
           }
           ],
           "is_const"   : true,
@@ -187,8 +185,7 @@
           {
               "name" : "account_name",
               "type" : "account_name",
-              "description" : "the name of the account to fetch the note records for",
-              "default_value" : ""
+              "description" : "the name of the account to fetch the note records for"
           }
           ],
           "is_const"   : true,
