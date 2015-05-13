@@ -694,8 +694,8 @@
           "aliases" : ["note"]
       },
       {
-          "method_name": "wallet_decrypt_secret_note",
-          "description": "Get and decrypt specific secret note",
+          "method_name": "wallet_fetch_note",
+          "description": "Fetch notes and decrypt it if it is a secret note",
           "return_type": "string",
           "parameters" :
           [
