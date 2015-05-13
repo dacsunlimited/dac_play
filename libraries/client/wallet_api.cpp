@@ -371,7 +371,7 @@ wallet_transaction_record detail::client_impl::wallet_note(
     return record;
 }
     
-    string detail::client_impl::wallet_decrypt_secret_note(
+    string detail::client_impl::wallet_fetch_note(
                                                                const std::string& owner_account_name,
                                                                const std::string& transaction_id)
     { try {
@@ -385,15 +385,24 @@ wallet_transaction_record detail::client_impl::wallet_note(
         
         auto onote_record = _chain_db->get_note_record( index );
         
-        FC_ASSERT( onote_record->message->type == secret_type );
-        
-        auto secret = onote_record->message->as<secret_note>();
-        
-        auto priv_key = _wallet->get_private_key( owner_account_rec->active_key() );
-        
-        auto message = secret.decrypt( priv_key ).as<public_note>();
-        
-        return message.message;
+        if ( onote_record->message->type == secret_type )
+        {
+            auto secret = onote_record->message->as<secret_note>();
+            
+            auto priv_key = _wallet->get_private_key( owner_account_rec->active_key() );
+            
+            auto message = secret.decrypt( priv_key ).as<public_note>();
+            
+            return message.message;
+        } else if ( onote_record->message->type == public_type )
+        {
+            auto message = onote_record->message->as<public_note>();
+            
+            return message.message;
+        } else
+        {
+            FC_CAPTURE_AND_THROW( unsupported_note_type, (onote_record) );
+        }
     } FC_CAPTURE_AND_RETHROW( (owner_account_name)(transaction_id) ) }
 
 string detail::client_impl::wallet_address_create( const string& account_name,
