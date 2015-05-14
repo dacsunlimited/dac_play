@@ -65,14 +65,12 @@ namespace bts { namespace game {
          if (first) {
             first = false;
          } else {
-            printf(" ");
+             wlog(" ");
          }
-         v8::String::Utf8Value str(args[i]);
+         v8::String::Utf8Value str( toJson( args.GetIsolate(), args[i] ) );
          const char* cstr = v8_helper::ToCString(str);
-         printf("%s", cstr);
+         wlog( "The ${i}th parameter is ${s}", ("i", i)("s", cstr) );
       }
-      printf("\n");
-      fflush(stdout);
    }
    
    

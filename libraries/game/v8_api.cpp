@@ -29,6 +29,8 @@ namespace bts { namespace game {
       //associates the "method" string to the callback PointMethod in the class template
       //enabling point.method_a() constructions inside the javascript
       proto->Set(isolate, "get_current_random_seed", FunctionTemplate::New(isolate, v8_blockchain::Get_Current_Random_Seed));
+       
+       proto->Set( isolate, "get_asset_record", FunctionTemplate::New(isolate, v8_blockchain::Get_Asset_Record) );
       
       //access the instance pointer of our new class template
       Handle<ObjectTemplate> inst = result->InstanceTemplate();
@@ -298,6 +300,19 @@ namespace bts { namespace game {
       args.GetReturnValue().Set( Integer::New(args.GetIsolate(), value) );
    }
     
+    void v8_blockchain::Get_Asset_Record(const v8::FunctionCallbackInfo<Value>& args)
+    {
+        Local<Object> self = args.Holder();
+        Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+        void* ptr = wrap->Value();
+        //get member variable value
+        auto asset_record = static_cast<v8_blockchain*>(ptr)->_blockchain->get_asset_record( v8_helper::ToCString(String::Utf8Value(args[0]->ToString())) );
+        
+        wlog( "The result of asset_record is ${a}", ("a", asset_record) );
+        
+        args.GetReturnValue().Set( v8_helper::cpp_to_json(args.GetIsolate(), asset_record) );
+    }
+    
     Local<Object> v8_wallet::New(v8::Isolate* isolate, wallet_ptr wallet)
     {
         EscapableHandleScope handle_scope(isolate);
@@ -326,10 +341,9 @@ namespace bts { namespace game {
         void* ptr = wrap->Value();
         //get member variable value
         auto value = static_cast<v8_wallet*>(ptr)->_wallet->get_transaction_fee();
-        v8::Isolate* isolate = v8::Isolate::GetCurrent(); // TODO: parse isolate in?
         
         //return the value
-        args.GetReturnValue().Set( v8_helper::cpp_to_json(isolate, value) );
+        args.GetReturnValue().Set( v8_helper::cpp_to_json(args.GetIsolate(), value) );
     }
    
    Local<Object> v8_chainstate::New(v8::Isolate* isolate, const pending_chain_state_ptr& pending_state)
