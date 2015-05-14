@@ -67,8 +67,7 @@ namespace bts { namespace game {
             if ( script.IsEmpty() )
             {
                 // The TryCatch above is still in effect and will have caught the error.
-                String::Utf8Value error(try_catch.Exception());
-                FC_CAPTURE_AND_THROW(failed_compile_script, (*utf8_source)(*error));
+                FC_CAPTURE_AND_THROW(failed_compile_script, (*utf8_source)(v8_helper::ReportException(GetIsolate(), &try_catch)));
             } else
             {
                 // Run the script to get the result.
@@ -76,12 +75,10 @@ namespace bts { namespace game {
                 
                 if ( result.IsEmpty() )
                 {
-                    String::Utf8Value run_error(try_catch.Exception());
-                    FC_CAPTURE_AND_THROW(failed_run_script, (*run_error));
+                    FC_CAPTURE_AND_THROW(failed_run_script, (v8_helper::ReportException(GetIsolate(), &try_catch)));
                 } else
                 {
-                    String::Utf8Value utf8(result);
-                    wlog("The result of the running of script is ${s}", ("s",  *utf8));
+                    wlog("The result of the running of script is ${s}", ( "s",  v8_helper::ToCString(String::Utf8Value(result)) ));
                 }
             }
          }
@@ -128,12 +125,10 @@ namespace bts { namespace game {
            
            if ( result.IsEmpty() )
            {
-               String::Utf8Value run_error(try_catch.Exception());
-               FC_CAPTURE_AND_THROW(failed_run_script, (*run_error));
+               FC_CAPTURE_AND_THROW(failed_run_script, (v8_helper::ReportException(my->GetIsolate(), &try_catch)));
            } else
            {
-               String::Utf8Value utf8(result);
-               wlog("The result of the running of script is ${s}", ("s",  *utf8));
+               wlog("The result of the running of script is ${s}", ( "s",  v8_helper::ToCString(String::Utf8Value(result)) ));
            }
        }
    }
@@ -151,17 +146,20 @@ namespace bts { namespace game {
        auto isolate = my->GetIsolate();
        v8::Locker locker(isolate);
        v8::HandleScope handle_scope(my->GetIsolate());
-       v8::Local<v8::Context> context = v8::Local<v8::Context>::New(my->GetIsolate(), my->_context);
+       v8::Local<v8::Context> context = v8::Local<v8::Context>::New(isolate, my->_context);
        // Entering the context
        Context::Scope context_scope(context);
-       context->Global()->Set(String::NewFromUtf8(isolate, "$blockchain"), v8_blockchain::New(isolate, blockchain, blockchain->get_head_block_num()) );
-       // context->Global()->Set(String::NewFromUtf8(isolate, "$wallet"),  );
+       
+       wlog("Start playing game.. with var ${v}", ("v", var));
+       
+       context->Global()->Set( String::NewFromUtf8(isolate, "$blockchain"), v8_blockchain::New(isolate, blockchain, blockchain->get_head_block_num()) );
+       context->Global()->Set( String::NewFromUtf8(isolate, "$wallet"), v8_wallet::New(isolate, w) );
        
        auto _input = var; // TODO: convert/parse it to a v8 javascript object
        context->Global()->Set(String::NewFromUtf8(isolate, "$input"),  v8_helper::cpp_to_json(isolate, _input));
        context->Global()->Set(String::NewFromUtf8(isolate, "$record"),  External::New(isolate, &record ));
        context->Global()->Set(String::NewFromUtf8(isolate, "$trx"),  External::New(isolate, &trx ));
-         
+       
        v8::TryCatch try_catch;
        auto source =  "PLAY.play($blockchain, $wallet, $input, $record, $trx);";
        
@@ -177,12 +175,10 @@ namespace bts { namespace game {
            
            if ( result.IsEmpty() )
            {
-               String::Utf8Value run_error(try_catch.Exception());
-               FC_CAPTURE_AND_THROW(failed_run_script, (*run_error));
+               FC_CAPTURE_AND_THROW(failed_run_script, ( v8_helper::ReportException(isolate, &try_catch) ));
            } else
            {
-               String::Utf8Value utf8(result);
-               wlog("The result of the running of script is ${s}", ("s",  *utf8));
+               wlog("The result of the running of script is ${s}", ( "s",  v8_helper::ToCString(String::Utf8Value(result)) ));
                // TODO: deal with the result to record
            }
        }
@@ -238,12 +234,10 @@ namespace bts { namespace game {
            
            if ( result.IsEmpty() )
            {
-               String::Utf8Value run_error(try_catch.Exception());
-               FC_CAPTURE_AND_THROW(failed_run_script, (*run_error));
+               FC_CAPTURE_AND_THROW(failed_run_script, ( v8_helper::ReportException( my->GetIsolate(), &try_catch) ));
            } else
            {
-               String::Utf8Value utf8(result);
-               wlog("The result of the running of script is ${s}", ("s",  *utf8));
+               wlog("The result of the running of script is ${s}", ( "s",  v8_helper::ToCString(String::Utf8Value(result)) ));
                return result->ToBoolean(my->GetIsolate())->BooleanValue();
                // TODO: deal with the result to record
            }
@@ -284,12 +278,10 @@ namespace bts { namespace game {
            
            if ( result.IsEmpty() )
            {
-               String::Utf8Value run_error(try_catch.Exception());
-               FC_CAPTURE_AND_THROW(failed_run_script, (*run_error));
+               FC_CAPTURE_AND_THROW(failed_run_script, ( v8_helper::ReportException( my->GetIsolate(), &try_catch) ));
            } else
            {
-               String::Utf8Value utf8(result);
-               wlog("The result of the running of script is ${s}", ("s",  *utf8));
+               wlog("The result of the running of script is ${s}", ( "s",  v8_helper::ToCString(String::Utf8Value(result)) ));
                // TODO: deal with the result to record
            }
        }

@@ -54,6 +54,10 @@ namespace bts { namespace game {
         //access the class template
         Handle<ObjectTemplate> proto = result->PrototypeTemplate();
         
+        Handle<ObjectTemplate> inst = result->InstanceTemplate();
+        
+        inst->SetInternalFieldCount(1);
+        
         //associates the "method" string to the callback PointMethod in the class template
         //enabling point.method_a() constructions inside the javascript
         proto->Set(isolate, "get_transaction_fee", FunctionTemplate::New(isolate, v8_wallet::Get_Transaction_Fee));
@@ -294,11 +298,11 @@ namespace bts { namespace game {
       args.GetReturnValue().Set( Integer::New(args.GetIsolate(), value) );
    }
     
-    Local<Object> v8_wallet::New(v8::Isolate* isolate, wallet_ptr blockchain)
+    Local<Object> v8_wallet::New(v8::Isolate* isolate, wallet_ptr wallet)
     {
         EscapableHandleScope handle_scope(isolate);
         // FIXME TODO: Delete this.
-        v8_wallet* local_v8_wallet = new v8_wallet(blockchain);
+        v8_wallet* local_v8_wallet = new v8_wallet(wallet);
         //get class template
         Handle<FunctionTemplate> templ = Local<FunctionTemplate>::New(isolate, v8_api::wallet_templ);
         Handle<Function> wallet_ctor = templ->GetFunction();

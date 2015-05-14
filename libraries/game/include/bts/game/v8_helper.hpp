@@ -72,7 +72,7 @@ namespace bts { namespace game {
       
       static bool ExecuteString(v8::Isolate* isolate, v8::Handle<v8::String> source, v8::Handle<v8::String> name, bool print_result, bool report_exceptions);
       
-      static void ReportException(v8::Isolate* isolate, v8::TryCatch* try_catch);
+      static std::string ReportException(v8::Isolate* isolate, v8::TryCatch* try_catch);
       
       static const char* ToCString(const v8::String::Utf8Value& value);
    };

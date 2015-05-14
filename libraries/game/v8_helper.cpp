@@ -1,4 +1,5 @@
 #include <bts/game/v8_helper.hpp>
+#include <boost/format.hpp>
 
 namespace bts { namespace game {
     Handle<Value> v8_helper::parseJson(Isolate* isolate, Handle<Value> jsonString) {
@@ -34,19 +35,19 @@ namespace bts { namespace game {
       // Create a template for the global object.
       v8::Handle<v8::ObjectTemplate> global = v8::ObjectTemplate::New(isolate);
       // Bind the global 'print' function to the C++ Print callback.
-      //global->Set(v8::String::NewFromUtf8(isolate, "print"), v8::FunctionTemplate::New(isolate, Print));
+      global->Set(v8::String::NewFromUtf8(isolate, "print"), v8::FunctionTemplate::New(isolate, Print));
       
       // Bind the global 'read' function to the C++ Read callback.
-      //global->Set(v8::String::NewFromUtf8(isolate, "read"), v8::FunctionTemplate::New(isolate, Read));
+      global->Set(v8::String::NewFromUtf8(isolate, "read"), v8::FunctionTemplate::New(isolate, Read));
       
        // Bind the global 'load' function to the C++ Load callback.
-      //global->Set(v8::String::NewFromUtf8(isolate, "load"), v8::FunctionTemplate::New(isolate, Load));
+      global->Set(v8::String::NewFromUtf8(isolate, "load"), v8::FunctionTemplate::New(isolate, Load));
       
        // Bind the 'quit' function
       // global->Set(v8::String::NewFromUtf8(isolate, "quit"), v8::FunctionTemplate::New(isolate, Quit));
       
-       // Bind the 'version' function
-      //global->Set(v8::String::NewFromUtf8(isolate, "version"), v8::FunctionTemplate::New(isolate, Version));
+       // Bind the 'version' function, TODO might conflict with game version
+      // global->Set(v8::String::NewFromUtf8(isolate, "version"), v8::FunctionTemplate::New(isolate, Version));
       
       // TODO Reset
       // TODO Transaction Template
@@ -207,7 +208,9 @@ namespace bts { namespace game {
       }
    }
    
-   void v8_helper::ReportException(v8::Isolate* isolate, v8::TryCatch* try_catch) {
+    std::string v8_helper::ReportException(v8::Isolate* isolate, v8::TryCatch* try_catch) {
+       std::stringstream ss;
+       
       v8::HandleScope handle_scope(isolate);
       v8::String::Utf8Value exception(try_catch->Exception());
       const char* exception_string = ToCString(exception);
@@ -215,33 +218,40 @@ namespace bts { namespace game {
       if (message.IsEmpty()) {
          // V8 didn't provide any extra information about this error; just
          // print the exception.
-         fprintf(stderr, "%s\n", exception_string);
+          ss << exception_string << "\n";
       } else {
          // Print (filename):(line number): (message).
          v8::String::Utf8Value filename(message->GetScriptOrigin().ResourceName());
          const char* filename_string = ToCString(filename);
          int linenum = message->GetLineNumber();
-         fprintf(stderr, "%s:%i: %s\n", filename_string, linenum, exception_string);
+         
+          ss << boost::format("%s:%i: %s\n")%filename_string%linenum%exception_string;
+          
          // Print line of source code.
          v8::String::Utf8Value sourceline(message->GetSourceLine());
          const char* sourceline_string = ToCString(sourceline);
-         fprintf(stderr, "%s\n", sourceline_string);
+          
+          ss << boost::format("%s\n")%sourceline_string;
+          
          // Print wavy underline (GetUnderline is deprecated).
          int start = message->GetStartColumn();
          for (int i = 0; i < start; i++) {
-            fprintf(stderr, " ");
+             ss << " ";
          }
          int end = message->GetEndColumn();
          for (int i = start; i < end; i++) {
-            fprintf(stderr, "^");
+             ss << "^";
          }
-         fprintf(stderr, "\n");
+          ss << "\n";
+          
          v8::String::Utf8Value stack_trace(try_catch->StackTrace());
          if (stack_trace.length() > 0) {
             const char* stack_trace_string = ToCString(stack_trace);
-            fprintf(stderr, "%s\n", stack_trace_string);
+             ss << boost::format("%s\n")%stack_trace_string;
          }
       }
+       
+       return ss.str();
    }
    
    // Extracts a C string from a V8 Utf8Value.
