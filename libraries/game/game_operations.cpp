@@ -69,7 +69,7 @@ namespace bts { namespace game {
         if( NOT ogame.valid() )
             FC_CAPTURE_AND_THROW( unknown_game, (input.game_id) );
         
-        bts::game::client::get_current().get_v8_engine( ogame->name )->evaluate( eval_state );
+        bts::game::client::get_current().get_v8_engine( ogame->name )->evaluate( eval_state, input.game_id, input.data );
 
     } FC_CAPTURE_AND_RETHROW( (*this) ) }
 

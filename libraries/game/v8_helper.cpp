@@ -1,4 +1,7 @@
+#include <bts/blockchain/types.hpp>
+
 #include <bts/game/v8_helper.hpp>
+
 #include <boost/format.hpp>
 
 namespace bts { namespace game {
@@ -28,6 +31,31 @@ namespace bts { namespace game {
         return handle_scope.Escape(JSON_stringify->Call(JSON, 1, &object)->ToString());
     }
     
+    void v8_helper::trx_id_to_hash_array(const v8::FunctionCallbackInfo<v8::Value>& args )
+    {
+        HandleScope handle_scope(args.GetIsolate());
+        
+        // Create a new empty array.
+        Handle<Array> array = Array::New(args.GetIsolate(), 5);
+        
+        // Return an empty result if there was an error creating the array.
+        if (array.IsEmpty())
+            args.GetReturnValue().Set(Handle<Array>());
+        
+        auto trx_id = json_to_cpp<bts::blockchain::transaction_id_type>(args.GetIsolate(), args[0]);
+        
+        // Fill out the values
+        array->Set( 0, Integer::New(args.GetIsolate(), trx_id._hash[0]) );
+        array->Set( 1, Integer::New(args.GetIsolate(), trx_id._hash[1]) );
+        array->Set( 2, Integer::New(args.GetIsolate(), trx_id._hash[2]) );
+        array->Set( 3, Integer::New(args.GetIsolate(), trx_id._hash[3]) );
+        array->Set( 4, Integer::New(args.GetIsolate(), trx_id._hash[4]) );
+        
+        // Return the value through Close.
+        
+        args.GetReturnValue().Set( array );
+    }
+    
     
    // Creates a new execution environment containing the built-in
    // functions.
@@ -51,6 +79,8 @@ namespace bts { namespace game {
       
       // TODO Reset
       // TODO Transaction Template
+       
+       global->Set(v8::String::NewFromUtf8(isolate, "trx_id_to_hash_array"), v8::FunctionTemplate::New(isolate, trx_id_to_hash_array) );
       
       return v8::Context::New(isolate, NULL, global);
    }

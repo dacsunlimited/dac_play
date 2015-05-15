@@ -2063,7 +2063,7 @@ namespace bts { namespace blockchain {
    void chain_database::store_game_data_record( const game_id_type& game_id, const data_id_type& data_id, const game_data_record& r )
    {
        try {
-           ilog( "rule data record: ${r}", ("r",r) );
+           ilog( "game data record: ${r}", ("r",r) );
            if( r.is_null() )
            {
                my->_game_data_db.remove( std::make_pair(game_id, data_id) );

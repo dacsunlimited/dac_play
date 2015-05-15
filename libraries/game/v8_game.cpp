@@ -96,23 +96,27 @@ namespace bts { namespace game {
    }
    
     // TODO: shoud provide with game_input
-   void v8_game_engine::evaluate( transaction_evaluation_state& eval_state )
+   void v8_game_engine::evaluate( transaction_evaluation_state& eval_state, game_id_type game_id, const variant& var)
    {
-       // TODO: what is isolate scope. v8::Isolate::Scope isolate_scope(isolate);
-       v8::Locker locker(my->GetIsolate());
-       v8::HandleScope handle_scope(my->GetIsolate());
+       auto isolate = my->GetIsolate();
+       v8::Locker locker( isolate );
+       v8::HandleScope handle_scope( isolate );
        v8::Local<v8::Context> context = v8::Local<v8::Context>::New(my->GetIsolate(), my->_context);
       
        // Entering the context
        Context::Scope context_scope(context);
-       //context->Global()->Set(String::NewFromUtf8(isolate, "scan_result_trx"), External::New(isolate, rtrx));
+       
+       wlog("Start evaluating the game.. with var ${v}", ("v", var));
       
-       // TODO: Rewriting the global of the context
-       // context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "evaluate_block_num"), v8_evalstate::New(my->GetIsolate(), eval_state.shared_from_this()));
+       // TODO: Rewriting the global of the context, Is the Global() geting the local context or top global context?
+       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "$eval_state"), v8_evalstate::New( isolate, &eval_state ));
+       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "$pending_state"), v8_chainstate::New( isolate, eval_state.pending_state()->shared_from_this() ));
+       auto _input = var; // TODO: convert/parse it to a v8 javascript object
+       context->Global()->Set(String::NewFromUtf8(isolate, "$input"),  v8_helper::cpp_to_json(isolate, _input));
       
        v8::TryCatch try_catch;
        
-       auto source = "PLAY.scan_result(scan_rtx, scan_result_block_num, scan_result_block_time, scan_result_received_time, scan_result_trx_index, scan_w);";
+       auto source = "PLAY.evaluate($eval_state, $pending_state, $input);";
        
        v8::Handle<v8::Script> script = v8::Script::Compile( String::NewFromUtf8( my->GetIsolate(), source) );
        if ( script.IsEmpty() )
@@ -130,6 +134,86 @@ namespace bts { namespace game {
            } else
            {
                wlog("The result of the running of script is ${s}", ( "s",  v8_helper::ToCString(String::Utf8Value(result)) ));
+               
+               auto result_obj = v8_helper::json_to_cpp<variant>( isolate, result );
+               
+               FC_ASSERT( result_obj.is_object() );
+               FC_ASSERT( result_obj.get_object().contains( "to_balances" ) );
+               FC_ASSERT( result_obj.get_object().contains( "datas" ) );
+               auto to_balances_var = result_obj.get_object()["to_balances"];
+               FC_ASSERT( to_balances_var.is_array() );
+               
+               for ( auto to_balance : to_balances_var.get_array() )
+               {
+                   FC_ASSERT( to_balance.is_object() );
+                   FC_ASSERT( to_balance.get_object().contains( "owner") );
+                   FC_ASSERT( to_balance.get_object()["owner"].is_string() );
+                   FC_ASSERT( to_balance.get_object().contains( "asset") );
+                   address owner( to_balance.get_object()["owner"].as_string() );
+                   auto asset_amount = to_balance.get_object()["asset"].as<asset>();
+                   
+                   auto game_asset = eval_state.pending_state()->get_asset_record( asset_amount.asset_id );
+                   FC_ASSERT( game_asset.valid() );
+                   FC_ASSERT( game_asset->is_game_issued() );
+                   FC_ASSERT( game_asset->issuer.issuer_id == game_id, "Adding the game asset must get the permission, with the condition that the issuer is this game." );
+                   
+                   withdraw_condition to_condition( withdraw_with_signature(owner), asset_amount.asset_id);
+                   
+                   obalance_record to_record = eval_state.pending_state()->get_balance_record( to_condition.get_address() );
+                   if( !to_record.valid() )
+                   {
+                       to_record = balance_record( to_condition );
+                   }
+                   
+                   if( to_record->balance == 0 )  // Not possible for current consensus
+                   {
+                       to_record->deposit_date = eval_state.pending_state()->now();
+                   }
+                   else
+                   {
+                       fc::uint128 old_sec_since_epoch( to_record->deposit_date.sec_since_epoch() );
+                       fc::uint128 new_sec_since_epoch( eval_state.pending_state()->now().sec_since_epoch() );
+                       
+                       fc::uint128 avg = (old_sec_since_epoch * to_record->balance) + (new_sec_since_epoch * asset_amount.amount);
+                       avg /= (to_record->balance + asset_amount.amount);
+                       
+                       to_record->deposit_date = time_point_sec( avg.to_integer() );
+                   }
+                   
+                   to_record->balance += asset_amount.amount;
+                   eval_state.sub_balance( asset_amount );
+                   
+                   to_record->last_update = eval_state.pending_state()->now();
+                   
+                   eval_state.pending_state()->store_balance_record( *to_record );
+               }
+               
+               auto datas_var = result_obj.get_object()["datas"];
+               FC_ASSERT( datas_var.is_array() );
+               
+               for ( auto data : datas_var.get_array() )
+               {
+                   if (data.is_object())
+                   {
+                       FC_ASSERT( data.get_object().contains( "index") );
+                       FC_ASSERT( data.get_object()["index"].is_numeric() );
+                       
+                       game_data_record game_data;
+                       game_data.game_id = game_id;
+                       game_data.data = data;
+                       
+                       eval_state.pending_state()->store_game_data_record(game_id, game_data.get_game_data_index(), game_data );
+                   } else if ( data.is_numeric() ) // TODO: Remove game_data_record, when directly return a number
+                   {
+                       data_id_type data_id = data.as<data_id_type>();
+                       game_data_record game_data;
+                       game_data.data = fc::mutable_variant_object( "index", data_id );
+                       game_data.make_null();
+                       
+                       eval_state.pending_state()->store_game_data_record(game_id, data_id, game_data );
+                   }
+                   
+               }
            }
        }
    }
@@ -147,7 +231,7 @@ namespace bts { namespace game {
       
        auto isolate = my->GetIsolate();
        v8::Locker locker(isolate);
-       v8::HandleScope handle_scope(my->GetIsolate());
+       v8::HandleScope handle_scope( isolate );
        v8::Local<v8::Context> context = v8::Local<v8::Context>::New(isolate, my->_context);
        // Entering the context
        Context::Scope context_scope(context);

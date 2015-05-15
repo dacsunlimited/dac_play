@@ -132,16 +132,18 @@ namespace bts { namespace game {
     class v8_evalstate
     {
     public:
-        v8_evalstate(transaction_evaluation_state_ptr eval_state): _eval_state(eval_state){}
+        v8_evalstate(transaction_evaluation_state* eval_state): _eval_state(eval_state){}
         
-        transaction_evaluation_state_ptr _eval_state;
+        transaction_evaluation_state* _eval_state;
         
-        static Local<Object> New(v8::Isolate* isolate, transaction_evaluation_state_ptr eval_state);
+        static Local<Object> New(v8::Isolate* isolate, transaction_evaluation_state* eval_state);
         
         /**
          * @brief Method for v8_evalstate
          * @return TODO JS Object
          */
         static void Sub_Balance(const v8::FunctionCallbackInfo<Value>& args);
+        
+        static void Get_Transaction_Id(const v8::FunctionCallbackInfo<Value>& args);
     };
 } } // bts::game

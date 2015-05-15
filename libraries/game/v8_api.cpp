@@ -121,6 +121,8 @@ namespace bts { namespace game {
       Handle<ObjectTemplate> eval_state_proto = result->PrototypeTemplate();
       
       eval_state_proto->Set(isolate, "sub_balance", FunctionTemplate::New(isolate, v8_evalstate::Sub_Balance));
+       
+       eval_state_proto->Set(isolate, "get_transaction_id", FunctionTemplate::New(isolate, v8_evalstate::Get_Transaction_Id));
       
       // Again, return the result through the current handle scope.
       return handle_scope.Escape(result);
@@ -388,7 +390,13 @@ namespace bts { namespace game {
       
       auto asset_record = static_cast<v8_chainstate*>(ptr)->_chain_state->get_asset_record(wrapper_asset_id->Int32Value());
       
-      args.GetReturnValue().Set( External::New(args.GetIsolate(), &asset_record) );
+      if ( asset_record.valid() )
+      {
+           args.GetReturnValue().Set( v8_helper::cpp_to_json(args.GetIsolate(), *asset_record) );
+      } else
+      {
+          args.GetReturnValue().Set( v8::Null(args.GetIsolate() ) );
+      }
    }
    
    void v8_chainstate::Get_Game_Data_Record(const v8::FunctionCallbackInfo<Value>& args)
@@ -401,8 +409,13 @@ namespace bts { namespace game {
       Local<Integer> wrapper_id = Local<Integer>::Cast(args[1]);
       
       auto game_data_record = static_cast<v8_chainstate*>(ptr)->_chain_state->get_game_data_record(wrapper_type->Int32Value(), wrapper_id->Int32Value() );
-      
-      args.GetReturnValue().Set( External::New(args.GetIsolate(), &game_data_record) );
+       
+       if ( game_data_record.valid() )
+       {
+           args.GetReturnValue().Set( v8_helper::cpp_to_json(args.GetIsolate(), *game_data_record ) );
+       } else {
+           args.GetReturnValue().Set( v8::Null( args.GetIsolate() ) );
+       }
    }
    
    void v8_chainstate::Store_Blance_Record(const v8::FunctionCallbackInfo<Value>& args)
@@ -441,23 +454,25 @@ namespace bts { namespace game {
       
       Local<Integer> wrapper_type = Local<Integer>::Cast(args[0]);
       Local<Integer> wrapper_id = Local<Integer>::Cast(args[1]);
-      Local<External> wrap_rule_data = Local<External>::Cast(args[2]);
+      Local<Object> wrap_game_data = Local<Object>::Cast(args[2]);
       
       // TODO: parse json to C++ struct, from variant
-      static_cast<v8_chainstate*>(ptr)->_chain_state->store_game_data_record(wrapper_type->Int32Value(), wrapper_id->Int32Value(), * static_cast<blockchain::game_data_record*>(wrap_rule_data->Value()) );
+       static_cast<v8_chainstate*>(ptr)->_chain_state->store_game_data_record(wrapper_type->Int32Value(), wrapper_id->Int32Value(), v8_helper::json_to_cpp<game_data_record>(args.GetIsolate(), wrap_game_data ) );
    }
    
-   Local<Object> v8_evalstate::New(v8::Isolate* isolate, transaction_evaluation_state_ptr eval_state)
+   Local<Object> v8_evalstate::New(v8::Isolate* isolate, transaction_evaluation_state* eval_state_ptr)
    {
       EscapableHandleScope handle_scope(isolate);
       
-      v8_evalstate* local_v8_evalstate = new v8_evalstate(eval_state);
+      v8_evalstate* local_v8_evalstate = new v8_evalstate(eval_state_ptr);
       
       Handle<FunctionTemplate> templ = Local<FunctionTemplate>::New(isolate, v8_api::eval_state_templ);
       
       Handle<Function> evalstate_ctor = templ->GetFunction();
       Local<Object> g_evalstate = evalstate_ctor->NewInstance();
       g_evalstate->SetInternalField(0, External::New(isolate, local_v8_evalstate));
+       
+       
       return handle_scope.Escape(g_evalstate);
    }
    
@@ -476,4 +491,15 @@ namespace bts { namespace game {
       // TODO: parse json to C++ struct, from variant
       static_cast<v8_evalstate*>(ptr)->_eval_state->sub_balance( * static_cast<asset*>(wrap_asset->Value() ) );
    }
+    
+    void v8_evalstate::Get_Transaction_Id(const v8::FunctionCallbackInfo<Value>& args)
+    {
+        Local<Object> self = args.Holder();
+        Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+        void* ptr = wrap->Value();
+        
+        auto trx_id = static_cast<v8_evalstate*>(ptr)->_eval_state->trx.id();
+        
+        args.GetReturnValue().Set( v8_helper::cpp_to_json( args.GetIsolate(), trx_id ) );
+    }
 } } // bts::game

@@ -38,7 +38,7 @@ namespace bts { namespace game {
       
       ~v8_game_engine(){};
       
-      void evaluate( transaction_evaluation_state& eval_state);
+      void evaluate( transaction_evaluation_state& eval_state, game_id_type game_id, const variant& var);
       
       wallet_transaction_record play( game_id_type game_id, chain_database_ptr blockchain, bts::wallet::wallet_ptr w, const variant& var, bool sign );
       

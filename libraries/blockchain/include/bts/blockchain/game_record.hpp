@@ -55,37 +55,28 @@ namespace bts { namespace blockchain {
     
     struct game_data_record
     {
-        game_data_record():type(0){}
+        game_data_record():game_id(0){}
         
-        template<typename RecordType>
-        game_data_record( const RecordType& rec )
-        :type( int(RecordType::type) ),data(rec)
-        { }
-        
-        template<typename RecordType>
-        RecordType as()const;
-        
-        // TODO: Figure out what following index used for
         int32_t get_game_data_index()const
         { try {
             FC_ASSERT( data.is_object() );
             FC_ASSERT( data.get_object().contains( "index" ) );
-            return data.get_object()["index"].as<int32_t>();
+            return data.get_object()["index"].as<data_id_type>();
         } FC_RETHROW_EXCEPTIONS( warn, "" ) }
         
         bool is_null()const
         {
-            return type == 0;
+            return game_id == 0;
         }
         
         game_data_record make_null()const
         {
             game_data_record cpy(*this);
-            cpy.type = 0;
+            cpy.game_id = 0;
             return cpy;
         }
         
-        uint8_t                                          type;
+        game_id_type                                     game_id;
         fc::variant                                      data;
     };
     
@@ -122,30 +113,10 @@ FC_REFLECT( bts::blockchain::game_record,
            )
 
 FC_REFLECT( bts::blockchain::game_data_record,
-           (type)
+           (game_id)
            (data)
            )
 FC_REFLECT_TYPENAME( std::vector<bts::blockchain::game_result_transaction> )
 FC_REFLECT( bts::blockchain::game_result_transaction,
            (type)(data)
            )
-
-namespace bts { namespace blockchain {
-    template<typename RecordType>
-    RecordType game_data_record::as()const
-    {
-        FC_ASSERT( type == RecordType::type, "",
-                  ("type",type));
-        
-        return data.as<RecordType>();
-    }
-    
-    template<typename RecordType>
-    RecordType game_result_transaction::as()const
-    {
-        FC_ASSERT( type == RecordType::type, "",
-                  ("type",type));
-        
-        return data.as<RecordType>();
-    }
-} }
