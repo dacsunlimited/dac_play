@@ -7,6 +7,7 @@
 
 #include <bts/wallet/wallet.hpp>
 #include <bts/wallet/wallet_records.hpp>
+#include <bts/wallet/exceptions.hpp>
 
 #include <bts/game/rule_record.hpp>
 
@@ -16,6 +17,14 @@ namespace bts { namespace game {
    
    class client;
    namespace detail { class v8_game_engine_impl; }
+    
+    struct play_code
+    {
+        string from_account;
+        string to_account;
+        asset  amount;
+        string memo;
+    };
    
    /**
     * @class v8_game_engine
@@ -31,7 +40,7 @@ namespace bts { namespace game {
       
       void evaluate( transaction_evaluation_state& eval_state);
       
-      wallet_transaction_record play( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, const variant& var, bool sign );
+      wallet_transaction_record play( game_id_type game_id, chain_database_ptr blockchain, bts::wallet::wallet_ptr w, const variant& var, bool sign );
       
       bool scan( wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w );
       

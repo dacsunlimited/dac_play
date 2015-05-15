@@ -4,6 +4,7 @@
 #include <bts/game/v8_api.hpp>
 #include <bts/game/v8_game.hpp>
 #include <bts/game/client.hpp>
+#include <bts/game/game_operations.hpp>
 
 #include <fc/log/logger.hpp>
 
@@ -133,13 +134,14 @@ namespace bts { namespace game {
        }
    }
    
-   wallet_transaction_record v8_game_engine::play( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, const variant& var, bool sign )
+   wallet_transaction_record v8_game_engine::play( game_id_type game_id, chain_database_ptr blockchain, bts::wallet::wallet_ptr w, const variant& var, bool sign )
    {
-      
        signed_transaction     trx;
        unordered_set<address> required_signatures;
       
        trx.expiration = now() + w->get_transaction_expiration();
+       
+       const auto required_fees = w->get_transaction_fee();
       
        auto record = wallet_transaction_record();
       
@@ -157,12 +159,11 @@ namespace bts { namespace game {
        
        auto _input = var; // TODO: convert/parse it to a v8 javascript object
        context->Global()->Set(String::NewFromUtf8(isolate, "$input"),  v8_helper::cpp_to_json(isolate, _input));
-       context->Global()->Set(String::NewFromUtf8(isolate, "$record"),  External::New(isolate, &record ));
-       context->Global()->Set(String::NewFromUtf8(isolate, "$trx"),  External::New(isolate, &trx ));
        
        v8::TryCatch try_catch;
        auto source =  "PLAY.play($blockchain, $wallet, $input, $record, $trx);";
        
+       vector<play_code> codes;
        v8::Handle<v8::Script> script = v8::Script::Compile( String::NewFromUtf8( my->GetIsolate(), source) );
        if ( script.IsEmpty() )
        {
@@ -179,9 +180,84 @@ namespace bts { namespace game {
            } else
            {
                wlog("The result of the running of script is ${s}", ( "s",  v8_helper::ToCString(String::Utf8Value(result)) ));
-               // TODO: deal with the result to record
+               FC_ASSERT(result->IsArray(), "The script result should be array!");
+               
+               while ( result->IsArray() )
+               {
+                   v8::Handle<v8::Array> array = v8::Handle<v8::Array>::Cast(result);
+                   FC_ASSERT( array->Length() >= 4 );
+                   play_code code;
+                   code.from_account = v8_helper::ToCString( String::Utf8Value( array->Get( 0 )->ToString( isolate ) ) );
+                   code.to_account = v8_helper::ToCString( String::Utf8Value( array->Get( 1 )->ToString( isolate ) ) );
+                   code.amount = v8_helper::json_to_cpp<asset>(isolate, array->Get( 2 ) );
+                   code.memo = v8_helper::ToCString( String::Utf8Value( array->Get( 3 )->ToString( isolate ) ) );
+                   
+                   codes.push_back( code );
+                   if ( array->Length() >= 5 && array->Get( 4 )->IsArray() )
+                   {
+                       result = array->Get( 4 );
+                   } else
+                   {
+                       break;
+                   }
+               }
            }
        }
+       
+       FC_ASSERT( codes.size() > 0, "The result codes of play should exist at least 1." );
+       
+       bool first = true;
+       for ( auto code : codes )
+       {
+           if( ! blockchain->is_valid_account_name( code.from_account ) )
+               FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("game_account_name", code.from_account) );
+           
+           if( ! blockchain->is_valid_account_name( code.to_account ) )
+               FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("game_account_name", code.to_account) );
+           
+           auto play_account = blockchain->get_account_record(code.from_account);
+           
+           auto to_account = blockchain->get_account_record(code.to_account);
+           
+           
+           // TO REVIEW: permission limitation to other assets
+           auto game_asset = blockchain->get_asset_record( code.amount.asset_id );
+           FC_ASSERT( game_asset.valid() );
+           FC_ASSERT( game_asset->is_game_issued() );
+           FC_ASSERT( game_asset->issuer.issuer_id == game_id, "Spending the game asset must get the permission, with the condition that the issuer is this game." );
+           
+           // TODO make sure it is using account active key
+           w->withdraw_to_transaction(code.amount,
+                                      code.from_account,
+                                      trx,
+                                      required_signatures);
+           
+           // withdraw the transaction fee from the first account name
+           if ( first )
+           {
+               w->withdraw_to_transaction( required_fees,
+                                          code.from_account,
+                                          trx,
+                                          required_signatures );
+               first = false;
+           }
+           
+           auto entry = ledger_entry();
+           entry.from_account = play_account->active_key();
+           entry.to_account = to_account->active_key();
+           entry.amount = code.amount;
+           entry.memo = code.memo;
+           record.ledger_entries.push_back( entry );
+           
+           required_signatures.insert( play_account->active_key() );
+       }
+       
+       game_input input;
+       input.game_id = game_id;
+       input.data = var;
+       trx.operations.push_back( game_operation(input) );
+       
+       record.fee = required_fees;
       
       if( sign )
          w->sign_transaction( trx, required_signatures );
