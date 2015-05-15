@@ -161,7 +161,7 @@ namespace bts { namespace game {
        context->Global()->Set(String::NewFromUtf8(isolate, "$input"),  v8_helper::cpp_to_json(isolate, _input));
        
        v8::TryCatch try_catch;
-       auto source =  "PLAY.play($blockchain, $wallet, $input, $record, $trx);";
+       auto source =  "PLAY.play($blockchain, $wallet, $input);";
        
        vector<play_code> codes;
        v8::Handle<v8::Script> script = v8::Script::Compile( String::NewFromUtf8( my->GetIsolate(), source) );
