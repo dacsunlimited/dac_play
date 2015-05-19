@@ -117,7 +117,6 @@ namespace bts { namespace game {
        v8::TryCatch try_catch;
        
        auto source = "PLAY.evaluate($eval_state, $pending_state, $input);";
-       
        v8::Handle<v8::Script> script = v8::Script::Compile( String::NewFromUtf8( my->GetIsolate(), source) );
        if ( script.IsEmpty() )
        {

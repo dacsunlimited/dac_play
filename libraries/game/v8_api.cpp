@@ -123,6 +123,12 @@ namespace bts { namespace game {
       eval_state_proto->Set(isolate, "sub_balance", FunctionTemplate::New(isolate, v8_evalstate::Sub_Balance));
        
        eval_state_proto->Set(isolate, "get_transaction_id", FunctionTemplate::New(isolate, v8_evalstate::Get_Transaction_Id));
+       
+       //access the instance pointer of our new class template
+       Handle<ObjectTemplate> inst = result->InstanceTemplate();
+       
+       //set the internal fields of the class as we have the Point class internally
+       inst->SetInternalFieldCount(1);
       
       // Again, return the result through the current handle scope.
       return handle_scope.Escape(result);
@@ -467,7 +473,6 @@ namespace bts { namespace game {
       v8_evalstate* local_v8_evalstate = new v8_evalstate(eval_state_ptr);
       
       Handle<FunctionTemplate> templ = Local<FunctionTemplate>::New(isolate, v8_api::eval_state_templ);
-      
       Handle<Function> evalstate_ctor = templ->GetFunction();
       Local<Object> g_evalstate = evalstate_ctor->NewInstance();
       g_evalstate->SetInternalField(0, External::New(isolate, local_v8_evalstate));
