@@ -44,7 +44,7 @@ namespace bts { namespace game {
        static client& get_current();
        
       // TODO: store the script to related game id
-      fc::signal<void( std::string, std::string, std::string )> game_claimed_script;
+      fc::signal<void( std::string, std::string)> game_claimed_script;
        
    private:
       std::shared_ptr<detail::client_impl> my;

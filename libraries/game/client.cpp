@@ -101,7 +101,7 @@ namespace bts { namespace game {
                                                                  );
                _http_callback_signal_connection =
                self->game_claimed_script.connect(
-                                                 [=]( std::string code, std::string name, std::string hash) { this->script_http_callback( code, name, hash ); } );
+                                                 [=]( std::string code, std::string name) { this->script_http_callback( code, name ); } );
                 
             } catch (...) {
             }
@@ -135,9 +135,9 @@ namespace bts { namespace game {
           }
          
          // Debuging file from operation and save to data_dir
-          void script_http_callback( const std::string code, std::string game_name, std::string script_hash )
+          void script_http_callback( const std::string code, std::string game_name )
          {
-            ilog("Storing the game code in a directory for viewing", ("game_name", game_name)("hash", script_hash) );
+            ilog("Storing the game code in a directory for viewing", ("game_name", game_name) );
             fc::async( [=]()
                       {
                          

@@ -314,11 +314,22 @@ namespace bts { namespace game {
         Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
         void* ptr = wrap->Value();
         //get member variable value
-        auto asset_record = static_cast<v8_blockchain*>(ptr)->_blockchain->get_asset_record( v8_helper::ToCString(String::Utf8Value(args[0]->ToString())) );
+        oasset_record asset_rec;
+        if ( args[0]->IsString() )
+        {
+            asset_rec = static_cast<v8_blockchain*>(ptr)->_blockchain->get_asset_record( v8_helper::ToCString(String::Utf8Value(args[0]->ToString())) );
+        } else
+        {
+            asset_rec = static_cast<v8_blockchain*>(ptr)->_blockchain->get_asset_record( v8_helper::ToCString(String::Utf8Value( args[0]->ToInt32() )) );
+        }
         
-        wlog( "The result of asset_record is ${a}", ("a", asset_record) );
-        
-        args.GetReturnValue().Set( v8_helper::cpp_to_json(args.GetIsolate(), asset_record) );
+        if ( asset_rec.valid() )
+        {
+            args.GetReturnValue().Set( v8_helper::cpp_to_json(args.GetIsolate(), *asset_rec) );
+        } else
+        {
+            args.GetReturnValue().Set( v8::Null(args.GetIsolate() ) );
+        }
     }
     
     Local<Object> v8_wallet::New(v8::Isolate* isolate, wallet_ptr wallet)
@@ -392,13 +403,18 @@ namespace bts { namespace game {
       Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
       void* ptr = wrap->Value();
       
-      Local<Integer> wrapper_asset_id = Local<Integer>::Cast(args[0]);
+       oasset_record asset_rec;
+       if ( args[0]->IsString() )
+       {
+           asset_rec = static_cast<v8_chainstate*>(ptr)->_chain_state->get_asset_record( v8_helper::ToCString(String::Utf8Value(args[0]->ToString())) );
+       } else
+       {
+           asset_rec = static_cast<v8_chainstate*>(ptr)->_chain_state->get_asset_record( v8_helper::ToCString(String::Utf8Value( args[0]->ToInt32() )) );
+       }
       
-      auto asset_record = static_cast<v8_chainstate*>(ptr)->_chain_state->get_asset_record(wrapper_asset_id->Int32Value());
-      
-      if ( asset_record.valid() )
+      if ( asset_rec.valid() )
       {
-           args.GetReturnValue().Set( v8_helper::cpp_to_json(args.GetIsolate(), *asset_record) );
+           args.GetReturnValue().Set( v8_helper::cpp_to_json(args.GetIsolate(), *asset_rec) );
       } else
       {
           args.GetReturnValue().Set( v8::Null(args.GetIsolate() ) );

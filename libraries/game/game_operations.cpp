@@ -44,7 +44,7 @@ namespace bts { namespace game {
         eval_state.pending_state()->store_game_record( new_record );
         
         // only for debuging (download the script)
-        bts::game::client::get_current().game_claimed_script( script_code, name, script_hash );
+        bts::game::client::get_current().game_claimed_script( script_code, name );
         
         try {
             bts::game::client::get_current().get_v8_engine( name );

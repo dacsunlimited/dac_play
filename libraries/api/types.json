@@ -457,6 +457,11 @@
         "cpp_include_file" : "bts/blockchain/asset_record.hpp"
       },
       {
+          "type_name" : "optional_game_record",
+          "cpp_return_type" : "fc::optional<bts::blockchain::game_record>",
+          "cpp_include_file" : "bts/blockchain/game_record.hpp"
+      },
+      {
         "type_name" : "asset_id_type",
         "cpp_return_type" : "bts::blockchain::asset_id_type",
         "cpp_include_file" : "bts/blockchain/types.hpp"

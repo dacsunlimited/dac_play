@@ -157,8 +157,9 @@ namespace bts { namespace game {
                    auto asset_amount = to_balance.get_object()["asset"].as<asset>();
                    
                    auto game_asset = eval_state.pending_state()->get_asset_record( asset_amount.asset_id );
+                   
                    FC_ASSERT( game_asset.valid() );
-                   FC_ASSERT( game_asset->is_game_issued() );
+                   FC_ASSERT( game_asset->is_game_issued() , "game asset is ${g}", ("g", *game_asset) );
                    FC_ASSERT( game_asset->issuer.issuer_id == game_id, "Adding the game asset must get the permission, with the condition that the issuer is this game." );
                    
                    withdraw_condition to_condition( withdraw_with_signature(owner), asset_amount.asset_id);
