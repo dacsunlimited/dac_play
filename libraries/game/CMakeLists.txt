@@ -1,6 +1,6 @@
 file(GLOB HEADERS "include/bts/game/*.hpp")
 
-set(SOURCES http_downloader.cpp game_operations.cpp client.cpp v8_helper.cpp v8_api.cpp v8_game.cpp)
+set(SOURCES game_operations.cpp client.cpp v8_helper.cpp v8_api.cpp v8_game.cpp)
 
 add_library( bts_game ${SOURCES} ${HEADERS} )
 

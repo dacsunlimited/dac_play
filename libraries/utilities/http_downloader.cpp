@@ -1,9 +1,11 @@
-#include <bts/game/http_downloader.hpp>
+#include <bts/utilities/http_downloader.hpp>
 #include <curl/curl.h>
 #include <curl/easy.h>
 #include <curl/curlbuild.h>
 #include <sstream>
 #include <iostream>
+
+namespace bts { namespace utilities {
 using namespace std;
 
 size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream) {
@@ -38,3 +40,5 @@ string http_downloader::download(const std::string& url) {
     }
     return out.str();
 }
+
+} }

@@ -1328,7 +1328,7 @@ void client::open( const path& data_dir, const fc::optional<fc::path>& genesis_f
        my->_chain_db->open( data_dir / "chain", genesis_file_path, my->_config.statistics_enabled, replay_status_callback );
     }
    
-    my->_game_client = std::make_shared<bts::game::client>();
+    my->_game_client = std::make_shared<bts::game::client>( my->_chain_db );
     my->_game_client->open( data_dir / "game_client" );
 
     my->_wallet = std::make_shared<bts::wallet::wallet>( my->_chain_db, my->_game_client, my->_config.wallet_enabled );

@@ -2,6 +2,8 @@
 
 #include <string>
 
+namespace bts { namespace utilities {
+
 /**
  * A non-threadsafe simple libcURL-easy based HTTP downloader
  */
@@ -18,3 +20,5 @@ public:
 private:
     void* curl;
 };
+
+} }

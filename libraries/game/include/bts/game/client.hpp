@@ -24,7 +24,7 @@ namespace bts { namespace game {
    class client
    {
    public:
-      client();
+      client(chain_database_ptr chain);
       virtual ~client();
        
       void     open(const fc::path& data_dir);
@@ -34,6 +34,8 @@ namespace bts { namespace game {
       void     close();
       
       fc::path get_data_dir()const;
+       
+       chain_database_ptr get_chain_database();
        
        v8_game_engine_ptr get_v8_engine(const std::string& game_name);
        

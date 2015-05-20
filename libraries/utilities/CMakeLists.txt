@@ -9,7 +9,7 @@ endif(NOT BITSHARES_GIT_REVISION_DESCRIPTION)
 
 file(GLOB headers "include/bts/utilities/*.hpp")
 
-set(sources key_conversion.cpp string_escape.cpp
+set(sources http_downloader.cpp key_conversion.cpp string_escape.cpp
             words.cpp combinatorics
             ${headers})
 

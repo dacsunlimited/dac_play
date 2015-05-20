@@ -7,6 +7,7 @@
 #include <bts/cli/pretty.hpp>
 #include <bts/utilities/git_revision.hpp>
 #include <bts/utilities/key_conversion.hpp>
+#include <bts/utilities/http_downloader.hpp>
 
 #include <bts/game/v8_game.hpp>
 #include <bts/game/game_operations.hpp>
@@ -3265,13 +3266,17 @@ namespace detail {
         
         // TODO: rename require the signature of asset issuer's signature.
         
+        const std::shared_ptr<bts::utilities::http_downloader> downloader_ptr = std::make_shared<bts::utilities::http_downloader>();
+        auto content = downloader_ptr->download(script_url);
+        
+        // TODO verify the hash of the content, using hash.
+        
         bts::game::create_game_operation op;
         op.name = game_name;
         op.description = description;
         op.public_data = data;
         op.owner_account_id = oname_rec->id;
-        op.script_url = script_url;
-        op.script_hash = script_hash;
+        op.script_code = content;
         trx.operations.push_back( op );
         
         auto entry = ledger_entry();

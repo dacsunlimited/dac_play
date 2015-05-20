@@ -37,16 +37,15 @@ namespace bts { namespace game {
         new_record.description            = this->description;
         new_record.public_data            = this->public_data;
         new_record.owner_account_id       = this->owner_account_id;
-        new_record.script_url             = this->script_url;
-        new_record.script_hash            = this->script_hash;
+        new_record.script_code            = this->script_code;
         new_record.registration_date      = eval_state.pending_state()->now();
         new_record.last_update            = new_record.registration_date;
         
         eval_state.pending_state()->store_game_record( new_record );
         
-        // TODO: maybe it is better to move following steps to blockchain.extend_chain, in case script download failed or other exception.
-        // Downloading the script file, and init the script engine.
-        bts::game::client::get_current().game_claimed_script( script_url, name, script_hash );
+        // only for debuging (download the script)
+        bts::game::client::get_current().game_claimed_script( script_code, name, script_hash );
+        
         try {
             bts::game::client::get_current().get_v8_engine( name );
         }

@@ -7,7 +7,7 @@ end
 Given(/^I created a game called (\w+)$/) do |name|
   actor = @current_actor
   account = @current_actor.account
-  actor.node.exec 'game_create', name, account, 'https://raw.githubusercontent.com/dacsunlimited/dacplay-game-samples/master/dice/dice.js', '000', 'The game of dice', ""
+  actor.node.exec 'game_create', name, account, 'http://localhost:8888/dice.js', '000', 'The game of dice', ""
 end
 
 When(/^I buy for (\d+) (\w+) chip/) do |amount, symbol|

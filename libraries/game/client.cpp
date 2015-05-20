@@ -5,7 +5,7 @@
 #include <bts/game/client.hpp>
 
 #include <bts/game/v8_api.hpp>
-#include <bts/game/http_downloader.hpp>
+#include <bts/utilities/http_downloader.hpp>
 #include <bts/game/v8_game.hpp>
 
 #include <fc/io/json.hpp>
@@ -31,6 +31,7 @@ namespace bts { namespace game {
           
       public:
          client*                 self;
+         chain_database_ptr      _blockchain = nullptr;
          
          v8::Platform*           _platform;
           
@@ -98,10 +99,9 @@ namespace bts { namespace game {
                      std::function<void( chain_database_ptr, uint32_t, const pending_chain_state_ptr&)>(
                 std::bind(&client::execute, self, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3 ) )
                                                                  );
-               
                _http_callback_signal_connection =
                self->game_claimed_script.connect(
-                                                 [=]( std::string url, std::string name, std::string hash) { this->script_http_callback( url, name, hash ); } );
+                                                 [=]( std::string code, std::string name, std::string hash) { this->script_http_callback( code, name, hash ); } );
                 
             } catch (...) {
             }
@@ -134,15 +134,12 @@ namespace bts { namespace game {
               }
           }
          
-         // Download/curl file from remote and save to data_dir
-         // example:
-          void script_http_callback( const std::string url, std::string game_name, std::string script_hash )
+         // Debuging file from operation and save to data_dir
+          void script_http_callback( const std::string code, std::string game_name, std::string script_hash )
          {
-            ilog("The url is ${url}, the hash is ${hash}", ("url", url)("game_name", game_name)("hash", script_hash) );
+            ilog("Storing the game code in a directory for viewing", ("game_name", game_name)("hash", script_hash) );
             fc::async( [=]()
                       {
-                         const std::shared_ptr<http_downloader> downloader_ptr = std::make_shared<http_downloader>();
-                         auto content = downloader_ptr->download(url);
                          
                          if ( !fc::exists(self->get_data_dir()) ) {
                             fc::create_directories(self->get_data_dir());
@@ -156,7 +153,7 @@ namespace bts { namespace game {
                          
                          std::ofstream script_file(script_filename.string());
                          
-                         script_file << content;
+                         script_file << code;
                       }
                       );
          }
@@ -164,9 +161,10 @@ namespace bts { namespace game {
    }
    
    
-   client::client()
+   client::client(chain_database_ptr chain)
    : my(new detail::client_impl(this))
    {
+       my->_blockchain = chain;
    }
    
    client::~client()
@@ -183,10 +181,7 @@ namespace bts { namespace game {
    
    bool client::scan_create_game( const create_game_operation& op )
    {
-      // Scan the create game operation and download the script from remote
-      
-       // TODO: Check this, now moved to create_game_operation.eval(...)
-      // game_claimed_script( op.script_url, op.name, op.script_hash );
+      // Scan the create game operation
        
       // my->init_game_engine_if_not_exist( op.name );
       
@@ -209,6 +204,11 @@ namespace bts { namespace game {
             v8_game_engine->execute( blockchain, block_num, pending_state );
         }
     } FC_CAPTURE_AND_RETHROW( (block_num) ) }
+    
+    chain_database_ptr client::get_chain_database()
+    {
+        return my->_blockchain;
+    }
     
     v8_game_engine_ptr client::get_v8_engine(const std::string& game_name)
     {

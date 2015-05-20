@@ -37,10 +37,7 @@ namespace bts { namespace game {
         account_id_type  owner_account_id;
 
         /** The url of the game's rule script */
-        std::string      script_url;
-       
-        /** The hash of the game's rule script */
-        std::string      script_hash;
+        std::string      script_code;
 
         void evaluate( transaction_evaluation_state& eval_state ) const;
     };
@@ -67,8 +64,7 @@ FC_REFLECT( bts::game::create_game_operation,
             (description)
             (public_data)
             (owner_account_id)
-            (script_url)
-            (script_hash)
+            (script_code)
             )
 
 FC_REFLECT( bts::game::game_operation, (input) )

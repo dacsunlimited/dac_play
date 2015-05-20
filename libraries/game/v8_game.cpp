@@ -16,7 +16,7 @@ namespace bts { namespace game {
       public:
          bts::game::v8_game_engine*         self;
          bts::game::client*                 _client;
-          std::string                       _game_name;
+         std::string                       _game_name;
          Isolate*                           _isolate;
          v8::Persistent<Context>            _context;
          
@@ -35,7 +35,7 @@ namespace bts { namespace game {
          void init()
          {
             // Refer http://v8.googlecode.com/svn/trunk/samples/process.cc
-            fc::path script_path( _client->get_data_dir() / (_game_name + ".js") );
+            // Deprecated: fc::path script_path( _client->get_data_dir() / (_game_name + ".js") );
             _isolate = v8::Isolate::GetCurrent();
             
             v8::Locker locker(_isolate);
@@ -52,15 +52,20 @@ namespace bts { namespace game {
             
             Context::Scope context_scope(context);
             
-            ilog("The path is ${s}", ("s", script_path.to_native_ansi_path().c_str() ));
+            ilog("The game is ${s}", ("s", _game_name ));
+             
+             auto ogame_rec = _client->get_chain_database()->get_game_record( _game_name );
+             FC_ASSERT( ogame_rec.valid() );
+             
             
-            v8::Handle<v8::String> source = v8_helper::ReadFile( _isolate, script_path.to_native_ansi_path().c_str() );
+            //v8::Handle<v8::String> source = v8_helper::ReadFile( _isolate, script_path.to_native_ansi_path().c_str() );
+             v8::Handle<v8::String> source = v8::String::NewFromUtf8( GetIsolate(), ogame_rec->script_code.c_str() );
              
              if (source.IsEmpty()) {
-                 wlog("The souce is empty, error loading file");
+                 wlog("The souce is empty, error loading script code");
                  GetIsolate()->ThrowException( v8::String::NewFromUtf8(GetIsolate(), "Error loading file" ) );
                  String::Utf8Value error(try_catch.Exception());
-                 FC_CAPTURE_AND_THROW(failed_loading_source_file, (script_path)(*error));
+                 FC_CAPTURE_AND_THROW(failed_loading_source_file, (_game_name)(*error));
              }
              
             String::Utf8Value utf8_source(source);
