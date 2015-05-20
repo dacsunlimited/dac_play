@@ -413,32 +413,31 @@ namespace bts { namespace game {
    
    void v8_game_engine::execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
    {
+       wlog("Start execute in game engine...");
        v8::Locker locker(my->GetIsolate());
        v8::HandleScope handle_scope(my->GetIsolate());
        v8::Local<v8::Context> context = v8::Local<v8::Context>::New(my->GetIsolate(), my->_context);
        v8::Context::Scope context_scope(context);
       
-       //associates our internal field pointing to 'p' with the "point" name inside the context
-       //this enable usage of point inside this context without need to create a new one
-       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "execute_blockchain"), v8_blockchain::New(my->GetIsolate(), blockchain, block_num));
+       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "$blockchain"), v8_blockchain::New(my->GetIsolate(), blockchain, block_num));
       
-       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "execute_block_num"), Integer::New(my->GetIsolate(), block_num));
+       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "$block_num"), Integer::New(my->GetIsolate(), block_num));
       
-       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "execute_pendingstate"), v8_chainstate::New(my->GetIsolate(), pending_state));
-      
-       // TODO: get rule execute
-      
+       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "$pendingstate"), v8_chainstate::New(my->GetIsolate(), pending_state));
+       
+       wlog("Start running the script in game engine...");
        v8::TryCatch try_catch;
-       auto source =  "PLAY.execute(execute_blockchain, execute_block_num, execute_pendingstate);";
+       auto source =  "PLAY.execute($blockchain, $block_num, $pendingstate);";
        
        v8::Handle<v8::Script> script = v8::Script::Compile( String::NewFromUtf8( my->GetIsolate(), source) );
        if ( script.IsEmpty() )
        {
            String::Utf8Value error(try_catch.Exception());
-           FC_CAPTURE_AND_THROW(failed_compile_script, (source)(*error));
+           FC_CAPTURE_AND_THROW(failed_compile_script, (source)( v8_helper::ReportException( my->GetIsolate(), &try_catch) ));
        } else
        {
            // Run the script to get the result.
+           wlog("Run the script to get the result...");
            Handle<Value> result = script->Run();
            
            if ( result.IsEmpty() )
@@ -446,31 +445,14 @@ namespace bts { namespace game {
                FC_CAPTURE_AND_THROW(failed_run_script, ( v8_helper::ReportException( my->GetIsolate(), &try_catch) ));
            } else
            {
+               //assert(!try_catch.HasCaught());
+               //if (!result->IsUndefined()) {
+                   // TOOD: return the result
+               //}
                wlog("The result of the running of script is ${s}", ( "s",  v8_helper::ToCString(String::Utf8Value(result)) ));
                // TODO: deal with the result to record
            }
        }
-      
-      /*
-      if (script.IsEmpty())
-      {
-          // TODO: throw exception
-      }
-      else
-      {
-          v8::Handle<v8::Value> result = script->Run();
-          if (result.IsEmpty())
-          {
-              assert(try_catch.HasCaught());
-              // TODO: throw exception
-          }
-          else
-          {
-              assert(!try_catch.HasCaught());
-              if (!result->IsUndefined()) {
-                  // TOOD: return the result
-              }
-          }
-      }*/
+       wlog("End running the script in game engine...");
    }
 } } // bts::game

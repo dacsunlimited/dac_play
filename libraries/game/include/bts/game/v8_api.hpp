@@ -51,8 +51,6 @@ namespace bts { namespace game {
       static Persistent<FunctionTemplate> pendingstate_templ;
       
       static Persistent<FunctionTemplate> eval_state_templ;
-      
-      static Persistent<FunctionTemplate> transaction_templ;
    };
    
     /**
@@ -97,6 +95,18 @@ namespace bts { namespace game {
         
         //variables
         wallet_ptr _wallet;
+    };
+    
+    class v8_block
+    {
+    public:
+        v8_block(full_block* block):_block(block){}
+        
+        static Local<Object> New(v8::Isolate* isolate, full_block* block);
+        
+        static void Get_Transactions(const v8::FunctionCallbackInfo<Value>& args);
+        
+        full_block* _block;
     };
     
     /**

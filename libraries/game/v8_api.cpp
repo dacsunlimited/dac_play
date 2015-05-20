@@ -13,8 +13,6 @@ namespace bts { namespace game {
    
    Persistent<FunctionTemplate> v8_api::eval_state_templ;
    
-   Persistent<FunctionTemplate> v8_api::transaction_templ;
-   
    Handle<FunctionTemplate> MakeBlockChainTemplate( Isolate* isolate) {
       EscapableHandleScope handle_scope(isolate);
       
@@ -29,6 +27,8 @@ namespace bts { namespace game {
       //associates the "method" string to the callback PointMethod in the class template
       //enabling point.method_a() constructions inside the javascript
       proto->Set(isolate, "get_current_random_seed", FunctionTemplate::New(isolate, v8_blockchain::Get_Current_Random_Seed));
+       
+       proto->Set( isolate, "get_block", FunctionTemplate::New( isolate, v8_blockchain::Get_Block));
        
        proto->Set( isolate, "get_asset_record", FunctionTemplate::New(isolate, v8_blockchain::Get_Asset_Record) );
       
@@ -76,7 +76,13 @@ namespace bts { namespace game {
       
       //access the class template
       Handle<ObjectTemplate> block_proto = result->PrototypeTemplate();
-      block_proto->Set(isolate, "get_transactions", FunctionTemplate::New(isolate, v8_api::V8_Block_Get_Transactions));
+      block_proto->Set(isolate, "get_transactions", FunctionTemplate::New(isolate, v8_block::Get_Transactions));
+       
+       //access the instance pointer of our new class template
+       Handle<ObjectTemplate> inst = result->InstanceTemplate();
+       
+       //set the internal fields of the class as we have the Point class internally
+       inst->SetInternalFieldCount(1);
       
       // Again, return the result through the current handle scope.
       return handle_scope.Escape(result);
@@ -189,13 +195,13 @@ namespace bts { namespace game {
     * @brief Method for getting transactions from full block
     *
     */
-   void v8_api::V8_Block_Get_Transactions(const v8::FunctionCallbackInfo<Value>& args)
+   void v8_block::Get_Transactions(const v8::FunctionCallbackInfo<Value>& args)
    {
       Local<Object> self = args.Holder();
       Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
       void* ptr = wrap->Value();
       //get member variable value
-      auto transactions = static_cast<full_block*>(ptr)->user_transactions;
+      auto transactions = static_cast<v8_block*>(ptr)->_block->user_transactions;
       
       // We will be creating temporary handles so we use a handle scope.
       HandleScope handle_scope(args.GetIsolate());
@@ -210,17 +216,7 @@ namespace bts { namespace game {
       int i = 0;
       for ( auto trx : transactions )
       {
-         //get class template
-         Handle<FunctionTemplate> templ = Local<FunctionTemplate>::New(args.GetIsolate(), transaction_templ);
-         Handle<Function> trx_ctor = templ->GetFunction();
-         
-         //get class instance
-         Local<Object> obj = trx_ctor->NewInstance();
-         // TODO: Is it ok to return address of block here?
-         obj->SetInternalField(0, External::New(args.GetIsolate(), &trx));
-         
-         
-         array->Set(i, obj);
+         array->Set( i, v8_helper::cpp_to_json(args.GetIsolate(), trx) );
          
          i ++;
       }
@@ -228,6 +224,27 @@ namespace bts { namespace game {
       // TODO: Return the value through Close. handle_scope.Close(array ) ?
       args.GetReturnValue().Set( array );
    }
+    
+    Local<Object> v8_block::New(v8::Isolate *isolate, bts::blockchain::full_block *block)
+    {
+        EscapableHandleScope handle_scope(isolate);
+        // FIXME TODO: Delete this.
+        v8_block* local_v8_block = new v8_block(block);
+        //get class template
+        Handle<FunctionTemplate> templ = Local<FunctionTemplate>::New(isolate, v8_api::block_templ);
+        Handle<Function> block_ctor = templ->GetFunction();
+        
+        //get class instance
+        Local<Object> g_block = block_ctor->NewInstance();
+        
+        //build the "bridge" between c++ and javascript by associating the 'p' pointer to the first internal
+        //field of the object
+        g_block->SetInternalField(0, External::New(isolate, local_v8_block));
+        
+        // delete v8_blockchain;
+        
+        return handle_scope.Escape(g_block);
+    }
    
    Local<Object> v8_blockchain::New(v8::Isolate* isolate, chain_database_ptr blockchain, uint32_t block_num)
    {
@@ -280,21 +297,12 @@ namespace bts { namespace game {
       auto block = static_cast<v8_blockchain*>(ptr)->_blockchain->get_block(args[0]->Uint32Value());
       //return the value
       
-      //get class template
+      // get class template
       EscapableHandleScope handle_scope(args.GetIsolate());
+       
+      auto _v8_block = v8_block::New(args.GetIsolate(), &block);
       
-      Handle<FunctionTemplate> templ = Local<FunctionTemplate>::New(args.GetIsolate(), v8_api::block_templ);
-      Handle<Function> block_ctor = templ->GetFunction();
-      
-      //get class instance
-      Local<Object> obj = block_ctor->NewInstance();
-      
-      //build the "bridge" between c++ and javascript by associating the 'p' pointer to the first internal
-      //field of the object
-      // TODO: Is it ok to return address of block here?
-      obj->SetInternalField(0, External::New(args.GetIsolate(), &block));
-      
-      args.GetReturnValue().Set( handle_scope.Escape(obj) );
+      args.GetReturnValue().Set( handle_scope.Escape( _v8_block ) );
    }
    
    void v8_blockchain::Get_Current_Random_Seed(const v8::FunctionCallbackInfo<Value>& args)
@@ -303,9 +311,9 @@ namespace bts { namespace game {
       Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
       void* ptr = wrap->Value();
       //get member variable value
-      uint32_t value = static_cast<v8_blockchain*>(ptr)->_blockchain->get_current_random_seed()._hash[0];
+      auto random_seed = static_cast<v8_blockchain*>(ptr)->_blockchain->get_current_random_seed();
       //return the value
-      args.GetReturnValue().Set( Integer::New(args.GetIsolate(), value) );
+      args.GetReturnValue().Set( v8_helper::cpp_to_json( args.GetIsolate(), random_seed ) );
    }
     
     void v8_blockchain::Get_Asset_Record(const v8::FunctionCallbackInfo<Value>& args)
