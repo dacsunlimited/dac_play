@@ -432,8 +432,7 @@ namespace bts { namespace game {
        v8::Handle<v8::Script> script = v8::Script::Compile( String::NewFromUtf8( my->GetIsolate(), source) );
        if ( script.IsEmpty() )
        {
-           String::Utf8Value error(try_catch.Exception());
-           FC_CAPTURE_AND_THROW(failed_compile_script, (source)( v8_helper::ReportException( my->GetIsolate(), &try_catch) ));
+           FC_CAPTURE_AND_THROW( failed_compile_script, (source)( v8_helper::ReportException( my->GetIsolate(), &try_catch) ) );
        } else
        {
            // Run the script to get the result.
@@ -450,7 +449,13 @@ namespace bts { namespace game {
                    // TOOD: return the result
                //}
                wlog("The result of the running of script is ${s}", ( "s",  v8_helper::ToCString(String::Utf8Value(result)) ));
-               // TODO: deal with the result to record
+               if ( result->IsNumber() && result->Int32Value() == 0 )
+               {
+                   wlog("Nothing is done...");
+               } else
+               {
+                   // TODO: deal with the result to record
+               }
            }
        }
        wlog("End running the script in game engine...");

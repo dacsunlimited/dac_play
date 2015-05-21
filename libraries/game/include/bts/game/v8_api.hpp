@@ -46,8 +46,6 @@ namespace bts { namespace game {
        
       static Persistent<FunctionTemplate> wallet_templ;
       
-      static Persistent<FunctionTemplate> block_templ;
-      
       static Persistent<FunctionTemplate> pendingstate_templ;
       
       static Persistent<FunctionTemplate> eval_state_templ;
@@ -66,7 +64,11 @@ namespace bts { namespace game {
         
         static void Get_Block_Number(Local<String> property, const v8::PropertyCallbackInfo<v8::Value>& info);
         
+        static void Get_Block_Digest(const v8::FunctionCallbackInfo<Value>& args);
+        
         static void Get_Block(const v8::FunctionCallbackInfo<Value>& args);
+        
+        static void Get_Transaction(const v8::FunctionCallbackInfo<Value>& args);
         
         static void Get_Current_Random_Seed(const v8::FunctionCallbackInfo<Value>& args);
         
@@ -95,18 +97,6 @@ namespace bts { namespace game {
         
         //variables
         wallet_ptr _wallet;
-    };
-    
-    class v8_block
-    {
-    public:
-        v8_block(full_block* block):_block(block){}
-        
-        static Local<Object> New(v8::Isolate* isolate, full_block* block);
-        
-        static void Get_Transactions(const v8::FunctionCallbackInfo<Value>& args);
-        
-        full_block* _block;
     };
     
     /**

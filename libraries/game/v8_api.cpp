@@ -7,8 +7,6 @@ namespace bts { namespace game {
     
    Persistent<FunctionTemplate> v8_api::wallet_templ;
    
-   Persistent<FunctionTemplate> v8_api::block_templ;
-   
    Persistent<FunctionTemplate> v8_api::pendingstate_templ;
    
    Persistent<FunctionTemplate> v8_api::eval_state_templ;
@@ -28,7 +26,11 @@ namespace bts { namespace game {
       //enabling point.method_a() constructions inside the javascript
       proto->Set(isolate, "get_current_random_seed", FunctionTemplate::New(isolate, v8_blockchain::Get_Current_Random_Seed));
        
+       proto->Set( isolate, "get_block_digest", FunctionTemplate::New( isolate, v8_blockchain::Get_Block_Digest));
+       
        proto->Set( isolate, "get_block", FunctionTemplate::New( isolate, v8_blockchain::Get_Block));
+       
+       proto->Set( isolate, "get_transaction", FunctionTemplate::New( isolate, v8_blockchain::Get_Transaction));
        
        proto->Set( isolate, "get_asset_record", FunctionTemplate::New(isolate, v8_blockchain::Get_Asset_Record) );
       
@@ -67,26 +69,6 @@ namespace bts { namespace game {
         // Again, return the result through the current handle scope.
         return handle_scope.Escape(result);
     }
-   
-   Handle<FunctionTemplate> MakeBlockTemplate( Isolate* isolate) {
-      EscapableHandleScope handle_scope(isolate);
-      
-      Local<FunctionTemplate> result = FunctionTemplate::New(isolate);
-      result->SetClassName(String::NewFromUtf8(isolate, "Block"));
-      
-      //access the class template
-      Handle<ObjectTemplate> block_proto = result->PrototypeTemplate();
-      block_proto->Set(isolate, "get_transactions", FunctionTemplate::New(isolate, v8_block::Get_Transactions));
-       
-       //access the instance pointer of our new class template
-       Handle<ObjectTemplate> inst = result->InstanceTemplate();
-       
-       //set the internal fields of the class as we have the Point class internally
-       inst->SetInternalFieldCount(1);
-      
-      // Again, return the result through the current handle scope.
-      return handle_scope.Escape(result);
-   }
    
    Handle<FunctionTemplate> MakeChainStateTemplate( Isolate* isolate) {
       EscapableHandleScope handle_scope(isolate);
@@ -154,12 +136,6 @@ namespace bts { namespace game {
            Handle<FunctionTemplate> raw_template = MakeWalletTemplate(isolate);
            wallet_templ.Reset(isolate, raw_template);
        }
-      
-      if ( block_templ.IsEmpty() )
-      {
-         Handle<FunctionTemplate> raw_template = MakeBlockTemplate(isolate);
-         block_templ.Reset(isolate, raw_template);
-      }
 
       if ( pendingstate_templ.IsEmpty() )
       {
@@ -190,61 +166,6 @@ namespace bts { namespace game {
       
       args.GetReturnValue().Set( External::New(args.GetIsolate(), &addr) );
    }
-   
-   /**
-    * @brief Method for getting transactions from full block
-    *
-    */
-   void v8_block::Get_Transactions(const v8::FunctionCallbackInfo<Value>& args)
-   {
-      Local<Object> self = args.Holder();
-      Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
-      void* ptr = wrap->Value();
-      //get member variable value
-      auto transactions = static_cast<v8_block*>(ptr)->_block->user_transactions;
-      
-      // We will be creating temporary handles so we use a handle scope.
-      HandleScope handle_scope(args.GetIsolate());
-      
-      Local<Array> array = Array::New(args.GetIsolate(), transactions.size());
-      
-      if (array.IsEmpty())
-         args.GetReturnValue().Set( Handle<Array>() );
-      return;
-      
-      // Fill out the values
-      int i = 0;
-      for ( auto trx : transactions )
-      {
-         array->Set( i, v8_helper::cpp_to_json(args.GetIsolate(), trx) );
-         
-         i ++;
-      }
-      
-      // TODO: Return the value through Close. handle_scope.Close(array ) ?
-      args.GetReturnValue().Set( array );
-   }
-    
-    Local<Object> v8_block::New(v8::Isolate *isolate, bts::blockchain::full_block *block)
-    {
-        EscapableHandleScope handle_scope(isolate);
-        // FIXME TODO: Delete this.
-        v8_block* local_v8_block = new v8_block(block);
-        //get class template
-        Handle<FunctionTemplate> templ = Local<FunctionTemplate>::New(isolate, v8_api::block_templ);
-        Handle<Function> block_ctor = templ->GetFunction();
-        
-        //get class instance
-        Local<Object> g_block = block_ctor->NewInstance();
-        
-        //build the "bridge" between c++ and javascript by associating the 'p' pointer to the first internal
-        //field of the object
-        g_block->SetInternalField(0, External::New(isolate, local_v8_block));
-        
-        // delete v8_blockchain;
-        
-        return handle_scope.Escape(g_block);
-    }
    
    Local<Object> v8_blockchain::New(v8::Isolate* isolate, chain_database_ptr blockchain, uint32_t block_num)
    {
@@ -287,23 +208,77 @@ namespace bts { namespace game {
       //return the value
       info.GetReturnValue().Set( Integer::New(info.GetIsolate(), value) );
    }
+    
+    void v8_blockchain::Get_Block_Digest(const v8::FunctionCallbackInfo<Value>& args)
+    {
+        EscapableHandleScope handle_scope(args.GetIsolate());
+        Local<Object> self = args.Holder();
+        Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+        void* ptr = wrap->Value();
+        //get member variable value
+        
+        auto block_digest = static_cast<v8_blockchain*>(ptr)->_blockchain->get_block_digest(args[0]->Uint32Value());
+        //return the value
+        
+        auto block_digest_obj = v8_helper::cpp_to_json(args.GetIsolate(), block_digest );
+        
+        if ( block_digest_obj->IsObject() )
+        {
+            block_digest_obj->ToObject()->Set(String::NewFromUtf8( args.GetIsolate(), "id") , v8_helper::cpp_to_json(args.GetIsolate(), block_digest.id()) );
+        }
+        
+        args.GetReturnValue().Set( block_digest_obj );
+    }
    
    void v8_blockchain::Get_Block(const v8::FunctionCallbackInfo<Value>& args)
    {
+      EscapableHandleScope handle_scope(args.GetIsolate());
       Local<Object> self = args.Holder();
       Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
       void* ptr = wrap->Value();
       //get member variable value
+       
       auto block = static_cast<v8_blockchain*>(ptr)->_blockchain->get_block(args[0]->Uint32Value());
       //return the value
-      
-      // get class template
-      EscapableHandleScope handle_scope(args.GetIsolate());
        
-      auto _v8_block = v8_block::New(args.GetIsolate(), &block);
+       auto block_obj = v8_helper::cpp_to_json(args.GetIsolate(), block );
+       
+       if ( block_obj->IsObject() )
+       {
+           block_obj->ToObject()->Set(String::NewFromUtf8( args.GetIsolate(), "id") , v8_helper::cpp_to_json(args.GetIsolate(), block.id()) );
+       }
       
-      args.GetReturnValue().Set( handle_scope.Escape( _v8_block ) );
+      args.GetReturnValue().Set( block_obj );
    }
+    
+    void v8_blockchain::Get_Transaction(const v8::FunctionCallbackInfo<Value>& args)
+    {
+        EscapableHandleScope handle_scope(args.GetIsolate());
+        Local<Object> self = args.Holder();
+        Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+        void* ptr = wrap->Value();
+        //get member variable value
+        
+        auto trx = static_cast<v8_blockchain*>(ptr)->_blockchain->get_transaction( v8_helper::json_to_cpp<transaction_id_type>(args.GetIsolate(), args[0]));
+        //return the value
+        
+        if ( trx.valid() )
+        {
+            auto trx_obj = v8_helper::cpp_to_json(args.GetIsolate(), *trx );
+            
+            if ( trx_obj->IsObject() )
+            {
+                trx_obj->ToObject()->Set(String::NewFromUtf8( args.GetIsolate(), "id") , v8_helper::cpp_to_json(args.GetIsolate(), trx->trx.id()) );
+            }
+            
+            args.GetReturnValue().Set( trx_obj );
+            
+        } else
+        {
+            args.GetReturnValue().Set( v8::Null( args.GetIsolate() ) );
+        }
+        
+    }
    
    void v8_blockchain::Get_Current_Random_Seed(const v8::FunctionCallbackInfo<Value>& args)
    {
