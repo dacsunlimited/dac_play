@@ -162,7 +162,7 @@ namespace bts { namespace blockchain {
        onote_record                       get_note_record( const note_index& index )const;
        void                               store_note_record( const note_record& record );
        
-       ooperation_reward_record           get_operation_reward_record( const operation_type& type )const;
+       ooperation_reward_record           get_operation_reward_record( const operation_id_type& type )const;
        void                               store_operation_reward_record( const operation_reward_record& record );
 
          ofeed_record                       get_feed_record( const feed_index index )const;

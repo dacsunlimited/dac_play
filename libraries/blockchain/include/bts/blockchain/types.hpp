@@ -34,7 +34,7 @@ namespace bts { namespace blockchain {
     typedef fc::signed_int              rule_id_type;
     typedef fc::signed_int              data_id_type;
     typedef fc::signed_int              issuer_id_type; // Could be {account_id_type, game_id_type}
-    typedef fc::signed_int              operation_type;
+    typedef fc::signed_int              operation_id_type;
 
     using std::string;
     using std::function;

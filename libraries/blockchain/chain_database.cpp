@@ -3720,19 +3720,19 @@ namespace bts { namespace blockchain {
         my->_note_index_to_record.remove( index );
     }
     
-    ooperation_reward_record chain_database::operation_reward_lookup_by_id( const operation_type id )const
+    ooperation_reward_record chain_database::operation_reward_lookup_by_id( const operation_id_type id )const
     {
         const auto iter = my->_operation_reward_id_to_record.unordered_find( id );
         if( iter != my->_operation_reward_id_to_record.unordered_end() ) return iter->second;
         return ooperation_reward_record();
     }
     
-    void chain_database::operation_reward_insert_into_id_map( const operation_type id, const operation_reward_record& record )
+    void chain_database::operation_reward_insert_into_id_map( const operation_id_type id, const operation_reward_record& record )
     {
         my->_operation_reward_id_to_record.store( id, record );
     }
     
-    void chain_database::operation_reward_erase_from_id_map( const operation_type id )
+    void chain_database::operation_reward_erase_from_id_map( const operation_id_type id )
     {
         my->_operation_reward_id_to_record.remove( id );
     }
