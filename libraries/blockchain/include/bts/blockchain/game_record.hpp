@@ -81,17 +81,9 @@ namespace bts { namespace blockchain {
     
     struct game_result_transaction
     {
-        game_result_transaction():type(0){}
+        game_result_transaction():game_id(0){}
         
-        template<typename RecordType>
-        game_result_transaction( const RecordType& rec )
-        :type( int(RecordType::type) ),data(rec)
-        { }
-        
-        template<typename RecordType>
-        RecordType as()const;
-        
-        uint8_t                                          type;
+        game_id_type                                     game_id;
         fc::variant                                      data;
     };
     
@@ -116,5 +108,5 @@ FC_REFLECT( bts::blockchain::game_data_record,
            )
 FC_REFLECT_TYPENAME( std::vector<bts::blockchain::game_result_transaction> )
 FC_REFLECT( bts::blockchain::game_result_transaction,
-           (type)(data)
+           (game_id)(data)
            )

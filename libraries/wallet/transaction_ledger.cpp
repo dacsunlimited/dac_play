@@ -282,7 +282,7 @@ void wallet_impl::scan_block( uint32_t block_num )
     {
         try
         {
-            auto ogame = _blockchain->get_game_record( game_result_trxs[i].type );
+            auto ogame = _blockchain->get_game_record( game_result_trxs[i].game_id );
             if ( ogame.valid() )
             {
                 _game_client->get_v8_engine( ogame->name )->scan_result( game_result_trxs[i], block_num, block_header.timestamp, i, self->shared_from_this());
