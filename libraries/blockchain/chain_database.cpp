@@ -975,7 +975,8 @@ namespace bts { namespace blockchain {
                {
                    vector<note_index> note_indexs;
                    uint32_t begin = block_num - BTS_BLOCKCHAIN_BLOCKS_PER_DAY >= 1 ? block_num - BTS_BLOCKCHAIN_BLOCKS_PER_DAY : 1;
-                   for ( auto i = begin; i <= block_num; i ++)
+                   // start from the first of this round to the previous block
+                   for ( auto i = begin; i < block_num; i ++)
                    {
                        auto blk = self->get_block(i);
                        for ( auto trx = blk.user_transactions.begin(); trx != blk.user_transactions.end(); ++trx )
