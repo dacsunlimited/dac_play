@@ -158,6 +158,8 @@ namespace bts { namespace game {
     */
    void v8_api::V8_Global_Get_Balance_ID_For_Owner(const v8::FunctionCallbackInfo<Value>& args)
    {
+       EscapableHandleScope handle_scope(args.GetIsolate());
+       
       auto owner = * static_cast<address*> (Local<External>::Cast(args[0])->Value());
       
       int asset_id = args[1]->Int32Value();
@@ -190,6 +192,7 @@ namespace bts { namespace game {
    
    void v8_blockchain::Get_Block_Number(Local<String> property, const v8::PropertyCallbackInfo<v8::Value>& info)
    {
+       EscapableHandleScope handle_scope(info.GetIsolate());
       /*
        //this only shows information on what object is being used... just for fun
        {
@@ -282,17 +285,20 @@ namespace bts { namespace game {
    
    void v8_blockchain::Get_Current_Random_Seed(const v8::FunctionCallbackInfo<Value>& args)
    {
+       EscapableHandleScope handle_scope(args.GetIsolate());
+       
       Local<Object> self = args.Holder();
       Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
       void* ptr = wrap->Value();
       //get member variable value
       auto random_seed = static_cast<v8_blockchain*>(ptr)->_blockchain->get_current_random_seed();
-      //return the value
-      args.GetReturnValue().Set( v8_helper::cpp_to_json( args.GetIsolate(), random_seed ) );
+      
+       args.GetReturnValue().Set( String::NewFromUtf8(args.GetIsolate(), random_seed.str().c_str()) );
    }
     
     void v8_blockchain::Get_Asset_Record(const v8::FunctionCallbackInfo<Value>& args)
     {
+        EscapableHandleScope handle_scope(args.GetIsolate());
         Local<Object> self = args.Holder();
         Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
         void* ptr = wrap->Value();
@@ -338,6 +344,8 @@ namespace bts { namespace game {
     
     void v8_wallet::Get_Transaction_Fee( const v8::FunctionCallbackInfo<Value> &args )
     {
+        EscapableHandleScope handle_scope(args.GetIsolate());
+        
         Local<Object> self = args.Holder();
         Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
         void* ptr = wrap->Value();
@@ -369,6 +377,8 @@ namespace bts { namespace game {
    
    void v8_chainstate::Get_Blance_Record(const v8::FunctionCallbackInfo<Value>& args)
    {
+       EscapableHandleScope handle_scope(args.GetIsolate());
+       
       Local<Object> self = args.Holder();
       Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
       void* ptr = wrap->Value();
@@ -382,6 +392,8 @@ namespace bts { namespace game {
    
    void v8_chainstate::Get_Asset_Record(const v8::FunctionCallbackInfo<Value>& args)
    {
+       EscapableHandleScope handle_scope(args.GetIsolate());
+       
       Local<Object> self = args.Holder();
       Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
       void* ptr = wrap->Value();
@@ -406,6 +418,8 @@ namespace bts { namespace game {
    
    void v8_chainstate::Get_Game_Data_Record(const v8::FunctionCallbackInfo<Value>& args)
    {
+       EscapableHandleScope handle_scope(args.GetIsolate());
+       
       Local<Object> self = args.Holder();
       Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
       void* ptr = wrap->Value();
@@ -425,6 +439,7 @@ namespace bts { namespace game {
    
    void v8_chainstate::Store_Blance_Record(const v8::FunctionCallbackInfo<Value>& args)
    {
+       EscapableHandleScope handle_scope(args.GetIsolate());
       Local<Object> self = args.Holder();
       Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
       void* ptr = wrap->Value();
@@ -437,6 +452,7 @@ namespace bts { namespace game {
    
    void v8_chainstate::Store_Asset_Record(const v8::FunctionCallbackInfo<Value>& args)
    {
+       EscapableHandleScope handle_scope(args.GetIsolate());
       Local<Object> self = args.Holder();
       Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
       void* ptr = wrap->Value();
@@ -453,6 +469,8 @@ namespace bts { namespace game {
     */
    void v8_chainstate::Store_Game_Data_Record(const v8::FunctionCallbackInfo<Value>& args)
    {
+       EscapableHandleScope handle_scope(args.GetIsolate());
+       
       Local<Object> self = args.Holder();
       Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
       void* ptr = wrap->Value();
@@ -486,6 +504,8 @@ namespace bts { namespace game {
     */
    void v8_evalstate::Sub_Balance(const v8::FunctionCallbackInfo<Value>& args)
    {
+       EscapableHandleScope handle_scope(args.GetIsolate());
+       
       Local<Object> self = args.Holder();
       Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
       void* ptr = wrap->Value();
@@ -498,6 +518,8 @@ namespace bts { namespace game {
     
     void v8_evalstate::Get_Transaction_Id(const v8::FunctionCallbackInfo<Value>& args)
     {
+        EscapableHandleScope handle_scope(args.GetIsolate());
+        
         Local<Object> self = args.Holder();
         Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
         void* ptr = wrap->Value();

@@ -14,9 +14,9 @@ namespace bts { namespace game {
    class v8_helper
    {
    public:
-       static Handle<Value> parseJson(Isolate* isolate, Handle<Value> jsonString);
+       static Local<Value> parseJson(Isolate* isolate, Handle<Value> jsonString);
        
-       static Handle<String> toJson(Isolate* isolate, Handle<Value> object );
+       static Local<String> toJson(Isolate* isolate, Handle<Value> object );
        
        static void trx_id_to_hash_array(const v8::FunctionCallbackInfo<v8::Value>& args);
        
@@ -24,15 +24,17 @@ namespace bts { namespace game {
        template<typename T>
        static Handle<Value> cpp_to_json(Isolate* isolate, const T& v )
        {
+           EscapableHandleScope handle_scope(isolate);
            auto json_str = fc::json::to_string(v);
            
-           return parseJson( isolate, String::NewFromUtf8(isolate, json_str.c_str() ));
+           return handle_scope.Escape( parseJson( isolate, String::NewFromUtf8(isolate, json_str.c_str() )) );
        }
        
        template<typename T>
        static T json_to_cpp(Isolate* isolate, Handle<Value> object )
        {
-           Handle<String> v8_string = toJson( isolate, object );
+           EscapableHandleScope handle_scope(isolate);
+           Local<String> v8_string = toJson( isolate, object );
            std::string str = *v8::String::Utf8Value(v8_string);
            
            auto v = fc::json::from_string( str );

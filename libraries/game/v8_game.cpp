@@ -16,7 +16,7 @@ namespace bts { namespace game {
       public:
          bts::game::v8_game_engine*         self;
          bts::game::client*                 _client;
-         std::string                       _game_name;
+         std::string                        _game_name;
          Isolate*                           _isolate;
          v8::Persistent<Context>            _context;
          
@@ -39,7 +39,7 @@ namespace bts { namespace game {
             _isolate = v8::Isolate::GetCurrent();
             
             v8::Locker locker(_isolate);
-             
+            Isolate::Scope isolate_scope(_isolate);
             HandleScope handle_scope(_isolate);
             v8::TryCatch try_catch( _isolate );
             v8::Handle<v8::Context> context = v8_helper::CreateShellContext(_isolate);
@@ -105,6 +105,7 @@ namespace bts { namespace game {
    {
        auto isolate = my->GetIsolate();
        v8::Locker locker( isolate );
+       Isolate::Scope isolate_scope(my->GetIsolate());
        v8::HandleScope handle_scope( isolate );
        v8::Local<v8::Context> context = v8::Local<v8::Context>::New(my->GetIsolate(), my->_context);
       
@@ -119,7 +120,7 @@ namespace bts { namespace game {
        auto _input = var; // TODO: convert/parse it to a v8 javascript object
        context->Global()->Set(String::NewFromUtf8(isolate, "$input"),  v8_helper::cpp_to_json(isolate, _input));
       
-       v8::TryCatch try_catch;
+       v8::TryCatch try_catch(my->GetIsolate());
        
        auto source = "PLAY.evaluate($eval_state, $pending_state, $input);";
        v8::Handle<v8::Script> script = v8::Script::Compile( String::NewFromUtf8( my->GetIsolate(), source) );
@@ -236,6 +237,7 @@ namespace bts { namespace game {
       
        auto isolate = my->GetIsolate();
        v8::Locker locker(isolate);
+       Isolate::Scope isolate_scope(my->GetIsolate());
        v8::HandleScope handle_scope( isolate );
        v8::Local<v8::Context> context = v8::Local<v8::Context>::New(isolate, my->_context);
        // Entering the context
@@ -249,7 +251,7 @@ namespace bts { namespace game {
        auto _input = var; // TODO: convert/parse it to a v8 javascript object
        context->Global()->Set(String::NewFromUtf8(isolate, "$input"),  v8_helper::cpp_to_json(isolate, _input));
        
-       v8::TryCatch try_catch;
+       v8::TryCatch try_catch(my->GetIsolate());
        auto source =  "PLAY.play($blockchain, $wallet, $input);";
        
        vector<play_code> codes;
@@ -369,6 +371,7 @@ namespace bts { namespace game {
                     const uint32_t trx_index, bts::wallet::wallet_ptr w)
    {
        v8::Locker locker(my->GetIsolate());
+       Isolate::Scope isolate_scope(my->GetIsolate());
        v8::HandleScope handle_scope(my->GetIsolate());
        v8::Local<v8::Context> context = v8::Local<v8::Context>::New(my->GetIsolate(), my->_context);
        v8::Context::Scope context_scope(context);
@@ -383,7 +386,7 @@ namespace bts { namespace game {
       
        context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "scan_result_trx_index"), Integer::New(my->GetIsolate(), trx_index));
       
-       v8::TryCatch try_catch;
+       v8::TryCatch try_catch(my->GetIsolate());
        
        auto source =  "PLAY.scan_result(scan_rtx, scan_result_block_num, scan_result_block_time, scan_result_received_time, scan_result_trx_index, scan_w);";
        
@@ -415,29 +418,37 @@ namespace bts { namespace game {
    {
        wlog("Start execute in game engine...");
        v8::Locker locker(my->GetIsolate());
+       Isolate::Scope isolate_scope(my->GetIsolate());
        v8::HandleScope handle_scope(my->GetIsolate());
        v8::Local<v8::Context> context = v8::Local<v8::Context>::New(my->GetIsolate(), my->_context);
+       
+       //v8::Local<v8::Context> context = v8::Local<v8::Context>::New(my->GetIsolate(), );
+       // v8::Handle<v8::Context> context = v8_helper::CreateShellContext(my->GetIsolate());
        v8::Context::Scope context_scope(context);
       
-       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "$blockchain"), v8_blockchain::New(my->GetIsolate(), blockchain, block_num));
+       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "$execute_blockchain"), v8_blockchain::New(my->GetIsolate(), blockchain, block_num));
       
        context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "$block_num"), Integer::New(my->GetIsolate(), block_num));
       
-       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "$pendingstate"), v8_chainstate::New(my->GetIsolate(), pending_state));
+       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "$execute_pendingstate"), v8_chainstate::New(my->GetIsolate(), pending_state));
        
        wlog("Start running the script in game engine...");
-       v8::TryCatch try_catch;
-       auto source =  "PLAY.execute($blockchain, $block_num, $pendingstate);";
+       // TODO: why it is possible that my->GetIsolate() do not equal to Isolate.Current(). when did we enter isolate
+       v8::TryCatch try_catch( my->GetIsolate() );
+       auto source =  "PLAY.execute($execute_blockchain, $block_num, $execute_pendingstate);";
        
-       v8::Handle<v8::Script> script = v8::Script::Compile( String::NewFromUtf8( my->GetIsolate(), source) );
+       v8::Local<v8::Script> script = v8::Script::Compile( String::NewFromUtf8( my->GetIsolate(), source) );
        if ( script.IsEmpty() )
        {
+           FC_ASSERT( try_catch.HasCaught() );
+           FC_ASSERT( ! try_catch.Exception().IsEmpty() );
+           wlog ( v8_helper::ToCString( v8::String::Utf8Value( v8_helper::toJson(my->GetIsolate(), try_catch.Exception() ) )) );
            FC_CAPTURE_AND_THROW( failed_compile_script, (source)( v8_helper::ReportException( my->GetIsolate(), &try_catch) ) );
        } else
        {
            // Run the script to get the result.
            wlog("Run the script to get the result...");
-           Handle<Value> result = script->Run();
+           Local<Value> result = script->Run();
            
            if ( result.IsEmpty() )
            {

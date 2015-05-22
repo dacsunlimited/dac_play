@@ -83,6 +83,8 @@ namespace bts { namespace game {
                   _isolate = v8::Isolate::New();
                   _isolate->Enter();
                }
+                
+                //v8::V8::SetCaptureStackTraceForUncaughtExceptions(true, 10, StackTrace::kDetailed);
                
                ilog("Init class templat for game client" );
                

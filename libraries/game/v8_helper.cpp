@@ -5,55 +5,66 @@
 #include <boost/format.hpp>
 
 namespace bts { namespace game {
-    Handle<Value> v8_helper::parseJson(Isolate* isolate, Handle<Value> jsonString) {
+    Local<Value> v8_helper::parseJson(Isolate* isolate, Handle<Value> jsonString) {
+        v8::Locker locker(isolate);
+        Isolate::Scope isolate_scope(isolate);
         EscapableHandleScope handle_scope(isolate);
         
-        Handle<Context> context = isolate->GetCurrentContext();
-        Handle<Object> global = context->Global();
+        Local<Context> context = isolate->GetCurrentContext();
+        v8::Context::Scope context_scope(context);
         
-        Handle<Object> JSON = global->Get(String::NewFromUtf8(isolate, "JSON"))->ToObject();
-        Handle<Function> JSON_parse = Handle<Function>::Cast(JSON->Get(String::NewFromUtf8(isolate, "parse")));
+        Local<Object> global = context->Global();
+        
+        Local<Object> JSON = global->Get(String::NewFromUtf8(isolate, "JSON"))->ToObject();
+        Local<Function> JSON_parse = Handle<Function>::Cast(JSON->Get(String::NewFromUtf8(isolate, "parse")));
         
         // return JSON.parse.apply(JSON, jsonString);
         return handle_scope.Escape(JSON_parse->Call(JSON, 1, &jsonString));
     }
     
-    Handle<String> v8_helper::toJson(Isolate* isolate, Handle<Value> object)
+    Local<String> v8_helper::toJson(Isolate* isolate, Handle<Value> object)
     {
+        v8::Locker locker(isolate);
+        Isolate::Scope isolate_scope(isolate);
         EscapableHandleScope handle_scope(isolate);
         
-        Handle<Context> context = isolate->GetCurrentContext();
-        Handle<Object> global = context->Global();
+        Local<Context> context = isolate->GetCurrentContext();
+        Local<Object> global = context->Global();
         
-        Handle<Object> JSON = global->Get(String::NewFromUtf8(isolate, "JSON"))->ToObject();
-        Handle<Function> JSON_stringify = Handle<Function>::Cast(JSON->Get(String::NewFromUtf8(isolate, "stringify")));
+        Local<Object> JSON = global->Get(String::NewFromUtf8(isolate, "JSON"))->ToObject();
+        Local<Function> JSON_stringify = Handle<Function>::Cast(JSON->Get(String::NewFromUtf8(isolate, "stringify")));
         
         return handle_scope.Escape(JSON_stringify->Call(JSON, 1, &object)->ToString());
     }
     
     void v8_helper::trx_id_to_hash_array(const v8::FunctionCallbackInfo<v8::Value>& args )
     {
-        HandleScope handle_scope(args.GetIsolate());
-        
-        // Create a new empty array.
-        Handle<Array> array = Array::New(args.GetIsolate(), 5);
-        
-        // Return an empty result if there was an error creating the array.
-        if (array.IsEmpty())
-            args.GetReturnValue().Set(Handle<Array>());
-        
-        auto trx_id = json_to_cpp<bts::blockchain::transaction_id_type>(args.GetIsolate(), args[0]);
-        
-        // Fill out the values
-        array->Set( 0, Integer::New(args.GetIsolate(), trx_id._hash[0]) );
-        array->Set( 1, Integer::New(args.GetIsolate(), trx_id._hash[1]) );
-        array->Set( 2, Integer::New(args.GetIsolate(), trx_id._hash[2]) );
-        array->Set( 3, Integer::New(args.GetIsolate(), trx_id._hash[3]) );
-        array->Set( 4, Integer::New(args.GetIsolate(), trx_id._hash[4]) );
-        
-        // Return the value through Close.
-        
-        args.GetReturnValue().Set( array );
+        try {
+            HandleScope handle_scope(args.GetIsolate());
+            
+            // Create a new empty array.
+            Handle<Array> array = Array::New(args.GetIsolate(), 5);
+            
+            // Return an empty result if there was an error creating the array.
+            if (array.IsEmpty())
+                args.GetReturnValue().Set(Handle<Array>());
+            
+            auto trx_id = json_to_cpp<bts::blockchain::transaction_id_type>(args.GetIsolate(), args[0]);
+            
+            // Fill out the values
+            array->Set( 0, Integer::New(args.GetIsolate(), trx_id._hash[0]) );
+            array->Set( 1, Integer::New(args.GetIsolate(), trx_id._hash[1]) );
+            array->Set( 2, Integer::New(args.GetIsolate(), trx_id._hash[2]) );
+            array->Set( 3, Integer::New(args.GetIsolate(), trx_id._hash[3]) );
+            array->Set( 4, Integer::New(args.GetIsolate(), trx_id._hash[4]) );
+            
+            // Return the value through Close.
+            
+            args.GetReturnValue().Set( array );
+        } catch ( ... )
+        {
+            args.GetReturnValue().Set( v8::Null( args.GetIsolate() ) );
+        }
     }
     
     
@@ -201,7 +212,7 @@ namespace bts { namespace game {
    bool v8_helper::ExecuteString(v8::Isolate* isolate, v8::Handle<v8::String> source, v8::Handle<v8::String> name, bool print_result, bool report_exceptions)
    {
       v8::HandleScope handle_scope(isolate);
-      v8::TryCatch try_catch;
+      v8::TryCatch try_catch(isolate);
       v8::Handle<v8::Script> script = v8::Script::Compile(source, name);
       if (script.IsEmpty())
       {
@@ -286,35 +297,4 @@ namespace bts { namespace game {
    const char* v8_helper::ToCString(const v8::String::Utf8Value& value) {
       return *value ? *value : "<string conversion failed>";
    }
-   
-   /*
-    int main(int argc, char* argv[]) {
-    v8::V8::InitializeICU();
-    v8::Platform* platform = v8::platform::CreateDefaultPlatform();
-    v8::V8::InitializePlatform(platform);
-    v8::V8::Initialize();
-    v8::V8::SetFlagsFromCommandLine(&argc, argv, true);
-    ShellArrayBufferAllocator array_buffer_allocator;
-    v8::V8::SetArrayBufferAllocator(&array_buffer_allocator);
-    v8::Isolate* isolate = v8::Isolate::New();
-    run_shell = (argc == 1);
-    int result;
-    {
-    v8::Isolate::Scope isolate_scope(isolate);
-    v8::HandleScope handle_scope(isolate);
-    v8::Handle<v8::Context> context = CreateShellContext(isolate);
-    if (context.IsEmpty()) {
-    fprintf(stderr, "Error creating context\n");
-    return 1;
-    }
-    v8::Context::Scope context_scope(context);
-    result = RunMain(isolate, argc, argv);
-    if (run_shell) RunShell(context);
-    }
-    v8::V8::Dispose();
-    v8::V8::ShutdownPlatform();
-    delete platform;
-    return result;
-    }
-    */
 }}

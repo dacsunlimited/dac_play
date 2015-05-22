@@ -99,7 +99,13 @@ target_link_libraries( deterministic_signature_test bts_utilities deterministic_
 add_executable( util_cnr_test util_cnr_test.cpp)
 target_link_libraries( util_cnr_test bts_utilities fc )
 
+add_executable( v8_test v8_test.cpp)
+target_link_libraries( v8_test exlib v8 )
 
+target_include_directories( v8_test 
+PUBLIC
+"${CMAKE_SOURCE_DIR}/vendor/v8-fibjs/v8"
+)
 #if( false )
 #   add_executable( simple_net_test_client simple_net_test_client.cpp )
 #   if( WIN32 )
