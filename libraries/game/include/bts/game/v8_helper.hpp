@@ -14,7 +14,7 @@ namespace bts { namespace game {
    class v8_helper
    {
    public:
-       static Local<Value> parseJson(Isolate* isolate, Handle<Value> jsonString);
+       static Local<Value> parseJson(Isolate* isolate, Handle<String> jsonString);
        
        static Local<String> toJson(Isolate* isolate, Handle<Value> object );
        

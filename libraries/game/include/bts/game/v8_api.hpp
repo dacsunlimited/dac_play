@@ -72,6 +72,8 @@ namespace bts { namespace game {
         
         static void Get_Current_Random_Seed(const v8::FunctionCallbackInfo<Value>& args);
         
+        static void Get_Game_Data_Record(const v8::FunctionCallbackInfo<Value>& args);
+        
         /*
          * blockchain.get_asset_record(PLAY.game_asset.symbol);
          */

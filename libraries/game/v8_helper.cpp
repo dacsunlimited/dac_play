@@ -5,22 +5,26 @@
 #include <boost/format.hpp>
 
 namespace bts { namespace game {
-    Local<Value> v8_helper::parseJson(Isolate* isolate, Handle<Value> jsonString) {
-        v8::Locker locker(isolate);
-        Isolate::Scope isolate_scope(isolate);
+    Local<Value> v8_helper::parseJson(Isolate* isolate, Handle<String> jsonString) {
         EscapableHandleScope handle_scope(isolate);
         
-        Local<Context> context = isolate->GetCurrentContext();
-        v8::Context::Scope context_scope(context);
+        v8::Local<v8::Value> result = v8::JSON::Parse( jsonString );
         
-        Local<Object> global = context->Global();
-        
-        Local<Object> JSON = global->Get(String::NewFromUtf8(isolate, "JSON"))->ToObject();
-        Local<Function> JSON_parse = Handle<Function>::Cast(JSON->Get(String::NewFromUtf8(isolate, "parse")));
-        
-        // return JSON.parse.apply(JSON, jsonString);
-        return handle_scope.Escape(JSON_parse->Call(JSON, 1, &jsonString));
+        return handle_scope.Escape( result );
     }
+    
+    /* old implement, see issue #125
+     Local<Context> context = isolate->GetCurrentContext();
+     v8::Context::Scope context_scope(context);
+     
+     Local<Object> global = context->Global();
+     
+     Local<Object> JSON = global->Get(String::NewFromUtf8(isolate, "JSON"))->ToObject();
+     Local<Function> JSON_parse = Handle<Function>::Cast(JSON->Get(String::NewFromUtf8(isolate, "parse")));
+     
+     // return JSON.parse.apply(JSON, jsonString);
+     return handle_scope.Escape(JSON_parse->Call(JSON, 1, &jsonString));
+     */
     
     Local<String> v8_helper::toJson(Isolate* isolate, Handle<Value> object)
     {

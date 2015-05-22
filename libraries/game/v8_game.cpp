@@ -19,6 +19,7 @@ namespace bts { namespace game {
          std::string                        _game_name;
          Isolate*                           _isolate;
          v8::Persistent<Context>            _context;
+          v8::Persistent<Script>            _execute_script;
          
          v8_game_engine_impl(v8_game_engine* self, bts::game::client* client)
          : self(self), _client(client)
@@ -29,6 +30,7 @@ namespace bts { namespace game {
          ~v8_game_engine_impl(){
              
             _context.Reset();
+             _execute_script.Reset();
 
          }
          
@@ -425,6 +427,8 @@ namespace bts { namespace game {
        //v8::Local<v8::Context> context = v8::Local<v8::Context>::New(my->GetIsolate(), );
        // v8::Handle<v8::Context> context = v8_helper::CreateShellContext(my->GetIsolate());
        v8::Context::Scope context_scope(context);
+       
+       wlog("Start setting global objects...");
       
        context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "$execute_blockchain"), v8_blockchain::New(my->GetIsolate(), blockchain, block_num));
       
@@ -435,17 +439,32 @@ namespace bts { namespace game {
        wlog("Start running the script in game engine...");
        // TODO: why it is possible that my->GetIsolate() do not equal to Isolate.Current(). when did we enter isolate
        v8::TryCatch try_catch( my->GetIsolate() );
-       auto source =  "PLAY.execute($execute_blockchain, $block_num, $execute_pendingstate);";
        
-       v8::Local<v8::Script> script = v8::Script::Compile( String::NewFromUtf8( my->GetIsolate(), source) );
+       v8::Local<Script> script = v8::Local<Script>::New(my->GetIsolate(), my->_execute_script );
+       
        if ( script.IsEmpty() )
+       {
+           auto source =  "PLAY.execute($execute_blockchain, $block_num, $execute_pendingstate);";
+           
+           script = v8::Script::Compile( String::NewFromUtf8( my->GetIsolate(), source) );
+           
+           if ( script.IsEmpty() )
+           {
+               FC_ASSERT( try_catch.HasCaught() );
+               FC_ASSERT( ! try_catch.Exception().IsEmpty() );
+               FC_CAPTURE_AND_THROW( failed_compile_script, (source)( v8_helper::ReportException( my->GetIsolate(), &try_catch) ) );
+           }
+           
+           my->_execute_script.Reset(my->GetIsolate(), script );
+       }
+       
+       /*if ( script.IsEmpty() )
        {
            FC_ASSERT( try_catch.HasCaught() );
            FC_ASSERT( ! try_catch.Exception().IsEmpty() );
-           wlog ( v8_helper::ToCString( v8::String::Utf8Value( v8_helper::toJson(my->GetIsolate(), try_catch.Exception() ) )) );
-           FC_CAPTURE_AND_THROW( failed_compile_script, (source)( v8_helper::ReportException( my->GetIsolate(), &try_catch) ) );
+           FC_CAPTURE_AND_THROW( failed_compile_script, ( v8_helper::ReportException( my->GetIsolate(), &try_catch) ) );
        } else
-       {
+       {*/
            // Run the script to get the result.
            wlog("Run the script to get the result...");
            Local<Value> result = script->Run();
@@ -468,7 +487,7 @@ namespace bts { namespace game {
                    // TODO: deal with the result to record
                }
            }
-       }
+       //}
        wlog("End running the script in game engine...");
    }
 } } // bts::game

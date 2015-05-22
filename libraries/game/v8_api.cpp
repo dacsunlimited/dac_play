@@ -33,6 +33,8 @@ namespace bts { namespace game {
        proto->Set( isolate, "get_transaction", FunctionTemplate::New( isolate, v8_blockchain::Get_Transaction));
        
        proto->Set( isolate, "get_asset_record", FunctionTemplate::New(isolate, v8_blockchain::Get_Asset_Record) );
+       
+       proto->Set(isolate, "get_game_data_record", FunctionTemplate::New(isolate, v8_blockchain::Get_Game_Data_Record));
       
       //access the instance pointer of our new class template
       Handle<ObjectTemplate> inst = result->InstanceTemplate();
@@ -220,17 +222,29 @@ namespace bts { namespace game {
         void* ptr = wrap->Value();
         //get member variable value
         
+        wlog( "The block number is ${d}", ("d", args[0]->Uint32Value()) );
+        
         auto block_digest = static_cast<v8_blockchain*>(ptr)->_blockchain->get_block_digest(args[0]->Uint32Value());
         //return the value
         
-        auto block_digest_obj = v8_helper::cpp_to_json(args.GetIsolate(), block_digest );
+        wlog( "The block digest is ${d}", ("d", block_digest) );
         
-        if ( block_digest_obj->IsObject() )
+        auto v = variant(block_digest);
+        
+        if ( v.is_object() )
         {
-            block_digest_obj->ToObject()->Set(String::NewFromUtf8( args.GetIsolate(), "id") , v8_helper::cpp_to_json(args.GetIsolate(), block_digest.id()) );
+            fc::mutable_variant_object obj(v);
+            
+            obj("id", block_digest.id() );
+            
+            v = obj;
         }
         
-        args.GetReturnValue().Set( block_digest_obj );
+        Local<Value> block_digest_obj = v8_helper::cpp_to_json(args.GetIsolate(), v );
+        
+        wlog( "The block digest is ${d}", ("d", v) );
+        
+        args.GetReturnValue().Set( handle_scope.Escape(block_digest_obj) );
     }
    
    void v8_blockchain::Get_Block(const v8::FunctionCallbackInfo<Value>& args)
@@ -394,9 +408,9 @@ namespace bts { namespace game {
    {
        EscapableHandleScope handle_scope(args.GetIsolate());
        
-      Local<Object> self = args.Holder();
-      Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
-      void* ptr = wrap->Value();
+       Local<Object> self = args.Holder();
+       Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+       void* ptr = wrap->Value();
       
        oasset_record asset_rec;
        if ( args[0]->IsString() )
@@ -431,11 +445,34 @@ namespace bts { namespace game {
        
        if ( game_data_record.valid() )
        {
-           args.GetReturnValue().Set( v8_helper::cpp_to_json(args.GetIsolate(), *game_data_record ) );
+           Local<Value> res = v8_helper::cpp_to_json(args.GetIsolate(), *game_data_record );
+           args.GetReturnValue().Set( handle_scope.Escape( res ) );
        } else {
            args.GetReturnValue().Set( v8::Null( args.GetIsolate() ) );
        }
    }
+    
+    void v8_blockchain::Get_Game_Data_Record(const v8::FunctionCallbackInfo<Value>& args)
+    {
+        EscapableHandleScope handle_scope(args.GetIsolate());
+        
+        Local<Object> self = args.Holder();
+        Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+        void* ptr = wrap->Value();
+        
+        Local<Integer> wrapper_type = Local<Integer>::Cast(args[0]);
+        Local<Integer> wrapper_id = Local<Integer>::Cast(args[1]);
+        
+        auto game_data_record = static_cast<v8_blockchain*>(ptr)->_blockchain->get_game_data_record(wrapper_type->Int32Value(), wrapper_id->Int32Value() );
+        
+        if ( game_data_record.valid() )
+        {
+            Local<Value> res = v8_helper::cpp_to_json(args.GetIsolate(), *game_data_record );
+            args.GetReturnValue().Set( handle_scope.Escape( res ) );
+        } else {
+            args.GetReturnValue().Set( v8::Null( args.GetIsolate() ) );
+        }
+    }
    
    void v8_chainstate::Store_Blance_Record(const v8::FunctionCallbackInfo<Value>& args)
    {
