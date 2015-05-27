@@ -971,7 +971,7 @@ namespace bts { namespace blockchain {
                const share_type collected_fees = ( reward_record->fees[0] * BTS_BLOCKCHAIN_BLOCKS_PER_DAY ) / blocks_per_two_weeks;
                share_type reward_fee = 0;
                // 40% for level #1 with only 1, 30% for level #2 with only 2, 40% for the left with only 5
-               uint32_t interval = 40; //BTS_BLOCKCHAIN_BLOCKS_PER_DAY;
+               uint32_t interval = BTS_BLOCKCHAIN_BLOCKS_PER_DAY;
                
                if ( block_num % interval == 0)
                {
