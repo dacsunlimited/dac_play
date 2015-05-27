@@ -65,6 +65,8 @@ namespace bts { namespace blockchain {
       apply_records( prev_state, _feed_index_to_record, _feed_index_remove );
 
       prev_state->set_market_transactions( market_transactions );
+       
+      prev_state->set_operation_reward_transactions( operation_reward_transactions );
 
       prev_state->set_dirty_markets(_dirty_markets);
 
