@@ -178,6 +178,10 @@ void wallet_impl::scan_operation_reward_transaction(
         entry.amount = otrx.reward;
         entry.memo = "Lucky! you got note reward " + _blockchain->to_pretty_asset( otrx.reward ) + "Info: " + otrx.info;
         record.ledger_entries.push_back( entry );
+        self->wallet_claimed_transaction( entry );
+        
+        _wallet_db.store_transaction( record );
+        _dirty_balances = true;
     }
 
 } FC_CAPTURE_AND_RETHROW() }

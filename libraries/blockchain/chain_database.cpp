@@ -971,10 +971,12 @@ namespace bts { namespace blockchain {
                const share_type collected_fees = ( reward_record->fees[0] * BTS_BLOCKCHAIN_BLOCKS_PER_DAY ) / blocks_per_two_weeks;
                share_type reward_fee = 0;
                // 40% for level #1 with only 1, 30% for level #2 with only 2, 40% for the left with only 5
-               if ( block_num % BTS_BLOCKCHAIN_BLOCKS_PER_DAY == 0)
+               uint32_t interval = 40; //BTS_BLOCKCHAIN_BLOCKS_PER_DAY;
+               
+               if ( block_num % interval == 0)
                {
                    vector<note_index> note_indexs;
-                   uint32_t begin = block_num - BTS_BLOCKCHAIN_BLOCKS_PER_DAY >= 1 ? block_num - BTS_BLOCKCHAIN_BLOCKS_PER_DAY : 1;
+                   uint32_t begin = block_num - interval >= 1 ? block_num - interval : 1;
                    // start from the first of this round to the previous block
                    for ( auto i = begin; i < block_num; i ++)
                    {
@@ -994,10 +996,12 @@ namespace bts { namespace blockchain {
                            }
                        }
                    }
+                   wlog("the note indexs are ${n}", ("n", note_indexs) );
                    
                    auto random_seed = self->get_current_random_seed();
                    if ( note_indexs.size() > 0 )
                    {
+                       wlog("starting pay the first level rewards...");
                        auto level_1 = random_seed._hash[0] % note_indexs.size();
                        auto note_record = pending_state->get_note_record( note_indexs[level_1] );
                        operation_reward_transaction reward_trx;
@@ -1033,13 +1037,16 @@ namespace bts { namespace blockchain {
                        auto lucky_guys = bts::utilities::unranking(
                                              random_seed._hash[1] % bts::utilities::cnr( note_indexs.size(), 2 ), 2, note_indexs.size());
                        
+                       wlog("the lucky guys are ${l}", ("l", lucky_guys) );
+                       
                        for ( const auto& n : lucky_guys )
                        {
                            second_indexs.push_back( note_indexs[ n ] );
                        }
                        
-                       for ( uint16_t i = lucky_guys.size() - 1; i >= 0; i -- )
+                       for ( int16_t i = lucky_guys.size() - 1; i >= 0; i -- )
                        {
+                           wlog("the note indexs are ${n}, ${x}th will be deleted", ("n", note_indexs)("x", lucky_guys[i]) );
                            note_indexs.erase(note_indexs.begin() + lucky_guys[i] );
                        }
                    }
@@ -1071,24 +1078,24 @@ namespace bts { namespace blockchain {
                    vector<note_index> third_indexs;
                    if ( note_indexs.size() <= 5 )
                    {
-                       third_indexs.insert(second_indexs.end(), note_indexs.begin(), note_indexs.end() );
+                       third_indexs.insert(third_indexs.end(), note_indexs.begin(), note_indexs.end() );
                        note_indexs.erase( note_indexs.begin(), note_indexs.end() );
                    } else {
                        auto lucky_guys = bts::utilities::unranking(
                                                                    random_seed._hash[2] % bts::utilities::cnr( note_indexs.size(), 5 ), 5, note_indexs.size());
-                       
+                       wlog("the lucky guys are ${l}", ("l", lucky_guys) );
                        for ( const auto& n : lucky_guys )
                        {
                            third_indexs.push_back( note_indexs[ n ] );
                        }
                        
-                       for ( uint16_t i = lucky_guys.size() - 1; i >= 0; i -- )
+                       for ( int16_t i = lucky_guys.size() - 1; i >= 0; i -- )
                        {
-                           third_indexs.erase(note_indexs.begin() + lucky_guys[i] );
+                           note_indexs.erase(note_indexs.begin() + lucky_guys[i] );
                        }
                    }
                    
-                   for ( const auto& i : second_indexs )
+                   for ( const auto& i : third_indexs )
                    {
                        auto note_record = pending_state->get_note_record( i );
                        operation_reward_transaction reward_trx;
