@@ -34,8 +34,8 @@ struct pretty_transaction
 {
     bool                        is_virtual = false;
     bool                        is_confirmed = false;
-    bool                        is_market = false;
-    bool                        is_market_cancel = false;
+    bool                        is_cancel = false;
+    string                      contract;
     transaction_id_type         trx_id;
     uint32_t                    block_num = 0;
     vector<pretty_ledger_entry> ledger_entries;
@@ -89,8 +89,8 @@ FC_REFLECT( bts::wallet::pretty_ledger_entry,
 FC_REFLECT( bts::wallet::pretty_transaction,
             (is_virtual)
             (is_confirmed)
-            (is_market)
-            (is_market_cancel)
+            (is_cancel)
+            (contract)
             (trx_id)
             (block_num)
             (ledger_entries)

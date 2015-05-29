@@ -3424,7 +3424,7 @@ namespace detail {
        entry.memo = memo.str();
        
        auto record = wallet_transaction_record();
-       record.is_market = true;
+       record.contract = "MARKET";
        record.ledger_entries.push_back( entry );
        record.fee = required_fees;
        
