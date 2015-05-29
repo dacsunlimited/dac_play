@@ -359,11 +359,45 @@ namespace bts { namespace game {
       return record;
    }
    
-   bool v8_game_engine::scan( wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w )
+   bool v8_game_engine::scan_ledger( wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w, const variant& var )
    {
       
-      HandleScope handle_scope(my->GetIsolate());
-      // TODO
+       auto isolate = my->GetIsolate();
+       v8::Locker locker(isolate);
+       Isolate::Scope isolate_scope(my->GetIsolate());
+       v8::HandleScope handle_scope( isolate );
+       v8::Local<v8::Context> context = v8::Local<v8::Context>::New(isolate, my->_context);
+       // Entering the context
+       Context::Scope context_scope(context);
+       
+       context->Global()->Set( String::NewFromUtf8(isolate, "$wallet_transaction_record"), v8_helper::cpp_to_json(isolate, trx_rec) );
+       context->Global()->Set( String::NewFromUtf8(isolate, "$wallet"), v8_wallet::New(isolate, w) );
+       
+       auto _input = var; // TODO: convert/parse it to a v8 javascript object
+       context->Global()->Set(String::NewFromUtf8(isolate, "$input"),  v8_helper::cpp_to_json(isolate, _input));
+       
+       v8::TryCatch try_catch(my->GetIsolate());
+       auto source =  "PLAY.scan_ledger($wallet_transaction_record, $wallet, $input);";
+       
+       v8::Handle<v8::Script> script = v8::Script::Compile( String::NewFromUtf8( my->GetIsolate(), source) );
+       if ( script.IsEmpty() )
+       {
+           String::Utf8Value error(try_catch.Exception());
+           FC_CAPTURE_AND_THROW(failed_compile_script, (source)(*error));
+       } else
+       {
+           // Run the script to get the result.
+           Handle<Value> result = script->Run();
+           
+           if ( result.IsEmpty() )
+           {
+               FC_CAPTURE_AND_THROW(failed_run_script, ( v8_helper::ReportException(isolate, &try_catch) ));
+           } else
+           {
+               wlog("The result of the running of script is ${s}", ( "s",  v8_helper::ToCString(String::Utf8Value(result)) ));
+           }
+       }
+       
       return false;
    }
    
@@ -372,25 +406,28 @@ namespace bts { namespace game {
                     const time_point_sec& block_time,
                     const uint32_t trx_index, bts::wallet::wallet_ptr w)
    {
-       v8::Locker locker(my->GetIsolate());
-       Isolate::Scope isolate_scope(my->GetIsolate());
-       v8::HandleScope handle_scope(my->GetIsolate());
-       v8::Local<v8::Context> context = v8::Local<v8::Context>::New(my->GetIsolate(), my->_context);
+       auto isolate = my->GetIsolate();
+       v8::Locker locker(isolate);
+       Isolate::Scope isolate_scope(isolate);
+       v8::HandleScope handle_scope(isolate);
+       v8::Local<v8::Context> context = v8::Local<v8::Context>::New(isolate, my->_context);
        v8::Context::Scope context_scope(context);
       
-       //context->Global()->Set(String::NewFromUtf8(isolate, "scan_result_trx"), External::New(isolate, rtrx));
+       context->Global()->Set(String::NewFromUtf8(isolate, "$r_res_trx"), v8_helper::cpp_to_json(isolate, rtrx));
       
-       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "scan_result_block_num"), Integer::New(my->GetIsolate(), block_num));
+       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "$r_block_num"), Integer::New(my->GetIsolate(), block_num));
       
        //associates our internal field pointing to 'p' with the "point" name inside the context
        //this enable usage of point inside this context without need to create a new one
-       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "scan_result_block_time"), String::NewFromUtf8(my->GetIsolate(), block_time.to_iso_string().c_str()));
+       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "$r_block_time"), String::NewFromUtf8(my->GetIsolate(), fc::json::to_string(block_time).c_str() ) );
       
-       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "scan_result_trx_index"), Integer::New(my->GetIsolate(), trx_index));
+       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "$r_trx_index"), Integer::New(my->GetIsolate(), trx_index));
+       
+       context->Global()->Set( String::NewFromUtf8(isolate, "$wallet"), v8_wallet::New(isolate, w) );
       
        v8::TryCatch try_catch(my->GetIsolate());
        
-       auto source =  "PLAY.scan_result(scan_rtx, scan_result_block_num, scan_result_block_time, scan_result_received_time, scan_result_trx_index, scan_w);";
+       auto source =  "PLAY.scan_result($r_res_trx, $r_block_num, $r_block_time, $r_trx_index, $wallet);";
        
        v8::Handle<v8::Script> script = v8::Script::Compile( String::NewFromUtf8( my->GetIsolate(), source) );
        if ( script.IsEmpty() )

@@ -97,6 +97,10 @@ namespace bts { namespace game {
         
         static void Get_Transaction_Fee(const v8::FunctionCallbackInfo<Value>& args);
         
+        static void Get_Wallet_Key_For_Address(const v8::FunctionCallbackInfo<Value>& args);
+        
+        static void Store_Transaction(const v8::FunctionCallbackInfo<Value>& args);
+        
         //variables
         wallet_ptr _wallet;
     };

@@ -68,6 +68,9 @@ namespace bts { namespace game {
         //enabling point.method_a() constructions inside the javascript
         proto->Set(isolate, "get_transaction_fee", FunctionTemplate::New(isolate, v8_wallet::Get_Transaction_Fee));
         
+        proto->Set(isolate, "get_wallet_key_for_address", FunctionTemplate::New(isolate, v8_wallet::Get_Wallet_Key_For_Address) );
+        proto->Set(isolate, "store_transaction", FunctionTemplate::New(isolate, v8_wallet::Store_Transaction) );
+        
         // Again, return the result through the current handle scope.
         return handle_scope.Escape(result);
     }
@@ -368,6 +371,40 @@ namespace bts { namespace game {
         
         //return the value
         args.GetReturnValue().Set( v8_helper::cpp_to_json(args.GetIsolate(), value) );
+    }
+    
+    void v8_wallet::Get_Wallet_Key_For_Address(const v8::FunctionCallbackInfo<Value>& args)
+    {
+        EscapableHandleScope handle_scope(args.GetIsolate());
+        
+        Local<Object> self = args.Holder();
+        Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+        void* ptr = wrap->Value();
+        //get member variable value
+        auto addr = v8_helper::json_to_cpp<bts::blockchain::address>(args.GetIsolate(), args[0] );
+        auto key = static_cast<v8_wallet*>(ptr)->_wallet->get_wallet_key_for_address( addr );
+        
+        if ( key.valid() )
+        {
+            // return the value
+            args.GetReturnValue().Set( v8_helper::cpp_to_json(args.GetIsolate(), key) );
+        } else
+        {
+            args.GetReturnValue().Set( v8::Null(args.GetIsolate() ) );
+        }
+    }
+    
+    void v8_wallet::Store_Transaction(const v8::FunctionCallbackInfo<Value>& args)
+    {
+        EscapableHandleScope handle_scope(args.GetIsolate());
+        
+        Local<Object> self = args.Holder();
+        Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+        void* ptr = wrap->Value();
+        
+        auto trx_data = v8_helper::json_to_cpp<transaction_data>(args.GetIsolate(), args[0] );
+        
+        static_cast<v8_wallet*>(ptr)->_wallet->store_transaction( trx_data );
     }
    
    Local<Object> v8_chainstate::New(v8::Isolate* isolate, const pending_chain_state_ptr& pending_state)

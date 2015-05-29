@@ -41,6 +41,20 @@ namespace bts { namespace game {
         return handle_scope.Escape(JSON_stringify->Call(JSON, 1, &object)->ToString());
     }
     
+    void v8_helper::fc_ripemd160_hash(const v8::FunctionCallbackInfo<v8::Value>& args )
+    {
+        try {
+            EscapableHandleScope handle_scope(args.GetIsolate());
+            
+            auto hash = fc::ripemd160::hash( v8_helper::ToCString(String::Utf8Value(args[0]->ToString(args.GetIsolate()))) );
+            
+            args.GetReturnValue().Set( v8_helper::cpp_to_json( args.GetIsolate(), hash ) );
+        } catch ( ... )
+        {
+            args.GetReturnValue().Set( v8::Null( args.GetIsolate() ) );
+        }
+    }
+    
     void v8_helper::trx_id_to_hash_array(const v8::FunctionCallbackInfo<v8::Value>& args )
     {
         try {
@@ -95,7 +109,8 @@ namespace bts { namespace game {
       // TODO Reset
       // TODO Transaction Template
        
-       global->Set(v8::String::NewFromUtf8(isolate, "trx_id_to_hash_array"), v8::FunctionTemplate::New(isolate, trx_id_to_hash_array) );
+      global->Set(v8::String::NewFromUtf8(isolate, "trx_id_to_hash_array"), v8::FunctionTemplate::New(isolate, trx_id_to_hash_array) );
+      global->Set(v8::String::NewFromUtf8(isolate, "fc_ripemd160_hash"), v8::FunctionTemplate::New(isolate, fc_ripemd160_hash) );
       
       return v8::Context::New(isolate, NULL, global);
    }
