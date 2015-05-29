@@ -383,7 +383,7 @@ transaction_builder& transaction_builder::cancel_market_order( const order_id_ty
    entry.amount = balance;
    entry.memo = "cancel " + order->get_small_id();
 
-   transaction_record.is_market = true;
+   transaction_record.contract = "MARKET";
    transaction_record.ledger_entries.push_back( entry );
 
    required_signatures.insert( owner_address );
@@ -420,7 +420,7 @@ transaction_builder& transaction_builder::submit_bid(const wallet_account_record
    entry.memo = "buy " + _wimpl->_blockchain->get_asset_symbol(quote_price.base_asset_id) +
                 " @ " + _wimpl->_blockchain->to_pretty_price(quote_price);
 
-   transaction_record.is_market = true;
+   transaction_record.contract = "MARKET";
    transaction_record.ledger_entries.push_back(entry);
 
    required_signatures.insert(order_key);
@@ -452,7 +452,7 @@ transaction_builder& transaction_builder::submit_ask(const wallet_account_record
    entry.memo = "sell " + _wimpl->_blockchain->get_asset_symbol(quote_price.base_asset_id) +
                 " @ " + _wimpl->_blockchain->to_pretty_price(quote_price);
 
-   transaction_record.is_market = true;
+   transaction_record.contract = "MARKET";
    transaction_record.ledger_entries.push_back(entry);
 
    required_signatures.insert(order_key);

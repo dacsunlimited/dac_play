@@ -972,11 +972,14 @@ namespace bts { namespace blockchain {
                const share_type collected_fees = ( reward_record->fees[0] * BTS_BLOCKCHAIN_BLOCKS_PER_DAY ) / blocks_per_two_weeks;
                share_type reward_fee = 0;
                // 40% for level #1 with only 1, 30% for level #2 with only 2, 40% for the left with only 5
-               if ( block_num % BTS_BLOCKCHAIN_BLOCKS_PER_DAY == 0)
+               uint32_t interval = BTS_BLOCKCHAIN_BLOCKS_PER_DAY;
+               
+               if ( block_num % interval == 0)
                {
                    vector<note_index> note_indexs;
-                   uint32_t begin = block_num - BTS_BLOCKCHAIN_BLOCKS_PER_DAY >= 1 ? block_num - BTS_BLOCKCHAIN_BLOCKS_PER_DAY : 1;
-                   for ( auto i = begin; i <= block_num; i ++)
+                   uint32_t begin = block_num - interval >= 1 ? block_num - interval : 1;
+                   // start from the first of this round to the previous block
+                   for ( auto i = begin; i < block_num; i ++)
                    {
                        auto blk = self->get_block(i);
                        for ( auto trx = blk.user_transactions.begin(); trx != blk.user_transactions.end(); ++trx )
@@ -994,10 +997,12 @@ namespace bts { namespace blockchain {
                            }
                        }
                    }
+                   wlog("the note indexs are ${n}", ("n", note_indexs) );
                    
                    auto random_seed = self->get_current_random_seed();
                    if ( note_indexs.size() > 0 )
                    {
+                       wlog("starting pay the first level rewards...");
                        auto level_1 = random_seed._hash[0] % note_indexs.size();
                        auto note_record = pending_state->get_note_record( note_indexs[level_1] );
                        operation_reward_transaction reward_trx;
@@ -1033,13 +1038,16 @@ namespace bts { namespace blockchain {
                        auto lucky_guys = bts::utilities::unranking(
                                              random_seed._hash[1] % bts::utilities::cnr( note_indexs.size(), 2 ), 2, note_indexs.size());
                        
+                       wlog("the lucky guys are ${l}", ("l", lucky_guys) );
+                       
                        for ( const auto& n : lucky_guys )
                        {
                            second_indexs.push_back( note_indexs[ n ] );
                        }
                        
-                       for ( uint16_t i = lucky_guys.size() - 1; i >= 0; i -- )
+                       for ( int16_t i = lucky_guys.size() - 1; i >= 0; i -- )
                        {
+                           wlog("the note indexs are ${n}, ${x}th will be deleted", ("n", note_indexs)("x", lucky_guys[i]) );
                            note_indexs.erase(note_indexs.begin() + lucky_guys[i] );
                        }
                    }
@@ -1071,24 +1079,24 @@ namespace bts { namespace blockchain {
                    vector<note_index> third_indexs;
                    if ( note_indexs.size() <= 5 )
                    {
-                       third_indexs.insert(second_indexs.end(), note_indexs.begin(), note_indexs.end() );
+                       third_indexs.insert(third_indexs.end(), note_indexs.begin(), note_indexs.end() );
                        note_indexs.erase( note_indexs.begin(), note_indexs.end() );
                    } else {
                        auto lucky_guys = bts::utilities::unranking(
                                                                    random_seed._hash[2] % bts::utilities::cnr( note_indexs.size(), 5 ), 5, note_indexs.size());
-                       
+                       wlog("the lucky guys are ${l}", ("l", lucky_guys) );
                        for ( const auto& n : lucky_guys )
                        {
                            third_indexs.push_back( note_indexs[ n ] );
                        }
                        
-                       for ( uint16_t i = lucky_guys.size() - 1; i >= 0; i -- )
+                       for ( int16_t i = lucky_guys.size() - 1; i >= 0; i -- )
                        {
-                           third_indexs.erase(note_indexs.begin() + lucky_guys[i] );
+                           note_indexs.erase(note_indexs.begin() + lucky_guys[i] );
                        }
                    }
                    
-                   for ( const auto& i : second_indexs )
+                   for ( const auto& i : third_indexs )
                    {
                        auto note_record = pending_state->get_note_record( i );
                        operation_reward_transaction reward_trx;
@@ -3721,19 +3729,19 @@ namespace bts { namespace blockchain {
         my->_note_index_to_record.remove( index );
     }
     
-    ooperation_reward_record chain_database::operation_reward_lookup_by_id( const operation_type id )const
+    ooperation_reward_record chain_database::operation_reward_lookup_by_id( const operation_id_type id )const
     {
         const auto iter = my->_operation_reward_id_to_record.unordered_find( id );
         if( iter != my->_operation_reward_id_to_record.unordered_end() ) return iter->second;
         return ooperation_reward_record();
     }
     
-    void chain_database::operation_reward_insert_into_id_map( const operation_type id, const operation_reward_record& record )
+    void chain_database::operation_reward_insert_into_id_map( const operation_id_type id, const operation_reward_record& record )
     {
         my->_operation_reward_id_to_record.store( id, record );
     }
     
-    void chain_database::operation_reward_erase_from_id_map( const operation_type id )
+    void chain_database::operation_reward_erase_from_id_map( const operation_id_type id )
     {
         my->_operation_reward_id_to_record.remove( id );
     }

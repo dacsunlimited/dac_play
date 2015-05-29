@@ -41,7 +41,7 @@ void wallet_impl::scan_market_transaction(
         record.block_num = block_num;
         record.is_virtual = true;
         record.is_confirmed = true;
-        record.is_market = true;
+        record.contract = "MARKET";
         record.created_time = block_time;
         record.received_time = block_time;
 
@@ -113,7 +113,7 @@ void wallet_impl::scan_market_transaction(
         record.block_num = block_num;
         record.is_virtual = true;
         record.is_confirmed = true;
-        record.is_market = true;
+        record.contract = "MARKET";
         record.created_time = block_time;
         record.received_time = block_time;
 
@@ -167,7 +167,7 @@ void wallet_impl::scan_operation_reward_transaction(
         record.block_num = block_num;
         record.is_virtual = true;
         record.is_confirmed = true;
-        record.is_market = true;
+        record.contract = "OP:NOTE";
         record.created_time = block_time;
         record.received_time = block_time;
         
@@ -177,6 +177,10 @@ void wallet_impl::scan_operation_reward_transaction(
         entry.amount = otrx.reward;
         entry.memo = "Lucky! you got note reward " + _blockchain->to_pretty_asset( otrx.reward ) + "Info: " + otrx.info;
         record.ledger_entries.push_back( entry );
+        self->wallet_claimed_transaction( entry );
+        
+        _wallet_db.store_transaction( record );
+        _dirty_balances = true;
     }
 
 } FC_CAPTURE_AND_RETHROW() }
@@ -1553,7 +1557,7 @@ vector<pretty_transaction> wallet::get_pretty_transaction_history( const string&
                 any_from_me |= from_me;
 
                 /* Special case to subtract fee if we canceled a bid */
-                if( !trx.is_virtual && trx.is_market_cancel && amount_asset_id != fee_asset_id )
+                if( !trx.is_virtual && trx.is_cancel && (trx.contract == "MARKET") && amount_asset_id != fee_asset_id )
                     running_balances[ fee_asset_id ] -= trx.fee;
 
                 auto to_me = false;
@@ -1568,7 +1572,7 @@ vector<pretty_transaction> wallet::get_pretty_transaction_history( const string&
             if( account_specified )
             {
                 /* Don't return fees we didn't pay */
-                if( trx.is_virtual || ( !any_from_me && !trx.is_market_cancel ) )
+                if( trx.is_virtual || ( !any_from_me && !(trx.is_cancel && (trx.contract == "MARKET")) ) )
                 {
                     trx.fee = asset();
                 }
@@ -1602,7 +1606,7 @@ void wallet::remove_transaction_record( const string& record_id )
     }
 }
 
-void wallet::store_transaction( const transaction_data& transaction )
+void wallet::store_transaction( const transaction_info& transaction )
 {
     my->_wallet_db.store_transaction(transaction);
 }
@@ -1613,8 +1617,8 @@ pretty_transaction wallet::to_pretty_trx( const wallet_transaction_record& trx_r
 
    pretty_trx.is_virtual = trx_rec.is_virtual;
    pretty_trx.is_confirmed = trx_rec.is_confirmed;
-   pretty_trx.is_market = trx_rec.is_market;
-   pretty_trx.is_market_cancel = !trx_rec.is_virtual && trx_rec.is_market && trx_rec.trx.is_cancel();
+   pretty_trx.contract = trx_rec.contract;
+   pretty_trx.is_cancel = !trx_rec.is_virtual && trx_rec.trx.is_cancel();
    pretty_trx.trx_id = !trx_rec.is_virtual ? trx_rec.trx.id() : trx_rec.record_id;
    pretty_trx.block_num = trx_rec.block_num;
 
@@ -1630,15 +1634,15 @@ pretty_transaction wallet::to_pretty_trx( const wallet_transaction_record& trx_r
        }
        else if( trx_rec.is_virtual && trx_rec.block_num <= 0 )
           pretty_entry.from_account = "GENESIS";
-       else if( trx_rec.is_market )
-          pretty_entry.from_account = "MARKET";
+       else if( trx_rec.contract.size() > 0 )
+          pretty_entry.from_account = trx_rec.contract;
        else
           pretty_entry.from_account = "UNKNOWN";
 
        if( entry.to_account.valid() )
           pretty_entry.to_account = get_key_label( *entry.to_account );
-       else if( trx_rec.is_market )
-          pretty_entry.to_account = "MARKET";
+       else if( trx_rec.contract.size() > 0 )
+          pretty_entry.to_account = trx_rec.contract;
        else
           pretty_entry.to_account = "UNKNOWN";
 
@@ -1702,7 +1706,7 @@ pretty_transaction wallet::to_pretty_trx( const wallet_transaction_record& trx_r
        pretty_trx.ledger_entries.push_back( pretty_entry );
    }
 
-   if( !pretty_trx.is_virtual && !pretty_trx.is_market )
+   if( !pretty_trx.is_virtual && !(pretty_trx.contract.size() == 0) )
    {
        uint16_t unknown_count = 0;
        uint16_t from_name_count = 0;

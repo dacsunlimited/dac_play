@@ -190,6 +190,11 @@
           "cpp_return_type" : "std::vector<bts::blockchain::note_record>"
       },
       {
+          "type_name" : "optional_operation_reward_record",
+          "cpp_return_type" : "fc::optional<bts::blockchain::operation_reward_record>",
+          "cpp_include_file" : "bts/blockchain/operation_reward_record.hpp"
+      },
+      {
         "type_name" : "wallet_name_array",
         "container_type" : "array",
         "contained_type" : "wallet_name"

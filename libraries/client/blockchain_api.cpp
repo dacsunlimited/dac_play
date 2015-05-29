@@ -111,6 +111,20 @@ signed_transactions client_impl::blockchain_list_pending_transactions() const
    return trxs;
 }
 
+ooperation_reward_record client_impl::blockchain_get_operation_reward(const operation_type_enum& op_type) const
+{
+        try
+        {
+            wlog("the parameter is: ${o}", ("o", op_type));
+            ASSERT_TASK_NOT_PREEMPTED(); // make sure no cancel gets swallowed by catch(...)
+            return _chain_db->get_operation_reward_record(op_type);
+        }
+        catch( ... )
+        {
+        }
+        return ooperation_reward_record();
+}
+
 uint32_t detail::client_impl::blockchain_get_block_count() const
 {
    return _chain_db->get_head_block_num();

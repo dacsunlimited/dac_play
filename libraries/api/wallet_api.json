@@ -694,6 +694,27 @@
           "aliases" : ["note"]
       },
       {
+          "method_name": "wallet_fetch_note",
+          "description": "Fetch notes and decrypt it if it is a secret note",
+          "return_type": "string",
+          "parameters" :
+          [
+          {
+              "name" : "owner_account_name",
+              "type" : "sending_account_name",
+              "description" : "the owner of the secret_note"
+          },
+          {
+              "name" : "transaction_id",
+              "type" : "string",
+              "description" : "the id of the transaction including the secret note",
+              "default_value" : ""
+          }
+          ],
+          "prerequisites" : ["wallet_unlocked"],
+          "aliases" : ["note_decrypt"]
+      },
+      {
          "method_name" : "wallet_address_create",
          "description" : "Creates an address which can be used for a simple (non-TITAN) transfer.",
          "return_type" : "string",

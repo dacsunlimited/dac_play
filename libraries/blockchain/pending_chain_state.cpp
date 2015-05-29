@@ -65,6 +65,8 @@ namespace bts { namespace blockchain {
       apply_records( prev_state, _feed_index_to_record, _feed_index_remove );
 
       prev_state->set_market_transactions( market_transactions );
+       
+      prev_state->set_operation_reward_transactions( operation_reward_transactions );
 
       prev_state->set_dirty_markets(_dirty_markets);
 
@@ -321,7 +323,7 @@ namespace bts { namespace blockchain {
        
        for ( const auto& item : _operation_reward_id_to_record )
        {
-           const operation_type id = item.first;
+           const operation_id_type id = item.first;
            const ooperation_reward_record prev_record = prev_state->get_operation_reward_record( id );
            if ( prev_record.valid() )
            {
@@ -338,7 +340,7 @@ namespace bts { namespace blockchain {
            }
        }
        
-       for ( const operation_type id : _operation_reward_id_remove )
+       for ( const operation_id_type id : _operation_reward_id_remove )
        {
            const ooperation_reward_record prev_record = prev_state->get_operation_reward_record( id );
            if ( prev_record.valid() )
@@ -732,7 +734,7 @@ namespace bts { namespace blockchain {
         _note_index_remove.insert( index );
     }
     
-    ooperation_reward_record pending_chain_state::operation_reward_lookup_by_id( const operation_type id )const
+    ooperation_reward_record pending_chain_state::operation_reward_lookup_by_id( const operation_id_type id )const
     {
         const auto iter = _operation_reward_id_to_record.find( id );
         if( iter != _operation_reward_id_to_record.end() ) return iter->second;
@@ -742,13 +744,13 @@ namespace bts { namespace blockchain {
         return prev_state->lookup<operation_reward_record>( id );
     }
     
-    void pending_chain_state::operation_reward_insert_into_id_map( const operation_type id, const operation_reward_record& record )
+    void pending_chain_state::operation_reward_insert_into_id_map( const operation_id_type id, const operation_reward_record& record )
     {
         _operation_reward_id_remove.erase( id );
         _operation_reward_id_to_record[ id ] = record;
     }
     
-    void pending_chain_state::operation_reward_erase_from_id_map( const operation_type id )
+    void pending_chain_state::operation_reward_erase_from_id_map( const operation_id_type id )
     {
         _operation_reward_id_to_record.erase( id );
         _operation_reward_id_remove.insert( id );

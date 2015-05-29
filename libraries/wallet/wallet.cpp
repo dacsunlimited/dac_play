@@ -388,7 +388,7 @@ namespace detail {
        {
            self->auto_backup( "version_upgrade" );
 
-           /* Example
+           /* Example: https://github.com/BitShares/bitshares/blob/8bd3f8cf332ff72c0a51f8e51619ab3e2975fa82/libraries/wallet/wallet.cpp#L471
            if( current_version < 101 )
            {
                // Upgrade here
@@ -2743,19 +2743,19 @@ namespace detail {
         if( required_fees.asset_id == asset_to_pay.asset_id )
         {
             my->withdraw_to_transaction( required_fees + asset_to_pay,
-                                        owner_account_name,
+                                        publisher_account_name,
                                         trx,
                                         required_signatures );
         }
         else
         {
             my->withdraw_to_transaction( asset_to_pay,
-                                        owner_account_name,
+                                        publisher_account_name,
                                         trx,
                                         required_signatures );
             
             my->withdraw_to_transaction( required_fees,
-                                        owner_account_name,
+                                        publisher_account_name,
                                         trx,
                                         required_signatures );
         }
@@ -2869,9 +2869,15 @@ namespace detail {
         auto entry = ledger_entry();
         entry.from_account = sender_public_key;
         entry.amount = asset_to_pay;
-        entry.memo = "note";
-        if( !message.empty() )
-            entry.memo += ": " + message;
+        entry.memo = "note:";
+        if( !message.empty() && encrypt == true )
+        {
+            entry.memo += "wrote a private note.";
+        } else if ( !message.empty() && encrypt == false )
+        {
+            entry.memo += message;
+        }
+        
         
         auto record = wallet_transaction_record();
         record.ledger_entries.push_back( entry );
@@ -3442,7 +3448,7 @@ namespace detail {
        entry.memo = memo.str();
        
        auto record = wallet_transaction_record();
-       record.is_market = true;
+       record.contract = "MARKET";
        record.ledger_entries.push_back( entry );
        record.fee = required_fees;
        

@@ -18,6 +18,8 @@ namespace bts { namespace blockchain {
     {
         static const note_type type;
         
+        public_note(){}
+        
         public_note(string m): message(m)
         {}
         
