@@ -402,7 +402,7 @@ namespace bts { namespace game {
         Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
         void* ptr = wrap->Value();
         
-        auto trx_data = v8_helper::json_to_cpp<transaction_data>(args.GetIsolate(), args[0] );
+        auto trx_data = v8_helper::json_to_cpp<transaction_info>(args.GetIsolate(), args[0] );
         
         static_cast<v8_wallet*>(ptr)->_wallet->store_transaction( trx_data );
     }

@@ -46,7 +46,8 @@ namespace bts { namespace game {
         try {
             EscapableHandleScope handle_scope(args.GetIsolate());
             
-            auto hash = fc::ripemd160::hash( v8_helper::ToCString(String::Utf8Value(args[0]->ToString(args.GetIsolate()))) );
+            std::string str_to_hash(v8_helper::ToCString(String::Utf8Value(args[0]->ToString(args.GetIsolate()))));
+            auto hash = fc::ripemd160::hash( str_to_hash );
             
             args.GetReturnValue().Set( v8_helper::cpp_to_json( args.GetIsolate(), hash ) );
         } catch ( ... )

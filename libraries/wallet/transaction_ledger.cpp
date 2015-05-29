@@ -1766,7 +1766,7 @@ bool wallet_impl::scan_game( const game_operation& op, wallet_transaction_record
     
     if ( ogame.valid() )
     {
-        return _game_client->get_v8_engine( ogame->name )->scan(trx_rec, self->shared_from_this(), op.input.data );
+        return _game_client->get_v8_engine( ogame->name )->scan_ledger(trx_rec, self->shared_from_this(), op.input.data );
     }
     
     return false;
