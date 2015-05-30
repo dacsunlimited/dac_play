@@ -678,6 +678,11 @@ vector<bts::blockchain::market_transaction> client_impl::blockchain_list_market_
 {
    return _chain_db->get_market_transactions( block_num );
 }
+    
+std::vector<bts::blockchain::operation_reward_transaction> client_impl::blockchain_list_operation_reward_transactions(uint32_t block_num) const
+{
+    return _chain_db->get_operation_reward_transactions( block_num );
+}
 
 bts::blockchain::api_market_status client_impl::blockchain_market_status( const std::string& quote,
                                                                           const std::string& base )const

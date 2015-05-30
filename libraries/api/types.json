@@ -660,6 +660,15 @@
         "contained_type": "market_transaction"
       },
       {
+          "type_name" : "operation_reward_transaction",
+          "cpp_return_type" : "bts::blockchain::operation_reward_transaction"
+      },
+      {
+          "type_name" : "operation_reward_transaction_array",
+          "container_type": "array",
+          "contained_type": "operation_reward_transaction"
+      },
+      {
         "type_name" : "order_history_record",
         "cpp_return_type": "bts::blockchain::order_history_record",
         "cpp_include_file": "bts/blockchain/market_records.hpp"
