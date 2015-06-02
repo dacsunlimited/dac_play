@@ -2,6 +2,8 @@
 #include <bts/blockchain/exceptions.hpp>
 #include <bts/blockchain/pending_chain_state.hpp>
 
+#include <bts/blockchain/fork_blocks.hpp>
+
 #include <fc/crypto/aes.hpp>
 
 namespace bts { namespace blockchain {
@@ -368,6 +370,11 @@ namespace bts { namespace blockchain {
     
     void note_operation::evaluate( transaction_evaluation_state& eval_state )const
     { try {
+#ifndef WIN32
+#warning [HARDFORK] Remove this check after PLS_V0_1_0_FORK_BLOCK_NUM has passed
+#endif
+        FC_ASSERT( eval_state.pending_state()->get_head_block_num() >= PLS_V0_1_0_FORK_BLOCK_NUM );
+
         if( this->amount.amount <= 0 )
             FC_CAPTURE_AND_THROW( negative_deposit, (amount) );
         
