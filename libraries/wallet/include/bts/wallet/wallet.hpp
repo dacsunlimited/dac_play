@@ -533,7 +533,7 @@ namespace bts { namespace wallet {
 
          void                               remove_transaction_record( const string& record_id );
        
-       void                                 store_transaction( const transaction_data& transaction );
+       void                                 store_transaction( const transaction_info& transaction );
 
          void                               repair_records( const optional<string>& collecting_account_name );
          uint32_t                           regenerate_keys( const string& account_name, uint32_t num_keys_to_regenerate );

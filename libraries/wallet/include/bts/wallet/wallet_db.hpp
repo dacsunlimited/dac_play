@@ -67,7 +67,7 @@ namespace bts { namespace wallet {
 
          // Transaction getters and setters
          owallet_transaction_record lookup_transaction( const transaction_id_type& id )const;
-         void store_transaction( const transaction_data& transaction );
+         void store_transaction( const transaction_info& transaction );
 
          // Non-deterministic and not linked to any account
          private_key_type       generate_new_one_time_key( const fc::sha512& password );

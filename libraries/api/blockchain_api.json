@@ -202,6 +202,22 @@
         "aliases" : ["blockchain_get_pending_transactions", "list_pending"]
       },
       {
+          "method_name": "blockchain_get_operation_reward",
+          "description": "returns the reward record associated with an operation",
+          "cached"   : true,
+          "return_type": "optional_operation_reward_record",
+          "parameters" : [
+          {
+              "name" : "op_type",
+              "type" : "operation_type",
+              "description" : "the type of the operation to fetch the reward records for"
+          }
+          ],
+          "is_const"   : true,
+          "prerequisites" : ["no_prerequisites"],
+          "aliases" : ["get_operation_reward"]
+      },
+      {
         "method_name": "blockchain_get_transaction",
         "description": "Get detailed information about the specified transaction in the blockchain",
         "cached"   : true,
@@ -795,6 +811,21 @@
         ],
         "is_const" : true,
         "prerequisites" : ["no_prerequisites"]
+      },
+      {
+          "method_name": "blockchain_list_operation_reward_transactions",
+          "description": "Returns a list of operation reward transactions executed on a given block.",
+          "cached"      : true,
+          "return_type": "operation_reward_transaction_array",
+          "parameters" : [
+          {
+              "name" : "block_number",
+              "type" : "uint32_t",
+              "description" : "Block to get operation reward operations for."
+          }
+          ],
+          "is_const" : true,
+          "prerequisites" : ["no_prerequisites"]
       },
       {
         "method_name": "blockchain_market_status",

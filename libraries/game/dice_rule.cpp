@@ -262,7 +262,7 @@ namespace bts { namespace game {
             record.block_num = block_num;
             record.is_virtual = true;
             record.is_confirmed = true;
-            record.is_market = true;
+            record.contract = "DICE";
             //record.ledger_entries.push_back( out_entry );
             record.ledger_entries.push_back( in_entry );
             record.fee = asset(0);    // TODO: Dice, do we need fee for claim jackpot? may be later we'll support part to delegates
