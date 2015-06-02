@@ -2,6 +2,8 @@
 #include <bts/blockchain/exceptions.hpp>
 #include <bts/blockchain/pending_chain_state.hpp>
 
+#include <bts/blockchain/fork_blocks.hpp>
+
 #include <fc/crypto/aes.hpp>
 
 namespace bts { namespace blockchain {
