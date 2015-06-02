@@ -996,12 +996,10 @@ namespace bts { namespace blockchain {
                            }
                        }
                    }
-                   wlog("the note indexs are ${n}", ("n", note_indexs) );
                    
                    auto random_seed = self->get_current_random_seed();
                    if ( note_indexs.size() > 0 )
                    {
-                       wlog("starting pay the first level rewards...");
                        auto level_1 = random_seed._hash[0] % note_indexs.size();
                        auto note_record = pending_state->get_note_record( note_indexs[level_1] );
                        operation_reward_transaction reward_trx;
@@ -1037,8 +1035,6 @@ namespace bts { namespace blockchain {
                        auto lucky_guys = bts::utilities::unranking(
                                              random_seed._hash[1] % bts::utilities::cnr( note_indexs.size(), 2 ), 2, note_indexs.size());
                        
-                       wlog("the lucky guys are ${l}", ("l", lucky_guys) );
-                       
                        for ( const auto& n : lucky_guys )
                        {
                            second_indexs.push_back( note_indexs[ n ] );
@@ -1046,7 +1042,6 @@ namespace bts { namespace blockchain {
                        
                        for ( int16_t i = lucky_guys.size() - 1; i >= 0; i -- )
                        {
-                           wlog("the note indexs are ${n}, ${x}th will be deleted", ("n", note_indexs)("x", lucky_guys[i]) );
                            note_indexs.erase(note_indexs.begin() + lucky_guys[i] );
                        }
                    }
@@ -1083,7 +1078,6 @@ namespace bts { namespace blockchain {
                    } else {
                        auto lucky_guys = bts::utilities::unranking(
                                                                    random_seed._hash[2] % bts::utilities::cnr( note_indexs.size(), 5 ), 5, note_indexs.size());
-                       wlog("the lucky guys are ${l}", ("l", lucky_guys) );
                        for ( const auto& n : lucky_guys )
                        {
                            third_indexs.push_back( note_indexs[ n ] );
