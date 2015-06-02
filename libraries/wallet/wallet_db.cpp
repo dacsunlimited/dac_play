@@ -54,6 +54,9 @@ namespace bts { namespace wallet {
                        load_approval_record( record.as<wallet_approval_record>() );
                        break;
                    case transaction_record_type:
+                       load_deprecated_transaction_record( record.as<wallet_deprecated_transaction_record>() );
+                       break;
+                   case transaction_info_record_type:
                        load_transaction_record( record.as<wallet_transaction_record>() );
                        break;
                    case setting_record_type:
@@ -120,6 +123,32 @@ namespace bts { namespace wallet {
            { try {
                self->approvals[ record.name ] = record;
            } FC_CAPTURE_AND_RETHROW( (record) ) }
+         
+           void load_deprecated_transaction_record( const wallet_deprecated_transaction_record& deprecated_transaction_record )
+         { try {
+             transaction_info info;
+             info.record_id = deprecated_transaction_record.record_id;
+             info.block_num = deprecated_transaction_record.block_num;
+             info.is_virtual = deprecated_transaction_record.is_virtual;
+             info.is_confirmed = deprecated_transaction_record.is_confirmed;
+             if ( deprecated_transaction_record.is_market )
+             {
+                 info.contract = "MARKET";
+             } else
+             {
+                 info.contract = "CONSENSUS";
+             }
+             info.trx = deprecated_transaction_record.trx;
+             info.ledger_entries = deprecated_transaction_record.ledger_entries;
+             info.fee = deprecated_transaction_record.fee;
+             info.created_time = deprecated_transaction_record.created_time;
+             info.received_time = deprecated_transaction_record.received_time;
+             
+             self->store_transaction( info );
+             
+             self->remove_item( deprecated_transaction_record.wallet_record_index );
+             
+         } FC_CAPTURE_AND_RETHROW( (deprecated_transaction_record) ) }
 
            void load_transaction_record( const wallet_transaction_record& transaction_record )
            { try {
@@ -802,7 +831,7 @@ namespace bts { namespace wallet {
        return owallet_transaction_record();
    } FC_CAPTURE_AND_RETHROW( (id) ) }
 
-   void wallet_db::store_transaction( const transaction_data& transaction )
+   void wallet_db::store_transaction( const transaction_info& transaction )
    { try {
        FC_ASSERT( is_open() );
        FC_ASSERT( transaction.record_id != transaction_id_type() );
@@ -812,7 +841,7 @@ namespace bts { namespace wallet {
        if( !transaction_record.valid() )
            transaction_record = wallet_transaction_record();
 
-       transaction_data& temp = *transaction_record;
+       transaction_info& temp = *transaction_record;
        temp = transaction;
 
        store_and_reload_record( *transaction_record );
@@ -952,7 +981,7 @@ namespace bts { namespace wallet {
        {
            try
            {
-               if( wallet_record_type_enum( record.type ) == transaction_record_type )
+               if( wallet_record_type_enum( record.type ) == transaction_info_record_type )
                {
                    std::cout << "\rRepairing transaction record     " << std::to_string( ++count ) << std::flush;
                    wallet_transaction_record transaction_record = record.as<wallet_transaction_record>();

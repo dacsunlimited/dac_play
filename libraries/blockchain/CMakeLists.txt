@@ -38,6 +38,9 @@ add_library( bts_blockchain
              balance_record.cpp
              transaction_record.cpp
              burn_record.cpp
+             ad_record.cpp
+             note_record.cpp
+             operation_reward_record.cpp
              feed_record.cpp
              market_records.cpp
              slot_record.cpp
@@ -83,7 +86,7 @@ else()
   endif()
 endif()
 
-target_link_libraries( bts_blockchain fc bts_db leveldb )
+target_link_libraries( bts_blockchain fc bts_utilities bts_db leveldb )
 target_include_directories( bts_blockchain
                             PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" )
 

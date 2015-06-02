@@ -111,6 +111,20 @@ signed_transactions client_impl::blockchain_list_pending_transactions() const
    return trxs;
 }
 
+ooperation_reward_record client_impl::blockchain_get_operation_reward(const operation_type_enum& op_type) const
+{
+        try
+        {
+            wlog("the parameter is: ${o}", ("o", op_type));
+            ASSERT_TASK_NOT_PREEMPTED(); // make sure no cancel gets swallowed by catch(...)
+            return _chain_db->get_operation_reward_record(op_type);
+        }
+        catch( ... )
+        {
+        }
+        return ooperation_reward_record();
+}
+
 uint32_t detail::client_impl::blockchain_get_block_count() const
 {
    return _chain_db->get_head_block_num();
@@ -664,6 +678,11 @@ vector<bts::blockchain::market_transaction> client_impl::blockchain_list_market_
 {
    return _chain_db->get_market_transactions( block_num );
 }
+    
+std::vector<bts::blockchain::operation_reward_transaction> client_impl::blockchain_list_operation_reward_transactions(uint32_t block_num) const
+{
+    return _chain_db->get_operation_reward_transactions( block_num );
+}
 
 bts::blockchain::api_market_status client_impl::blockchain_market_status( const std::string& quote,
                                                                           const std::string& base )const
@@ -693,6 +712,16 @@ bts::blockchain::asset client_impl::blockchain_unclaimed_genesis() const
 vector<burn_record> client_impl::blockchain_get_account_wall( const string& account )const
 {
    return _chain_db->fetch_burn_records( account );
+}
+    
+    vector<ad_record> client_impl::blockchain_get_account_ads( const string& account )const
+    {
+        return _chain_db->fetch_ad_records( account );
+    }
+    
+vector<note_record> client_impl::blockchain_get_account_notes( const string& account )const
+{
+   return _chain_db->fetch_note_records( account );
 }
 
 void client_impl::blockchain_broadcast_transaction(const signed_transaction& trx)

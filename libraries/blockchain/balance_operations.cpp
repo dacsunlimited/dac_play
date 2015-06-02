@@ -2,7 +2,33 @@
 #include <bts/blockchain/exceptions.hpp>
 #include <bts/blockchain/pending_chain_state.hpp>
 
+#include <fc/crypto/aes.hpp>
+
 namespace bts { namespace blockchain {
+    
+    const note_type public_note::type       = public_type;
+    const note_type secret_note::type       = secret_type;
+    
+    secret_note note_message::encrypt( const fc::ecc::private_key& owner_private_key)const
+    {
+        public_key_type  owner_public_key   = owner_private_key.get_public_key();
+        auto shared_secret = owner_private_key.get_shared_secret( owner_public_key );
+        secret_note result;
+        result.data = fc::aes_encrypt( shared_secret, fc::raw::pack( *this ) );
+        return  result;
+    }
+    
+    note_message secret_note::decrypt( const fc::ecc::private_key& e )const
+    {
+        auto shared_secret = e.get_shared_secret(e.get_public_key());
+        return decrypt(shared_secret);
+    }
+    
+    note_message secret_note::decrypt(const fc::sha512& shared_secret) const
+    {
+        auto decrypted_data = fc::aes_decrypt( shared_secret, data );
+        return fc::raw::unpack<note_message>( decrypted_data );
+    }
 
    asset balance_record::calculate_yield( fc::time_point_sec now, share_type amount, share_type yield_pool, share_type share_supply )const
    {
@@ -281,6 +307,109 @@ namespace bts { namespace blockchain {
 
       eval_state.pending_state()->store_burn_record( std::move( record ) );
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
+    
+    void ad_operation::evaluate( transaction_evaluation_state& eval_state )const
+    { try {
+        if( this->amount.amount <= 0 )
+            FC_CAPTURE_AND_THROW( negative_deposit, (amount) );
+        
+        FC_ASSERT( !message.empty() );
+        
+        FC_ASSERT( amount.asset_id == 0 );
+        
+        const size_t message_kb = (message.size() / 1024) + 1;
+        const share_type required_fee = message_kb * BTS_BLOCKCHAIN_MIN_AD_FEE;
+        
+        FC_ASSERT( amount.amount >= required_fee, "Message of size ${s} KiB requires at least ${a} satoshis to be pay!",
+                  ("s",message_kb)("a",required_fee) );
+        // half of the note fees goto collected fees(delegate pay), other go to ad owner
+        eval_state.min_fees[amount.asset_id] += required_fee;
+        
+        FC_ASSERT( owner_account_id != 0 );
+        const oaccount_record owner_account_rec = eval_state.pending_state()->get_account_record( abs( this->owner_account_id ) );
+        FC_ASSERT( owner_account_rec.valid() );
+        
+        auto owner_address = owner_account_rec->active_address();
+        auto ad_income_balance = eval_state.pending_state()->get_balance_record(withdraw_condition( withdraw_with_signature(owner_address), 0 ).get_address());
+        if( !ad_income_balance )
+            ad_income_balance = balance_record( owner_address, asset(0, 0), 0 );
+        
+        auto ad_pay = amount.amount - required_fee;
+        ad_income_balance->balance += ad_pay;
+        ad_income_balance->last_update = eval_state.pending_state()->now();
+        ad_income_balance->deposit_date = eval_state.pending_state()->now();
+        
+        eval_state.pending_state()->store_balance_record( *ad_income_balance );
+        
+        eval_state.sub_balance( asset(ad_pay, amount.asset_id) );
+        
+        // checking the signature of the publisher.
+        FC_ASSERT( publisher_account_id != 0 );
+        const oaccount_record publisher_account_rec = eval_state.pending_state()->get_account_record( abs( this->publisher_account_id ) );
+        FC_ASSERT( publisher_account_rec.valid() );
+        
+        eval_state.check_signature( publisher_account_rec->active_key() );
+        
+        ad_record record;
+        record.index.account_id = owner_account_id;
+        record.index.transaction_id = eval_state.trx.id();
+        record.publisher_id = publisher_account_id;
+        record.amount = amount;
+        record.message = message;
+        record.signer = message_signature;
+        
+        // the message must be signed by the claimed publisher account
+        FC_ASSERT( publisher_account_rec->active_key() == record.signer_key() );
+        
+        FC_ASSERT( !eval_state.pending_state()->get_ad_record( record.index ).valid() );
+        
+        eval_state.pending_state()->store_ad_record( std::move( record ) );
+    } FC_CAPTURE_AND_RETHROW( (*this) ) }
+    
+    void note_operation::evaluate( transaction_evaluation_state& eval_state )const
+    { try {
+        if( this->amount.amount <= 0 )
+            FC_CAPTURE_AND_THROW( negative_deposit, (amount) );
+        
+        FC_ASSERT( !message->data.empty() );
+        FC_ASSERT( amount.asset_id == 0 );
+        
+        const size_t message_kb = (message->data.size() / 1024) + 1;
+        const share_type required_fee = message_kb * BTS_BLOCKCHAIN_MIN_NOTE_FEE;
+        
+        FC_ASSERT( amount.amount >= required_fee, "Message of size ${s} KiB requires at least ${a} satoshis to be burned!",
+                  ("s",message_kb)("a",required_fee) );
+        
+        // 30% of the note fees goto collected fees(delegate pay), other go to the operation pool
+        eval_state.min_fees[amount.asset_id] += amount.amount * 3 / 10;
+        
+        // TODO: instead of burn, the left will go to a fee pool attached to this operation.
+        auto op_reward_record = eval_state.pending_state()->get_operation_reward_record(note_op_type);
+        auto reward_fee = amount.amount - amount.amount * 3 / 10;
+        op_reward_record->fees[amount.asset_id] += reward_fee;
+        eval_state.sub_balance( asset(reward_fee, amount.asset_id) );
+        eval_state.pending_state()->store_operation_reward_record( *op_reward_record );
+        
+        // the transaction check the signature of the owner
+        const oaccount_record account_rec = eval_state.pending_state()->get_account_record( abs( this->owner_account_id ) );
+        FC_ASSERT( account_rec.valid() );
+        
+        eval_state.check_signature( account_rec->active_key() );
+        
+        note_record record;
+        record.index.account_id = owner_account_id;
+        record.index.transaction_id = eval_state.trx.id();
+        record.amount = amount;
+        record.message = message;
+        record.signer = message_signature;
+        
+        // verify the signature of the message, the message signer must be the account_id's active key
+        FC_ASSERT( account_rec->active_key() == record.signer_key() );
+        
+        FC_ASSERT( !eval_state.pending_state()->get_note_record( record.index ).valid() );
+        
+        eval_state.pending_state()->store_note_record( std::move( record ) );
+    } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
    void release_escrow_operation::evaluate( transaction_evaluation_state& eval_state )const
    { try {

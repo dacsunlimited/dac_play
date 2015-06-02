@@ -3,6 +3,7 @@
 #include <bts/blockchain/account_record.hpp>
 #include <bts/blockchain/operations.hpp>
 #include <bts/blockchain/slate_record.hpp>
+#include <bts/blockchain/note_record.hpp>
 #include <bts/blockchain/withdraw_types.hpp>
 
 #include <fc/reflect/variant.hpp>
@@ -86,6 +87,13 @@ namespace bts { namespace blockchain {
                  account_id_type for_or_against,
                  const string& public_message,
                  const fc::optional<signature_type>& message_sig );
+       
+       void buy_ad( const asset& quantity, account_id_type owner_account_id, account_id_type publisher_account_id, const string& message, const optional<signature_type>& sig );
+       
+       void note( const asset& quantity,
+                 account_id_type owner_account_id,
+                 const optional<note_message>& message,
+                 const optional<signature_type>& sig );
 
       void bid( const asset& quantity,
                 const price& price_per_unit,

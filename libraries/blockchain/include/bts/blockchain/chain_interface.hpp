@@ -5,6 +5,9 @@
 #include <bts/blockchain/balance_record.hpp>
 #include <bts/blockchain/block_record.hpp>
 #include <bts/blockchain/burn_record.hpp>
+#include <bts/blockchain/ad_record.hpp>
+#include <bts/blockchain/note_record.hpp>
+#include <bts/blockchain/operation_reward_record.hpp>
 #include <bts/blockchain/condition.hpp>
 #include <bts/blockchain/feed_record.hpp>
 #include <bts/blockchain/market_records.hpp>
@@ -26,6 +29,9 @@ namespace bts { namespace blockchain {
      public balance_db_interface,
      public transaction_db_interface,
      public burn_db_interface,
+     public ad_db_interface,
+     public note_db_interface,
+     public operation_reward_db_interface,
      public feed_db_interface,
      public slot_db_interface,
      public game_db_interface
@@ -123,6 +129,7 @@ namespace bts { namespace blockchain {
 
          virtual void                       set_rule_result_transactions( vector<rule_result_transaction> trxs ) = 0;
          virtual void                       set_market_transactions( vector<market_transaction> trxs )      = 0;
+         virtual void                       set_operation_reward_transactions( vector<operation_reward_transaction> trxs )      = 0;
 
          oproperty_record                   get_property_record( const property_id_type id )const;
          void                               store_property_record( const property_id_type id, const variant& value);
@@ -148,6 +155,15 @@ namespace bts { namespace blockchain {
 
          oburn_record                       get_burn_record( const burn_index& index )const;
          void                               store_burn_record( const burn_record& record );
+       
+       oad_record                           get_ad_record( const ad_index& index )const;
+       void                                 store_ad_record( const ad_record& record );
+       
+       onote_record                       get_note_record( const note_index& index )const;
+       void                               store_note_record( const note_record& record );
+       
+       ooperation_reward_record           get_operation_reward_record( const operation_id_type& type )const;
+       void                               store_operation_reward_record( const operation_reward_record& record );
 
          ofeed_record                       get_feed_record( const feed_index index )const;
          void                               store_feed_record( const feed_record& record );

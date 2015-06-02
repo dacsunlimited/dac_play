@@ -275,6 +275,22 @@ namespace bts { namespace wallet {
                  bool anonymous,
                  bool sign
                  );
+       
+         wallet_transaction_record buy_ad(
+                                                const asset& asset_to_pay,
+                                                const string& publisher_account_name,
+                                                const string& owner_account_name,
+                                                const string& message,
+                                                bool sign
+                                                );
+       
+         wallet_transaction_record write_note(
+                                                    const asset& asset_to_pay,
+                                                    const string& owner_account_name,
+                                                    const string& message,
+                                                    bool encrypt,
+                                                    bool sign
+                                              );
          /**
           * if the active_key is null then the active key will be made the same as the master key.
           * if the name already exists then it will be updated if this wallet controls the active key
@@ -517,7 +533,7 @@ namespace bts { namespace wallet {
 
          void                               remove_transaction_record( const string& record_id );
        
-       void                                 store_transaction( const transaction_data& transaction );
+       void                                 store_transaction( const transaction_info& transaction );
 
          void                               repair_records( const optional<string>& collecting_account_name );
          uint32_t                           regenerate_keys( const string& account_name, uint32_t num_keys_to_regenerate );

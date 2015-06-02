@@ -25,7 +25,8 @@ namespace bts { namespace wallet {
       contact_record_type       = 4,
       approval_record_type      = 5,
       property_record_type      = 7,
-      setting_record_type       = 9
+      setting_record_type       = 9,
+      transaction_info_record_type   = 10
    };
 
    enum property_enum
@@ -137,6 +138,7 @@ namespace bts { namespace wallet {
         * - virtual genesis claims: fc::ripemd160::hash( owner_account_name )
         * - virtual market bids: fc::ripemd160::hash( block_num + string( mtrx.bid_owner ) + string( mtrx.ask_owner ) )
         * - virtual market asks: fc::ripemd160::hash( block_num + string( mtrx.ask_owner ) + string( mtrx.bid_owner ) )
+        * - virtual operation reward: fc::ripemd160::hash(block_num + string( otrx.reward_owner ) + string( otrx.reward ) );
         */
        transaction_id_type       record_id;
        uint32_t                  block_num = 0;
@@ -149,6 +151,28 @@ namespace bts { namespace wallet {
        fc::time_point_sec        created_time;
        fc::time_point_sec        received_time;
    };
+    
+    struct transaction_info
+    {
+        /*
+         * record_id
+         * - non-virtual transactions: trx.id()
+         * - virtual genesis claims: fc::ripemd160::hash( owner_account_name )
+         * - virtual market bids: fc::ripemd160::hash( block_num + string( mtrx.bid_owner ) + string( mtrx.ask_owner ) )
+         * - virtual market asks: fc::ripemd160::hash( block_num + string( mtrx.ask_owner ) + string( mtrx.bid_owner ) )
+         * - virtual operation reward: fc::ripemd160::hash(block_num + string( otrx.reward_owner ) + string( otrx.reward ) );
+         */
+        transaction_id_type       record_id;
+        uint32_t                  block_num = 0;
+        bool                      is_virtual = false;
+        bool                      is_confirmed = false;
+        string                    contract;
+        signed_transaction        trx;
+        vector<ledger_entry>      ledger_entries;
+        asset                     fee;
+        fc::time_point_sec        created_time;
+        fc::time_point_sec        received_time;
+    };
 
    struct ledger_entry
    {
@@ -228,8 +252,9 @@ namespace bts { namespace wallet {
    typedef wallet_record<key_data,          key_record_type>            wallet_key_record;
    typedef wallet_record<contact_data,      contact_record_type>        wallet_contact_record;
    typedef wallet_record<approval_data,     approval_record_type>       wallet_approval_record;
-   typedef wallet_record<transaction_data,  transaction_record_type>    wallet_transaction_record;
+   typedef wallet_record<transaction_data,  transaction_record_type>    wallet_deprecated_transaction_record;
    typedef wallet_record<setting,           setting_record_type>        wallet_setting_record;
+   typedef wallet_record<transaction_info,  transaction_info_record_type>    wallet_transaction_record;
 
    typedef optional<wallet_property_record>                             owallet_property_record;
    typedef optional<wallet_master_key_record>                           owallet_master_key_record;
@@ -239,6 +264,7 @@ namespace bts { namespace wallet {
    typedef optional<wallet_approval_record>                             owallet_approval_record;
    typedef optional<wallet_transaction_record>                          owallet_transaction_record;
    typedef optional<wallet_setting_record>                              owallet_setting_record;
+   typedef optional<wallet_deprecated_transaction_record>               owallet_deprecated_transaction_record;
 
    struct generic_wallet_record
    {
@@ -274,6 +300,7 @@ FC_REFLECT_ENUM( bts::wallet::wallet_record_type_enum,
         (approval_record_type)
         (property_record_type)
         (setting_record_type)
+        (transaction_info_record_type)
         )
 
 FC_REFLECT_ENUM( bts::wallet::property_enum,
@@ -344,6 +371,19 @@ FC_REFLECT( bts::wallet::transaction_data,
         (created_time)
         (received_time)
         )
+
+FC_REFLECT( bts::wallet::transaction_info,
+           (record_id)
+           (block_num)
+           (is_virtual)
+           (is_confirmed)
+           (contract)
+           (trx)
+           (ledger_entries)
+           (fee)
+           (created_time)
+           (received_time)
+           )
 
 FC_REFLECT( bts::wallet::ledger_entry,
         (from_account)

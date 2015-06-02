@@ -182,6 +182,19 @@
          "cpp_return_type" : "std::vector<bts::blockchain::burn_record>"
       },
       {
+          "type_name" : "ad_records",
+          "cpp_return_type" : "std::vector<bts::blockchain::ad_record>"
+      },
+      {
+          "type_name" : "note_records",
+          "cpp_return_type" : "std::vector<bts::blockchain::note_record>"
+      },
+      {
+          "type_name" : "optional_operation_reward_record",
+          "cpp_return_type" : "fc::optional<bts::blockchain::operation_reward_record>",
+          "cpp_include_file" : "bts/blockchain/operation_reward_record.hpp"
+      },
+      {
         "type_name" : "wallet_name_array",
         "container_type" : "array",
         "contained_type" : "wallet_name"
@@ -645,6 +658,15 @@
         "type_name" : "market_transaction_array",
         "container_type": "array",
         "contained_type": "market_transaction"
+      },
+      {
+          "type_name" : "operation_reward_transaction",
+          "cpp_return_type" : "bts::blockchain::operation_reward_transaction"
+      },
+      {
+          "type_name" : "operation_reward_transaction_array",
+          "container_type": "array",
+          "contained_type": "operation_reward_transaction"
       },
       {
         "type_name" : "order_history_record",
