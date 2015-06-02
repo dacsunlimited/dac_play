@@ -7,4 +7,4 @@
 #include <stdint.h>
 #include <vector>
 
-#define PDV_V0_1_0_FORK_BLOCK_NUM   564000
+#define PDV_V0_1_0_FORK_BLOCK_NUM   10000
