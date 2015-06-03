@@ -808,6 +808,7 @@ namespace detail {
           const wallet_approval_record& record = item.second;
           const oaccount_record chain_record = _blockchain->get_account_record( record.name );
           if( !chain_record.valid() ) continue;
+          if( !chain_record->is_delegate() ) continue;
           if( record.approval > 0 )
               for_candidates.push_back( chain_record->id );
       }
