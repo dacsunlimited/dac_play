@@ -8,4 +8,4 @@
 #include <vector>
 
 #define PLS_V0_0_3_FORK_BLOCK_NUM     4000
-#define PLS_V0_1_0_FORK_BLOCK_NUM   564000
+#define PLS_V0_1_0_FORK_BLOCK_NUM   574000
