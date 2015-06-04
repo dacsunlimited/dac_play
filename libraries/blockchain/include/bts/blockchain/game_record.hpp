@@ -52,11 +52,27 @@ namespace bts { namespace blockchain {
       virtual void game_erase_from_name_map( const string& ) = 0;
    };
     
+    struct game_data_index
+    {
+        game_id_type        game_id;
+        data_id_type        data_id;
+        
+        friend bool operator < ( const game_data_index& a, const game_data_index& b )
+        {
+            return std::tie( a.game_id, a.data_id ) < std::tie( b.game_id, b.data_id );
+        }
+        
+        friend bool operator == ( const game_data_index& a, const game_data_index& b )
+        {
+            return std::tie( a.game_id, a.data_id ) == std::tie( b.game_id, b.data_id );
+        }
+    };
+    
     struct game_data_record
     {
         game_data_record():game_id(0){}
         
-        int32_t get_game_data_index()const
+        data_id_type get_game_data_index()const
         { try {
             FC_ASSERT( data.is_object() );
             FC_ASSERT( data.get_object().contains( "index" ) );
@@ -101,7 +117,7 @@ FC_REFLECT( bts::blockchain::game_record,
            (registration_date)
            (last_update)
            )
-
+FC_REFLECT( bts::blockchain::game_data_index, (game_id)(data_id) )
 FC_REFLECT( bts::blockchain::game_data_record,
            (game_id)
            (data)

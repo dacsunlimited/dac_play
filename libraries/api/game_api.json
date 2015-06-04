@@ -80,5 +80,27 @@
           }
           ],
           "prerequisites" : ["wallet_unlocked"]
+      },
+      {
+          "method_name": "game_list_datas",
+          "description": "Returns stored game datas starting with a given game name upto a the limit provided",
+          "return_type": "game_data_record_array",
+          "cached"   : true,
+          "parameters" : [
+          {
+              "name" : "game_name",
+              "type" : "account_name",
+              "description" : "the game name to include",
+              "default_value" : ""
+          },
+          {
+              "name" : "limit",
+              "type" : "uint32_t",
+              "description" : "the maximum number of items to list",
+              "default_value" : 20
+          }
+          ],
+          "is_const" : true,
+          "prerequisites" : ["no_prerequisites"]
       }
 ] }

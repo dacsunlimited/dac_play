@@ -124,6 +124,8 @@ namespace bts { namespace game {
         
         static void Get_Game_Data_Record(const v8::FunctionCallbackInfo<Value>& args);
         
+        static void Get_Account_Record_By_Name(const v8::FunctionCallbackInfo<Value>& args);
+        
         static void Store_Blance_Record(const v8::FunctionCallbackInfo<Value>& args);
         
         static void Store_Asset_Record(const v8::FunctionCallbackInfo<Value>& args);

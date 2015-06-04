@@ -33,3 +33,9 @@ wallet_transaction_record client_impl::game_play(const std::string& game_name, c
     network_broadcast_transaction(record.trx);
     return record;
 }
+
+vector<game_data_record> client_impl::game_list_datas( const string& game_name, uint32_t limit )const
+{ try {
+    FC_ASSERT( limit > 0 );
+    return _chain_db->fetch_game_data_records( game_name, limit );
+} FC_CAPTURE_AND_RETHROW( (game_name)(limit) ) }

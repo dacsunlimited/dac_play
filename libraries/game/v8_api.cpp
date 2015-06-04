@@ -86,6 +86,7 @@ namespace bts { namespace game {
       pendingstate_proto->Set(isolate, "get_balance_record", FunctionTemplate::New(isolate, v8_chainstate::Get_Blance_Record));
       pendingstate_proto->Set(isolate, "get_asset_record", FunctionTemplate::New(isolate, v8_chainstate::Get_Asset_Record));
       pendingstate_proto->Set(isolate, "get_game_data_record", FunctionTemplate::New(isolate, v8_chainstate::Get_Game_Data_Record));
+       pendingstate_proto->Set(isolate, "get_account_record_by_name", FunctionTemplate::New(isolate, v8_chainstate::Get_Account_Record_By_Name));
       
       pendingstate_proto->Set(isolate, "set_balance_record", FunctionTemplate::New(isolate, v8_chainstate::Store_Blance_Record));
       pendingstate_proto->Set(isolate, "set_asset_record", FunctionTemplate::New(isolate, v8_chainstate::Store_Asset_Record));
@@ -381,17 +382,22 @@ namespace bts { namespace game {
         Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
         void* ptr = wrap->Value();
         //get member variable value
-        auto addr = v8_helper::json_to_cpp<bts::blockchain::address>(args.GetIsolate(), args[0] );
-        auto key = static_cast<v8_wallet*>(ptr)->_wallet->get_wallet_key_for_address( addr );
-        
-        if ( key.valid() )
-        {
-            // return the value
-            args.GetReturnValue().Set( v8_helper::cpp_to_json(args.GetIsolate(), key) );
-        } else
-        {
+        try {
+            auto addr = v8_helper::json_to_cpp<bts::blockchain::address>(args.GetIsolate(), args[0] );
+            auto key = static_cast<v8_wallet*>(ptr)->_wallet->get_wallet_key_for_address( addr );
+            
+            if ( key.valid() )
+            {
+                // return the value
+                args.GetReturnValue().Set( v8_helper::cpp_to_json(args.GetIsolate(), key) );
+            } else
+            {
+                args.GetReturnValue().Set( v8::Null(args.GetIsolate() ) );
+            }
+        } catch ( ... ) {
             args.GetReturnValue().Set( v8::Null(args.GetIsolate() ) );
         }
+        
     }
     
     void v8_wallet::Store_Transaction(const v8::FunctionCallbackInfo<Value>& args)
@@ -489,6 +495,39 @@ namespace bts { namespace game {
        }
    }
     
+    void v8_chainstate::Get_Account_Record_By_Name(const v8::FunctionCallbackInfo<Value>& args)
+    {
+        EscapableHandleScope handle_scope(args.GetIsolate());
+        
+        Local<Object> self = args.Holder();
+        Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+        void* ptr = wrap->Value();
+        
+        try {
+            auto account_record = static_cast<v8_chainstate*>(ptr)->_chain_state->get_account_record( v8_helper::ToCString( String::Utf8Value( args[0]->ToString() ) ) );
+            
+            if ( account_record.valid() )
+            {
+                wlog("the account record is ${a}", ("a", *account_record) );
+                Local<Value> res = v8_helper::cpp_to_json(args.GetIsolate(), *account_record );
+                
+                if ( res->IsObject() )
+                {
+                    res->ToObject()->Set(String::NewFromUtf8( args.GetIsolate(), "active_key") , v8_helper::cpp_to_json(args.GetIsolate(), account_record->active_key() ) );
+                }
+                
+                args.GetReturnValue().Set( handle_scope.Escape( res ) );
+            } else {
+                args.GetReturnValue().Set( v8::Null( args.GetIsolate() ) );
+            }
+        } catch ( const fc::exception& e )
+        {
+            wlog("Failed to Get_Account_Record_By_Name: ${e}", ("e", e.to_detail_string()));
+            args.GetReturnValue().Set( v8::Null( args.GetIsolate() ) );
+            
+        }
+    }
+    
     void v8_blockchain::Get_Game_Data_Record(const v8::FunctionCallbackInfo<Value>& args)
     {
         EscapableHandleScope handle_scope(args.GetIsolate());
@@ -497,13 +536,18 @@ namespace bts { namespace game {
         Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
         void* ptr = wrap->Value();
         
-        Local<Integer> wrapper_type = Local<Integer>::Cast(args[0]);
-        Local<Integer> wrapper_id = Local<Integer>::Cast(args[1]);
+        Local<Integer> wrapper_game_id = Local<Integer>::Cast(args[0]);
+        Local<Integer> wrapper_data_id = Local<Integer>::Cast(args[1]);
         
-        auto game_data_record = static_cast<v8_blockchain*>(ptr)->_blockchain->get_game_data_record(wrapper_type->Int32Value(), wrapper_id->Int32Value() );
+        int32_t game_id = wrapper_game_id->Int32Value();
+        int32_t data_id = wrapper_data_id->Int32Value();
+        
+        wlog("Starting Get_Game_Data_Record with game_id:${g} and data_id:${d}", ("g", game_id)("d", data_id));
+        auto game_data_record = static_cast<v8_blockchain*>(ptr)->_blockchain->get_game_data_record(game_id, data_id );
         
         if ( game_data_record.valid() )
         {
+            wlog("game_data_record:${d}", ("d", *game_data_record));
             Local<Value> res = v8_helper::cpp_to_json(args.GetIsolate(), *game_data_record );
             args.GetReturnValue().Set( handle_scope.Escape( res ) );
         } else {
@@ -539,7 +583,8 @@ namespace bts { namespace game {
    
    /**
     * @brief Method for v8_chainstate
-    * @return undefine
+    * @deprecated
+    * TODO
     */
    void v8_chainstate::Store_Game_Data_Record(const v8::FunctionCallbackInfo<Value>& args)
    {

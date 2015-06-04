@@ -2065,20 +2065,26 @@ namespace bts { namespace blockchain {
     
    ogame_data_record chain_database::get_game_data_record( const game_id_type& game_id, const data_id_type& data_id )const
    {
-       return my->_game_data_db.fetch_optional( std::make_pair(game_id, data_id) );
+       game_data_index index;
+       index.game_id = game_id;
+       index.data_id = data_id;
+       return my->_game_data_db.fetch_optional( index );
    }
 
    void chain_database::store_game_data_record( const game_id_type& game_id, const data_id_type& data_id, const game_data_record& r )
    {
+       game_data_index index;
+       index.game_id = game_id;
+       index.data_id = data_id;
        try {
            ilog( "game data record: ${r}", ("r",r) );
            if( r.is_null() )
            {
-               my->_game_data_db.remove( std::make_pair(game_id, data_id) );
+               my->_game_data_db.remove( index );
            }
            else
            {
-               my->_game_data_db.store( std::make_pair(game_id, data_id), r );
+               my->_game_data_db.store( index, r );
            }
    } FC_RETHROW_EXCEPTIONS( warn, "", ("record", r) ) }
 
@@ -3429,6 +3435,24 @@ namespace bts { namespace blockchain {
         
         return results;
     } FC_CAPTURE_AND_RETHROW( (account_name) ) }
+    
+    vector<game_data_record> chain_database::fetch_game_data_records( const string& game_name, uint32_t limit )const
+    { try {
+        vector<game_data_record> results;
+        const auto opt_game_record = get_game_record( game_name );
+        FC_ASSERT( opt_game_record.valid() );
+        
+        auto itr = my->_game_data_db.lower_bound( {opt_game_record->id} );
+        while( itr.valid() && itr.key().game_id == opt_game_record->id )
+        {
+            results.push_back( itr.value() );
+            ++itr;
+            
+            if( results.size() >= limit ) break;
+        }
+        
+        return results;
+    } FC_CAPTURE_AND_RETHROW( (game_name) ) }
 
    vector<transaction_record> chain_database::fetch_address_transactions( const address& addr )
    { try {

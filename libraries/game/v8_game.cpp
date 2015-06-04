@@ -359,9 +359,8 @@ namespace bts { namespace game {
       return record;
    }
    
-   bool v8_game_engine::scan_ledger( wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w, const variant& var )
+   bool v8_game_engine::scan_ledger( chain_database_ptr blockchain, bts::wallet::wallet_ptr w, wallet_transaction_record& trx_rec,  const variant& var )
    {
-      
        auto isolate = my->GetIsolate();
        v8::Locker locker(isolate);
        Isolate::Scope isolate_scope(my->GetIsolate());
@@ -370,6 +369,7 @@ namespace bts { namespace game {
        // Entering the context
        Context::Scope context_scope(context);
        
+       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "$blockchain"), v8_blockchain::New(my->GetIsolate(), blockchain, blockchain->get_head_block_num()));
        context->Global()->Set( String::NewFromUtf8(isolate, "$wallet_transaction_record"), v8_helper::cpp_to_json(isolate, trx_rec) );
        context->Global()->Set( String::NewFromUtf8(isolate, "$wallet"), v8_wallet::New(isolate, w) );
        
@@ -377,7 +377,7 @@ namespace bts { namespace game {
        context->Global()->Set(String::NewFromUtf8(isolate, "$input"),  v8_helper::cpp_to_json(isolate, _input));
        
        v8::TryCatch try_catch(my->GetIsolate());
-       auto source =  "PLAY.scan_ledger($wallet_transaction_record, $wallet, $input);";
+       auto source =  "PLAY.scan_ledger($blockchain, $wallet, $wallet_transaction_record,  $input);";
        
        v8::Handle<v8::Script> script = v8::Script::Compile( String::NewFromUtf8( my->GetIsolate(), source) );
        if ( script.IsEmpty() )

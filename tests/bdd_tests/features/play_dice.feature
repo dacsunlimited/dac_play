@@ -26,6 +26,6 @@ Feature: Create Dice game, buy game chip and play game DICE
     When I play game dice using 10 DICE providing with 2 odds and 1 guess
     And I wait for one block
     Then Bob should have 0 DICE
-    When I wait for 9 block
-    #Then I should win 20 DICE or lose
+    When I wait for 10 block
+    Then I should win 20 DICE or lose
 	 Then I should have 20 or 0 DICE

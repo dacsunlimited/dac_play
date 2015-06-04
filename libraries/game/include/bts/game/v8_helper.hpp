@@ -21,6 +21,8 @@ namespace bts { namespace game {
        static void trx_id_to_hash_array(const v8::FunctionCallbackInfo<v8::Value>& args);
        static void fc_ripemd160_hash(const v8::FunctionCallbackInfo<v8::Value>& args );
        
+       static void public_key_to_address(const v8::FunctionCallbackInfo<v8::Value>& args );
+       
        template<typename T>
        static Handle<Value> cpp_to_json(Isolate* isolate, const T& v )
        {

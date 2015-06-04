@@ -167,7 +167,7 @@ namespace bts { namespace blockchain {
             bts::db::level_map<slot_index, slot_record>                                 _slot_index_to_record;
             bts::db::level_map<time_point_sec, account_id_type>                         _slot_timestamp_to_delegate;
 
-            bts::db::cached_level_map<std::pair<game_id_type, data_id_type>, game_data_record > _game_data_db;
+            bts::db::cached_level_map<game_data_index, game_data_record >               _game_data_db;
             bts::db::cached_level_map<uint32_t, std::vector<game_result_transaction> >          _game_result_transactions_db;
             bts::db::cached_level_map<uint32_t, std::vector<operation_reward_transaction> >     _operation_reward_transactions_db;
 

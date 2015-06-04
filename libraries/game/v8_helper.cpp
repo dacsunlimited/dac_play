@@ -71,6 +71,7 @@ namespace bts { namespace game {
             auto trx_id = json_to_cpp<bts::blockchain::transaction_id_type>(args.GetIsolate(), args[0]);
             
             // Fill out the values
+            // the value converted to int32_t
             array->Set( 0, Integer::New(args.GetIsolate(), trx_id._hash[0]) );
             array->Set( 1, Integer::New(args.GetIsolate(), trx_id._hash[1]) );
             array->Set( 2, Integer::New(args.GetIsolate(), trx_id._hash[2]) );
@@ -80,6 +81,22 @@ namespace bts { namespace game {
             // Return the value through Close.
             
             args.GetReturnValue().Set( array );
+        } catch ( ... )
+        {
+            args.GetReturnValue().Set( v8::Null( args.GetIsolate() ) );
+        }
+    }
+    
+    void v8_helper::public_key_to_address(const v8::FunctionCallbackInfo<v8::Value>& args )
+    {
+        try {
+            HandleScope handle_scope(args.GetIsolate());
+            
+            std::string public_key_str(v8_helper::ToCString(String::Utf8Value(args[0]->ToString(args.GetIsolate()))));
+             ;
+            bts::blockchain::address addr( (bts::blockchain::public_key_type( public_key_str )) );
+            
+            args.GetReturnValue().Set( v8_helper::cpp_to_json( args.GetIsolate(), addr ) );
         } catch ( ... )
         {
             args.GetReturnValue().Set( v8::Null( args.GetIsolate() ) );
@@ -112,6 +129,7 @@ namespace bts { namespace game {
        
       global->Set(v8::String::NewFromUtf8(isolate, "trx_id_to_hash_array"), v8::FunctionTemplate::New(isolate, trx_id_to_hash_array) );
       global->Set(v8::String::NewFromUtf8(isolate, "fc_ripemd160_hash"), v8::FunctionTemplate::New(isolate, fc_ripemd160_hash) );
+      global->Set(v8::String::NewFromUtf8(isolate, "public_key_to_address"), v8::FunctionTemplate::New(isolate, public_key_to_address) );
       
       return v8::Context::New(isolate, NULL, global);
    }

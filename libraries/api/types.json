@@ -68,6 +68,16 @@
         "contained_type" : "account_record"
       },
       {
+          "type_name" : "game_data_record",
+          "cpp_return_type" : "bts::blockchain::game_data_record",
+          "cpp_include_file" : "bts/blockchain/types.hpp"
+      },
+      {
+          "type_name" : "game_data_record_array",
+          "container_type" : "array",
+          "contained_type" : "game_data_record"
+      },
+      {
         "type_name" : "optional_account_record",
         "cpp_return_type" : "fc::optional<bts::blockchain::account_record>",
         "cpp_include_file" : "bts/blockchain/types.hpp"

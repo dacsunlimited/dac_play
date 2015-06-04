@@ -42,7 +42,7 @@ namespace bts { namespace game {
       
       wallet_transaction_record play( game_id_type game_id, chain_database_ptr blockchain, bts::wallet::wallet_ptr w, const variant& var, bool sign );
       
-      bool scan_ledger( wallet_transaction_record& trx_rec, bts::wallet::wallet_ptr w, const variant& var);
+      bool scan_ledger( chain_database_ptr blockchain, bts::wallet::wallet_ptr w,  wallet_transaction_record& trx_rec, const variant& var);
       
       bool scan_result( const game_result_transaction& rtrx,
                                uint32_t block_num,
