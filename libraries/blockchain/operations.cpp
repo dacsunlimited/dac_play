@@ -74,7 +74,7 @@ namespace bts { namespace blockchain {
 
         bts::blockchain::operation_factory::instance().register_operation<burn_operation>();
         
-//        bts::blockchain::operation_factory::instance().register_operation<ad_operation>();
+        bts::blockchain::operation_factory::instance().register_operation<ad_operation>();
         
         bts::blockchain::operation_factory::instance().register_operation<note_operation>();
 
