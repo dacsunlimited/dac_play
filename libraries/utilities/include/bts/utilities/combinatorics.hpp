@@ -5,6 +5,7 @@
 #include <functional>
 #include <vector>
 #include <iostream>
+#include <cstdint>
 
 namespace bts { namespace utilities {
     typedef std::vector<uint16_t>                  combination;
