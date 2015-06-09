@@ -160,7 +160,7 @@ void wallet_impl::scan_operation_reward_transaction(
     {
         /* Construct a unique record id */
         std::stringstream id_ss;
-        id_ss << block_num << string( otrx.reward_owner ) << string( otrx.reward );
+        id_ss << block_num << string( otrx.reward_owner ) << string( otrx.reward ) << string ( otrx.info );
         
         // TODO: Don't blow away memo, etc.
         auto record = wallet_transaction_record();
@@ -176,7 +176,7 @@ void wallet_impl::scan_operation_reward_transaction(
         //entry.from_account = "Note Operation";
         entry.to_account = okey->public_key;
         entry.amount = otrx.reward;
-        entry.memo = "Lucky! you got note reward " + _blockchain->to_pretty_asset( otrx.reward ) + "Info: " + otrx.info;
+        entry.memo = "Lucky! You got note reward " + _blockchain->to_pretty_asset( otrx.reward ) + "Info: " + otrx.info;
         record.ledger_entries.push_back( entry );
         self->wallet_claimed_transaction( entry );
         

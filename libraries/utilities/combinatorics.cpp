@@ -10,7 +10,8 @@ namespace bts { namespace utilities {
         
         if ((n - r) < r) r = n - r; // for less space
         
-        uint64_t c[r+1];
+        std::unique_ptr<uint64_t[]> c(new uint64_t[r+1]);
+        
         uint16_t i,j;
 
         

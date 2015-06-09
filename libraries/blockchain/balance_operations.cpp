@@ -312,6 +312,11 @@ namespace bts { namespace blockchain {
     
     void ad_operation::evaluate( transaction_evaluation_state& eval_state )const
     { try {
+#ifndef WIN32
+#warning [HARDFORK] Remove this check after PLS_V0_1_2_FORK_BLOCK_NUM has passed
+#endif
+        FC_ASSERT( eval_state.pending_state()->get_head_block_num() >= PLS_V0_1_2_FORK_BLOCK_NUM );
+
         if( this->amount.amount <= 0 )
             FC_CAPTURE_AND_THROW( negative_deposit, (amount) );
         
@@ -324,7 +329,7 @@ namespace bts { namespace blockchain {
         
         FC_ASSERT( amount.amount >= required_fee, "Message of size ${s} KiB requires at least ${a} satoshis to be pay!",
                   ("s",message_kb)("a",required_fee) );
-        // half of the note fees goto collected fees(delegate pay), other go to ad owner
+        // minimum ad fees goto collected fees(delegate pay), other go to ad owner
         eval_state.min_fees[amount.asset_id] += required_fee;
         
         FC_ASSERT( owner_account_id != 0 );
