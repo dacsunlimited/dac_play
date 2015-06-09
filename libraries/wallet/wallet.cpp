@@ -385,6 +385,39 @@ namespace detail {
        {
            self->auto_backup( "version_upgrade" );
 
+           if( current_version < 112 )
+           {
+               /* Check for old index format operation reward virtual transactions */
+               set<uint32_t> block_nums;
+
+               const unordered_map<transaction_id_type, wallet_transaction_record> items = _wallet_db.get_transactions();
+               for( const auto& item : items )
+               {
+                   const auto id = item.first;
+                   const auto trx_rec = item.second;
+                   if( trx_rec.is_virtual && (trx_rec.contract == "OP:NOTE") )
+                   {
+                       block_nums.insert( trx_rec.block_num );
+                       _wallet_db.remove_transaction( id );
+                   }
+               }
+
+               /* Upgrade market order virtual transaction indexes */
+               for( uint32_t block_num : block_nums )
+               {
+                   try
+                   {
+                       const auto block_timestamp = _blockchain->get_block_header( block_num ).timestamp;
+                       const auto& operation_reward_trxs = _blockchain->get_operation_reward_transactions( block_num );
+                       for( const auto& operation_reward_trx : operation_reward_trxs )
+                           scan_operation_reward_transaction( operation_reward_trx, block_num, block_timestamp );
+                   }
+                   catch( ... )
+                   {
+                   }
+               }
+           }
+
            /* Example: https://github.com/BitShares/bitshares/blob/8bd3f8cf332ff72c0a51f8e51619ab3e2975fa82/libraries/wallet/wallet.cpp#L471
            if( current_version < 101 )
            {
