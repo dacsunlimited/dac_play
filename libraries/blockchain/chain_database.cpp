@@ -1006,7 +1006,7 @@ namespace bts { namespace blockchain {
                        reward_trx.op_type = note_op_type;
                        reward_trx.reward = asset(collected_fees * 40 / 100, 0);
                        reward_trx.reward_owner = address( note_record->signer_key() );
-                       reward_trx.info = "It's the first level reward.";
+                       reward_trx.info = "First reward from transaction: " + fc::json::to_string(note_indexs[level_1].transaction_id);
                        
                        reward_fee += reward_trx.reward.amount;
                        
@@ -1053,7 +1053,7 @@ namespace bts { namespace blockchain {
                        reward_trx.op_type = note_op_type;
                        reward_trx.reward = asset(collected_fees * 15 / 100, 0);
                        reward_trx.reward_owner = address( note_record->signer_key() );
-                       reward_trx.info = "It's the second level reward.";
+                       reward_trx.info = "Second reward from transaction: " + fc::json::to_string(i.transaction_id);
                        
                        reward_fee += reward_trx.reward.amount;
                        
@@ -1094,9 +1094,9 @@ namespace bts { namespace blockchain {
                        auto note_record = pending_state->get_note_record( i );
                        operation_reward_transaction reward_trx;
                        reward_trx.op_type = note_op_type;
-                       reward_trx.reward = asset(collected_fees * 8 / 100, 0);
+                       reward_trx.reward = asset(collected_fees * 6 / 100, 0);
                        reward_trx.reward_owner = address( note_record->signer_key() );
-                       reward_trx.info = "It's the third level reward.";
+                       reward_trx.info = "Third reward from transaction: " + fc::json::to_string(i.transaction_id);
                        
                        reward_fee += reward_trx.reward.amount;
                        
