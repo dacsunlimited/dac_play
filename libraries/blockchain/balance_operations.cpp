@@ -348,6 +348,9 @@ namespace bts { namespace blockchain {
         const oaccount_record publisher_account_rec = eval_state.pending_state()->get_account_record( abs( this->publisher_account_id ) );
         FC_ASSERT( publisher_account_rec.valid() );
         
+        // update rp
+        eval_state.rp_account_id = abs( this->publisher_account_id );
+        
         eval_state.check_signature( publisher_account_rec->active_key() );
         
         ad_record record;
@@ -393,6 +396,9 @@ namespace bts { namespace blockchain {
         // the transaction check the signature of the owner
         const oaccount_record account_rec = eval_state.pending_state()->get_account_record( abs( this->owner_account_id ) );
         FC_ASSERT( account_rec.valid() );
+        
+        // update rp
+        eval_state.rp_account_id = abs( this->owner_account_id );
         
         eval_state.check_signature( account_rec->active_key() );
         

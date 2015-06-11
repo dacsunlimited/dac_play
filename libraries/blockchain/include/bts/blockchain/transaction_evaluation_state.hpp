@@ -64,6 +64,8 @@ struct transaction_evaluation_state
     // Used for transaction scanning
     map<asset_id_type, share_type>                 yield_claimed;
     map<uint32_t, map<asset_id_type, share_type>>  op_deltas;
+    
+    optional<account_id_type>                      rp_account_id;
 
     optional<fc::exception>                        validation_error;
 
@@ -79,6 +81,7 @@ private:
     void validate_fees();
     void calculate_base_equivalent_fees();
     void update_delegate_votes();
+    void update_rp_values();
 };
 typedef shared_ptr<transaction_evaluation_state> transaction_evaluation_state_ptr;
 
@@ -94,5 +97,6 @@ FC_REFLECT( bts::blockchain::transaction_evaluation_state,
             (delegate_vote_deltas)
             (yield_claimed)
             (op_deltas)
+            (rp_account_id)
             (validation_error)
             )

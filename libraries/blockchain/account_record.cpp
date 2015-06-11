@@ -166,6 +166,12 @@ namespace bts { namespace blockchain {
                         db.account_erase_from_vote_set( vote_del( prev_record->net_votes(), prev_record->id ) );
                 }
             }
+            
+            if ( !prev_record->is_retracted() )
+            {
+                if( record.is_retracted() || prev_record->stats_info.rp != record.stats_info.rp )
+                    db.account_erase_from_rp_set( rp_index( prev_record->stats_info.rp, prev_record->id ) );
+            }
         }
 
         db.account_insert_into_id_map( id, record );
@@ -216,6 +222,11 @@ namespace bts { namespace blockchain {
 
                 if( !prev_record->is_retracted() )
                     db.account_erase_from_vote_set( vote_del( prev_record->net_votes(), prev_record->id ) );
+            }
+            
+            if ( !prev_record->is_retracted() )
+            {
+                db.account_erase_from_rp_set( rp_index( prev_record->stats_info.rp, prev_record->id ) );
             }
         }
     } FC_CAPTURE_AND_RETHROW( (id) ) }
