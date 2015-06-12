@@ -140,9 +140,8 @@ namespace bts { namespace game {
                FC_CAPTURE_AND_THROW(failed_run_script, (v8_helper::ReportException(my->GetIsolate(), &try_catch)));
            } else
            {
-               wlog("The result of the running of script is ${s}", ( "s",  v8_helper::ToCString(String::Utf8Value(result)) ));
-               
                auto result_obj = v8_helper::json_to_cpp<variant>( isolate, result );
+               wlog("The result of the running of script is ${s}", ( "s",  result_obj ));
                
                FC_ASSERT( result_obj.is_object() );
                FC_ASSERT( result_obj.get_object().contains( "to_balances" ) );
@@ -272,23 +271,24 @@ namespace bts { namespace game {
                FC_CAPTURE_AND_THROW(failed_run_script, ( v8_helper::ReportException(isolate, &try_catch) ));
            } else
            {
-               wlog("The result of the running of script is ${s}", ( "s",  v8_helper::ToCString(String::Utf8Value(result)) ));
-               FC_ASSERT(result->IsArray(), "The script result should be array!");
+               auto v = v8_helper::json_to_cpp<variant>(isolate, result);
+               wlog("The result of the running of script is ${s}", ( "s",  v ));
+               FC_ASSERT( v.is_array(), "The script result should be array!");
                
-               while ( result->IsArray() )
+               while ( v.is_array() )
                {
-                   v8::Handle<v8::Array> array = v8::Handle<v8::Array>::Cast(result);
-                   FC_ASSERT( array->Length() >= 4 );
+                   auto array = v.get_array();
+                   FC_ASSERT( array.size() >= 4 );
                    play_code code;
-                   code.from_account = v8_helper::ToCString( String::Utf8Value( array->Get( 0 )->ToString( isolate ) ) );
-                   code.to_account = v8_helper::ToCString( String::Utf8Value( array->Get( 1 )->ToString( isolate ) ) );
-                   code.amount = v8_helper::json_to_cpp<asset>(isolate, array->Get( 2 ) );
-                   code.memo = v8_helper::ToCString( String::Utf8Value( array->Get( 3 )->ToString( isolate ) ) );
+                   code.from_account = array[0].as_string();
+                   code.to_account = array[1].as_string();
+                   code.amount = array[2].as<asset>();
+                   code.memo = array[3].as_string();
                    
                    codes.push_back( code );
-                   if ( array->Length() >= 5 && array->Get( 4 )->IsArray() )
+                   if ( array.size() >= 5 && array[4].is_array() )
                    {
-                       result = array->Get( 4 );
+                       v = array[4];
                    } else
                    {
                        break;
@@ -526,13 +526,13 @@ namespace bts { namespace game {
                //if (!result->IsUndefined()) {
                    // TOOD: return the result
                //}
-               wlog("The result of the running of script is ${s}", ( "s",  v8_helper::ToCString(String::Utf8Value(result)) ));
-               if ( result->IsNumber() && result->Int32Value() == 0 )
+               auto v = v8_helper::json_to_cpp<variant>(my->GetIsolate(), result);
+               wlog("The result of the running of script is ${s}", ( "s",  v ));
+               if ( v.is_numeric() && v.as_int64() == 0 )
                {
                    wlog("Nothing is done...");
                } else
                {
-                   auto v = v8_helper::json_to_cpp<variant>(my->GetIsolate(), result);
                    FC_ASSERT( v.is_object() );
                    auto execute_results = v.get_object()["execute_results"];
                    auto game_datas = v.get_object()["game_datas"];
