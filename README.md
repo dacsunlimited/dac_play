@@ -1,4 +1,4 @@
-BitShares PLAY
+BitShares PLAY (PLAY XTS Net)
 ===============================
 BitShares PLAY is a protocal and DAC designed to help coordinate voluntary decentralized game store and peer-to-peer game asset exchange.
 

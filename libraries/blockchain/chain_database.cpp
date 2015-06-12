@@ -197,6 +197,9 @@ namespace bts { namespace blockchain {
               const account_record& record = iter->second;
               if( !record.is_retracted() && record.is_delegate() )
                   _delegate_votes.emplace( record.net_votes(), record.id );
+              
+              if( !record.is_retracted() )
+                  _account_rps.emplace( record.stats_info.rp, record.id );
           }
 
           for( auto iter = _transaction_id_to_record.begin(); iter.valid(); ++iter )
@@ -997,19 +1000,17 @@ namespace bts { namespace blockchain {
                            }
                        }
                    }
-                   wlog("the note indexs are ${n}", ("n", note_indexs) );
                    
                    auto random_seed = self->get_current_random_seed();
                    if ( note_indexs.size() > 0 )
                    {
-                       wlog("starting pay the first level rewards...");
                        auto level_1 = random_seed._hash[0] % note_indexs.size();
                        auto note_record = pending_state->get_note_record( note_indexs[level_1] );
                        operation_reward_transaction reward_trx;
                        reward_trx.op_type = note_op_type;
                        reward_trx.reward = asset(collected_fees * 40 / 100, 0);
                        reward_trx.reward_owner = address( note_record->signer_key() );
-                       reward_trx.info = "It's the first level reward.";
+                       reward_trx.info = "First reward from transaction: " + fc::json::to_string(note_indexs[level_1].transaction_id);
                        
                        reward_fee += reward_trx.reward.amount;
                        
@@ -1038,8 +1039,6 @@ namespace bts { namespace blockchain {
                        auto lucky_guys = bts::utilities::unranking(
                                              random_seed._hash[1] % bts::utilities::cnr( note_indexs.size(), 2 ), 2, note_indexs.size());
                        
-                       wlog("the lucky guys are ${l}", ("l", lucky_guys) );
-                       
                        for ( const auto& n : lucky_guys )
                        {
                            second_indexs.push_back( note_indexs[ n ] );
@@ -1047,7 +1046,6 @@ namespace bts { namespace blockchain {
                        
                        for ( int16_t i = lucky_guys.size() - 1; i >= 0; i -- )
                        {
-                           wlog("the note indexs are ${n}, ${x}th will be deleted", ("n", note_indexs)("x", lucky_guys[i]) );
                            note_indexs.erase(note_indexs.begin() + lucky_guys[i] );
                        }
                    }
@@ -1059,7 +1057,7 @@ namespace bts { namespace blockchain {
                        reward_trx.op_type = note_op_type;
                        reward_trx.reward = asset(collected_fees * 15 / 100, 0);
                        reward_trx.reward_owner = address( note_record->signer_key() );
-                       reward_trx.info = "It's the second level reward.";
+                       reward_trx.info = "Second reward from transaction: " + fc::json::to_string(i.transaction_id);
                        
                        reward_fee += reward_trx.reward.amount;
                        
@@ -1084,7 +1082,6 @@ namespace bts { namespace blockchain {
                    } else {
                        auto lucky_guys = bts::utilities::unranking(
                                                                    random_seed._hash[2] % bts::utilities::cnr( note_indexs.size(), 5 ), 5, note_indexs.size());
-                       wlog("the lucky guys are ${l}", ("l", lucky_guys) );
                        for ( const auto& n : lucky_guys )
                        {
                            third_indexs.push_back( note_indexs[ n ] );
@@ -1101,9 +1098,9 @@ namespace bts { namespace blockchain {
                        auto note_record = pending_state->get_note_record( i );
                        operation_reward_transaction reward_trx;
                        reward_trx.op_type = note_op_type;
-                       reward_trx.reward = asset(collected_fees * 8 / 100, 0);
+                       reward_trx.reward = asset(collected_fees * 6 / 100, 0);
                        reward_trx.reward_owner = address( note_record->signer_key() );
-                       reward_trx.info = "It's the third level reward.";
+                       reward_trx.info = "Third reward from transaction: " + fc::json::to_string(i.transaction_id);
                        
                        reward_fee += reward_trx.reward.amount;
                        
@@ -1449,6 +1446,22 @@ namespace bts { namespace blockchain {
       }
       return sorted_delegates;
    } FC_RETHROW_EXCEPTIONS( warn, "" ) }
+    
+    std::vector<account_id_type> chain_database::get_accounts_by_rp( uint32_t first, uint32_t count )const
+    { try {
+        auto account_rp_itr = my->_account_rps.begin();
+        std::vector<account_id_type> sorted_accounts;
+        sorted_accounts.reserve( count );
+        uint32_t pos = 0;
+        while( sorted_accounts.size() < count && account_rp_itr != my->_account_rps.end() )
+        {
+            if( pos >= first )
+                sorted_accounts.push_back( account_rp_itr->account_id );
+            ++pos;
+            ++account_rp_itr;
+        }
+        return sorted_accounts;
+    } FC_RETHROW_EXCEPTIONS( warn, "" ) }
 
    void chain_database::open( const fc::path& data_dir, const fc::optional<fc::path>& genesis_file, const bool statistics_enabled,
                               const std::function<void(float)> replay_status_callback )
@@ -3528,6 +3541,11 @@ namespace bts { namespace blockchain {
    {
        my->_delegate_votes.insert( vote );
    }
+    
+    void chain_database::account_insert_into_rp_set( const rp_index& rp )
+    {
+        my->_account_rps.insert( rp );
+    }
 
    void chain_database::account_erase_from_id_map( const account_id_type id )
    {
@@ -3548,6 +3566,11 @@ namespace bts { namespace blockchain {
    {
        my->_delegate_votes.erase( vote );
    }
+    
+    void chain_database::account_erase_from_rp_set( const rp_index& rp )
+    {
+        my->_account_rps.erase( rp );
+    }
 
    oasset_record chain_database::asset_lookup_by_id( const asset_id_type id )const
    {

@@ -433,6 +433,22 @@ vector<account_record> detail::client_impl::blockchain_list_accounts( const stri
    FC_ASSERT( limit > 0 );
    return _chain_db->get_accounts( first, limit );
 } FC_CAPTURE_AND_RETHROW( (first)(limit) ) }
+    
+vector<account_record> detail::client_impl::blockchain_list_accounts_by_rp(uint32_t first, uint32_t count) const
+{
+    if( first > 0 ) --first;
+    vector<account_id_type> account_ids = _chain_db->get_delegates_by_vote( first, count );
+    
+    vector<account_record> account_records;
+    account_records.reserve( account_ids.size() );
+    for( const auto& account_id : account_ids )
+    {
+        auto acc_record = _chain_db->get_account_record( account_id );
+        FC_ASSERT( acc_record.valid() );
+        account_records.push_back( *acc_record );
+    }
+    return account_records;
+}
 
 vector<account_record> detail::client_impl::blockchain_list_recently_updated_accounts()const
 {
@@ -693,6 +709,11 @@ vector<bts::blockchain::api_market_status> client_impl::blockchain_list_markets(
 vector<bts::blockchain::market_transaction> client_impl::blockchain_list_market_transactions( uint32_t block_num )const
 {
    return _chain_db->get_market_transactions( block_num );
+}
+    
+std::vector<bts::blockchain::operation_reward_transaction> client_impl::blockchain_list_operation_reward_transactions(uint32_t block_num) const
+{
+    return _chain_db->get_operation_reward_transactions( block_num );
 }
 
 bts::blockchain::api_market_status client_impl::blockchain_market_status( const std::string& quote,

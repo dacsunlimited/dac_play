@@ -96,6 +96,28 @@
         "prerequisites" : ["no_prerequisites"]
       },
       {
+          "method_name": "blockchain_list_accounts_by_rp",
+          "description": "Returns registered accounts sorted by rp starting from a given position upto the limit provided",
+          "cached"      : true,
+          "return_type": "account_record_array",
+          "parameters" : [
+          {
+              "name" : "first",
+              "type" : "uint32_t",
+              "description" : "",
+              "default_value" : 0
+          },
+          {
+              "name" : "count",
+              "type" : "uint32_t",
+              "description" : "",
+              "default_value" : 20
+          }
+          ],
+          "is_const" : true,
+          "prerequisites" : ["no_prerequisites"]
+      },
+      {
         "method_name": "blockchain_list_recently_updated_accounts",
         "description": "Returns a list of recently updated accounts",
         "cached"   : true,
@@ -827,6 +849,21 @@
         ],
         "is_const" : true,
         "prerequisites" : ["no_prerequisites"]
+      },
+      {
+          "method_name": "blockchain_list_operation_reward_transactions",
+          "description": "Returns a list of operation reward transactions executed on a given block.",
+          "cached"      : true,
+          "return_type": "operation_reward_transaction_array",
+          "parameters" : [
+          {
+              "name" : "block_number",
+              "type" : "uint32_t",
+              "description" : "Block to get operation reward operations for."
+          }
+          ],
+          "is_const" : true,
+          "prerequisites" : ["no_prerequisites"]
       },
       {
         "method_name": "blockchain_market_status",
