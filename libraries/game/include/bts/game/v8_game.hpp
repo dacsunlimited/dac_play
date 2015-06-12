@@ -52,7 +52,7 @@ namespace bts { namespace game {
       /**
        * wrapper to call the javascript stub defined by game developers
        */
-      void execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state );
+      void execute( game_id_type game_id, chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state );
    private:
       std::shared_ptr<detail::v8_game_engine_impl> my;
    };

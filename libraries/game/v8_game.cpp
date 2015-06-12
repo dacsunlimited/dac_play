@@ -394,7 +394,18 @@ namespace bts { namespace game {
                FC_CAPTURE_AND_THROW(failed_run_script, ( v8_helper::ReportException(isolate, &try_catch) ));
            } else
            {
-               wlog("The result of the running of script is ${s}", ( "s",  v8_helper::ToCString(String::Utf8Value(result)) ));
+               auto v = v8_helper::json_to_cpp<variant>(isolate, result);
+               wlog("The result of the running of script is ${s}", ( "s", v ));
+               
+               FC_ASSERT( v.is_object() && v.get_object().contains("wallet_trx_record") && v.get_object().contains( "has_deposit" ));
+               
+               auto w_trx_rec = v.get_object()["wallet_trx_record"].as<wallet_transaction_record>();
+               
+               // TODO: Check How to modify and update the reference trx_rec, current only the ledger_entries is possible to be changed.
+               trx_rec = w_trx_rec;
+               
+               bool has_deposit = v.get_object()["has_deposit"].as_bool();
+               return has_deposit;
            }
        }
        
@@ -444,16 +455,16 @@ namespace bts { namespace game {
                FC_CAPTURE_AND_THROW(failed_run_script, ( v8_helper::ReportException( my->GetIsolate(), &try_catch) ));
            } else
            {
-               wlog("The result of the running of script is ${s}", ( "s",  v8_helper::ToCString(String::Utf8Value(result)) ));
-               return result->ToBoolean(my->GetIsolate())->BooleanValue();
-               // TODO: deal with the result to record
+               variant v = v8_helper::json_to_cpp<variant>(isolate, result);
+               wlog("The result of the running of script is ${s}", ( "s",  v) );
+               return v.as_bool();
            }
        }
       
       return false;
    }
    
-   void v8_game_engine::execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
+   void v8_game_engine::execute( game_id_type game_id, chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
    {
        wlog("Start execute in game engine...");
        v8::Locker locker(my->GetIsolate());
@@ -521,7 +532,94 @@ namespace bts { namespace game {
                    wlog("Nothing is done...");
                } else
                {
-                   // TODO: deal with the result to record
+                   auto v = v8_helper::json_to_cpp<variant>(my->GetIsolate(), result);
+                   FC_ASSERT( v.is_object() );
+                   auto execute_results = v.get_object()["execute_results"];
+                   auto game_datas = v.get_object()["game_datas"];
+                   auto diff_balances = v.get_object()["diff_balances"];
+                   auto diff_supply = v.get_object()["diff_supply"];
+                   
+                   FC_ASSERT( execute_results.is_array() );
+                   vector<game_result_transaction> game_result_transactions;
+                   game_result_transactions.resize( execute_results.get_array().size() );
+                   for ( auto result : execute_results.get_array() )
+                   {
+                       game_result_transaction g_trx;
+                       g_trx.game_id = game_id;
+                       g_trx.data = result;
+                       game_result_transactions.push_back( std::move( g_trx ) );
+                   }
+                   
+                   pending_state->set_game_result_transactions( std::move( game_result_transactions ) );
+                   
+                   FC_ASSERT( game_datas.is_array() );
+                   for ( auto d : game_datas.get_array() ) {
+                       if ( d.is_numeric() )    // game_data must be a object and include a property called index
+                       {
+                           game_data_record null_rec;
+                           pending_state->store_game_data_record(game_id, d.as<data_id_type>(), null_rec.make_null() );
+                       } else {
+                           FC_ASSERT( d.is_object() && d.get_object().contains( "index" ) );
+                           game_data_record g_rec;
+                           g_rec.game_id = game_id;
+                           g_rec.data = d;
+                           
+                           pending_state->store_game_data_record(game_id, g_rec.get_game_data_index(), std::move( g_rec ) );
+                       }
+                   }
+                   
+                   FC_ASSERT( diff_balances.is_array() );
+                   for ( auto b : diff_balances.get_array() )
+                   {
+                       FC_ASSERT( b.is_object() && b.get_object().contains( "owner" ) );
+                       FC_ASSERT( b.is_object() && b.get_object().contains( "asset" ) );
+                       auto owner = b.get_object()["owner"].as<address>();
+                       auto diff_asset = b.get_object()["asset"].as<asset>();
+                       
+                       auto game_asset = blockchain->get_asset_record( diff_asset.asset_id );
+                       FC_ASSERT( game_asset.valid() );
+                       FC_ASSERT( game_asset->is_game_issued() );
+                       FC_ASSERT( game_asset->issuer.issuer_id == game_id, "Updating the game asset must get the permission, with the condition that the issuer is this game." );
+                       
+                       withdraw_condition balance_condition(withdraw_with_signature(owner), asset_id_type(diff_asset.asset_id));
+                       obalance_record balance_rec = pending_state->get_balance_record( balance_condition.get_address() );
+                       if( !balance_rec.valid() )
+                       {
+                           balance_rec = balance_record( balance_condition );
+                       }
+                       if( balance_rec->balance == 0 || diff_asset.amount <= 0 ) // negetive deposit
+                       {
+                           balance_rec->deposit_date = pending_state->now();
+                       }
+                       else
+                       {
+                           fc::uint128 old_sec_since_epoch( balance_rec->deposit_date.sec_since_epoch() );
+                           fc::uint128 new_sec_since_epoch( pending_state->now().sec_since_epoch() );
+                           
+                           fc::uint128 avg = (old_sec_since_epoch * balance_rec->balance) + (new_sec_since_epoch * diff_asset.amount );
+                           avg /= (balance_rec->balance + diff_asset.amount);
+                           
+                           balance_rec->deposit_date = time_point_sec( avg.to_integer() );
+                       }
+                       
+                       balance_rec->balance += diff_asset.amount;
+                       FC_ASSERT( balance_rec->balance >= 0);
+                       pending_state->store_balance_record( *balance_rec );
+                   }
+                   
+                   FC_ASSERT( diff_supply.is_array() );
+                   for ( auto s : diff_supply.get_array() )
+                   {
+                       FC_ASSERT( s.is_object() );
+                       auto supply_change = s.as<asset>();
+                       auto game_base_asset_record = blockchain->get_asset_record( supply_change.asset_id );
+                       FC_ASSERT( game_base_asset_record.valid() );
+                       FC_ASSERT( game_base_asset_record->is_game_issued() );
+                       FC_ASSERT( game_base_asset_record->issuer.issuer_id == game_id, "Updating the game asset must get the permission, with the condition that the issuer is this game." );
+                       
+                       game_base_asset_record->current_supply += supply_change.amount;
+                       pending_state->store_asset_record( *game_base_asset_record );
+                   }
                }
            }
        //}
