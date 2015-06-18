@@ -21,8 +21,9 @@
 namespace bts { namespace game {
    using namespace bts::blockchain;
    
-   const operation_type_enum create_game_operation::type        = create_game_operation_type;
-   const operation_type_enum game_operation::type               = game_op_type;
+   const operation_type_enum create_game_operation::type        = create_game_op_type;
+   const operation_type_enum game_update_operation::type        = game_update_op_type;
+   const operation_type_enum game_play_operation::type          = game_play_op_type;
     
     client* client::current = nullptr;
    
@@ -93,9 +94,10 @@ namespace bts { namespace game {
                
                // TODO: each rule instance is supposed to have their own context
                // TODO: To check whether the wallet and blockchain object are the same with the ones that should be used in script.
-               
-               bts::blockchain::operation_factory::instance().register_operation<game_operation>();
                bts::blockchain::operation_factory::instance().register_operation<create_game_operation>();
+               bts::blockchain::operation_factory::instance().register_operation<game_update_operation>();
+                
+               bts::blockchain::operation_factory::instance().register_operation<game_play_operation>();
                
                game_executors::instance().register_game_executor(
                      std::function<void( chain_database_ptr, uint32_t, const pending_chain_state_ptr&)>(
@@ -222,6 +224,15 @@ namespace bts { namespace game {
         if( itr == my->_engines.end() )
             FC_THROW_EXCEPTION( bts::blockchain::game_engine_not_found, "", ("game_name", game_name) );
         return itr->second;
+    }
+    
+    v8_game_engine_ptr client::reset_v8_engine(const std::string& game_name)
+    {
+        auto itr = my->_engines.find( game_name );
+        if( itr != my->_engines.end() )
+            my->_engines.erase(itr);
+        
+        return get_v8_engine( game_name );
     }
     
     client& client::get_current()

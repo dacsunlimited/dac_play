@@ -41,16 +41,37 @@ namespace bts { namespace game {
 
         void evaluate( transaction_evaluation_state& eval_state ) const;
     };
+    
+    struct game_update_operation
+    {
+        static const operation_type_enum type;
+        
+        game_id_type               game_id;
+        
+        /**
+         *  Describes the asset and its purpose.
+         */
+        std::string      description;
+        /**
+         * Other information relevant to this asset.
+         */
+        fc::variant      public_data;
+        
+        /** The url of the game's rule script */
+        std::string      script_code;
+        
+        void evaluate( transaction_evaluation_state& eval_state ) const;
+    };
 
-    struct game_operation
+    struct game_play_operation
     {
         static const operation_type_enum type;
         
         bts::game::game_input  input;
         
-        game_operation(){}
+        game_play_operation(){}
         
-        game_operation( const bts::game::game_input& i)
+        game_play_operation( const bts::game::game_input& i)
         {
             input = i;
         }
@@ -67,4 +88,11 @@ FC_REFLECT( bts::game::create_game_operation,
             (script_code)
             )
 
-FC_REFLECT( bts::game::game_operation, (input) )
+FC_REFLECT( bts::game::game_update_operation,
+           (game_id)
+           (description)
+           (public_data)
+           (script_code)
+           )
+
+FC_REFLECT( bts::game::game_play_operation, (input) )

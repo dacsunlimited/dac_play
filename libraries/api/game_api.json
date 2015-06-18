@@ -65,6 +65,45 @@
           "prerequisites" : ["wallet_unlocked"]
       },
       {
+          "method_name" : "game_update",
+          "description" : "Update a exist game",
+          "return_type" : "transaction_record",
+          "parameters"  : [
+          {
+              "name" : "paying_account",
+              "type" : "string",
+              "description" : "the name of the paying account"
+          },
+          {
+              "name" : "game_name",
+              "type" : "string",
+              "description" : "the name of the game"
+          },
+          {
+              "name" : "script_url",
+              "type" : "string",
+              "description" : "the url of the rule script for this game"
+          },
+          {
+              "name" : "script_hash",
+              "type" : "string",
+              "description" : "the hash of the rule script"
+          },
+          {
+              "name" : "description",
+              "type" : "string",
+              "description" : "a description of the asset"
+          },
+          {
+              "name" : "public_data",
+              "type" : "json_variant",
+              "description" : "arbitrary data attached to the asset",
+              "default_value" : null
+          }
+          ],
+          "prerequisites" : ["wallet_unlocked"]
+      },
+      {
           "method_name" : "game_play",
           "description" : "Play game with param variant",
           "return_type" : "transaction_record",

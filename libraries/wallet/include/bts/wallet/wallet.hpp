@@ -486,6 +486,15 @@ namespace bts { namespace wallet {
                                                      const string& script_hash,
                                                        bool sign );
        
+         wallet_transaction_record update_game(
+                                             const string& paying_account,
+                                             const string& game_name,
+                                             const string& description,
+                                             const variant& data,
+                                             const string& script_url,
+                                             const string& script_hash,
+                                             bool sign );
+       
          wallet_transaction_record play_game( const string& symbol,
                                            const variant& params,
                                            bool sign );

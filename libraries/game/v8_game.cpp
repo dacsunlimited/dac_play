@@ -348,7 +348,7 @@ namespace bts { namespace game {
        game_input input;
        input.game_id = game_id;
        input.data = var;
-       trx.operations.push_back( game_operation(input) );
+       trx.operations.push_back( game_play_operation(input) );
        
        record.fee = required_fees;
       

@@ -3301,6 +3301,77 @@ namespace detail {
         record.trx = trx;
         return record;
    } FC_CAPTURE_AND_RETHROW( (game_name)(description)(owner_account_name)(script_url)(script_hash) ) }
+    
+    wallet_transaction_record wallet::update_game(
+                                                  const string& paying_account,
+                                                  const string& game_name,
+                                                  const string& description,
+                                                  const variant& data,
+                                                  const string& script_url,
+                                                  const string& script_hash,
+                                                  bool sign )
+    { try {
+        FC_ASSERT( is_open() );
+        FC_ASSERT( is_unlocked() );
+        
+        signed_transaction     trx;
+        unordered_set<address> required_signatures;
+        
+        trx.expiration = blockchain::now() + get_transaction_expiration();
+        
+        auto game_rec = my->_blockchain->get_game_record(game_name);
+        
+        FC_ASSERT( game_rec.valid() );
+        
+        auto required_fees = get_transaction_fee();
+        
+        // TODO Change to game registration fee
+        required_fees += asset(my->_blockchain->get_game_registration_fee(game_name.size()),0);
+        
+        auto oname_rec = my->_blockchain->get_account_record( game_rec->owner_account_id );
+        if( !oname_rec.valid() )
+            FC_THROW_EXCEPTION( account_not_registered, "Game owner not exist, this should not happen", ("issuer_account_id", game_rec->owner_account_id) );
+        
+        // Only needs the agree of the game owner
+        required_signatures.insert( oname_rec->active_key() );
+        
+        my->withdraw_to_transaction( required_fees,
+                                    paying_account,
+                                    trx,
+                                    required_signatures);
+        
+        // TODO: rename require the signature of asset issuer's signature.
+        
+        const std::shared_ptr<bts::utilities::http_downloader> downloader_ptr = std::make_shared<bts::utilities::http_downloader>();
+        auto content = downloader_ptr->download(script_url);
+        
+        // TODO verify the hash of the content, using hash.
+        
+        const owallet_account_record payer_account = my->_wallet_db.lookup_account( paying_account );
+        FC_ASSERT( payer_account.valid() );
+        
+        bts::game::game_update_operation op;
+        op.game_id = game_rec->id;
+        op.description = description;
+        op.public_data = data;
+        op.script_code = content;
+        trx.operations.push_back( op );
+        
+        auto entry = ledger_entry();
+        entry.from_account = payer_account->owner_key;
+        entry.to_account = oname_rec->owner_key;
+        entry.memo = "update game (" + game_name + ")";
+        
+        auto record = wallet_transaction_record();
+        record.ledger_entries.push_back( entry );
+        record.fee = required_fees;
+        
+        if( sign )
+            my->sign_transaction( trx, required_signatures );
+        
+        record.trx = trx;
+        return record;
+    } FC_CAPTURE_AND_RETHROW( (game_name)(description)(script_url)(script_hash) ) }
 
    wallet_transaction_record wallet::uia_issue_or_collect_fees(
            const bool issue_new,

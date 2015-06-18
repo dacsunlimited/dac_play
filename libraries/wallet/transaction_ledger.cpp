@@ -427,14 +427,19 @@ wallet_transaction_record wallet_impl::scan_transaction(
                 store_record |= scan_note( op.as<note_operation>(), *transaction_record, total_fee );
                 break;
             }
-            case game_op_type:
-                store_record |= scan_game( op.as<game_operation>(), *transaction_record );
-                break;
             case buy_chips_type:
-              store_record |= scan_buy_chips( op.as<buy_chips_operation>(), *transaction_record, total_fee );
+                store_record |= scan_buy_chips( op.as<buy_chips_operation>(), *transaction_record, total_fee );
                 break;
-            case create_game_operation_type:
-              store_record |= _game_client->scan_create_game( op.as<create_game_operation>() );
+            case create_game_op_type:
+                // TODO
+                store_record |= _game_client->scan_create_game( op.as<create_game_operation>() );
+                break;
+            case game_play_op_type:
+                store_record |= scan_game_play( op.as<game_play_operation>(), *transaction_record );
+                break;
+            case game_update_op_type:
+                // TODO:
+                break;
             default:
                 break;
         }
@@ -1760,7 +1765,7 @@ wallet_transaction_record wallet::get_transaction( const string& transaction_id_
     FC_THROW_EXCEPTION( transaction_not_found, "Transaction not found!", ("transaction_id_prefix",transaction_id_prefix) );
 }
 
-bool wallet_impl::scan_game( const game_operation& op, wallet_transaction_record& trx_rec )
+bool wallet_impl::scan_game_play( const game_play_operation& op, wallet_transaction_record& trx_rec )
 {
     auto ogame = _blockchain->get_game_record( op.input.game_id );
     

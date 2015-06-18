@@ -28,6 +28,8 @@ namespace bts { namespace game {
         if( NOT owner_account_record.valid() )
             FC_CAPTURE_AND_THROW( unknown_account_id, (owner_account_id) );
         
+        eval_state.account_or_any_parent_has_signed(*owner_account_record);
+        
         const asset reg_fee( eval_state.pending_state()->get_game_registration_fee( this->name.size() ), 0 );
         eval_state.min_fees[reg_fee.asset_id] += reg_fee.amount;
         
@@ -55,12 +57,49 @@ namespace bts { namespace game {
         }
         
     } FC_CAPTURE_AND_RETHROW( (*this) ) }
+    
+    void game_update_operation::evaluate( transaction_evaluation_state& eval_state ) const
+    { try {
+        ogame_record current_game_record = eval_state.pending_state()->get_game_record( this->game_id );
+        
+        if( ! current_game_record.valid() )
+            FC_CAPTURE_AND_THROW( unknown_game, (this->game_id) );
+        
+        oaccount_record owner_account_record = eval_state.pending_state()->get_account_record( current_game_record->owner_account_id );
+        if( NOT owner_account_record.valid() )
+            FC_CAPTURE_AND_THROW( unknown_account_id, (current_game_record->owner_account_id) );
+        
+        eval_state.account_or_any_parent_has_signed(*owner_account_record);
+        
+        // TODO: update later, how to decide the fee of update games
+        const asset reg_fee( eval_state.pending_state()->get_game_registration_fee( current_game_record->name.size() ), 0 );
+        eval_state.min_fees[reg_fee.asset_id] += reg_fee.amount;
+        
+        current_game_record->description            = this->description;
+        current_game_record->public_data            = this->public_data;
+        current_game_record->script_code            = this->script_code;
+        current_game_record->last_update            = eval_state.pending_state()->now();
+        
+        eval_state.pending_state()->store_game_record( *current_game_record );
+        
+        // only for debuging (download the script)
+        bts::game::client::get_current().game_claimed_script( script_code, current_game_record->name );
+        
+        try {
+            bts::game::client::get_current().reset_v8_engine( current_game_record->name );
+        }
+        catch (const game_engine_not_found& e)
+        {
+            wlog("game engine note found, failed to init for unknown reason during evaluate operation");
+        }
+        
+    } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
     /**
      *  @note in this method we are using 'this->' to refer to member variables for
      *  clarity.
      */
-    void game_operation::evaluate( transaction_evaluation_state& eval_state ) const
+    void game_play_operation::evaluate( transaction_evaluation_state& eval_state ) const
     { try {
         // TODO: shoud provide with game_input
         auto ogame = eval_state.pending_state()->get_game_record( input.game_id );

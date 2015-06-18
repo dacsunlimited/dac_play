@@ -26,6 +26,15 @@ wallet_transaction_record client_impl::game_create( const std::string& game_name
    return record;
 }
 
+wallet_transaction_record client_impl::game_update(const string& paying_account, const std::string& game_name, const std::string& script_url, const std::string& script_hash, const std::string& description, const fc::variant& public_data )
+{
+    auto record = _wallet->update_game( paying_account, game_name, description, public_data,
+                                       script_url, script_hash, true );
+    _wallet->cache_transaction( record );
+    network_broadcast_transaction( record.trx );
+    return record;
+}
+
 wallet_transaction_record client_impl::game_play(const std::string& game_name, const fc::variant& param )
 {
     auto record = _wallet->play_game(game_name, param, true);

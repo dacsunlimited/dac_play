@@ -39,6 +39,8 @@ namespace bts { namespace game {
        
        v8_game_engine_ptr get_v8_engine(const std::string& game_name);
        
+       v8_game_engine_ptr reset_v8_engine(const std::string& game_name);
+       
        void execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state );
       
        static client& get_current();
