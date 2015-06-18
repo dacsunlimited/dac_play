@@ -713,6 +713,15 @@
         "contained_type": "market_status"
       },
       {
+          "type_name" : "game_status",
+          "cpp_return_type" : "bts::blockchain::game_status"
+      },
+      {
+          "type_name" : "game_status_array",
+          "container_type": "array",
+          "contained_type": "game_status"
+      },
+      {
         "type_name" : "vote_strategy",
         "cpp_return_type" : "bts::wallet::vote_strategy"
       },

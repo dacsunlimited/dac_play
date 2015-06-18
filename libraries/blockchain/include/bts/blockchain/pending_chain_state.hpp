@@ -25,6 +25,9 @@ namespace bts { namespace blockchain {
 
          virtual omarket_status         get_market_status( const asset_id_type quote_id, const asset_id_type base_id )const override;
          virtual void                   store_market_status( const market_status& s ) override;
+       
+         virtual ogame_status           get_game_status( const game_id_type game_id )const override;
+         virtual void                   store_game_status( const game_status& s ) override;
 
          virtual oprice                 get_active_feed_price( const asset_id_type quote_id )const override;
 
@@ -140,6 +143,7 @@ namespace bts { namespace blockchain {
          map< std::pair<game_id_type, data_id_type>, game_data_record>      game_datas;
       
          vector<game_result_transaction>                                    game_result_transactions;
+         map< game_id_type, game_status>                                    game_statuses;
        
          vector<operation_reward_transaction>                               operation_reward_transactions;
 

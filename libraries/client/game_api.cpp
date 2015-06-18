@@ -39,3 +39,22 @@ vector<game_data_record> client_impl::game_list_datas( const string& game_name, 
     FC_ASSERT( limit > 0 );
     return _chain_db->fetch_game_data_records( game_name, limit );
 } FC_CAPTURE_AND_RETHROW( (game_name)(limit) ) }
+
+bts::blockchain::game_status client_impl::game_status(const std::string& game_name) const
+{
+    auto game_rec = _chain_db->get_game_record( game_name );
+    
+    FC_ASSERT( game_rec.valid() );
+    
+    auto s = _chain_db->get_game_status( game_rec->id );
+    
+    FC_ASSERT( s, "The ${n} game has not yet been initialized.", ("n", game_name));
+    
+    return *s;
+}
+
+
+std::vector<bts::blockchain::game_status> client_impl::game_list_status() const
+{
+    return _chain_db->list_game_statuses();
+}

@@ -105,6 +105,21 @@ namespace bts { namespace blockchain {
     
     typedef fc::optional<game_data_record> ogame_data_record;
     
+    struct game_status
+    {
+        game_status(){} // Null case
+        game_status( game_id_type id )
+        :game_id(id)
+        {
+        }
+        
+        bool is_null()const { return !last_error.valid(); }
+        
+        game_id_type            game_id;
+        optional<fc::exception>  last_error;
+    };
+    typedef optional<game_status> ogame_status;
+    
 } } // bts::blockchain
 
 FC_REFLECT( bts::blockchain::game_record,
@@ -126,3 +141,4 @@ FC_REFLECT_TYPENAME( std::vector<bts::blockchain::game_result_transaction> )
 FC_REFLECT( bts::blockchain::game_result_transaction,
            (game_id)(data)
            )
+FC_REFLECT( bts::blockchain::game_status, (game_id)(last_error) )

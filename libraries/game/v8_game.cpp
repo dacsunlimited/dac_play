@@ -466,6 +466,8 @@ namespace bts { namespace game {
    
    void v8_game_engine::execute( game_id_type game_id, chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
    {
+       try {
+           
        wlog("Start execute in game engine...");
        v8::Locker locker(my->GetIsolate());
        Isolate::Scope isolate_scope(my->GetIsolate());
@@ -624,5 +626,16 @@ namespace bts { namespace game {
            }
        //}
        wlog("End running the script in game engine...");
+           
+       }
+       catch( const fc::exception& e )
+       {
+           wlog( "error executing game contract  ${game_id}\n ${e}", ("game_id", game_id)("e",e.to_detail_string()) );
+           
+           ogame_status game_stat = pending_state->get_game_status( game_id );
+           if( !game_stat.valid() ) game_stat = game_status( game_id );
+           game_stat->last_error = e;
+           pending_state->store_game_status( *game_stat );
+       }
    }
 } } // bts::game

@@ -251,6 +251,10 @@ namespace bts { namespace blockchain {
 
          virtual omarket_status             get_market_status( const asset_id_type quote_id, const asset_id_type base_id )const override;
          virtual void                       store_market_status( const market_status& s ) override;
+       
+         virtual ogame_status               get_game_status( const game_id_type game_id )const override;
+         virtual void                       store_game_status( const game_status& s ) override;
+       
          virtual void                       store_market_history_record( const market_history_key &key, const market_history_record &record ) override;
          virtual omarket_history_record     get_market_history_record( const market_history_key &key )const override;
          market_history_points              get_market_price_history( const asset_id_type quote_id,
@@ -269,6 +273,8 @@ namespace bts { namespace blockchain {
          vector<operation_reward_transaction>         get_operation_reward_transactions( uint32_t block_num  )const;
 
          vector<pair<asset_id_type, asset_id_type>> get_market_pairs()const;
+       
+         vector<game_status> list_game_statuses()const;
 
          vector<order_history_record>       market_order_history(asset_id_type quote,
                                                                   asset_id_type base,

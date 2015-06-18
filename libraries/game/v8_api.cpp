@@ -246,11 +246,11 @@ namespace bts { namespace game {
             v = obj;
         }
         
-        Local<Value> block_digest_obj = v8_helper::cpp_to_json(args.GetIsolate(), v );
+        auto result = v8_helper::cpp_to_json(args.GetIsolate(), v );
         
-        wlog( "The block digest is ${d}", ("d", v) );
+        wlog( "get the result after cpp to json" );
         
-        args.GetReturnValue().Set( handle_scope.Escape(block_digest_obj) );
+        args.GetReturnValue().Set( result );
     }
    
    void v8_blockchain::Get_Block(const v8::FunctionCallbackInfo<Value>& args)

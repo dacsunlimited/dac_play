@@ -180,6 +180,7 @@ namespace bts { namespace blockchain {
           
           _game_id_to_record.open ( data_dir / "index/_game_id_to_record");
           _game_name_to_id.open( data_dir / "index/game_symbol_to_id" );
+          _game_status_db.open ( data_dir/ "index/game_status_db" );
 
           _slot_index_to_record.open( data_dir / "index/slot_index_to_record" );
           _slot_timestamp_to_delegate.open( data_dir / "index/slot_timestamp_to_delegate" );
@@ -1538,6 +1539,8 @@ namespace bts { namespace blockchain {
 
                   my->_game_data_db.set_write_through( write_through );
                   my->_game_result_transactions_db.set_write_through ( write_through );
+                  my->_game_status_db.set_write_through( write_through );
+                  
                   my->_operation_reward_transactions_db.set_write_through( write_through );
                   my->_feed_index_to_record.set_write_through( write_through );
 
@@ -1740,6 +1743,7 @@ namespace bts { namespace blockchain {
       my->_game_name_to_id.close();
       my->_game_data_db.close();
       my->_game_result_transactions_db.close();
+      my->_game_status_db.close();
       
       my->_operation_reward_transactions_db.close();
 
@@ -2903,6 +2907,14 @@ namespace bts { namespace blockchain {
            pairs.push_back( iter.key() );
        return pairs;
    }
+    
+    vector<game_status> chain_database::list_game_statuses()const
+    {
+        vector<game_status> statuses;
+        for( auto iter = my->_game_status_db.begin(); iter.valid(); ++iter )
+            statuses.push_back( iter.value() );
+        return statuses;
+    }
 
    omarket_status chain_database::get_market_status( const asset_id_type quote_id, const asset_id_type base_id )const
    {
@@ -2920,6 +2932,23 @@ namespace bts { namespace blockchain {
          my->_market_status_db.store( std::make_pair( s.quote_id, s.base_id ), s );
       }
    }
+    
+    ogame_status chain_database::get_game_status( const game_id_type game_id )const
+    {
+        return my->_game_status_db.fetch_optional( game_id );
+    }
+    
+    void chain_database::store_game_status( const game_status& s )
+    {
+        if( s.is_null() )
+        {
+            my->_game_status_db.remove( s.game_id );
+        }
+        else
+        {
+            my->_game_status_db.store( s.game_id, s );
+        }
+    }
 
    market_history_points chain_database::get_market_price_history( const asset_id_type quote_id,
                                                                    const asset_id_type base_id,

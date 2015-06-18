@@ -85,7 +85,13 @@ namespace bts { namespace blockchain {
 
          virtual omarket_status             get_market_status( const asset_id_type quote_id,
                                                                const asset_id_type base_id )const          = 0;
+       
+       
          virtual void                       store_market_status( const market_status& s )                   = 0;
+       
+         virtual ogame_status               get_game_status( const game_id_type game_id )const          = 0;
+       
+         virtual void                       store_game_status( const game_status& s )                   = 0;
 
          virtual ogame_data_record          get_game_data_record( const game_id_type& game_id, const data_id_type& data_id )const    = 0;
 

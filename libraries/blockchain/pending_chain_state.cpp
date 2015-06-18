@@ -56,6 +56,8 @@ namespace bts { namespace blockchain {
 
       // This has to go before shorts and feeds because side effects
       for( const auto& item : market_statuses ) prev_state->store_market_status( item.second );
+       
+      for( const auto& item : game_statuses )   prev_state->store_game_status( item.second );
 
       for( const auto& item : bids )            prev_state->store_bid_record( item.first, item.second );
       for( const auto& item : asks )            prev_state->store_ask_record( item.first, item.second );
@@ -131,6 +133,16 @@ namespace bts { namespace blockchain {
             undo_state->store_market_status( market_status() );
          }
       }
+       
+       for( const auto& item : game_statuses )
+       {
+           auto prev_value = prev_state->get_game_status( item.first );
+           if( prev_value ) undo_state->store_game_status( *prev_value );
+           else
+           {
+               undo_state->store_game_status( game_status(item.first) );
+           }
+       }
 
       const auto dirty_markets = prev_state->get_dirty_markets();
       undo_state->set_dirty_markets( dirty_markets );
@@ -263,6 +275,20 @@ namespace bts { namespace blockchain {
    {
       market_statuses[std::make_pair(s.quote_id,s.base_id)] = s;
    }
+    
+    ogame_status pending_chain_state::get_game_status( const game_id_type game_id )const
+    {
+        auto itr = game_statuses.find( game_id );
+        if( itr != game_statuses.end() )
+            return itr->second;
+        chain_interface_ptr prev_state = _prev_state.lock();
+        return prev_state->get_game_status(game_id);
+    }
+    
+    void pending_chain_state::store_game_status( const game_status& s )
+    {
+        game_statuses[s.game_id] = s;
+    }
 
    void pending_chain_state::check_supplies()const
    {
