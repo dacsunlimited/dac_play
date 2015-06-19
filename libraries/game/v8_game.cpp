@@ -101,8 +101,7 @@ namespace bts { namespace game {
       my->init();
      
    }
-   
-    // TODO: shoud provide with game_input
+    
    void v8_game_engine::evaluate( transaction_evaluation_state& eval_state, game_id_type game_id, const variant& var)
    {
        auto isolate = my->GetIsolate();
@@ -114,26 +113,27 @@ namespace bts { namespace game {
        // Entering the context
        Context::Scope context_scope(context);
        
-       wlog("Start evaluating the game.. with var ${v}", ("v", var));
-      
-       // TODO: Rewriting the global of the context, Is the Global() geting the local context or top global context?
-       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "$eval_state"), v8_evalstate::New( isolate, &eval_state ));
-       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "$pending_state"), v8_chainstate::New( isolate, eval_state.pending_state()->shared_from_this() ));
-       auto _input = var; // TODO: convert/parse it to a v8 javascript object
-       context->Global()->Set(String::NewFromUtf8(isolate, "$input"),  v8_helper::cpp_to_json(isolate, _input));
-      
        v8::TryCatch try_catch(my->GetIsolate());
        
-       auto source = "PLAY.evaluate($eval_state, $pending_state, $input);";
-       v8::Handle<v8::Script> script = v8::Script::Compile( String::NewFromUtf8( my->GetIsolate(), source) );
-       if ( script.IsEmpty() )
-       {
-           String::Utf8Value error(try_catch.Exception());
-           FC_CAPTURE_AND_THROW(failed_compile_script, (source)(*error));
-       } else
-       {
-           // Run the script to get the result.
-           Handle<Value> result = script->Run();
+       Local<Function> evaluate_func;
+       Local<Value>  argv[3] ;
+       
+       auto play = context->Global()->Get( String::NewFromUtf8( my->GetIsolate(), "PLAY") );
+       
+       auto evaluate = play->ToObject()->Get( String::NewFromUtf8( my->GetIsolate(), "evaluate") );
+       
+       if(!evaluate->IsFunction()) {
+           FC_CAPTURE_AND_THROW( failed_compile_script );
+       } else {
+           evaluate_func = Handle<Function>::Cast(evaluate);
+           argv[0] = v8_evalstate::New( isolate, &eval_state );
+           argv[1] = v8_chainstate::New( isolate, eval_state.pending_state()->shared_from_this() );
+           auto _input = var; // TODO: convert/parse it to a v8 javascript object
+           argv[2] = v8_helper::cpp_to_json(isolate, _input);
+           
+           Local<Value> result = evaluate_func->Call(context->Global(), 3, argv);
+       
+           wlog("Start evaluating the game.. with var ${v}", ("v", var));
            
            if ( result.IsEmpty() )
            {
@@ -235,6 +235,7 @@ namespace bts { namespace game {
        const auto required_fees = w->get_transaction_fee();
       
        auto record = wallet_transaction_record();
+       vector<play_code> codes;
       
        auto isolate = my->GetIsolate();
        v8::Locker locker(isolate);
@@ -244,27 +245,26 @@ namespace bts { namespace game {
        // Entering the context
        Context::Scope context_scope(context);
        
-       wlog("Start playing game.. with var ${v}", ("v", var));
-       
-       context->Global()->Set( String::NewFromUtf8(isolate, "$blockchain"), v8_blockchain::New(isolate, blockchain, blockchain->get_head_block_num()) );
-       context->Global()->Set( String::NewFromUtf8(isolate, "$wallet"), v8_wallet::New(isolate, w) );
-       
-       auto _input = var; // TODO: convert/parse it to a v8 javascript object
-       context->Global()->Set(String::NewFromUtf8(isolate, "$input"),  v8_helper::cpp_to_json(isolate, _input));
-       
        v8::TryCatch try_catch(my->GetIsolate());
-       auto source =  "PLAY.play($blockchain, $wallet, $input);";
        
-       vector<play_code> codes;
-       v8::Handle<v8::Script> script = v8::Script::Compile( String::NewFromUtf8( my->GetIsolate(), source) );
-       if ( script.IsEmpty() )
-       {
-           String::Utf8Value error(try_catch.Exception());
-           FC_CAPTURE_AND_THROW(failed_compile_script, (source)(*error));
-       } else
-       {
-           // Run the script to get the result.
-           Handle<Value> result = script->Run();
+       Local<Function> play_func;
+       Local<Value>  argv[3] ;
+       
+       auto play = context->Global()->Get( String::NewFromUtf8( my->GetIsolate(), "PLAY") );
+       
+       auto play_f = play->ToObject()->Get( String::NewFromUtf8( my->GetIsolate(), "play") );
+       
+       if(!play_f->IsFunction()) {
+           FC_CAPTURE_AND_THROW( failed_compile_script );
+       } else {
+           play_func = Handle<Function>::Cast(play_f);
+           argv[0] = v8_blockchain::New(isolate, blockchain, blockchain->get_head_block_num());
+           argv[1] = v8_wallet::New(isolate, w);
+           auto _input = var; // TODO: convert/parse it to a v8 javascript object
+           argv[2] = v8_helper::cpp_to_json(isolate, _input);
+           
+           wlog("Start game play script.. with var ${v}", ("v", var));
+           Local<Value> result = play_func->Call(context->Global(), 3, argv);
            
            if ( result.IsEmpty() )
            {
@@ -369,25 +369,27 @@ namespace bts { namespace game {
        // Entering the context
        Context::Scope context_scope(context);
        
-       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "$blockchain"), v8_blockchain::New(my->GetIsolate(), blockchain, blockchain->get_head_block_num()));
-       context->Global()->Set( String::NewFromUtf8(isolate, "$wallet_transaction_record"), v8_helper::cpp_to_json(isolate, trx_rec) );
-       context->Global()->Set( String::NewFromUtf8(isolate, "$wallet"), v8_wallet::New(isolate, w) );
-       
-       auto _input = var; // TODO: convert/parse it to a v8 javascript object
-       context->Global()->Set(String::NewFromUtf8(isolate, "$input"),  v8_helper::cpp_to_json(isolate, _input));
-       
        v8::TryCatch try_catch(my->GetIsolate());
-       auto source =  "PLAY.scan_ledger($blockchain, $wallet, $wallet_transaction_record,  $input);";
        
-       v8::Handle<v8::Script> script = v8::Script::Compile( String::NewFromUtf8( my->GetIsolate(), source) );
-       if ( script.IsEmpty() )
-       {
-           String::Utf8Value error(try_catch.Exception());
-           FC_CAPTURE_AND_THROW(failed_compile_script, (source)(*error));
-       } else
-       {
+       Local<Function> scan_ledger_func;
+       Local<Value>  argv[4] ;
+       
+       auto play = context->Global()->Get( String::NewFromUtf8( my->GetIsolate(), "PLAY") );
+       
+       auto scan_ledger = play->ToObject()->Get( String::NewFromUtf8( my->GetIsolate(), "scan_ledger") );
+       
+       if(!scan_ledger->IsFunction()) {
+           FC_CAPTURE_AND_THROW( failed_compile_script );
+       } else {
+           scan_ledger_func = Handle<Function>::Cast(scan_ledger);
+           argv[0] = v8_blockchain::New(my->GetIsolate(), blockchain, blockchain->get_head_block_num());
+           argv[1] = v8_helper::cpp_to_json(isolate, trx_rec);
+           argv[2] = v8_wallet::New(isolate, w);
+           auto _input = var; // TODO: convert/parse it to a v8 javascript object
+           argv[3] = v8_helper::cpp_to_json(isolate, _input);
+           
            // Run the script to get the result.
-           Handle<Value> result = script->Run();
+           Local<Value> result = scan_ledger_func->Call(context->Global(), 4, argv);
            
            if ( result.IsEmpty() )
            {
@@ -409,7 +411,7 @@ namespace bts { namespace game {
            }
        }
        
-      return false;
+       return false;
    }
    
    bool v8_game_engine::scan_result( const game_result_transaction& rtrx,
@@ -423,32 +425,27 @@ namespace bts { namespace game {
        v8::HandleScope handle_scope(isolate);
        v8::Local<v8::Context> context = v8::Local<v8::Context>::New(isolate, my->_context);
        v8::Context::Scope context_scope(context);
-      
-       context->Global()->Set(String::NewFromUtf8(isolate, "$r_res_trx"), v8_helper::cpp_to_json(isolate, rtrx));
-      
-       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "$r_block_num"), Integer::New(my->GetIsolate(), block_num));
-      
-       //associates our internal field pointing to 'p' with the "point" name inside the context
-       //this enable usage of point inside this context without need to create a new one
-       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "$r_block_time"), String::NewFromUtf8(my->GetIsolate(), fc::json::to_string(block_time).c_str() ) );
-      
-       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "$r_trx_index"), Integer::New(my->GetIsolate(), trx_index));
        
-       context->Global()->Set( String::NewFromUtf8(isolate, "$wallet"), v8_wallet::New(isolate, w) );
-      
        v8::TryCatch try_catch(my->GetIsolate());
        
-       auto source =  "PLAY.scan_result($r_res_trx, $r_block_num, $r_block_time, $r_trx_index, $wallet);";
+       Local<Function> scan_result_func;
+       Local<Value>  argv[5] ;
        
-       v8::Handle<v8::Script> script = v8::Script::Compile( String::NewFromUtf8( my->GetIsolate(), source) );
-       if ( script.IsEmpty() )
-       {
-           String::Utf8Value error(try_catch.Exception());
-           FC_CAPTURE_AND_THROW(failed_compile_script, (source)(*error));
-       } else
-       {
-           // Run the script to get the result.
-           Handle<Value> result = script->Run();
+       auto play = context->Global()->Get( String::NewFromUtf8( my->GetIsolate(), "PLAY") );
+       
+       auto scan_result = play->ToObject()->Get( String::NewFromUtf8( my->GetIsolate(), "scan_result") );
+       
+       if(!scan_result->IsFunction()) {
+           FC_CAPTURE_AND_THROW( failed_compile_script );
+       } else {
+           scan_result_func = Handle<Function>::Cast(scan_result);
+           argv[0] = v8_helper::cpp_to_json(isolate, rtrx);
+           argv[1] = Integer::New(my->GetIsolate(), block_num);
+           argv[2] = String::NewFromUtf8(my->GetIsolate(), fc::json::to_string(block_time).c_str() );
+           argv[3] = Integer::New(my->GetIsolate(), trx_index);
+           argv[4] = v8_wallet::New(isolate, w);
+           
+           Local<Value> result = scan_result_func->Call(context->Global(), 5, argv);
            
            if ( result.IsEmpty() )
            {
@@ -467,165 +464,143 @@ namespace bts { namespace game {
    void v8_game_engine::execute( game_id_type game_id, chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
    {
        try {
+           wlog("Start execute in game engine...");
+           v8::Locker locker(my->GetIsolate());
+           Isolate::Scope isolate_scope(my->GetIsolate());
+           v8::HandleScope handle_scope(my->GetIsolate());
+           v8::Local<v8::Context> context = v8::Local<v8::Context>::New(my->GetIsolate(), my->_context);
+           v8::Context::Scope context_scope(context);
+           v8::TryCatch try_catch( my->GetIsolate() );
            
-       wlog("Start execute in game engine...");
-       v8::Locker locker(my->GetIsolate());
-       Isolate::Scope isolate_scope(my->GetIsolate());
-       v8::HandleScope handle_scope(my->GetIsolate());
-       v8::Local<v8::Context> context = v8::Local<v8::Context>::New(my->GetIsolate(), my->_context);
-       
-       //v8::Local<v8::Context> context = v8::Local<v8::Context>::New(my->GetIsolate(), );
-       // v8::Handle<v8::Context> context = v8_helper::CreateShellContext(my->GetIsolate());
-       v8::Context::Scope context_scope(context);
-       
-       wlog("Start setting global objects...");
-      
-       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "$execute_blockchain"), v8_blockchain::New(my->GetIsolate(), blockchain, block_num));
-      
-       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "$block_num"), Integer::New(my->GetIsolate(), block_num));
-      
-       context->Global()->Set(String::NewFromUtf8(my->GetIsolate(), "$execute_pendingstate"), v8_chainstate::New(my->GetIsolate(), pending_state));
-       
-       wlog("Start running the script in game engine...");
-       // TODO: why it is possible that my->GetIsolate() do not equal to Isolate.Current(). when did we enter isolate
-       v8::TryCatch try_catch( my->GetIsolate() );
-       
-       v8::Local<Script> script = v8::Local<Script>::New(my->GetIsolate(), my->_execute_script );
-       
-       if ( script.IsEmpty() )
-       {
-           auto source =  "PLAY.execute($execute_blockchain, $block_num, $execute_pendingstate);";
+           Local<Function> execute_func;
+           Local<Value>  argv[3] ;
            
-           script = v8::Script::Compile( String::NewFromUtf8( my->GetIsolate(), source) );
+           auto play = context->Global()->Get( String::NewFromUtf8( my->GetIsolate(), "PLAY") );
            
-           if ( script.IsEmpty() )
-           {
-               FC_ASSERT( try_catch.HasCaught() );
-               FC_ASSERT( ! try_catch.Exception().IsEmpty() );
-               FC_CAPTURE_AND_THROW( failed_compile_script, (source)( v8_helper::ReportException( my->GetIsolate(), &try_catch) ) );
-           }
+           auto execute = play->ToObject()->Get( String::NewFromUtf8( my->GetIsolate(), "execute") );
            
-           my->_execute_script.Reset(my->GetIsolate(), script );
-       }
-       
-       /*if ( script.IsEmpty() )
-       {
-           FC_ASSERT( try_catch.HasCaught() );
-           FC_ASSERT( ! try_catch.Exception().IsEmpty() );
-           FC_CAPTURE_AND_THROW( failed_compile_script, ( v8_helper::ReportException( my->GetIsolate(), &try_catch) ) );
-       } else
-       {*/
-           // Run the script to get the result.
-           wlog("Run the script to get the result...");
-           Local<Value> result = script->Run();
-           
-           if ( result.IsEmpty() )
-           {
-               FC_CAPTURE_AND_THROW(failed_run_script, ( v8_helper::ReportException( my->GetIsolate(), &try_catch) ));
-           } else
-           {
-               //assert(!try_catch.HasCaught());
-               //if (!result->IsUndefined()) {
-                   // TOOD: return the result
-               //}
-               auto v = v8_helper::json_to_cpp<variant>(my->GetIsolate(), result);
-               wlog("The result of the running of script is ${s}", ( "s",  v ));
-               if ( v.is_numeric() && v.as_int64() == 0 )
+           if(!execute->IsFunction()) {
+               FC_CAPTURE_AND_THROW( failed_compile_script );
+           } else {
+               execute_func = Handle<Function>::Cast(execute);
+               
+               argv[0] = v8_blockchain::New(my->GetIsolate(), blockchain, block_num);
+               argv[1] = Integer::New(my->GetIsolate(), block_num);
+               argv[2] = v8_chainstate::New(my->GetIsolate(), pending_state);
+               
+               // Run the script to get the result.
+               wlog("Run the script to get the result...");
+               Local<Value> result = execute_func->Call(context->Global(), 3, argv);
+               
+               if ( result.IsEmpty() )
                {
-                   wlog("Nothing is done...");
+                   FC_CAPTURE_AND_THROW(failed_run_script, ( v8_helper::ReportException( my->GetIsolate(), &try_catch) ));
                } else
                {
-                   FC_ASSERT( v.is_object() );
-                   auto execute_results = v.get_object()["execute_results"];
-                   auto game_datas = v.get_object()["game_datas"];
-                   auto diff_balances = v.get_object()["diff_balances"];
-                   auto diff_supply = v.get_object()["diff_supply"];
-                   
-                   FC_ASSERT( execute_results.is_array() );
-                   vector<game_result_transaction> game_result_transactions;
-                   game_result_transactions.resize( execute_results.get_array().size() );
-                   for ( auto result : execute_results.get_array() )
+                   //assert(!try_catch.HasCaught());
+                    //if (!result->IsUndefined()) {
+                    // TOOD: return the result
+                   //}
+                   auto v = v8_helper::json_to_cpp<variant>(my->GetIsolate(), result);
+                   wlog("The result of the running of script is ${s}", ( "s",  v ));
+                   if ( v.is_numeric() && v.as_int64() == 0 )
                    {
-                       game_result_transaction g_trx;
-                       g_trx.game_id = game_id;
-                       g_trx.data = result;
-                       game_result_transactions.push_back( std::move( g_trx ) );
-                   }
-                   
-                   pending_state->set_game_result_transactions( std::move( game_result_transactions ) );
-                   
-                   FC_ASSERT( game_datas.is_array() );
-                   for ( auto d : game_datas.get_array() ) {
-                       if ( d.is_numeric() )    // game_data must be a object and include a property called index
-                       {
-                           game_data_record null_rec;
-                           pending_state->store_game_data_record(game_id, d.as<data_id_type>(), null_rec.make_null() );
-                       } else {
-                           FC_ASSERT( d.is_object() && d.get_object().contains( "index" ) );
-                           game_data_record g_rec;
-                           g_rec.game_id = game_id;
-                           g_rec.data = d;
-                           
-                           pending_state->store_game_data_record(game_id, g_rec.get_game_data_index(), std::move( g_rec ) );
-                       }
-                   }
-                   
-                   FC_ASSERT( diff_balances.is_array() );
-                   for ( auto b : diff_balances.get_array() )
+                       wlog("Nothing is done...");
+                   } else
                    {
-                       FC_ASSERT( b.is_object() && b.get_object().contains( "owner" ) );
-                       FC_ASSERT( b.is_object() && b.get_object().contains( "asset" ) );
-                       auto owner = b.get_object()["owner"].as<address>();
-                       auto diff_asset = b.get_object()["asset"].as<asset>();
-                       
-                       auto game_asset = blockchain->get_asset_record( diff_asset.asset_id );
-                       FC_ASSERT( game_asset.valid() );
-                       FC_ASSERT( game_asset->is_game_issued() );
-                       FC_ASSERT( game_asset->issuer.issuer_id == game_id, "Updating the game asset must get the permission, with the condition that the issuer is this game." );
-                       
-                       withdraw_condition balance_condition(withdraw_with_signature(owner), asset_id_type(diff_asset.asset_id));
-                       obalance_record balance_rec = pending_state->get_balance_record( balance_condition.get_address() );
-                       if( !balance_rec.valid() )
-                       {
-                           balance_rec = balance_record( balance_condition );
-                       }
-                       if( balance_rec->balance == 0 || diff_asset.amount <= 0 ) // negetive deposit
-                       {
-                           balance_rec->deposit_date = pending_state->now();
-                       }
-                       else
-                       {
-                           fc::uint128 old_sec_since_epoch( balance_rec->deposit_date.sec_since_epoch() );
-                           fc::uint128 new_sec_since_epoch( pending_state->now().sec_since_epoch() );
-                           
-                           fc::uint128 avg = (old_sec_since_epoch * balance_rec->balance) + (new_sec_since_epoch * diff_asset.amount );
-                           avg /= (balance_rec->balance + diff_asset.amount);
-                           
-                           balance_rec->deposit_date = time_point_sec( avg.to_integer() );
-                       }
-                       
-                       balance_rec->balance += diff_asset.amount;
-                       FC_ASSERT( balance_rec->balance >= 0);
-                       pending_state->store_balance_record( *balance_rec );
-                   }
+                       FC_ASSERT( v.is_object() );
+                       auto execute_results = v.get_object()["execute_results"];
+                       auto game_datas = v.get_object()["game_datas"];
+                       auto diff_balances = v.get_object()["diff_balances"];
+                       auto diff_supply = v.get_object()["diff_supply"];
                    
-                   FC_ASSERT( diff_supply.is_array() );
-                   for ( auto s : diff_supply.get_array() )
-                   {
-                       FC_ASSERT( s.is_object() );
-                       auto supply_change = s.as<asset>();
-                       auto game_base_asset_record = blockchain->get_asset_record( supply_change.asset_id );
-                       FC_ASSERT( game_base_asset_record.valid() );
-                       FC_ASSERT( game_base_asset_record->is_game_issued() );
-                       FC_ASSERT( game_base_asset_record->issuer.issuer_id == game_id, "Updating the game asset must get the permission, with the condition that the issuer is this game." );
+                       FC_ASSERT( execute_results.is_array() );
+                       vector<game_result_transaction> game_result_transactions;
+                       game_result_transactions.resize( execute_results.get_array().size() );
+                       for ( auto result : execute_results.get_array() )
+                       {
+                           game_result_transaction g_trx;
+                           g_trx.game_id = game_id;
+                           g_trx.data = result;
+                           game_result_transactions.push_back( std::move( g_trx ) );
+                       }
+                   
+                       pending_state->set_game_result_transactions( std::move( game_result_transactions ) );
+                   
+                       FC_ASSERT( game_datas.is_array() );
+                       for ( auto d : game_datas.get_array() ) {
+                           if ( d.is_numeric() )    // game_data must be a object and include a property called index
+                           {
+                               game_data_record null_rec;
+                               pending_state->store_game_data_record(game_id, d.as<data_id_type>(), null_rec.make_null() );
+                           } else {
+                               FC_ASSERT( d.is_object() && d.get_object().contains( "index" ) );
+                               game_data_record g_rec;
+                               g_rec.game_id = game_id;
+                               g_rec.data = d;
+                           
+                               pending_state->store_game_data_record(game_id, g_rec.get_game_data_index(), std::move( g_rec ) );
+                           }
+                       }
+                   
+                       FC_ASSERT( diff_balances.is_array() );
+                       for ( auto b : diff_balances.get_array() )
+                       {
+                           FC_ASSERT( b.is_object() && b.get_object().contains( "owner" ) );
+                           FC_ASSERT( b.is_object() && b.get_object().contains( "asset" ) );
+                           auto owner = b.get_object()["owner"].as<address>();
+                           auto diff_asset = b.get_object()["asset"].as<asset>();
                        
-                       game_base_asset_record->current_supply += supply_change.amount;
-                       pending_state->store_asset_record( *game_base_asset_record );
+                           auto game_asset = blockchain->get_asset_record( diff_asset.asset_id );
+                           FC_ASSERT( game_asset.valid() );
+                           FC_ASSERT( game_asset->is_game_issued() );
+                           FC_ASSERT( game_asset->issuer.issuer_id == game_id, "Updating the game asset must get the permission, with the condition that the issuer is this game." );
+                       
+                           withdraw_condition balance_condition(withdraw_with_signature(owner), asset_id_type(diff_asset.asset_id));
+                           obalance_record balance_rec = pending_state->get_balance_record( balance_condition.get_address() );
+                           if( !balance_rec.valid() )
+                           {
+                               balance_rec = balance_record( balance_condition );
+                           }
+                           if( balance_rec->balance == 0 || diff_asset.amount <= 0 ) // negetive deposit
+                           {
+                               balance_rec->deposit_date = pending_state->now();
+                           }
+                           else
+                           {
+                               fc::uint128 old_sec_since_epoch( balance_rec->deposit_date.sec_since_epoch() );
+                               fc::uint128 new_sec_since_epoch( pending_state->now().sec_since_epoch() );
+                           
+                               fc::uint128 avg = (old_sec_since_epoch * balance_rec->balance) + (new_sec_since_epoch * diff_asset.amount );
+                               avg /= (balance_rec->balance + diff_asset.amount);
+                           
+                               balance_rec->deposit_date = time_point_sec( avg.to_integer() );
+                           }
+                       
+                           balance_rec->balance += diff_asset.amount;
+                           FC_ASSERT( balance_rec->balance >= 0);
+                           pending_state->store_balance_record( *balance_rec );
+                       }
+                   
+                       FC_ASSERT( diff_supply.is_array() );
+                       for ( auto s : diff_supply.get_array() )
+                       {
+                           FC_ASSERT( s.is_object() );
+                           auto supply_change = s.as<asset>();
+                           auto game_base_asset_record = blockchain->get_asset_record( supply_change.asset_id );
+                           FC_ASSERT( game_base_asset_record.valid() );
+                           FC_ASSERT( game_base_asset_record->is_game_issued() );
+                           FC_ASSERT( game_base_asset_record->issuer.issuer_id == game_id, "Updating the game asset must get the permission, with the condition that the issuer is this game." );
+                       
+                           game_base_asset_record->current_supply += supply_change.amount;
+                           pending_state->store_asset_record( *game_base_asset_record );
+                       }
+                   
+                       // TODO: check supply diff
                    }
                }
            }
-       //}
-       wlog("End running the script in game engine...");
+           wlog("End running the script in game engine...");
            
        }
        catch( const fc::exception& e )
