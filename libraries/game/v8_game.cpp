@@ -19,7 +19,7 @@ namespace bts { namespace game {
          std::string                        _game_name;
          Isolate*                           _isolate;
          v8::Persistent<Context>            _context;
-          v8::Persistent<Script>            _execute_script;
+         //v8::Persistent<Script>            _execute_script;
          
          v8_game_engine_impl(v8_game_engine* self, bts::game::client* client)
          : self(self), _client(client)
@@ -30,7 +30,7 @@ namespace bts { namespace game {
          ~v8_game_engine_impl(){
              
             _context.Reset();
-             _execute_script.Reset();
+            //_execute_script.Reset();
 
          }
          

@@ -74,6 +74,7 @@ namespace bts { namespace game {
          void open(const fc::path& data_dir) {
             try {
                v8::V8::InitializeICU();
+                
                _platform = v8::platform::CreateDefaultPlatform();
                v8::V8::InitializePlatform(_platform);
                v8::V8::Initialize();
@@ -81,11 +82,20 @@ namespace bts { namespace game {
                _isolate = v8::Isolate::GetCurrent();
                if ( _isolate == NULL )
                {
-                  _isolate = v8::Isolate::New();
-                  _isolate->Enter();
+                   /*
+                   ResourceConstraints rc;
+                   rc.set_max_old_space_size(10); //MB
+                   rc.set_max_executable_size(10); //MB
+                   
+                   v8::Isolate::CreateParams params;
+                   params.constraints.set_stack_limit(reinterpret_cast<uint32_t*>((char*)&rc - 1024 * 512));
+                  _isolate = v8::Isolate::New(params);
+                    */
+                   _isolate = v8::Isolate::New();
+                   _isolate->Enter();
                }
                 
-                //v8::V8::SetCaptureStackTraceForUncaughtExceptions(true, 10, StackTrace::kDetailed);
+               v8::V8::SetCaptureStackTraceForUncaughtExceptions(true, 10, StackTrace::kDetailed);
                
                ilog("Init class templat for game client" );
                
@@ -141,7 +151,7 @@ namespace bts { namespace game {
          // Debuging file from operation and save to data_dir
           void script_http_callback( const std::string code, std::string game_name )
          {
-            ilog("Storing the game code in a directory for viewing", ("game_name", game_name) );
+            ilog("Storing the game code in a directory for viewing: ${game_name}", ("game_name", game_name) );
             fc::async( [=]()
                       {
                          

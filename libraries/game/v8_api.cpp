@@ -233,6 +233,8 @@ namespace bts { namespace game {
         auto block_digest = static_cast<v8_blockchain*>(ptr)->_blockchain->get_block_digest(args[0]->Uint32Value());
         //return the value
         
+        // args.GetReturnValue().Set( v8::Null( args.GetIsolate() ) );
+        
         wlog( "The block digest is ${d}", ("d", block_digest) );
         
         auto v = variant(block_digest);
