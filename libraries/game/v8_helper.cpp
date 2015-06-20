@@ -117,7 +117,7 @@ namespace bts { namespace game {
       
        // Bind the global 'load' function to the C++ Load callback.
       global->Set(v8::String::NewFromUtf8(isolate, "load"), v8::FunctionTemplate::New(isolate, Load));
-      
+       
        // Bind the 'quit' function
       // global->Set(v8::String::NewFromUtf8(isolate, "quit"), v8::FunctionTemplate::New(isolate, Quit));
       

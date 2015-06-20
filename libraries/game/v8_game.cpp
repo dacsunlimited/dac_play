@@ -39,7 +39,6 @@ namespace bts { namespace game {
             // Refer http://v8.googlecode.com/svn/trunk/samples/process.cc
             // Deprecated: fc::path script_path( _client->get_data_dir() / (_game_name + ".js") );
             _isolate = v8::Isolate::GetCurrent();
-            
             v8::Locker locker(_isolate);
             Isolate::Scope isolate_scope(_isolate);
             HandleScope handle_scope(_isolate);
@@ -59,6 +58,7 @@ namespace bts { namespace game {
              auto ogame_rec = _client->get_chain_database()->get_game_record( _game_name );
              FC_ASSERT( ogame_rec.valid() );
              
+             wlog("testing.........3");
             
             //v8::Handle<v8::String> source = v8_helper::ReadFile( _isolate, script_path.to_native_ansi_path().c_str() );
              v8::Handle<v8::String> source = v8::String::NewFromUtf8( GetIsolate(), ogame_rec->script_code.c_str() );
@@ -72,6 +72,7 @@ namespace bts { namespace game {
              
             String::Utf8Value utf8_source(source);
             Handle<Script> script = Script::Compile(source);
+             wlog("testing.........4");
             if ( script.IsEmpty() )
             {
                 // The TryCatch above is still in effect and will have caught the error.
@@ -80,7 +81,7 @@ namespace bts { namespace game {
             {
                 // Run the script to get the result.
                 Handle<Value> result = script->Run();
-                
+                wlog("testing.........5");
                 if ( result.IsEmpty() )
                 {
                     FC_CAPTURE_AND_THROW(failed_run_script, (v8_helper::ReportException(GetIsolate(), &try_catch)));
