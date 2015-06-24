@@ -28,6 +28,16 @@ namespace bts { namespace game {
     client* client::current = nullptr;
    
    namespace detail {
+       class ArrayBufferAllocator : public v8::ArrayBuffer::Allocator {
+       public:
+           virtual void* Allocate(size_t length) {
+               void* data = AllocateUninitialized(length);
+               return data == NULL ? data : memset(data, 0, length);
+           }
+           virtual void* AllocateUninitialized(size_t length) { return malloc(length); }
+           virtual void Free(void* data, size_t) { free(data); }
+       };
+       
       class client_impl {
           
       public:
@@ -41,6 +51,8 @@ namespace bts { namespace game {
           //
           // Here I just fixed the process hang issue.
           v8::Isolate* _isolate;
+          
+          ArrayBufferAllocator*  _allocator;
          
          fc::path                _data_dir;
           
@@ -69,6 +81,7 @@ namespace bts { namespace game {
              v8::V8::Dispose();
              v8::V8::ShutdownPlatform();
              delete _platform;
+             delete _allocator;
          }
          
          void open(const fc::path& data_dir) {
@@ -87,11 +100,12 @@ namespace bts { namespace game {
                    rc.set_max_old_space_size(10); //MB
                    rc.set_max_executable_size(10); //MB
                    
-                   v8::Isolate::CreateParams params;
                    params.constraints.set_stack_limit(reinterpret_cast<uint32_t*>((char*)&rc - 1024 * 512));
-                  _isolate = v8::Isolate::New(params);
                     */
-                   _isolate = v8::Isolate::New();
+                   _allocator = new ArrayBufferAllocator();
+                   Isolate::CreateParams create_params;
+                   create_params.array_buffer_allocator = _allocator;
+                   _isolate = v8::Isolate::New(create_params);
                    _isolate->Enter();
                }
                 
