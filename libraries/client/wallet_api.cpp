@@ -1196,6 +1196,18 @@ wallet_transaction_record client_impl::wallet_account_register( const string& ac
     network_broadcast_transaction( record.trx );
     return record;
 } FC_RETHROW_EXCEPTIONS(warn, "", ("account_name", account_name)("data", data)) }
+    
+wallet_transaction_record client_impl::wallet_account_register_with_key(const std::string& account_name, const public_key_type& account_key, const std::string& pay_from_account, const fc::variant& public_data, uint8_t delegate_pay_rate, const std::string& new_account_type )
+    { try {
+        auto record = _wallet->register_account_with_key( account_name, account_key, public_data, delegate_pay_rate,
+                                                pay_from_account, variant(new_account_type).as<account_type>(),
+                                                true );
+        _wallet->cache_transaction( record );
+        network_broadcast_transaction( record.trx );
+        return record;
+    } FC_RETHROW_EXCEPTIONS(warn, "", ("account_name", account_name)("account_key", account_key)("data", public_data))
+        
+}
 
 variant_object client_impl::wallet_get_info()
 {
