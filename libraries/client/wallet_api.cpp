@@ -377,11 +377,13 @@ wallet_transaction_record detail::client_impl::wallet_note(
     { try {
         auto owner_account_rec = _chain_db->get_account_record( owner_account_name );
         FC_ASSERT( owner_account_rec.valid() );
-        auto trx_record = _wallet->get_transaction( transaction_id );
+        
+        const auto id_prefix = variant( transaction_id ).as<transaction_id_type>();
+        const otransaction_record trx_record = _chain_db->get_transaction( id_prefix, false );
         
         note_index index;
         index.account_id = owner_account_rec->id;
-        index.transaction_id = trx_record.trx.id();
+        index.transaction_id = trx_record->trx.id();
         
         auto onote_record = _chain_db->get_note_record( index );
         
