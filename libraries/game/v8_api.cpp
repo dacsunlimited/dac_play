@@ -62,16 +62,16 @@ namespace bts { namespace game {
         //access the class template
         Handle<ObjectTemplate> proto = result->PrototypeTemplate();
         
-        Handle<ObjectTemplate> inst = result->InstanceTemplate();
-        
-        inst->SetInternalFieldCount(1);
-        
         //associates the "method" string to the callback PointMethod in the class template
         //enabling point.method_a() constructions inside the javascript
         proto->Set(isolate, "get_transaction_fee", FunctionTemplate::New(isolate, v8_wallet::Get_Transaction_Fee));
         
         proto->Set(isolate, "get_wallet_key_for_address", FunctionTemplate::New(isolate, v8_wallet::Get_Wallet_Key_For_Address) );
         proto->Set(isolate, "store_transaction", FunctionTemplate::New(isolate, v8_wallet::Store_Transaction) );
+        
+        Handle<ObjectTemplate> inst = result->InstanceTemplate();
+        
+        inst->SetInternalFieldCount(1);
         
         // Again, return the result through the current handle scope.
         return handle_scope.Escape(result);
@@ -424,7 +424,6 @@ namespace bts { namespace game {
         try {
             auto addr = v8_helper::json_to_cpp<bts::blockchain::address>(args.GetIsolate(), args[0] );
             auto key = static_cast<v8_wallet*>(ptr)->_wallet->get_wallet_key_for_address( addr );
-            
             if ( key.valid() )
             {
                 // return the value
@@ -447,7 +446,11 @@ namespace bts { namespace game {
         Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
         void* ptr = wrap->Value();
         
+        Local<String> v8_string = v8_helper::toJson( args.GetIsolate(), args[0] );
+        std::string str = *v8::String::Utf8Value(v8_string);
+        wlog( "Starting store transaction ${v}", ("v", str) );
         auto trx_data = v8_helper::json_to_cpp<transaction_info>(args.GetIsolate(), args[0] );
+        wlog("The transaction data is ${x}", ("x", trx_data));
         
         static_cast<v8_wallet*>(ptr)->_wallet->store_transaction( trx_data );
     }

@@ -44,12 +44,16 @@ namespace bts { namespace game {
     void v8_helper::fc_ripemd160_hash(const v8::FunctionCallbackInfo<v8::Value>& args )
     {
         try {
-            EscapableHandleScope handle_scope(args.GetIsolate());
+            HandleScope handle_scope(args.GetIsolate());
             
             std::string str_to_hash(v8_helper::ToCString(String::Utf8Value(args[0]->ToString(args.GetIsolate()))));
-            auto hash = fc::ripemd160::hash( str_to_hash );
             
-            args.GetReturnValue().Set( v8_helper::cpp_to_json( args.GetIsolate(), hash ) );
+            wlog("The input string for hash is ${s}", ("s", str_to_hash) );
+            auto hash = fc::ripemd160::hash( str_to_hash );
+            wlog("The result string for hash is ${s}", ("s", hash) );
+            
+            //args.GetReturnValue().Set( v8_helper::cpp_to_json( args.GetIsolate(), hash ) );
+            args.GetReturnValue().Set( String::NewFromUtf8(args.GetIsolate(), hash.str().c_str() ) );
         } catch ( ... )
         {
             args.GetReturnValue().Set( v8::Null( args.GetIsolate() ) );

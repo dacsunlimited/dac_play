@@ -67,3 +67,8 @@ std::vector<bts::blockchain::game_status> client_impl::game_list_status() const
 {
     return _chain_db->list_game_statuses();
 }
+
+std::vector<bts::blockchain::game_result_transaction> client_impl::game_list_result_transactions(uint32_t block_number) const
+{
+    return _chain_db->get_game_result_transactions( block_number );
+}

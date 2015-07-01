@@ -166,5 +166,20 @@
           "parameters" : [],
           "is_const" : true,
           "prerequisites" : ["no_prerequisites"]
+      },
+      {
+          "method_name": "game_list_result_transactions",
+          "description": "Returns a list of game result transactions executed on a given block.",
+          "cached"      : true,
+          "return_type": "game_result_transaction_array",
+          "parameters" : [
+          {
+              "name" : "block_number",
+              "type" : "uint32_t",
+              "description" : "Block to get game result transaction operations for."
+          }
+          ],
+          "is_const" : true,
+          "prerequisites" : ["no_prerequisites"]
       }
 ] }
