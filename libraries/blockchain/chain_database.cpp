@@ -3410,7 +3410,7 @@ namespace bts { namespace blockchain {
       return results;
    } FC_CAPTURE_AND_RETHROW( (account_name) ) }
     
-    vector<ad_record> chain_database::fetch_ad_records( const string& account_name )const
+    vector<ad_record> chain_database::fetch_ad_records( const string& account_name, const uint32_t limit )const
     { try {
         vector<ad_record> results;
         const auto opt_account_record = get_account_record( account_name );
@@ -3421,12 +3421,14 @@ namespace bts { namespace blockchain {
         {
             results.push_back( itr.value() );
             ++itr;
+            
+            if( results.size() >= limit ) break;
         }
         
         return results;
-    } FC_CAPTURE_AND_RETHROW( (account_name) ) }
+    } FC_CAPTURE_AND_RETHROW( (account_name)(limit) ) }
     
-    vector<note_record> chain_database::fetch_note_records( const string& account_name )const
+    vector<note_record> chain_database::fetch_note_records( const string& account_name, const uint32_t limit )const
     { try {
         vector<note_record> results;
         const auto opt_account_record = get_account_record( account_name );
@@ -3437,10 +3439,12 @@ namespace bts { namespace blockchain {
         {
             results.push_back( itr.value() );
             ++itr;
+            
+            if( results.size() >= limit ) break;
         }
         
         return results;
-    } FC_CAPTURE_AND_RETHROW( (account_name) ) }
+    } FC_CAPTURE_AND_RETHROW( (account_name)(limit) ) }
 
    vector<transaction_record> chain_database::fetch_address_transactions( const address& addr )
    { try {
