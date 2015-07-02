@@ -156,9 +156,9 @@ namespace bts { namespace blockchain {
 
          vector<burn_record>         fetch_burn_records( const string& account_name )const;
        
-         vector<ad_record>           fetch_ad_records( const string& account_name )const;
+         vector<ad_record>           fetch_ad_records( const string& account_name, const uint32_t limit )const;
        
-         vector<note_record>         fetch_note_records( const string& account_name )const;
+         vector<note_record>         fetch_note_records( const string& account_name, const uint32_t limit )const;
 
          unordered_map<balance_id_type, balance_record>     get_balances( const balance_id_type& first,
                                                                           uint32_t limit )const;
