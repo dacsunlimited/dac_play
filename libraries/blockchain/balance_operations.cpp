@@ -319,12 +319,29 @@ namespace bts { namespace blockchain {
         
         FC_ASSERT( amount.asset_id == 0 );
         
-        // 1 PLS for each 400 byte
-        const size_t message_kb = (message.size() / 400) + 1;
-        const share_type required_fee = message_kb * BTS_BLOCKCHAIN_MIN_AD_FEE;
         
-        FC_ASSERT( amount.amount >= required_fee, "Message of size ${s} KiB requires at least ${a} satoshis to be pay!",
-                  ("s",message_kb)("a",required_fee) );
+#ifndef WIN32
+#warning [HARDFORK] Remove this check after PDV_V0_1_4_FORK_BLOCK_NUM has passed
+#endif
+        share_type required_fee = 0;
+        if( eval_state.pending_state()->get_head_block_num() >= PDV_V0_1_4_FORK_BLOCK_NUM )
+        {
+            // 1 PLS for each 400 byte
+            const size_t message_kb = (message.size() / 400) + 1;
+            required_fee = message_kb * BTS_BLOCKCHAIN_MIN_AD_FEE;
+            FC_ASSERT( amount.amount >= required_fee, "Message of size ${s} KiB requires at least ${a} satoshis to be pay!",
+                      ("s",message_kb)("a",required_fee) );
+        }
+        else
+        {
+            // 4 PLS for each 1024 byte
+            const size_t message_kb = (message.size() / 1024) + 1;
+            required_fee = message_kb * BTS_BLOCKCHAIN_MIN_AD_FEE * 5;
+            FC_ASSERT( amount.amount >= required_fee, "Message of size ${s} KiB requires at least ${a} satoshis to be pay!",
+                      ("s",message_kb)("a",required_fee) );
+        }
+        
+        
         // half of the note fees goto collected fees(delegate pay), other go to ad owner
         eval_state.min_fees[amount.asset_id] += required_fee;
         
