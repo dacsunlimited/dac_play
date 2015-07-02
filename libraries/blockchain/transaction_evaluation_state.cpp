@@ -80,6 +80,18 @@ namespace bts { namespace blockchain {
           pending_state()->store_account_record( *delegate_record );
       }
    } FC_CAPTURE_AND_RETHROW() }
+    
+   void transaction_evaluation_state::update_rp_values()
+   { try {
+        if ( rp_account_id.valid() )
+        {
+            oaccount_record account_rec = pending_state()->get_account_record( *rp_account_id );
+            FC_ASSERT( account_rec.valid() );
+            
+            account_rec->stats_info.rp += total_base_equivalent_fees_paid;
+            pending_state()->store_account_record( *account_rec );
+        }
+   } FC_CAPTURE_AND_RETHROW() }
 
    void transaction_evaluation_state::validate_fees()
    { try {
@@ -154,6 +166,8 @@ namespace bts { namespace blockchain {
         validate_fees();
         calculate_base_equivalent_fees();
         update_delegate_votes();
+        
+        update_rp_values();
 
         pending_state()->store_transaction( trx.id(), transaction_record( transaction_location(), *this ) );
       }

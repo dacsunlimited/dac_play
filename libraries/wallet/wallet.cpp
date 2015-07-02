@@ -3182,6 +3182,115 @@ namespace detail {
       record.trx = trx;
       return record;
    } FC_CAPTURE_AND_RETHROW( (account_to_register)(public_data)(pay_with_account_name)(delegate_pay_rate) ) }
+    
+    wallet_transaction_record wallet::register_account_with_key(
+                                                       const string& account_to_register,
+                                                       const public_key_type& account_key,
+                                                       const variant& public_data,
+                                                       uint8_t delegate_pay_rate,
+                                                       const string& pay_with_account_name,
+                                                       account_type new_account_type,
+                                                       bool sign )
+    { try {
+        if( !my->_blockchain->is_valid_account_name( account_to_register ) )
+            FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("account_to_register",account_to_register) );
+        
+        if( bts::blockchain::address::is_valid( account_to_register ) )
+            FC_THROW_EXCEPTION( invalid_name, "Invalid account name!", ("account_to_register",account_to_register) );
+        
+        FC_ASSERT( is_open() );
+        FC_ASSERT( is_unlocked() );
+        
+        const auto registered_account = my->_blockchain->get_account_record( account_to_register );
+        if( registered_account.valid() )
+            FC_THROW_EXCEPTION( duplicate_account_name, "This account name has already been registered!" );
+        
+        const auto payer_public_key = get_owner_public_key( pay_with_account_name );
+        address from_account_address( payer_public_key );
+        
+        signed_transaction     trx;
+        unordered_set<address> required_signatures;
+        
+        trx.expiration = blockchain::now() + get_transaction_expiration();
+        
+        optional<account_meta_info> meta_info = account_meta_info( new_account_type );
+        
+        trx.register_account( account_to_register,
+                             public_data,
+                             account_key, // master
+                             account_key, // active
+                             delegate_pay_rate <= 100 ? delegate_pay_rate : -1,
+                             meta_info );
+        
+        // Verify a parent key is available if required
+        optional<string> parent_name = my->_blockchain->get_parent_account_name( account_to_register );
+        if( parent_name.valid() )
+        {
+            bool have_parent_key = false;
+            for( ; parent_name.valid(); parent_name = my->_blockchain->get_parent_account_name( *parent_name ) )
+            {
+                try
+                {
+                    const wallet_account_record parent_record = get_account( *parent_name );
+                    if( parent_record.is_retracted() )
+                        continue;
+                    
+                    if( my->_wallet_db.has_private_key( parent_record.active_address() ) )
+                    {
+                        required_signatures.insert( parent_record.active_address() );
+                        have_parent_key = true;
+                        break;
+                    }
+                    
+                    if( my->_wallet_db.has_private_key( parent_record.owner_address() ) )
+                    {
+                        required_signatures.insert( parent_record.owner_address() );
+                        have_parent_key = true;
+                        break;
+                    }
+                }
+                catch( ... )
+                {
+                }
+            }
+            if( !have_parent_key )
+            {
+                FC_THROW_EXCEPTION( unauthorized_child_account, "Parent account must authorize registration of this child account!",
+                                   ("child_account",account_to_register) );
+            }
+        }
+        
+        auto required_fees = get_transaction_fee();
+        
+        required_fees += asset( my->_blockchain->get_account_registration_fee( account_to_register.size() ), 0 );
+        
+        bool as_delegate = false;
+        if( delegate_pay_rate <= 100  )
+        {
+            required_fees += asset(my->_blockchain->get_delegate_registration_fee(delegate_pay_rate),0);
+            as_delegate = true;
+        }
+        
+        my->withdraw_to_transaction( required_fees,
+                                    pay_with_account_name,
+                                    trx,
+                                    required_signatures );
+        
+        auto entry = ledger_entry();
+        entry.from_account = payer_public_key;
+        entry.to_account = account_key;
+        entry.memo = "register " + account_to_register + (as_delegate ? " as a delegate" : "");
+        
+        auto record = wallet_transaction_record();
+        record.ledger_entries.push_back( entry );
+        record.fee = required_fees;
+        
+        if( sign )
+            my->sign_transaction( trx, required_signatures );
+        
+        record.trx = trx;
+        return record;
+    } FC_CAPTURE_AND_RETHROW( (account_to_register)(account_key)(public_data)(pay_with_account_name)(delegate_pay_rate) ) }
 
    /*
     issued_type : 1, 0, -1, -2, -3

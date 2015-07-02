@@ -485,6 +485,10 @@ namespace bts { namespace blockchain {
    void pending_chain_state::account_insert_into_vote_set( const vote_del& )
    {
    }
+    
+    void pending_chain_state::account_insert_into_rp_set( const rp_index& )
+    {
+    }
 
    void pending_chain_state::account_erase_from_id_map( const account_id_type id )
    {
@@ -505,6 +509,10 @@ namespace bts { namespace blockchain {
    void pending_chain_state::account_erase_from_vote_set( const vote_del& )
    {
    }
+    
+    void pending_chain_state::account_erase_from_rp_set( const rp_index& )
+    {
+    }
 
    oasset_record pending_chain_state::asset_lookup_by_id( const asset_id_type id )const
    {

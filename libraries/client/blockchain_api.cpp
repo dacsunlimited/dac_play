@@ -417,6 +417,22 @@ vector<account_record> detail::client_impl::blockchain_list_accounts( const stri
    FC_ASSERT( limit > 0 );
    return _chain_db->get_accounts( first, limit );
 } FC_CAPTURE_AND_RETHROW( (first)(limit) ) }
+    
+vector<account_record> detail::client_impl::blockchain_list_accounts_by_rp(uint32_t first, uint32_t count) const
+{
+    if( first > 0 ) --first;
+    vector<account_id_type> account_ids = _chain_db->get_delegates_by_vote( first, count );
+    
+    vector<account_record> account_records;
+    account_records.reserve( account_ids.size() );
+    for( const auto& account_id : account_ids )
+    {
+        auto acc_record = _chain_db->get_account_record( account_id );
+        FC_ASSERT( acc_record.valid() );
+        account_records.push_back( *acc_record );
+    }
+    return account_records;
+}
 
 vector<account_record> detail::client_impl::blockchain_list_recently_updated_accounts()const
 {
@@ -714,14 +730,14 @@ vector<burn_record> client_impl::blockchain_get_account_wall( const string& acco
    return _chain_db->fetch_burn_records( account );
 }
     
-    vector<ad_record> client_impl::blockchain_get_account_ads( const string& account )const
+    vector<ad_record> client_impl::blockchain_get_account_ads( const string& account, const uint32_t limit )const
     {
-        return _chain_db->fetch_ad_records( account );
+        return _chain_db->fetch_ad_records( account, limit );
     }
     
-vector<note_record> client_impl::blockchain_get_account_notes( const string& account )const
+vector<note_record> client_impl::blockchain_get_account_notes( const string& account, const uint32_t limit )const
 {
-   return _chain_db->fetch_note_records( account );
+   return _chain_db->fetch_note_records( account, limit );
 }
 
 void client_impl::blockchain_broadcast_transaction(const signed_transaction& trx)

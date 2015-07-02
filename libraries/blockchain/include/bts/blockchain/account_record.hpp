@@ -69,6 +69,12 @@ struct delegate_stats
     uint32_t                          blocks_missed = 0;
 };
 typedef fc::optional<delegate_stats> odelegate_stats;
+    
+struct account_stats
+{
+    share_type                        rp = 0;
+};
+typedef fc::optional<account_stats> oaccount_stats;
 
 struct vote_del
 {
@@ -89,6 +95,26 @@ struct vote_del
        return a.delegate_id < b.delegate_id; /* Lowest id wins in ties */
     }
 };
+
+    struct rp_index
+    {
+        share_type        rp = 0;
+        account_id_type   account_id = 0;
+        
+        rp_index( int64_t r = 0, account_id_type acc = 0 )
+        :rp(r),account_id(acc){}
+        
+        friend bool operator == ( const rp_index& a, const rp_index& b )
+        {
+            return std::tie( a.rp, a.account_id ) == std::tie( b.rp, b.account_id );
+        }
+        
+        friend bool operator < ( const rp_index& a, const rp_index& b )
+        {
+            if( a.rp != b.rp ) return a.rp > b.rp; /* Reverse so maps sort in descending order */
+            return a.account_id < b.account_id; /* Lowest id wins in ties */
+        }
+    };
 
 struct account_record;
 typedef fc::optional<account_record> oaccount_record;
@@ -124,6 +150,7 @@ struct account_record
     map<time_point_sec, public_key_type>   active_key_history;
     fc::time_point_sec                     registration_date;
     fc::time_point_sec                     last_update;
+    account_stats                          stats_info;
     optional<delegate_stats>               delegate_info;
     optional<account_meta_info>            meta_data;
 
@@ -147,11 +174,13 @@ class account_db_interface
     virtual void account_insert_into_name_map( const string&, const account_id_type ) = 0;
     virtual void account_insert_into_address_map( const address&, const account_id_type ) = 0;
     virtual void account_insert_into_vote_set( const vote_del& ) = 0;
+    virtual void account_insert_into_rp_set( const rp_index& ) = 0;
 
     virtual void account_erase_from_id_map( const account_id_type ) = 0;
     virtual void account_erase_from_name_map( const string& ) = 0;
     virtual void account_erase_from_address_map( const address& ) = 0;
     virtual void account_erase_from_vote_set( const vote_del& ) = 0;
+    virtual void account_erase_from_rp_set( const rp_index& ) = 0;
 };
 
 } } // bts::blockchain
@@ -186,10 +215,17 @@ FC_REFLECT( bts::blockchain::delegate_stats,
             (blocks_produced)
             (blocks_missed)
             )
+FC_REFLECT( bts::blockchain::account_stats,
+           (rp)
+           )
 FC_REFLECT( bts::blockchain::vote_del,
             (votes)
             (delegate_id)
             )
+FC_REFLECT( bts::blockchain::rp_index,
+           (rp)
+           (account_id)
+           )
 FC_REFLECT( bts::blockchain::account_record,
             (id)
             (name)
@@ -198,6 +234,7 @@ FC_REFLECT( bts::blockchain::account_record,
             (active_key_history)
             (registration_date)
             (last_update)
+            (stats_info)
             (delegate_info)
             (meta_data)
             )
