@@ -200,6 +200,7 @@ namespace bts { namespace blockchain {
          /** top delegates by current vote, projected to be active in the next round */
          vector<account_id_type>            next_round_active_delegates()const;
          vector<account_id_type>            get_delegates_by_vote( uint32_t first=0, uint32_t count = uint32_t(-1) )const;
+         vector<account_id_type>            get_accounts_by_rp( uint32_t first=0, uint32_t count = uint32_t(-1) )const;
 
          optional<market_order>             get_market_bid( const market_index_key& )const;
          vector<market_order>               get_market_bids( const string& quote_symbol,
@@ -305,11 +306,13 @@ namespace bts { namespace blockchain {
          virtual void account_insert_into_name_map( const string&, const account_id_type )override;
          virtual void account_insert_into_address_map( const address&, const account_id_type )override;
          virtual void account_insert_into_vote_set( const vote_del& )override;
+         virtual void account_insert_into_rp_set( const rp_index& )override;
 
          virtual void account_erase_from_id_map( const account_id_type )override;
          virtual void account_erase_from_name_map( const string& )override;
          virtual void account_erase_from_address_map( const address& )override;
          virtual void account_erase_from_vote_set( const vote_del& )override;
+         virtual void account_erase_from_rp_set( const rp_index& )override;
 
          virtual oasset_record asset_lookup_by_id( const asset_id_type )const override;
          virtual oasset_record asset_lookup_by_symbol( const string& )const override;

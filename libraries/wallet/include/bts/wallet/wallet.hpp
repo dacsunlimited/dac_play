@@ -304,6 +304,15 @@ namespace bts { namespace wallet {
                  bts::blockchain::account_type new_account_type,
                  bool sign
                  );
+         wallet_transaction_record register_account_with_key(
+                                                  const string& account_name,
+                                                  const public_key_type& account_key,
+                                                  const variant& json_data,
+                                                  uint8_t delegate_pay_rate,
+                                                  const string& pay_with_account_name,
+                                                  bts::blockchain::account_type new_account_type,
+                                                  bool sign
+                                                  );
          wallet_transaction_record update_registered_account(
                  const string& account_name,
                  const string& pay_from_account,

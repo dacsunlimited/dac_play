@@ -1299,6 +1299,47 @@
          "aliases" : [ "register" ]
       },
       {
+          "method_name" : "wallet_account_register_with_key",
+          "description" : "Updates the data published about a given account",
+          "return_type" : "transaction_record",
+          "parameters"  : [
+          {
+              "name" : "account_name",
+              "type" : "account_name",
+              "description" : "the account that will be updated"
+          },
+          {
+              "name" : "account_key",
+              "type" : "public_key",
+              "description" : "the key associated with this registered account"
+          },
+          {
+              "name" : "pay_from_account",
+              "type" : "account_name",
+              "description" : "the account from which fees will be paid"
+          },
+          {
+              "name" : "public_data",
+              "type" : "json_variant",
+              "description" : "public data about the account",
+              "default_value" : null
+          },
+          {
+              "name" : "delegate_pay_rate",
+              "type" : "uint8_t",
+              "description" : "-1 for non-delegates; otherwise the percent of delegate pay to accept per produced block",
+              "default_value" : -1
+          },
+          {
+              "name" : "account_type",
+              "type" : "string",
+              "description" : "titan_account | public_account - public accounts receive memos too but all payments are made to the active key",
+              "default_value" : "public_account"
+          }
+          ],
+          "prerequisites" : ["wallet_unlocked"]
+      },
+      {
          "method_name" : "wallet_set_custom_data",
          "description" : "Overwrite the local custom data for an account, contact, or approval",
          "return_type" : "void",

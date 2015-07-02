@@ -137,6 +137,7 @@ namespace bts { namespace blockchain {
             bts::db::fast_level_map<string, account_id_type>                            _account_name_to_id;
             bts::db::fast_level_map<address, account_id_type>                           _account_address_to_id;
             set<vote_del>                                                               _delegate_votes;
+            set<rp_index>                                                               _account_rps;
 
             bts::db::fast_level_map<asset_id_type, asset_record>                        _asset_id_to_record;
             bts::db::fast_level_map<string, asset_id_type>                              _asset_symbol_to_id;
@@ -150,7 +151,7 @@ namespace bts { namespace blockchain {
             bts::db::level_map<address, unordered_set<transaction_id_type>>             _address_to_transaction_ids;
 
             bts::db::cached_level_map<burn_index, burn_record>                          _burn_index_to_record;
-            bts::db::cached_level_map<ad_index, ad_record>                          _ad_index_to_record;
+            bts::db::cached_level_map<ad_index, ad_record>                              _ad_index_to_record;
             bts::db::cached_level_map<note_index, note_record>                          _note_index_to_record;
             bts::db::fast_level_map<operation_id_type, operation_reward_record>            _operation_reward_id_to_record;
 

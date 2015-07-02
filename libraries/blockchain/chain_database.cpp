@@ -198,6 +198,9 @@ namespace bts { namespace blockchain {
               const account_record& record = iter->second;
               if( !record.is_retracted() && record.is_delegate() )
                   _delegate_votes.emplace( record.net_votes(), record.id );
+              
+              if( !record.is_retracted() )
+                  _account_rps.emplace( record.stats_info.rp, record.id );
           }
 
           for( auto iter = _transaction_id_to_record.begin(); iter.valid(); ++iter )
@@ -1451,6 +1454,22 @@ namespace bts { namespace blockchain {
       }
       return sorted_delegates;
    } FC_RETHROW_EXCEPTIONS( warn, "" ) }
+    
+    std::vector<account_id_type> chain_database::get_accounts_by_rp( uint32_t first, uint32_t count )const
+    { try {
+        auto account_rp_itr = my->_account_rps.begin();
+        std::vector<account_id_type> sorted_accounts;
+        sorted_accounts.reserve( count );
+        uint32_t pos = 0;
+        while( sorted_accounts.size() < count && account_rp_itr != my->_account_rps.end() )
+        {
+            if( pos >= first )
+                sorted_accounts.push_back( account_rp_itr->account_id );
+            ++pos;
+            ++account_rp_itr;
+        }
+        return sorted_accounts;
+    } FC_RETHROW_EXCEPTIONS( warn, "" ) }
 
    void chain_database::open( const fc::path& data_dir, const fc::optional<fc::path>& genesis_file, const bool statistics_enabled,
                               const std::function<void(float)> replay_status_callback )
@@ -3506,6 +3525,11 @@ namespace bts { namespace blockchain {
    {
        my->_delegate_votes.insert( vote );
    }
+    
+    void chain_database::account_insert_into_rp_set( const rp_index& rp )
+    {
+        my->_account_rps.insert( rp );
+    }
 
    void chain_database::account_erase_from_id_map( const account_id_type id )
    {
@@ -3526,6 +3550,11 @@ namespace bts { namespace blockchain {
    {
        my->_delegate_votes.erase( vote );
    }
+    
+    void chain_database::account_erase_from_rp_set( const rp_index& rp )
+    {
+        my->_account_rps.erase( rp );
+    }
 
    oasset_record chain_database::asset_lookup_by_id( const asset_id_type id )const
    {
