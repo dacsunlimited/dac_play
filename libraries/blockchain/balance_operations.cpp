@@ -317,7 +317,8 @@ namespace bts { namespace blockchain {
         
         FC_ASSERT( amount.asset_id == 0 );
         
-        const size_t message_kb = (message.size() / 1024) + 1;
+        // 1 PLS for each 400 byte
+        const size_t message_kb = (message.size() / 400) + 1;
         const share_type required_fee = message_kb * BTS_BLOCKCHAIN_MIN_AD_FEE;
         
         FC_ASSERT( amount.amount >= required_fee, "Message of size ${s} KiB requires at least ${a} satoshis to be pay!",
