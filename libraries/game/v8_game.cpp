@@ -442,7 +442,7 @@ namespace bts { namespace game {
            scan_result_func = Handle<Function>::Cast(scan_result);
            argv[0] = v8_helper::cpp_to_json(isolate, rtrx);
            argv[1] = Integer::New(my->GetIsolate(), block_num);
-           argv[2] = String::NewFromUtf8(my->GetIsolate(), fc::json::to_string(block_time).c_str() );
+           argv[2] = String::NewFromUtf8(my->GetIsolate(), fc::variant(block_time).as_string().c_str() );
            argv[3] = Integer::New(my->GetIsolate(), trx_index);
            argv[4] = v8_wallet::New(isolate, w);
            

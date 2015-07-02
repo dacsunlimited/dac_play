@@ -83,6 +83,16 @@ namespace bts { namespace game {
              delete _platform;
              delete _allocator;
          }
+          
+          static uint32_t* ComputeStackLimit(uint32_t size) {
+              uint32_t* answer = &size - (size / sizeof(size));
+              // If the size is very large and the stack is very near the bottom of
+              // memory then the calculation above may wrap around and give an address
+              // that is above the (downwards-growing) stack.  In that case we return
+              // a very low address.
+              if (answer > &size) return reinterpret_cast<uint32_t*>(sizeof(size));
+              return answer;
+          }
          
          void open(const fc::path& data_dir) {
             try {
@@ -101,11 +111,24 @@ namespace bts { namespace game {
                    rc.set_max_executable_size(10); //MB
                    
                    params.constraints.set_stack_limit(reinterpret_cast<uint32_t*>((char*)&rc - 1024 * 512));
+                   https://github.com/v8/v8/blob/master/test/cctest/test-api.cc#L18724
                     */
                    _allocator = new ArrayBufferAllocator();
                    Isolate::CreateParams create_params;
                    create_params.array_buffer_allocator = _allocator;
+                   
+                   ResourceConstraints rc;
+                   rc.set_max_old_space_size(40); //MB
+                   rc.set_max_executable_size(40); //MB
+                   static const int stack_breathing_room = 1024 * 1024;
+//uint32_t* set_limit = ComputeStackLimit(stack_breathing_room);
+                   rc.set_stack_limit(reinterpret_cast<uint32_t*>((char*)&rc - stack_breathing_room));
+                   
                    _isolate = v8::Isolate::New(create_params);
+                   
+                   
+                   
+                   //_isolate->SetStackLimit(reinterpret_cast<uintptr_t>(set_limit));
                    _isolate->Enter();
                }
                 
