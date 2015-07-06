@@ -1,3 +1,5 @@
+# -*- encoding : utf-8 -*-
+
 #!/usr/bin/env ruby
 
 require 'open3'
@@ -34,14 +36,14 @@ class BitSharesNode
       @command << " --connect-to=127.0.0.1:#{options[:p2p_port]}"
     end
     @command << " --disable-default-peers"
-    
+
     @url = "http://localhost:#{options[:http_port]}"
   end
 
   def log(s)
     if @logger then @logger.info s else puts s end
   end
-  
+
   def start(wait=false)
     log "starting node '#{@name}', http port: #{@options[:http_port]}, rpc port: #{@options[:rpc_port]}, p2p port: #{@options[:p2p_port]} \n#{@command}"
     log ""
@@ -60,7 +62,7 @@ class BitSharesNode
     end
 
     sleep 1.0
-    
+
     @rpc_instance = BitShares::API::Rpc.new(@options[:http_port], 'user', 'pass', ignore_errors: false, logger: @logger, instance_name: @name)
 
     return
@@ -75,7 +77,7 @@ class BitSharesNode
     rescue
     end
   end
-  
+
   def running
     @rpc_instance != nil
   end
