@@ -298,6 +298,7 @@ namespace bts { namespace blockchain {
          void                               generate_issuance_map( const string& symbol, const fc::path& filename )const;
 
          unordered_map<asset_id_type, share_type> calculate_supplies()const;
+         share_type calculate_max_core_supply( share_type pay_per_block )const;
 
          asset                              unclaimed_genesis();
 

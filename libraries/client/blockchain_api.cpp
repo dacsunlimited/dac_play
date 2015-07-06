@@ -618,6 +618,14 @@ asset client_impl::blockchain_calculate_supply( const string& which_asset )const
    return asset( _chain_db->calculate_supplies().at( asset_id ), asset_id );
 } FC_CAPTURE_AND_RETHROW( (which_asset) ) }
 
+asset client_impl::blockchain_calculate_max_supply( uint8_t average_delegate_pay_rate )const
+{ try {
+   FC_ASSERT( average_delegate_pay_rate >= 0 );
+   FC_ASSERT( average_delegate_pay_rate <= 100 );
+   const share_type pay_per_block = BTS_MAX_DELEGATE_PAY_PER_BLOCK * average_delegate_pay_rate / 100;
+   return asset( _chain_db->calculate_max_core_supply( pay_per_block ) );
+} FC_CAPTURE_AND_RETHROW( (average_delegate_pay_rate) ) }
+
 vector<market_order> client_impl::blockchain_market_list_bids( const string& quote_symbol, const string& base_symbol,
                                                                uint32_t limit )const
 {
