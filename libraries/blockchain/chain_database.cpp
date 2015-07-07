@@ -3430,8 +3430,6 @@ namespace bts { namespace blockchain {
         {
             results.push_back( itr.value() );
             ++itr;
-            
-            //if( results.size() >= limit ) break;
         }
         
         const auto sorter = [this]( const ad_record& a, const ad_record& b ) -> bool
@@ -3465,11 +3463,26 @@ namespace bts { namespace blockchain {
         {
             results.push_back( itr.value() );
             ++itr;
-            
-            if( results.size() >= limit ) break;
         }
         
-        return results;
+        const auto sorter = [this]( const note_record& a, const note_record& b ) -> bool
+        {
+            auto trx_a = my->self->get_transaction(a.index.transaction_id);
+            auto trx_b = my->self->get_transaction(b.index.transaction_id);
+            
+            if( trx_a->chain_location.block_num != trx_b->chain_location.block_num )
+                return trx_a->chain_location.block_num > trx_b->chain_location.block_num;
+            
+            return trx_a->chain_location.trx_num > trx_b->chain_location.trx_num;
+        };
+        
+        std::sort( results.begin(), results.end(), sorter );
+        
+        uint32_t count = ( limit > results.size() ) ? results.size() : limit;
+        
+        vector<note_record> final_results(results.begin(), results.begin() + count );
+        
+        return final_results;
     } FC_CAPTURE_AND_RETHROW( (account_name)(limit) ) }
 
    vector<transaction_record> chain_database::fetch_address_transactions( const address& addr )
