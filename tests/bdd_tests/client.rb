@@ -6,6 +6,7 @@ require 'open3'
 require 'json'
 require 'readline'
 require_relative './bitshares_api.rb'
+require 'pry'
 
 class BitSharesNode
 
