@@ -155,6 +155,7 @@ class BitSharesNode
       break if command == 'exit' or command == 'quit'
       next if command.empty?
       res = @rpc_instance.request('execute_command_line', [command])
+      res = res.encode("UTF-16be", :invalid=>:replace, :replace=>"?").encode('UTF-8') unless res.valid_encoding?
       STDOUT.puts res.gsub('\n', "\n") if res and not res.empty?
     end
     @rpc_instance.ignore_errors = ignore_errors
