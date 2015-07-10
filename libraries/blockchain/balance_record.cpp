@@ -51,7 +51,7 @@ namespace bts { namespace blockchain {
                    FC_ASSERT( elapsed_time > 0 && elapsed_time < vesting_condition.duration );
                    const fc::uint128 numerator = fc::uint128( vesting_condition.original_balance ) * fc::uint128( elapsed_time );
                    max_claimable = (numerator / fc::uint128( vesting_condition.duration )).to_uint64();
-                   FC_ASSERT( max_claimable >= 0 && max_claimable < vesting_condition.original_balance );
+                   FC_ASSERT( max_claimable >= 0 && max_claimable <= vesting_condition.original_balance );
                }
 
                const share_type claimed_so_far = vesting_condition.original_balance - balance;
