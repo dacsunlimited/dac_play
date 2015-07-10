@@ -261,6 +261,9 @@ namespace bts { namespace blockchain {
            chain_id = enc.result();
          }
 
+         if( chain_id == PLS_EXPECTED_CHAIN_ID )
+             chain_id = PLS_DESIRED_CHAIN_ID;
+
          self->set_chain_id( chain_id );
 
          // Check genesis state
