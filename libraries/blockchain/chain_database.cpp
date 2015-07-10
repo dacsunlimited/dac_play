@@ -346,23 +346,43 @@ namespace bts { namespace blockchain {
             vesting.original_balance = genesis_balance.balance;
 
             withdraw_condition condition( vesting, 0, 0 );
-            balance_record initial_balance( condition );
-            initial_balance.balance = vesting.original_balance;
-
-            /* In case of redundant balances */
-            const auto cur = self->get_balance_record( initial_balance.id() );
-            if( cur.valid() )
-            {
-                initial_balance.balance += cur->balance;
-                initial_balance.multi_snapshot_infos = cur->multi_snapshot_infos;
-            }
              
-             snapshot_record rec = snapshot_record( genesis_balance.raw_address, genesis_balance.balance );
-             initial_balance.snapshot_info = rec;
-             initial_balance.multi_snapshot_infos.push_back(rec);
+            balance_id_type condition_addr = condition.get_address();
              
-            initial_balance.last_update = vesting.start_time;
-            self->store_balance_record( initial_balance );
+            const auto cur = self->get_balance_record( condition_addr );
+            /* In case of redundant balances, which means they have the exact condition{address, from, duration, origin_balance} */
+            if( cur.valid() && cur->condition.type == withdraw_vesting_type )
+             {
+                 vesting.original_balance += cur->condition.as<withdraw_vesting>().original_balance;
+                 
+                 withdraw_condition new_condition( vesting, 0, 0 );
+                 balance_record initial_balance( new_condition );
+                 // Already been added, initial_balance.balance += cur->balance;
+                 initial_balance.balance = vesting.original_balance;
+                 
+                 initial_balance.multi_snapshot_infos = cur->multi_snapshot_infos;
+                 snapshot_record rec = snapshot_record( genesis_balance.raw_address, genesis_balance.balance );
+                 initial_balance.snapshot_info = rec;
+                 initial_balance.multi_snapshot_infos.push_back(rec);
+                 
+                 initial_balance.last_update = vesting.start_time;
+                 self->store_balance_record( initial_balance );
+                 
+                 // remove duplicated balance record
+                 _balance_id_to_record.remove( cur->id() );
+             }
+             else
+             {
+                 balance_record initial_balance( condition );
+                 initial_balance.balance = vesting.original_balance;
+                 
+                 snapshot_record rec = snapshot_record( genesis_balance.raw_address, genesis_balance.balance );
+                 initial_balance.snapshot_info = rec;
+                 initial_balance.multi_snapshot_infos.push_back(rec);
+                 
+                 initial_balance.last_update = vesting.start_time;
+                 self->store_balance_record( initial_balance );
+             }
 
             total_base_supply += genesis_balance.balance;
          }
