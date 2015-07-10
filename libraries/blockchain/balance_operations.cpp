@@ -2,6 +2,8 @@
 #include <bts/blockchain/exceptions.hpp>
 #include <bts/blockchain/pending_chain_state.hpp>
 
+#include <bts/utilities/combinatorics.hpp>
+
 #include <fc/crypto/aes.hpp>
 
 namespace bts { namespace blockchain {
@@ -416,6 +418,59 @@ namespace bts { namespace blockchain {
         FC_ASSERT( !eval_state.pending_state()->get_note_record( record.index ).valid() );
         
         eval_state.pending_state()->store_note_record( std::move( record ) );
+    } FC_CAPTURE_AND_RETHROW( (*this) ) }
+    
+    void red_packet_operation::evaluate( transaction_evaluation_state& eval_state )const
+    { try {
+        if( this->amount.amount <= 0 )
+            FC_CAPTURE_AND_THROW( negative_deposit, (amount) );
+        
+        FC_ASSERT( !message.empty() );
+        
+        FC_ASSERT( amount.asset_id == 0 );
+        FC_ASSERT( this->count > 0 );
+        FC_ASSERT( this->count <= 100 );
+        
+        FC_ASSERT( message.size() < 100 );
+        
+        const share_type required_fee = BTS_BLOCKCHAIN_MIN_RED_PACKET_FEE;
+        
+        FC_ASSERT( amount.amount >= required_fee + count * BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT, "The paid amount must larger than the sum of required fee and count * BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT!",
+                  ("a",required_fee + count * BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT) );
+        // half of the note fees goto collected fees(delegate pay), other go to ad owner
+        eval_state.min_fees[amount.asset_id] += required_fee;
+        
+        // using random id as the distribution for the packet allocation
+        
+        uint32_t total_space = ( amount.amount - required_fee ) / BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT;
+        uint16_t MAX_UINT16_T = 65535;
+        FC_ASSERT( total_space < MAX_UINT16_T );
+        
+        // TODO: testing this, try convert 2 uint32_t to 1 uint64_t(share_type)
+        // selecting [count - 1] from [1 ...... random_space - 1]
+        // 0 -> v[0] + 1
+        // v[0] -> v[1] + 1
+        // ...
+        // v[count-2] + 1 -> total_space
+        // lucky_guys is possible from 0 .... random_space - 2
+        auto lucky_guys = bts::utilities::unranking(
+                                                    random_id._hash[0] % bts::utilities::cnr( total_space - 1, count - 1 ), count - 1, total_space - 1);
+        vector<share_type> allocation;
+        allocation.push_back( lucky_guys[0] + 1 - 0);
+        
+        for ( uint16_t i = 0; i < (this->count - 1); i ++ )
+        {
+            allocation.push_back( lucky_guys[i + 1] - lucky_guys[i] );
+        }
+        
+        allocation.push_back( total_space - ( lucky_guys[count-2] + 1) );
+        
+        // TODO
+        
+    } FC_CAPTURE_AND_RETHROW( (*this) ) }
+    
+    void claim_packet_operation::evaluate( transaction_evaluation_state& eval_state )const
+    { try {
     } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
    void release_escrow_operation::evaluate( transaction_evaluation_state& eval_state )const
