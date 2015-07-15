@@ -183,7 +183,7 @@ struct note_operation
     {
         static const operation_type_enum type;
         
-        secret_hash_type                    random_id;
+        packet_id_type                    random_id;
         asset                               amount;
         account_id_type                     from_account_id;
         string                              message;
@@ -198,7 +198,7 @@ struct note_operation
     {
         static const operation_type_enum type;
         
-        fc::sha512                   random_id;
+        packet_id_type                   random_id;
         
         account_id_type              to_account_id;
         
