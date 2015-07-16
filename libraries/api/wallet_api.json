@@ -694,6 +694,75 @@
           "aliases" : ["note"]
       },
       {
+          "method_name": "wallet_create_red_packet",
+          "description": "Create a red packet(gift money) to others.",
+          "return_type": "transaction_record",
+          "parameters" :
+          [
+          {
+              "name" : "amount",
+              "type" : "string",
+              "description" : "the amount of shares to burn"
+          },
+          {
+              "name" : "asset_symbol",
+              "type" : "asset_symbol",
+              "description" : "the asset to give"
+          },
+          {
+              "name" : "from_account_name",
+              "type" : "sending_account_name",
+              "description" : "the source account to draw the shares from"
+          },
+          {
+              "name" : "message",
+              "type" : "string",
+              "description" : "a message to post",
+              "default_value" : ""
+          },
+          {
+              "name" : "password",
+              "type" : "string",
+              "description" : "the password to claim the red packet",
+              "default_value" : ""
+          },
+          {
+              "name" : "count",
+              "type" : "uint32_t",
+              "description" : "the count of the red packets",
+              "default_value" : 8
+          }
+          ],
+          "prerequisites" : ["wallet_unlocked"],
+          "aliases" : ["red_packet"]
+      },
+      {
+          "method_name": "wallet_claim_red_packet",
+          "description": "Claim from a red packet(gift money) to an account.",
+          "return_type": "transaction_record",
+          "parameters" :
+          [
+          {
+              "name" : "id",
+              "type" : "packet_id",
+              "description" : "the id of the packet"
+          },
+          {
+              "name" : "to_account_name",
+              "type" : "sending_account_name",
+              "description" : "the destination account to claim the shares to"
+          },
+          {
+              "name" : "password",
+              "type" : "string",
+              "description" : "the password to claim the red packet",
+              "default_value" : ""
+          }
+          ],
+          "prerequisites" : ["wallet_unlocked"],
+          "aliases" : ["claim_packet"]
+      },
+      {
           "method_name": "wallet_fetch_note",
           "description": "Fetch notes and decrypt it if it is a secret note",
           "return_type": "string",
