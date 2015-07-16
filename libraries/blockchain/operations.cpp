@@ -80,9 +80,9 @@ namespace bts { namespace blockchain {
         
         bts::blockchain::operation_factory::instance().register_operation<note_operation>();
         
-        bts::blockchain::operation_factory::instance().register_operation<red_packet_operation>();
+        //bts::blockchain::operation_factory::instance().register_operation<red_packet_operation>();
         
-        bts::blockchain::operation_factory::instance().register_operation<claim_packet_operation>();
+        //bts::blockchain::operation_factory::instance().register_operation<claim_packet_operation>();
 
 //        bts::blockchain::operation_factory::instance().register_operation<release_escrow_operation>();
 
