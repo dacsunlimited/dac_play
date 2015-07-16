@@ -3,6 +3,7 @@
 #include <bts/blockchain/pending_chain_state.hpp>
 
 #include <bts/blockchain/fork_blocks.hpp>
+#include <bts/utilities/combinatorics.hpp>
 
 #include <fc/crypto/aes.hpp>
 
@@ -439,6 +440,129 @@ namespace bts { namespace blockchain {
         FC_ASSERT( !eval_state.pending_state()->get_note_record( record.index ).valid() );
         
         eval_state.pending_state()->store_note_record( std::move( record ) );
+    } FC_CAPTURE_AND_RETHROW( (*this) ) }
+    
+    void red_packet_operation::evaluate( transaction_evaluation_state& eval_state )const
+    { try {
+        if( this->amount.amount <= 0 )
+            FC_CAPTURE_AND_THROW( negative_deposit, (amount) );
+        
+        FC_ASSERT( !message.empty() );
+        
+        FC_ASSERT( amount.asset_id == 0 );
+        FC_ASSERT( this->count > 0 );
+        FC_ASSERT( this->count <= 100 );
+        
+        FC_ASSERT( message.size() < 100 );
+        
+        const share_type required_fee = BTS_BLOCKCHAIN_MIN_RED_PACKET_FEE;
+        
+        FC_ASSERT( amount.amount >= required_fee + count * BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT, "The paid amount must larger than the sum of required fee and count * BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT!",
+                  ("a",required_fee + count * BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT) );
+        // half of the note fees goto collected fees(delegate pay), other go to ad owner
+        eval_state.min_fees[amount.asset_id] += required_fee;
+        
+        // the transaction check the signature of the owner
+        const oaccount_record account_rec = eval_state.pending_state()->get_account_record( abs( this->from_account_id ) );
+        FC_ASSERT( account_rec.valid() );
+        
+        // update rp
+        eval_state.rp_account_id = abs( this->from_account_id );
+        
+        eval_state.check_signature( account_rec->active_key() );
+        
+        packet_record record;
+        record.id = random_id;
+        record.amount = amount;
+        record.from_account_id = from_account_id;
+        record.claim_public_key = claim_public_key;
+        record.message = message;
+        
+        // using random id as the distribution for the packet allocation
+        uint32_t total_space = ( amount.amount - required_fee ) / BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT;
+        uint16_t MAX_UINT16_T = 65535;
+        FC_ASSERT( total_space < MAX_UINT16_T );
+        
+        // TODO: testing this, try convert 2 uint32_t to 1 uint64_t(share_type)
+        // selecting [count - 1] from [1 ...... random_space - 1]
+        // 0 -> v[0] + 1
+        // v[0] -> v[1] + 1
+        // ...
+        // v[count-2] + 1 -> total_space
+        // lucky_guys is possible from 0 .... random_space - 2
+        auto lucky_guys = bts::utilities::unranking(
+                                                    random_id._hash[0] % bts::utilities::cnr( total_space - 1, count - 1 ), count - 1, total_space - 1);
+        red_packet_status first_status;
+        first_status.amount = asset(lucky_guys[0] + 1 - 0, amount.asset_id);
+        first_status.account_id = -1;
+        
+        record.claim_statuses.push_back( first_status );
+        
+        for ( uint16_t i = 0; i < (this->count - 1); i ++ )
+        {
+            red_packet_status status;
+            status.amount = asset(lucky_guys[i + 1] - lucky_guys[i], amount.asset_id);
+            status.account_id = -1;
+            record.claim_statuses.push_back( status );
+        }
+        
+        red_packet_status last_status;
+        last_status.amount = asset( total_space - ( lucky_guys[count-2] + 1), amount.asset_id );
+        last_status.account_id = -1;
+        
+        record.claim_statuses.push_back( last_status );
+        
+        FC_ASSERT( record.left_packet_amount() == amount );
+        
+        FC_ASSERT( !eval_state.pending_state()->get_packet_record( record.id ).valid() );
+        
+        eval_state.pending_state()->store_packet_record( std::move( record ) );
+        
+    } FC_CAPTURE_AND_RETHROW( (*this) ) }
+    
+    void claim_packet_operation::evaluate( transaction_evaluation_state& eval_state )const
+    { try {
+        const oaccount_record account_rec = eval_state.pending_state()->get_account_record( abs( this->to_account_id ) );
+        FC_ASSERT( account_rec.valid() );
+        
+        opacket_record packet_rec = eval_state.pending_state()->get_packet_record( random_id );
+        FC_ASSERT( packet_rec.valid() );
+        
+        eval_state.check_signature( account_rec->active_key() );
+        eval_state.check_signature( packet_rec->claim_public_key );
+        
+        if ( packet_rec->is_unclaimed_empty() )
+        {
+            // pass, do nothing
+        }
+        else
+        {
+            auto index = packet_rec->next_available_claim_index();
+            
+            for ( uint32_t i = 0; i < index; i ++ )
+            {
+                FC_ASSERT( packet_rec->claim_statuses[i].account_id != this->to_account_id, "This account already claimed this packet!");
+            }
+            
+            asset packet_amount = packet_rec->claim_statuses[index].amount;
+            
+            auto to_address = account_rec->active_address();
+            auto claim_balance = eval_state.pending_state()->get_balance_record(withdraw_condition( withdraw_with_signature(to_address), packet_amount.asset_id ).get_address());
+            if( !claim_balance )
+                claim_balance = balance_record( to_address, asset(0, packet_amount.asset_id), 0 );
+            
+            claim_balance->balance += packet_amount.amount;
+            claim_balance->last_update = eval_state.pending_state()->now();
+            claim_balance->deposit_date = eval_state.pending_state()->now();
+            
+            eval_state.pending_state()->store_balance_record( *claim_balance );
+            
+            packet_rec->claim_statuses[index].account_id = this->to_account_id;
+            packet_rec->claim_statuses[index].transaction_id = eval_state.trx.id();
+            
+            eval_state.pending_state()->store_packet_record( *packet_rec );
+        }
+        
     } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
    void release_escrow_operation::evaluate( transaction_evaluation_state& eval_state )const

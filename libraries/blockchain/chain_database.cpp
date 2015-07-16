@@ -161,6 +161,8 @@ namespace bts { namespace blockchain {
           
           _note_index_to_record.open( data_dir / "index/note_index_to_record" );
           
+          _packet_id_to_record.open( data_dir / "index/packet_id_to_record");
+          
           _operation_reward_id_to_record.open( data_dir / "index/operation_reward_id_to_record" );
 
           _feed_index_to_record.open( data_dir / "index/feed_index_to_record" );
@@ -1555,6 +1557,8 @@ namespace bts { namespace blockchain {
 
                   my->_balance_id_to_record.toggle_leveldb( enabled );
                   
+                  my->_packet_id_to_record.toggle_leveldb( enabled );
+                  
                   my->_operation_reward_id_to_record.toggle_leveldb( enabled );
               };
 
@@ -1748,6 +1752,7 @@ namespace bts { namespace blockchain {
       my->_burn_index_to_record.close();
        my->_ad_index_to_record.close();
        my->_note_index_to_record.close();
+       my->_packet_id_to_record.close();
        my->_operation_reward_id_to_record.close();
 
       my->_feed_index_to_record.close();
@@ -3812,6 +3817,23 @@ namespace bts { namespace blockchain {
     void chain_database::note_erase_from_index_map( const note_index& index )
     {
         my->_note_index_to_record.remove( index );
+    }
+    
+    opacket_record chain_database::packet_lookup_by_index( const packet_id_type& id )const
+    {
+        const auto iter = my->_packet_id_to_record.unordered_find( id );
+        if( iter != my->_packet_id_to_record.unordered_end() ) return iter->second;
+        return opacket_record();
+    }
+    
+    void chain_database::packet_insert_into_index_map( const packet_id_type& id, const packet_record& record)
+    {
+        my->_packet_id_to_record.store( id, record );
+    }
+    
+    void chain_database::packet_erase_from_index_map( const packet_id_type& id)
+    {
+        my->_packet_id_to_record.remove( id );
     }
     
     ooperation_reward_record chain_database::operation_reward_lookup_by_id( const operation_id_type id )const

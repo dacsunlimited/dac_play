@@ -424,6 +424,16 @@ wallet_transaction_record wallet_impl::scan_transaction(
                 store_record |= scan_note( op.as<note_operation>(), *transaction_record, total_fee );
                 break;
             }
+            case red_packet_op_type:
+            {
+                store_record |= scan_red_packet( op.as<red_packet_operation>(), *transaction_record, total_fee );
+                break;
+            }
+            case claim_packet_op_type:
+            {
+                store_record |= scan_claim_packet( op.as<claim_packet_operation>(), *transaction_record, total_fee );
+                break;
+            }
             case game_op_type:
                 store_record |= scan_game( op.as<game_operation>(), *transaction_record );
                 break;
@@ -971,6 +981,82 @@ bool wallet_impl::scan_note( const note_operation& op, wallet_transaction_record
     }
     
     return false;
+}
+
+bool wallet_impl::scan_red_packet( const red_packet_operation& op, wallet_transaction_record& trx_rec, asset& total_fee )
+{
+    bool has_deposit = false;
+    
+    if( op.amount.asset_id == total_fee.asset_id )
+        total_fee -= op.amount;
+    
+    auto account_rec = _blockchain->get_account_record( op.from_account_id );
+    if ( account_rec.valid() )
+    {
+        auto okey_rec = _wallet_db.lookup_key( account_rec->active_key() );
+        if( okey_rec.valid() && okey_rec->has_private_key() )
+        {
+            has_deposit = true;
+        }
+    }
+    
+    if( trx_rec.ledger_entries.size() == 1 )
+    {
+        //trx_rec.ledger_entries.front().amount = op.amount;
+        trx_rec.ledger_entries.front().memo = "Red Packet";
+        if( !op.message.empty() )
+            trx_rec.ledger_entries.front().memo += ": " + op.message;
+    }
+    
+    return has_deposit;
+}
+
+bool wallet_impl::scan_claim_packet( const claim_packet_operation& op, wallet_transaction_record& trx_rec, asset& total_fee )
+{
+    bool has_deposit = false;
+    
+    auto account_rec = _blockchain->get_account_record( op.to_account_id );
+    if ( account_rec.valid() )
+    {
+        auto okey_rec = _wallet_db.lookup_key( account_rec->active_key() );
+        if( okey_rec.valid() && okey_rec->has_private_key() )
+        {
+            has_deposit = true;
+        }
+    }
+    
+    if( trx_rec.ledger_entries.size() == 1 )
+    {
+        //trx_rec.ledger_entries.front().amount = op.amount;
+        trx_rec.ledger_entries.front().memo = "Claim Packet ";
+        
+        auto packet = _blockchain->get_packet_record( op.random_id );
+        
+        if ( packet.valid() ) {
+            asset reward(0, packet->amount.asset_id );
+            for ( auto status : packet->claim_statuses )
+            {
+                if ( status.account_id == op.to_account_id && status.transaction_id == trx_rec.trx.id() )
+                {
+                    reward += status.amount;
+                    break;
+                }
+            }
+            
+            auto from_account_rec = _blockchain->get_account_record( packet->from_account_id );
+            string from_account_name = "";
+            if ( from_account_rec.valid() )
+            {
+                from_account_name = from_account_rec->name;
+            }
+            
+            std::stringstream in_memo_ss;
+            in_memo_ss << op.random_id<< ": Got amount of: " << std::string(reward) << " from " << from_account_name;
+            trx_rec.ledger_entries.front().memo += in_memo_ss.str();
+        }
+    }
+    
+    return has_deposit;
 }
 
 bool wallet_impl::scan_deposit( const deposit_operation& op, wallet_transaction_record& trx_rec, asset& total_fee )
