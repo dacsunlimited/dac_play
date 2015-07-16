@@ -153,6 +153,7 @@ namespace bts { namespace blockchain {
             bts::db::cached_level_map<burn_index, burn_record>                          _burn_index_to_record;
             bts::db::cached_level_map<ad_index, ad_record>                              _ad_index_to_record;
             bts::db::cached_level_map<note_index, note_record>                          _note_index_to_record;
+            bts::db::fast_level_map<packet_id_type, packet_record>                      _packet_id_to_record;
             bts::db::fast_level_map<operation_id_type, operation_reward_record>            _operation_reward_id_to_record;
 
             bts::db::cached_level_map<feed_index, feed_record>                          _feed_index_to_record;

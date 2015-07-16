@@ -7,6 +7,7 @@
 #include <bts/blockchain/burn_record.hpp>
 #include <bts/blockchain/ad_record.hpp>
 #include <bts/blockchain/note_record.hpp>
+#include <bts/blockchain/packet_record.hpp>
 #include <bts/blockchain/operation_reward_record.hpp>
 #include <bts/blockchain/condition.hpp>
 #include <bts/blockchain/feed_record.hpp>
@@ -31,6 +32,7 @@ namespace bts { namespace blockchain {
      public burn_db_interface,
      public ad_db_interface,
      public note_db_interface,
+     public packet_db_interface,
      public operation_reward_db_interface,
      public feed_db_interface,
      public slot_db_interface,
@@ -167,6 +169,9 @@ namespace bts { namespace blockchain {
        
        onote_record                       get_note_record( const note_index& index )const;
        void                               store_note_record( const note_record& record );
+       
+       opacket_record                       get_packet_record( const packet_id_type& id )const;
+       void                                 store_packet_record( const packet_record& record );
        
        ooperation_reward_record           get_operation_reward_record( const operation_id_type& type )const;
        void                               store_operation_reward_record( const operation_reward_record& record );

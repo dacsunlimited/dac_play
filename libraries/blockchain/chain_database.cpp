@@ -161,6 +161,8 @@ namespace bts { namespace blockchain {
           
           _game_data_db.open( data_dir / "index/game_data_db" );
           _game_result_transactions_db.open( data_dir / "game_result_transactions_db" );
+
+          _packet_id_to_record.open( data_dir / "index/packet_id_to_record");
           
           _operation_reward_id_to_record.open( data_dir / "index/operation_reward_id_to_record" );
 
@@ -346,23 +348,43 @@ namespace bts { namespace blockchain {
             vesting.original_balance = genesis_balance.balance;
 
             withdraw_condition condition( vesting, 0, 0 );
-            balance_record initial_balance( condition );
-            initial_balance.balance = vesting.original_balance;
-
-            /* In case of redundant balances */
-            const auto cur = self->get_balance_record( initial_balance.id() );
-            if( cur.valid() )
-            {
-                initial_balance.balance += cur->balance;
-                initial_balance.multi_snapshot_infos = cur->multi_snapshot_infos;
-            }
              
-             snapshot_record rec = snapshot_record( genesis_balance.raw_address, genesis_balance.balance );
-             initial_balance.snapshot_info = rec;
-             initial_balance.multi_snapshot_infos.push_back(rec);
+            balance_id_type condition_addr = condition.get_address();
              
-            initial_balance.last_update = vesting.start_time;
-            self->store_balance_record( initial_balance );
+            const auto cur = self->get_balance_record( condition_addr );
+            /* In case of redundant balances, which means they have the exact condition{address, from, duration, origin_balance} */
+            if( cur.valid() && cur->condition.type == withdraw_vesting_type )
+             {
+                 vesting.original_balance += cur->condition.as<withdraw_vesting>().original_balance;
+                 
+                 withdraw_condition new_condition( vesting, 0, 0 );
+                 balance_record initial_balance( new_condition );
+                 // Already been added, initial_balance.balance += cur->balance;
+                 initial_balance.balance = vesting.original_balance;
+                 
+                 initial_balance.multi_snapshot_infos = cur->multi_snapshot_infos;
+                 snapshot_record rec = snapshot_record( genesis_balance.raw_address, genesis_balance.balance );
+                 initial_balance.snapshot_info = rec;
+                 initial_balance.multi_snapshot_infos.push_back(rec);
+                 
+                 initial_balance.last_update = vesting.start_time;
+                 self->store_balance_record( initial_balance );
+                 
+                 // remove duplicated balance record
+                 _balance_id_to_record.remove( cur->id() );
+             }
+             else
+             {
+                 balance_record initial_balance( condition );
+                 initial_balance.balance = vesting.original_balance;
+                 
+                 snapshot_record rec = snapshot_record( genesis_balance.raw_address, genesis_balance.balance );
+                 initial_balance.snapshot_info = rec;
+                 initial_balance.multi_snapshot_infos.push_back(rec);
+                 
+                 initial_balance.last_update = vesting.start_time;
+                 self->store_balance_record( initial_balance );
+             }
 
             total_base_supply += genesis_balance.balance;
          }
@@ -1528,6 +1550,8 @@ namespace bts { namespace blockchain {
 
                   my->_balance_id_to_record.toggle_leveldb( enabled );
                   
+                  my->_packet_id_to_record.toggle_leveldb( enabled );
+                  
                   my->_operation_reward_id_to_record.toggle_leveldb( enabled );
               };
 
@@ -1723,6 +1747,7 @@ namespace bts { namespace blockchain {
       my->_burn_index_to_record.close();
        my->_ad_index_to_record.close();
        my->_note_index_to_record.close();
+       my->_packet_id_to_record.close();
        my->_operation_reward_id_to_record.close();
 
       my->_feed_index_to_record.close();
@@ -3446,7 +3471,7 @@ namespace bts { namespace blockchain {
       return results;
    } FC_CAPTURE_AND_RETHROW( (account_name) ) }
     
-    vector<ad_record> chain_database::fetch_ad_records( const string& account_name )const
+    vector<ad_record> chain_database::fetch_ad_records( const string& account_name, const uint32_t limit )const
     { try {
         vector<ad_record> results;
         const auto opt_account_record = get_account_record( account_name );
@@ -3459,10 +3484,27 @@ namespace bts { namespace blockchain {
             ++itr;
         }
         
-        return results;
-    } FC_CAPTURE_AND_RETHROW( (account_name) ) }
+        const auto sorter = [this]( const ad_record& a, const ad_record& b ) -> bool
+        {
+            auto trx_a = my->self->get_transaction(a.index.transaction_id);
+            auto trx_b = my->self->get_transaction(b.index.transaction_id);
+            
+            if( trx_a->chain_location.block_num != trx_b->chain_location.block_num )
+                return trx_a->chain_location.block_num > trx_b->chain_location.block_num;
+            
+            return trx_a->chain_location.trx_num > trx_b->chain_location.trx_num;
+        };
+        
+        std::sort( results.begin(), results.end(), sorter );
+        
+        uint32_t count = ( limit > results.size() ) ? results.size() : limit;
+        
+        vector<ad_record> final_results(results.begin(), results.begin() + count );
+        
+        return final_results;
+    } FC_CAPTURE_AND_RETHROW( (account_name)(limit) ) }
     
-    vector<note_record> chain_database::fetch_note_records( const string& account_name )const
+    vector<note_record> chain_database::fetch_note_records( const string& account_name, const uint32_t limit )const
     { try {
         vector<note_record> results;
         const auto opt_account_record = get_account_record( account_name );
@@ -3475,9 +3517,26 @@ namespace bts { namespace blockchain {
             ++itr;
         }
         
-        return results;
-    } FC_CAPTURE_AND_RETHROW( (account_name) ) }
-    
+        const auto sorter = [this]( const note_record& a, const note_record& b ) -> bool
+        {
+            auto trx_a = my->self->get_transaction(a.index.transaction_id);
+            auto trx_b = my->self->get_transaction(b.index.transaction_id);
+            
+            if( trx_a->chain_location.block_num != trx_b->chain_location.block_num )
+                return trx_a->chain_location.block_num > trx_b->chain_location.block_num;
+            
+            return trx_a->chain_location.trx_num > trx_b->chain_location.trx_num;
+        };
+        
+        std::sort( results.begin(), results.end(), sorter );
+        
+        uint32_t count = ( limit > results.size() ) ? results.size() : limit;
+        
+        vector<note_record> final_results(results.begin(), results.begin() + count );
+        
+        return final_results;
+    } FC_CAPTURE_AND_RETHROW( (account_name)(limit) ) }
+
     vector<game_data_record> chain_database::fetch_game_data_records( const string& game_name, uint32_t limit )const
     { try {
         vector<game_data_record> results;
@@ -3495,6 +3554,7 @@ namespace bts { namespace blockchain {
         
         return results;
     } FC_CAPTURE_AND_RETHROW( (game_name) ) }
+
 
    vector<transaction_record> chain_database::fetch_address_transactions( const address& addr )
    { try {
@@ -3803,6 +3863,23 @@ namespace bts { namespace blockchain {
     void chain_database::note_erase_from_index_map( const note_index& index )
     {
         my->_note_index_to_record.remove( index );
+    }
+    
+    opacket_record chain_database::packet_lookup_by_index( const packet_id_type& id )const
+    {
+        const auto iter = my->_packet_id_to_record.unordered_find( id );
+        if( iter != my->_packet_id_to_record.unordered_end() ) return iter->second;
+        return opacket_record();
+    }
+    
+    void chain_database::packet_insert_into_index_map( const packet_id_type& id, const packet_record& record)
+    {
+        my->_packet_id_to_record.store( id, record );
+    }
+    
+    void chain_database::packet_erase_from_index_map( const packet_id_type& id)
+    {
+        my->_packet_id_to_record.remove( id );
     }
     
     ooperation_reward_record chain_database::operation_reward_lookup_by_id( const operation_id_type id )const

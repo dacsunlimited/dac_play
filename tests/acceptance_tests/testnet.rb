@@ -24,7 +24,7 @@ module BitShares
       @running = false
 
       ENV['BTS_BUILD'] = '../..' unless ENV['BTS_BUILD']
-      @client_binary = ENV['BTS_BUILD'] + '/programs/client/bitsharestestnet_client'
+      @client_binary = ENV['BTS_BUILD'] + '/programs/client/play_testnet_client'
       @client_binary = ENV['BTS_BUILD'] + '/programs/client/devshares_client' unless File.exist?(@client_binary)
       raise @client_binary + ' not found, please set BTS_BUILD env variable if you are using out of source builds' unless File.exist?(@client_binary)
     end
@@ -85,7 +85,7 @@ module BitShares
 
       @bob_node.exec 'wallet_import_private_key', balancekeys[3], 'angel', true, true
       @bob_node.exec 'wallet_backup_create', td('bob_wallet_backup.json')
-      
+
     end
 
     def quick_bootstrap
@@ -123,23 +123,23 @@ module BitShares
 
       @bob_node = BitSharesNode.new @client_binary, name: 'bob', data_dir: td('bob'), genesis: 'genesis.json', http_port: 5692, rpc_port: 6692, p2p_port: @p2p_port, logger: @logger
       @bob_node.start
-      
+
       @mail_node = BitSharesNode.new @client_binary, name: 'mail', data_dir: td('mail'), genesis: 'genesis.json', http_port: 5693, rpc_port: 6693, p2p_port: @p2p_port, logger: @logger
       @mail_node.start
 
       nodes = [@delegate_node, @alice_node, @bob_node, @mail_node]
       wait_nodes(nodes)
-      
+
       @delegate_node.exec 'wallet_open', 'default'
       @delegate_node.exec 'wallet_unlock', '9999999', 'password'
       @delegate_node.exec 'wallet_delegate_set_block_production', 'ALL', true
-      
+
       @alice_node.exec 'wallet_open', 'default'
       @alice_node.exec 'wallet_unlock', '9999999', 'password'
-      
+
       @bob_node.exec 'wallet_open', 'default'
       @bob_node.exec 'wallet_unlock', '9999999', 'password'
-      
+
     end
 
     def create
@@ -159,7 +159,7 @@ module BitShares
 
       @bob_node = BitSharesNode.new @client_binary, name: 'bob', data_dir: td('bob'), genesis: 'genesis.json', http_port: 5692, rpc_port: 6692, p2p_port: @p2p_port, logger: @logger
       @bob_node.start
-      
+
       @mail_node = BitSharesNode.new @client_binary, name: 'mail', data_dir: td('mail'), genesis: 'genesis.json', http_port: 5693, rpc_port: 6693, p2p_port: @p2p_port, logger: @logger
       # Don't start it here, instead mail_steps.rb will start it on request
 

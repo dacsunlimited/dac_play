@@ -371,17 +371,40 @@ wallet_transaction_record detail::client_impl::wallet_note(
     return record;
 }
     
+wallet_transaction_record detail::client_impl::wallet_create_red_packet(const std::string& amount_for_packet, const std::string& asset_symbol, const std::string& from_account_name, const std::string& message, const std::string& password, uint32_t count)
+{
+    const asset amount = _chain_db->to_ugly_asset( amount_for_packet, asset_symbol );
+    auto record = _wallet->create_red_packet( amount,
+                                      from_account_name,
+                                      message, password, count, true );
+    _wallet->cache_transaction( record );
+    network_broadcast_transaction( record.trx );
+    return record;
+}
+    
+wallet_transaction_record detail::client_impl::wallet_claim_red_packet(const bts::blockchain::packet_id_type& id, const std::string& to_account_name, const std::string& password)
+{
+    auto record = _wallet->claim_red_packet( id,
+                                             to_account_name,
+                                             password, true );
+    _wallet->cache_transaction( record );
+    network_broadcast_transaction( record.trx );
+    return record;
+}
+    
     string detail::client_impl::wallet_fetch_note(
                                                                const std::string& owner_account_name,
                                                                const std::string& transaction_id)
     { try {
         auto owner_account_rec = _chain_db->get_account_record( owner_account_name );
         FC_ASSERT( owner_account_rec.valid() );
-        auto trx_record = _wallet->get_transaction( transaction_id );
+        
+        const auto id_prefix = variant( transaction_id ).as<transaction_id_type>();
+        const otransaction_record trx_record = _chain_db->get_transaction( id_prefix, false );
         
         note_index index;
         index.account_id = owner_account_rec->id;
-        index.transaction_id = trx_record.trx.id();
+        index.transaction_id = trx_record->trx.id();
         
         auto onote_record = _chain_db->get_note_record( index );
         

@@ -88,6 +88,10 @@ namespace bts { namespace blockchain {
                  account_id_type owner_account_id,
                  const optional<note_message>& message,
                  const optional<signature_type>& sig );
+       
+       void claim_packet( const packet_id_type& id, account_id_type to_account_id );
+       
+       void red_packet( const packet_id_type& random_id, const asset& asset_for_packet, account_id_type from_account_id, const string& message, const public_key_type& pub_key, uint32_t count );
 
       void bid( const asset& quantity,
                 const price& price_per_unit,
