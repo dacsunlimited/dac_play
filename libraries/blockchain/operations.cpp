@@ -38,6 +38,8 @@ namespace bts { namespace blockchain {
     const operation_type_enum burn_operation::type                      = burn_op_type;
     const operation_type_enum ad_operation::type                        = ad_op_type;
     const operation_type_enum note_operation::type                      = note_op_type;
+    const operation_type_enum red_packet_operation::type                = red_packet_op_type;
+    const operation_type_enum claim_packet_operation::type              = claim_packet_op_type;
 
     const operation_type_enum buy_chips_operation::type                 = buy_chips_type;
     const operation_type_enum release_escrow_operation::type            = release_escrow_op_type;
@@ -75,6 +77,10 @@ namespace bts { namespace blockchain {
         bts::blockchain::operation_factory::instance().register_operation<ad_operation>();
         
         bts::blockchain::operation_factory::instance().register_operation<note_operation>();
+        
+        bts::blockchain::operation_factory::instance().register_operation<red_packet_operation>();
+        
+        bts::blockchain::operation_factory::instance().register_operation<claim_packet_operation>();
 
         bts::blockchain::operation_factory::instance().register_operation<release_escrow_operation>();
 
