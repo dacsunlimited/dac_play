@@ -3306,6 +3306,12 @@ namespace bts { namespace blockchain {
                totals[ it->first ] += it->second;
            }
        }
+       
+       for( auto iter = my->_packet_id_to_record.unordered_begin(); iter != my->_packet_id_to_record.unordered_end(); ++iter )
+       {
+           const packet_record& packet = iter->second;
+           totals[ packet.amount.asset_id ] += packet.left_packet_amount().amount;
+       }
 
        for( auto iter = my->_balance_id_to_record.unordered_begin(); iter != my->_balance_id_to_record.unordered_end(); ++iter )
        {
