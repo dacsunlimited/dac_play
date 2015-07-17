@@ -379,6 +379,28 @@ namespace bts { namespace blockchain {
                }
            }
        }
+       
+       for ( const auto& item : _packet_id_to_record )
+       {
+           const packet_id_type id = item.first;
+           const opacket_record prev_record = prev_state->get_packet_record( id );
+           if( prev_record.valid() )
+           {
+               deltas[ prev_record->amount.asset_id ] -= prev_record->left_packet_amount().amount;
+           }
+           
+           const packet_record& record = item.second;
+           deltas[ record.amount.asset_id ] += record.left_packet_amount().amount;
+       }
+       
+       for ( const packet_id_type id : _packet_id_remove )
+       {
+           const opacket_record prev_record = prev_state->get_packet_record( id );
+           if ( prev_record.valid() )
+           {
+               deltas[ prev_record->amount.asset_id ] -= prev_record->left_packet_amount().amount;
+           }
+       }
 
        for( const auto& item : _balance_id_to_record )
        {

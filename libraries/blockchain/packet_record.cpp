@@ -50,7 +50,7 @@ void packet_record::sanity_check( const chain_interface& db )const
     FC_ASSERT( amount.asset_id == 0 || db.lookup<asset_record>( amount.asset_id ).valid() );
     for ( auto status : claim_statuses )
     {
-        FC_ASSERT( status.amount.asset_id = amount.asset_id );
+        FC_ASSERT( status.amount.asset_id == amount.asset_id );
     }
 } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
