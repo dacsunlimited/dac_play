@@ -372,7 +372,9 @@ namespace bts { namespace blockchain {
         // update rp
         eval_state.rp_account_id = abs( this->publisher_account_id );
         
-        eval_state.check_signature( publisher_account_rec->active_key() );
+        // Enable this in later HARDFORK Change
+        // if ( !eval_state.check_signature( publisher_account_rec->owner_key ) )
+        //    FC_CAPTURE_AND_THROW( missing_signature, (publisher_account_rec->owner_key) );
         
         ad_record record;
         record.index.account_id = owner_account_id;
@@ -425,7 +427,9 @@ namespace bts { namespace blockchain {
         // update rp
         eval_state.rp_account_id = abs( this->owner_account_id );
         
-        eval_state.check_signature( account_rec->active_key() );
+        // Enable this in later HARDFORK Change
+        //if ( !eval_state.check_signature( account_rec->owner_key ) )
+        //    FC_CAPTURE_AND_THROW( missing_signature, (account_rec->owner_key) );
         
         note_record record;
         record.index.account_id = owner_account_id;
@@ -435,6 +439,7 @@ namespace bts { namespace blockchain {
         record.signer = message_signature;
         
         // verify the signature of the message, the message signer must be the account_id's active key
+        // TODO: REVIEW, the active key could be changed before the delegete include this transaction
         FC_ASSERT( account_rec->active_key() == record.signer_key() );
         
         FC_ASSERT( !eval_state.pending_state()->get_note_record( record.index ).valid() );
@@ -469,7 +474,8 @@ namespace bts { namespace blockchain {
         // update rp
         eval_state.rp_account_id = abs( this->from_account_id );
         
-        eval_state.check_signature( account_rec->active_key() );
+        if ( !eval_state.check_signature( account_rec->owner_key ) )
+            FC_CAPTURE_AND_THROW( missing_signature, (account_rec->owner_key) );
         
         packet_record record;
         record.id = random_id;
@@ -478,8 +484,12 @@ namespace bts { namespace blockchain {
         record.claim_public_key = claim_public_key;
         record.message = message;
         
-        // using random id as the distribution for the packet allocation
-        uint32_t total_space = ( amount.amount - required_fee ) / BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT;
+        // using random id as the distribution for the packet allocation, remove dusty
+        uint32_t total_space = amount.amount / BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT;
+        
+        asset used_packet_amount( total_space * BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT, amount.asset_id );
+        eval_state.sub_balance( used_packet_amount );
+        
         uint16_t MAX_UINT16_T = 65535;
         FC_ASSERT( total_space < MAX_UINT16_T );
         
@@ -490,29 +500,31 @@ namespace bts { namespace blockchain {
         // ...
         // v[count-2] + 1 -> total_space
         // lucky_guys is possible from 0 .... random_space - 2
+        uint16_t k = count - 1;
+        uint16_t N = total_space - 1;
         auto lucky_guys = bts::utilities::unranking(
-                                                    random_id._hash[0] % bts::utilities::cnr( total_space - 1, count - 1 ), count - 1, total_space - 1);
+                                                    random_id._hash[0] % bts::utilities::cnr( N, k ), k, N);
         red_packet_status first_status;
-        first_status.amount = asset(lucky_guys[0] + 1 - 0, amount.asset_id);
+        first_status.amount = asset( (lucky_guys[0] + 1 - 0) * BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT, amount.asset_id);
         first_status.account_id = -1;
         
         record.claim_statuses.push_back( first_status );
         
-        for ( uint16_t i = 0; i < (this->count - 1); i ++ )
+        for ( uint16_t i = 0; i < (k - 1); i ++ )
         {
             red_packet_status status;
-            status.amount = asset(lucky_guys[i + 1] - lucky_guys[i], amount.asset_id);
+            status.amount = asset( (lucky_guys[i + 1] - lucky_guys[i]) * BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT, amount.asset_id);
             status.account_id = -1;
             record.claim_statuses.push_back( status );
         }
         
         red_packet_status last_status;
-        last_status.amount = asset( total_space - ( lucky_guys[count-2] + 1), amount.asset_id );
+        last_status.amount = asset( (total_space - ( lucky_guys[k-1] + 1)) * BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT, amount.asset_id );
         last_status.account_id = -1;
         
         record.claim_statuses.push_back( last_status );
         
-        FC_ASSERT( record.left_packet_amount() == amount );
+        FC_ASSERT( record.left_packet_amount() == used_packet_amount , "The record is ${record}, the ammount is ${a}", ("record", record)("l", lucky_guys) );
         
         FC_ASSERT( !eval_state.pending_state()->get_packet_record( record.id ).valid() );
         
@@ -528,8 +540,11 @@ namespace bts { namespace blockchain {
         opacket_record packet_rec = eval_state.pending_state()->get_packet_record( random_id );
         FC_ASSERT( packet_rec.valid() );
         
-        eval_state.check_signature( account_rec->active_key() );
-        eval_state.check_signature( packet_rec->claim_public_key );
+        if ( !eval_state.check_signature( account_rec->owner_key ) )
+            FC_CAPTURE_AND_THROW( missing_signature, (account_rec->owner_key) );
+        
+        if ( !eval_state.check_signature( packet_rec->claim_public_key ) )
+            FC_CAPTURE_AND_THROW( missing_signature, (packet_rec->claim_public_key) );
         
         if ( packet_rec->is_unclaimed_empty() )
         {
@@ -546,6 +561,8 @@ namespace bts { namespace blockchain {
             
             asset packet_amount = packet_rec->claim_statuses[index].amount;
             
+            eval_state.add_balance( packet_amount );
+            
             auto to_address = account_rec->active_address();
             auto claim_balance = eval_state.pending_state()->get_balance_record(withdraw_condition( withdraw_with_signature(to_address), packet_amount.asset_id ).get_address());
             if( !claim_balance )
@@ -556,6 +573,7 @@ namespace bts { namespace blockchain {
             claim_balance->deposit_date = eval_state.pending_state()->now();
             
             eval_state.pending_state()->store_balance_record( *claim_balance );
+            eval_state.sub_balance( packet_amount );
             
             packet_rec->claim_statuses[index].account_id = this->to_account_id;
             packet_rec->claim_statuses[index].transaction_id = eval_state.trx.id();

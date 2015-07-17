@@ -2763,7 +2763,7 @@ namespace detail {
         if( publisher_account_rec->is_retracted() )
             FC_CAPTURE_AND_THROW( account_retracted, (publisher_account_rec) );
         
-        required_signatures.insert( publisher_account_rec->active_address() );
+        required_signatures.insert( publisher_account_rec->owner_address() );
         
         const auto owner_account_rec = my->_blockchain->get_account_record( owner_account_name );
         FC_ASSERT( owner_account_rec.valid() );
@@ -2847,7 +2847,7 @@ namespace detail {
         if( owner_account_rec->is_retracted() )
             FC_CAPTURE_AND_THROW( account_retracted, (owner_account_rec) );
         
-        required_signatures.insert( owner_account_rec->active_address() );
+        required_signatures.insert( owner_account_rec->owner_address() );
         
         
         auto note = note_message( public_note(message));
@@ -2940,7 +2940,7 @@ namespace detail {
         if( from_account_rec->is_retracted() )
             FC_CAPTURE_AND_THROW( account_retracted, (from_account_rec) );
         
-        required_signatures.insert( from_account_rec->active_address() );
+        required_signatures.insert( from_account_rec->owner_address() );
         
         auto random_priv_key = fc::ecc::private_key::generate();
         fc::sha512::encoder key_enc;
@@ -3007,7 +3007,7 @@ namespace detail {
         if( to_account_rec->is_retracted() )
             FC_CAPTURE_AND_THROW( account_retracted, (to_account_rec) );
         
-        required_signatures.insert( to_account_rec->active_address() );
+        required_signatures.insert( to_account_rec->owner_address() );
         
         string effective_seed = std::string(id) + password;
         fc::sha256 hash_effective_seed = fc::sha256::hash( effective_seed.c_str(), effective_seed.length() );
