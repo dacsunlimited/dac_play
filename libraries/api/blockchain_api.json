@@ -252,6 +252,21 @@
           "aliases" : ["get_operation_reward"]
       },
       {
+          "method_name": "blockchain_get_red_packet",
+          "description": "Get detailed information about the red packet in the blockchain",
+          "cached"   : true,
+          "return_type": "optional_packet_record",
+          "parameters" : [
+          {
+              "name" : "packet_id",
+              "type" : "string",
+              "description" : "the base58 packet ID to return"
+          }
+          ],
+          "is_const" : true,
+          "prerequisites" : ["no_prerequisites"]
+      },
+      {
         "method_name": "blockchain_get_transaction",
         "description": "Get detailed information about the specified transaction in the blockchain",
         "cached"   : true,

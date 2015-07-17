@@ -124,6 +124,19 @@ ooperation_reward_record client_impl::blockchain_get_operation_reward(const oper
         }
         return ooperation_reward_record();
 }
+    
+opacket_record client_impl::blockchain_get_red_packet(const std::string& packet_id) const
+    {
+        try
+        {
+            ASSERT_TASK_NOT_PREEMPTED(); // make sure no cancel gets swallowed by catch(...)
+            return _chain_db->get_packet_record( variant( packet_id ).as<packet_id_type>() );
+        }
+        catch( ... )
+        {
+        }
+        return opacket_record();
+    }
 
 uint32_t detail::client_impl::blockchain_get_block_count() const
 {
