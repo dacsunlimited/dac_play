@@ -1,6 +1,7 @@
 #pragma once
 
 #include <bts/blockchain/asset.hpp>
+#include <bts/blockchain/balance_operations.hpp>
 
 namespace bts { namespace blockchain {
 
@@ -23,6 +24,7 @@ struct packet_record
     public_key_type                          claim_public_key;
     string                                   message;
     vector< red_packet_status >              claim_statuses;
+    optional<packet_claim_condition>         claim_condition;
     
     uint32_t      next_available_claim_index() const;
     
@@ -48,4 +50,4 @@ class packet_db_interface
 } } // bts::blockchain
 
 FC_REFLECT( bts::blockchain::red_packet_status, (amount)(account_id)(transaction_id) )
-FC_REFLECT( bts::blockchain::packet_record, (id)(amount)(from_account_id)(claim_public_key)(message)(claim_statuses) )
+FC_REFLECT( bts::blockchain::packet_record, (id)(amount)(from_account_id)(claim_public_key)(message)(claim_statuses)(claim_condition) )
