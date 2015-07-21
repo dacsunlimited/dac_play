@@ -70,6 +70,28 @@ namespace bts { namespace blockchain {
         note_operation op(quantity, owner_account_id, message, sig);
         operations.emplace_back( std::move( op ) );
     }
+    
+    void transaction::red_packet( const packet_id_type& random_id, const asset& asset_for_packet, account_id_type from_account_id, const string& message, const public_key_type& pub_key, uint32_t count )
+    {
+        red_packet_operation op;
+        op.random_id = random_id;
+        op.amount = asset_for_packet;
+        op.from_account_id = from_account_id;
+        op.message = message;
+        op.claim_public_key = pub_key;
+        op.count = count;
+        
+        operations.emplace_back( std::move( op ) );
+    }
+    
+    void transaction::claim_packet( const packet_id_type& id, account_id_type to_account_id )
+    {
+        claim_packet_operation op;
+        op.random_id = id;
+        op.to_account_id = to_account_id;
+        
+        operations.emplace_back( std::move( op ) );
+    }
 
    void transaction::bid( const asset& quantity,
                           const price& price_per_unit,

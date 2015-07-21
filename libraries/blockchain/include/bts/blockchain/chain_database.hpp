@@ -360,6 +360,10 @@ namespace bts { namespace blockchain {
         virtual void note_insert_into_index_map( const note_index&, const note_record& )override;
         virtual void note_erase_from_index_map( const note_index& )override;
        
+       virtual opacket_record packet_lookup_by_index( const packet_id_type& )const override;
+       virtual void packet_insert_into_index_map( const packet_id_type&, const packet_record& )override;
+       virtual void packet_erase_from_index_map( const packet_id_type& )override;
+       
        virtual ooperation_reward_record operation_reward_lookup_by_id( const operation_id_type )const override;
        virtual void operation_reward_insert_into_id_map( const operation_id_type, const operation_reward_record& )override;
        virtual void operation_reward_erase_from_id_map( const operation_id_type )override;

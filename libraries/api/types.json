@@ -122,6 +122,11 @@
         "cpp_include_file" : "bts/blockchain/types.hpp"
       },
       {
+          "type_name" : "packet_id",
+          "cpp_return_type" : "bts::blockchain::packet_id_type",
+          "cpp_include_file" : "bts/blockchain/types.hpp"
+      },
+      {
         "type_name" : "operation_type",
         "cpp_return_type" : "bts::blockchain::operation_type_enum",
         "cpp_include_file" : "bts/blockchain/operations.hpp"
@@ -193,6 +198,11 @@
           "type_name" : "optional_operation_reward_record",
           "cpp_return_type" : "fc::optional<bts::blockchain::operation_reward_record>",
           "cpp_include_file" : "bts/blockchain/operation_reward_record.hpp"
+      },
+      {
+          "type_name" : "optional_packet_record",
+          "cpp_return_type" : "fc::optional<bts::blockchain::packet_record>",
+          "cpp_include_file" : "bts/blockchain/packet_record.hpp"
       },
       {
         "type_name" : "wallet_name_array",

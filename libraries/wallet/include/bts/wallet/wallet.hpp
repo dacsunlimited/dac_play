@@ -291,6 +291,23 @@ namespace bts { namespace wallet {
                                                     bool encrypt,
                                                     bool sign
                                               );
+       
+         wallet_transaction_record create_red_packet(
+                                            const asset& asset_for_packet,
+                                            const string& from_account_name,
+                                            const string& message,
+                                            const string& password,
+                                            uint32_t count,
+                                            bool sign
+                                            );
+       
+         wallet_transaction_record claim_red_packet(
+                                                          const packet_id_type& id,
+                                                          const string& to_account_name,
+                                                          const string& password,
+                                                          bool sign
+                                                    );
+       
          /**
           * if the active_key is null then the active key will be made the same as the master key.
           * if the name already exists then it will be updated if this wallet controls the active key

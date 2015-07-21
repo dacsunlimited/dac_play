@@ -50,6 +50,7 @@ namespace bts { namespace blockchain {
       apply_records( prev_state, _burn_index_to_record, _burn_index_remove );
       apply_records( prev_state, _ad_index_to_record, _ad_index_remove );
       apply_records( prev_state, _note_index_to_record, _note_index_remove );
+      apply_records( prev_state, _packet_id_to_record, _packet_id_remove );
       apply_records( prev_state, _operation_reward_id_to_record, _operation_reward_id_remove );
       apply_records( prev_state, _slot_index_to_record, _slot_index_remove );
       apply_records( prev_state, _game_id_to_record, _game_id_remove );
@@ -106,6 +107,7 @@ namespace bts { namespace blockchain {
       populate_undo_state( undo_state, prev_state, _transaction_id_to_record, _transaction_id_remove );
       populate_undo_state( undo_state, prev_state, _burn_index_to_record, _burn_index_remove );
       populate_undo_state( undo_state, prev_state, _note_index_to_record, _note_index_remove );
+      populate_undo_state( undo_state, prev_state, _packet_id_to_record, _packet_id_remove );
       populate_undo_state( undo_state, prev_state, _feed_index_to_record, _feed_index_remove );
       populate_undo_state( undo_state, prev_state, _slot_index_to_record, _slot_index_remove );
       populate_undo_state( undo_state, prev_state, _game_id_to_record, _game_id_remove);
@@ -349,6 +351,28 @@ namespace bts { namespace blockchain {
                {
                    deltas[ iter->first ] -= iter->second;
                }
+           }
+       }
+       
+       for ( const auto& item : _packet_id_to_record )
+       {
+           const packet_id_type id = item.first;
+           const opacket_record prev_record = prev_state->get_packet_record( id );
+           if( prev_record.valid() )
+           {
+               deltas[ prev_record->amount.asset_id ] -= prev_record->left_packet_amount().amount;
+           }
+           
+           const packet_record& record = item.second;
+           deltas[ record.amount.asset_id ] += record.left_packet_amount().amount;
+       }
+       
+       for ( const packet_id_type id : _packet_id_remove )
+       {
+           const opacket_record prev_record = prev_state->get_packet_record( id );
+           if ( prev_record.valid() )
+           {
+               deltas[ prev_record->amount.asset_id ] -= prev_record->left_packet_amount().amount;
            }
        }
 
@@ -740,6 +764,28 @@ namespace bts { namespace blockchain {
     {
         _note_index_to_record.erase( index );
         _note_index_remove.insert( index );
+    }
+    
+    opacket_record pending_chain_state::packet_lookup_by_index( const packet_id_type& id )const
+    {
+        const auto iter = _packet_id_to_record.find( id );
+        if( iter != _packet_id_to_record.end() ) return iter->second;
+        if( _packet_id_remove.count( id ) > 0 ) return opacket_record();
+        const chain_interface_ptr prev_state = _prev_state.lock();
+        if( !prev_state ) return opacket_record();
+        return prev_state->lookup<packet_record>( id );
+    }
+    
+    void pending_chain_state::packet_insert_into_index_map( const packet_id_type& id, const packet_record& record )
+    {
+        _packet_id_remove.erase( id );
+        _packet_id_to_record[ id ] = record;
+    }
+    
+    void pending_chain_state::packet_erase_from_index_map( const packet_id_type& id )
+    {
+        _packet_id_to_record.erase( id );
+        _packet_id_remove.insert( id );
     }
     
     ooperation_reward_record pending_chain_state::operation_reward_lookup_by_id( const operation_id_type id )const

@@ -2796,6 +2796,8 @@ namespace detail {
         if( publisher_account_rec->is_retracted() )
             FC_CAPTURE_AND_THROW( account_retracted, (publisher_account_rec) );
         
+        required_signatures.insert( publisher_account_rec->owner_address() );
+        
         const auto owner_account_rec = my->_blockchain->get_account_record( owner_account_name );
         FC_ASSERT( owner_account_rec.valid() );
         
@@ -2878,6 +2880,8 @@ namespace detail {
         if( owner_account_rec->is_retracted() )
             FC_CAPTURE_AND_THROW( account_retracted, (owner_account_rec) );
         
+        required_signatures.insert( owner_account_rec->owner_address() );
+        
         
         auto note = note_message( public_note(message));
         if( encrypt )
@@ -2919,6 +2923,150 @@ namespace detail {
         record.trx = trx;
         return record;
     } FC_CAPTURE_AND_RETHROW( (asset_to_pay)(owner_account_name)(message)(encrypt)(sign) ) }
+    
+    wallet_transaction_record wallet::create_red_packet(
+                                                const asset& asset_for_packet,
+                                                const string& from_account_name,
+                                                const string& message,
+                                                const string& password,
+                                                uint32_t count,
+                                                bool sign
+                                                )
+    {try {
+        FC_ASSERT( is_open() );
+        FC_ASSERT( is_unlocked() );
+        
+        private_key_type sender_private_key  = get_active_private_key( from_account_name );
+        public_key_type  sender_public_key   = sender_private_key.get_public_key();
+        address          sender_account_address( sender_private_key.get_public_key() );
+        
+        signed_transaction     trx;
+        unordered_set<address> required_signatures;
+        
+        trx.expiration = blockchain::now() + get_transaction_expiration();
+        
+        const auto required_fees = get_transaction_fee( ) + asset(BTS_BLOCKCHAIN_MIN_RED_PACKET_FEE, 0);
+        
+        if( required_fees.asset_id == asset_for_packet.asset_id )
+        {
+            my->withdraw_to_transaction( required_fees + asset_for_packet,
+                                        from_account_name,
+                                        trx,
+                                        required_signatures );
+        }
+        else
+        {
+            my->withdraw_to_transaction( asset_for_packet,
+                                        from_account_name,
+                                        trx,
+                                        required_signatures );
+            
+            my->withdraw_to_transaction( required_fees,
+                                        from_account_name,
+                                        trx,
+                                        required_signatures );
+        }
+        
+        const auto from_account_rec = my->_blockchain->get_account_record( from_account_name );
+        FC_ASSERT( from_account_rec.valid() );
+        
+        if( from_account_rec->is_retracted() )
+            FC_CAPTURE_AND_THROW( account_retracted, (from_account_rec) );
+        
+        required_signatures.insert( from_account_rec->owner_address() );
+        
+        auto random_priv_key = fc::ecc::private_key::generate();
+        fc::sha512::encoder key_enc;
+        fc::raw::pack( key_enc, random_priv_key );
+        
+        auto random_id = fc::ripemd160::hash( key_enc.result() );
+        
+        string effective_seed = std::string(random_id) + password;
+        fc::sha256 hash_effective_seed = fc::sha256::hash( effective_seed.c_str(), effective_seed.length() );
+        auto key = fc::ecc::private_key::regenerate( hash_effective_seed );
+        
+        trx.red_packet(random_id, asset_for_packet, from_account_rec->id, message, key.get_public_key(), count);
+        
+        auto entry = ledger_entry();
+        entry.from_account = sender_public_key;
+        entry.amount = asset_for_packet;
+        entry.memo = "Red Packet: " + message;
+        
+        auto record = wallet_transaction_record();
+        record.ledger_entries.push_back( entry );
+        record.fee = required_fees;
+        
+        if( sign )
+            my->sign_transaction( trx, required_signatures );
+        
+        record.trx = trx;
+        return record;
+    } FC_CAPTURE_AND_RETHROW( (asset_for_packet)(from_account_name)(message)(count)(sign) ) }
+    
+    wallet_transaction_record wallet::claim_red_packet(
+                                                        const packet_id_type& id,
+                                                        const string& to_account_name,
+                                                        const string& password,
+                                                        bool sign
+                                                        )
+    {try {
+        FC_ASSERT( is_open() );
+        FC_ASSERT( is_unlocked() );
+        
+        private_key_type sender_private_key  = get_active_private_key( to_account_name );
+        public_key_type  sender_public_key   = sender_private_key.get_public_key();
+        address          sender_account_address( sender_private_key.get_public_key() );
+        
+        signed_transaction     trx;
+        unordered_set<address> required_signatures;
+        
+        trx.expiration = blockchain::now() + get_transaction_expiration();
+        
+        auto packet_rec = my->_blockchain->get_packet_record(id);
+        
+        FC_ASSERT( packet_rec.valid() );
+        FC_ASSERT( !packet_rec->is_unclaimed_empty(), "All of this red packet has already been claimed!" );
+        
+        const auto required_fees = get_transaction_fee( );
+        
+        my->withdraw_to_transaction( required_fees,
+                                    to_account_name,
+                                    trx,
+                                    required_signatures );
+        
+        const auto to_account_rec = my->_blockchain->get_account_record( to_account_name );
+        FC_ASSERT( to_account_rec.valid() );
+        
+        if( to_account_rec->is_retracted() )
+            FC_CAPTURE_AND_THROW( account_retracted, (to_account_rec) );
+        
+        required_signatures.insert( to_account_rec->owner_address() );
+        
+        string effective_seed = std::string(id) + password;
+        fc::sha256 hash_effective_seed = fc::sha256::hash( effective_seed.c_str(), effective_seed.length() );
+        auto key = fc::ecc::private_key::regenerate( hash_effective_seed );
+        
+        trx.claim_packet( id, to_account_rec->id );
+        
+        auto entry = ledger_entry();
+        entry.from_account = sender_public_key;
+        entry.amount = required_fees;
+        entry.memo = "Claim Packet: " + std::string(id);
+        
+        auto record = wallet_transaction_record();
+        record.ledger_entries.push_back( entry );
+        record.fee = required_fees;
+        
+        if( sign )
+        {
+            const auto chain_id = my->_blockchain->get_chain_id();
+            trx.sign(key, chain_id);
+            my->sign_transaction( trx, required_signatures );
+        }
+        
+        record.trx = trx;
+        return record;
+    } FC_CAPTURE_AND_RETHROW( (id)(to_account_name)(password)(sign) ) }
 
    public_key_type wallet::get_new_public_key( const string& account_name )
    {

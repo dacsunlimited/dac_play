@@ -134,9 +134,13 @@ class wallet_impl : public chain_observer
 
       bool scan_burn( const burn_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
     
-    bool scan_ad( const ad_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
+      bool scan_ad( const ad_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
     
       bool scan_note( const note_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
+    
+      bool scan_red_packet( const red_packet_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
+    
+      bool scan_claim_packet( const claim_packet_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
 
       vector<wallet_transaction_record> get_pending_transactions()const;
 

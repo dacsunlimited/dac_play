@@ -40,6 +40,7 @@ add_library( bts_blockchain
              burn_record.cpp
              ad_record.cpp
              note_record.cpp
+             packet_record.cpp
              operation_reward_record.cpp
              feed_record.cpp
              market_records.cpp
