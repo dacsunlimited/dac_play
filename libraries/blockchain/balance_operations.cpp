@@ -10,6 +10,7 @@ namespace bts { namespace blockchain {
     
     const note_type public_note::type       = public_type;
     const note_type secret_note::type       = secret_type;
+    const packet_condition_type packet_rp_condition::type      = packet_rp_type;
     
     secret_note note_message::encrypt( const fc::ecc::private_key& owner_private_key)const
     {
@@ -461,6 +462,7 @@ namespace bts { namespace blockchain {
         record.from_account_id = from_account_id;
         record.claim_public_key = claim_public_key;
         record.message = message;
+        record.claim_condition = claim_condition;
         
         // using random id as the distribution for the packet allocation, remove dusty
         uint32_t total_space = amount.amount / BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT;
@@ -523,6 +525,15 @@ namespace bts { namespace blockchain {
         
         if ( !eval_state.check_signature( packet_rec->claim_public_key ) )
             FC_CAPTURE_AND_THROW( missing_signature, (packet_rec->claim_public_key) );
+        
+        if ( packet_rec->claim_condition.valid() ) {
+            auto condition = packet_rec->claim_condition;
+            if ( condition->type == packet_rp_type) {
+                auto rp_condition = condition->as<packet_rp_condition>();
+                
+                FC_ASSERT( account_rec->stats_info.rp >= rp_condition.rp, "The account to claim the red packet must meet the claim condition." );
+            }
+        }
         
         if ( packet_rec->is_unclaimed_empty() )
         {

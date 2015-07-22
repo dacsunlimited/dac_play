@@ -10,7 +10,7 @@ endif(NOT BITSHARES_GIT_REVISION_DESCRIPTION)
 file(GLOB headers "include/bts/utilities/*.hpp")
 
 set(sources http_downloader.cpp key_conversion.cpp string_escape.cpp
-            words.cpp combinatorics
+            words.cpp combinatorics.cpp
             ${headers})
 
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/git_revision.cpp.in" "${CMAKE_CURRENT_BINARY_DIR}/git_revision.cpp" @ONLY)
