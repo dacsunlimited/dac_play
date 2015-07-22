@@ -434,7 +434,7 @@ vector<account_record> detail::client_impl::blockchain_list_accounts( const stri
 vector<account_record> detail::client_impl::blockchain_list_accounts_by_rp(uint32_t first, uint32_t count) const
 {
     if( first > 0 ) --first;
-    vector<account_id_type> account_ids = _chain_db->get_delegates_by_vote( first, count );
+    vector<account_id_type> account_ids = _chain_db->get_accounts_by_rp( first, count );
     
     vector<account_record> account_records;
     account_records.reserve( account_ids.size() );
