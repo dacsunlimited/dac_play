@@ -167,6 +167,7 @@ namespace bts { namespace wallet {
          ///@}
 
          vector<wallet_account_record> list_accounts()const;
+         vector<wallet_packet_record> list_packets()const;
          owallet_account_record lookup_account( const string& account )const;
          wallet_account_record store_account( const account_data& account );
 

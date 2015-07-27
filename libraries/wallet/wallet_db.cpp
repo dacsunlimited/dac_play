@@ -62,6 +62,9 @@ namespace bts { namespace wallet {
                    case setting_record_type:
                        load_setting_record( record.as<wallet_setting_record>() );
                        break;
+                   case packet_info_record_type:
+                       load_packet_record( record.as<wallet_packet_record>() );
+                       break;
                    default:
                        elog( "Unknown wallet record type: ${type}", ("type",record.type) );
                        break;
@@ -166,6 +169,12 @@ namespace bts { namespace wallet {
            { try {
               self->settings[rec.name] = rec;
            } FC_CAPTURE_AND_RETHROW( (rec) ) }
+         
+         void load_packet_record( const wallet_packet_record& packet_record )
+         { try {
+             const packet_id_type& record_id = packet_record.packet_id;
+             self->packets[ record_id ] = packet_record;
+         } FC_CAPTURE_AND_RETHROW( (packet_record) ) }
      };
 
    } // namespace detail
@@ -771,6 +780,33 @@ namespace bts { namespace wallet {
 
        return record;
    } FC_CAPTURE_AND_RETHROW( (label) ) }
+    
+    owallet_packet_record wallet_db::lookup_packet( const packet_id_type& packet_id )const
+    { try {
+        FC_ASSERT( is_open() );
+        
+        const auto iter = packets.find( packet_id );
+        if( iter != packets.end() ) return iter->second;
+        
+        return owallet_packet_record();
+    } FC_CAPTURE_AND_RETHROW( (packet_id) ) }
+    
+    wallet_packet_record wallet_db::store_packet( const packet_info& packet )
+    { try {
+        FC_ASSERT( is_open() );
+        
+        // Check for label collision
+        owallet_packet_record packet_record = lookup_packet( packet.packet_id );
+        
+        if( !packet_record.valid() )
+            packet_record = wallet_packet_record();
+        
+        packet_info& temp = *packet_record;
+        temp = packet;
+        
+        store_and_reload_record( *packet_record );
+        return *packet_record;
+    } FC_CAPTURE_AND_RETHROW( (packet) ) }
 
    owallet_approval_record wallet_db::lookup_approval( const string& name )const
    { try {

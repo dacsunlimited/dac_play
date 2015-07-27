@@ -494,6 +494,19 @@
         "contained_type" : "wallet_account_record"
       },
       {
+          "type_name" : "wallet_packet_record",
+          "cpp_return_type" : "bts::wallet::wallet_packet_record"
+      },
+      {
+          "type_name" : "owallet_packet_record",
+          "cpp_return_type" : "bts::wallet::owallet_packet_record"
+      },
+      {
+          "type_name" : "wallet_packet_record_array",
+          "container_type" : "array",
+          "contained_type" : "wallet_packet_record"
+      },
+      {
         "type_name" : "wallet_contact_record",
         "cpp_return_type" : "bts::wallet::wallet_contact_record"
       },

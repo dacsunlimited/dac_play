@@ -26,7 +26,8 @@ namespace bts { namespace wallet {
       approval_record_type      = 5,
       property_record_type      = 7,
       setting_record_type       = 9,
-      transaction_info_record_type   = 10
+      transaction_info_record_type   = 10,
+      packet_info_record_type   = 11
    };
 
    enum property_enum
@@ -173,6 +174,14 @@ namespace bts { namespace wallet {
         fc::time_point_sec        created_time;
         fc::time_point_sec        received_time;
     };
+    
+    struct packet_info
+    {
+        packet_id_type            packet_id;
+        account_id_type           account_id;
+        bool                      is_sender = true;
+        bool                      is_claimer = false;
+    };
 
    struct ledger_entry
    {
@@ -255,6 +264,7 @@ namespace bts { namespace wallet {
    typedef wallet_record<transaction_data,  transaction_record_type>    wallet_deprecated_transaction_record;
    typedef wallet_record<setting,           setting_record_type>        wallet_setting_record;
    typedef wallet_record<transaction_info,  transaction_info_record_type>    wallet_transaction_record;
+   typedef wallet_record<packet_info,       packet_info_record_type>    wallet_packet_record;
 
    typedef optional<wallet_property_record>                             owallet_property_record;
    typedef optional<wallet_master_key_record>                           owallet_master_key_record;
@@ -265,6 +275,7 @@ namespace bts { namespace wallet {
    typedef optional<wallet_transaction_record>                          owallet_transaction_record;
    typedef optional<wallet_setting_record>                              owallet_setting_record;
    typedef optional<wallet_deprecated_transaction_record>               owallet_deprecated_transaction_record;
+   typedef optional<wallet_packet_record>                               owallet_packet_record;
 
    struct generic_wallet_record
    {
@@ -301,6 +312,7 @@ FC_REFLECT_ENUM( bts::wallet::wallet_record_type_enum,
         (property_record_type)
         (setting_record_type)
         (transaction_info_record_type)
+        (packet_info_record_type)
         )
 
 FC_REFLECT_ENUM( bts::wallet::property_enum,
@@ -383,6 +395,13 @@ FC_REFLECT( bts::wallet::transaction_info,
            (fee)
            (created_time)
            (received_time)
+           )
+
+FC_REFLECT( bts::wallet::packet_info,
+           (packet_id)
+           (account_id)
+           (is_sender)
+           (is_claimer)
            )
 
 FC_REFLECT( bts::wallet::ledger_entry,

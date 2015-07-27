@@ -997,6 +997,23 @@ bool wallet_impl::scan_red_packet( const red_packet_operation& op, wallet_transa
         if( okey_rec.valid() && okey_rec->has_private_key() )
         {
             has_deposit = true;
+            
+            auto info_rec = _wallet_db.lookup_packet( op.random_id );
+                
+            packet_info info;
+            info.packet_id = op.random_id;
+            info.account_id = op.from_account_id;
+            info.is_sender = true;
+            if ( info_rec.valid() )
+            {
+                info.is_claimer = info_rec->is_claimer;
+            }
+            else
+            {
+                info.is_claimer = false;
+            }
+            
+            _wallet_db.store_packet(info);
         }
     }
     
@@ -1022,6 +1039,24 @@ bool wallet_impl::scan_claim_packet( const claim_packet_operation& op, wallet_tr
         if( okey_rec.valid() && okey_rec->has_private_key() )
         {
             has_deposit = true;
+            
+            auto info_rec = _wallet_db.lookup_packet( op.random_id );
+            
+            packet_info info;
+            info.packet_id = op.random_id;
+            info.account_id = op.to_account_id;
+            info.is_claimer = true;
+            
+            if ( info_rec.valid() )
+            {
+                info.is_sender = info_rec->is_sender;
+            }
+            else
+            {
+                info.is_sender = false;
+            }
+            
+            _wallet_db.store_packet(info);
         }
     }
     
