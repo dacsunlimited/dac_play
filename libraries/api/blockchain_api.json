@@ -146,7 +146,7 @@
       },
       {
           "method_name": "blockchain_list_recently_claimed_packets",
-          "description": "Returns a list of recently created packets",
+          "description": "Returns a list of recently claimed packets",
           "cached"   : true,
           "return_type": "packet_record_array",
           "parameters" : [],
