@@ -480,6 +480,40 @@ vector<account_record> detail::client_impl::blockchain_list_recently_registered_
 
    return accounts;
 }
+    
+    vector<packet_record> detail::client_impl::blockchain_list_recently_created_packets()const
+    {
+        //FC_ASSERT( _chain_db->get_statistics_enabled() );
+        vector<operation> packets_created = _chain_db->get_recent_operations(red_packet_op_type);
+        vector<packet_record> packets;
+        packets.reserve(packets_created.size());
+        
+        for( const operation& op : packets_created )
+        {
+            auto opacket = _chain_db->get_packet_record(op.as<red_packet_operation>().random_id);
+            if(opacket)
+                packets.push_back(*opacket);
+        }
+        
+        return packets;
+    }
+    
+    vector<packet_record> detail::client_impl::blockchain_list_recently_claimed_packets()const
+    {
+        //FC_ASSERT( _chain_db->get_statistics_enabled() );
+        vector<operation> packets_claimed = _chain_db->get_recent_operations( claim_packet_op_type );
+        vector<packet_record> packets;
+        packets.reserve(packets_claimed.size());
+        
+        for( const operation& op : packets_claimed )
+        {
+            auto opacket = _chain_db->get_packet_record(op.as<claim_packet_operation>().random_id);
+            if(opacket)
+                packets.push_back(*opacket);
+        }
+        
+        return packets;
+    }
 
 vector<asset_record> detail::client_impl::blockchain_list_assets( const string& first, uint32_t limit )const
 {

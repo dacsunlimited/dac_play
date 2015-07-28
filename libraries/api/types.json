@@ -200,6 +200,16 @@
           "cpp_include_file" : "bts/blockchain/operation_reward_record.hpp"
       },
       {
+          "type_name" : "packet_record",
+          "cpp_return_type" : "bts::blockchain::packet_record",
+          "cpp_include_file" : "bts/blockchain/types.hpp"
+      },
+      {
+          "type_name" : "packet_record_array",
+          "container_type" : "array",
+          "contained_type" : "packet_record"
+      },
+      {
           "type_name" : "optional_packet_record",
           "cpp_return_type" : "fc::optional<bts::blockchain::packet_record>",
           "cpp_include_file" : "bts/blockchain/packet_record.hpp"
