@@ -913,6 +913,11 @@ vector<wallet_account_record> detail::client_impl::wallet_list_accounts() const
 {
   return _wallet->list_accounts();
 }
+    
+vector<wallet_packet_record> detail::client_impl::wallet_list_packets() const
+{
+  return _wallet->list_packets();
+}
 
 void detail::client_impl::wallet_account_rename( const string& current_account_name, const string& new_account_name )
 {

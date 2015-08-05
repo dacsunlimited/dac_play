@@ -60,6 +60,9 @@ namespace bts { namespace wallet {
          owallet_contact_record remove_contact( const variant& data );
          owallet_contact_record remove_contact( const string& label );
 
+         owallet_packet_record  lookup_packet( const packet_id_type& packet_id )const;
+         wallet_packet_record store_packet( const packet_info& packet );
+       
          // Approval getters and setters
          owallet_approval_record lookup_approval( const string& name )const;
          wallet_approval_record  store_approval( const approval_data& approval );
@@ -112,6 +115,7 @@ namespace bts { namespace wallet {
          const unordered_map<address, wallet_key_record>& get_keys()const { return keys; }
          const unordered_map<string, wallet_contact_record>& get_contacts()const { return contacts; }
          const unordered_map<string, wallet_approval_record>& get_approvals()const { return approvals; }
+         const unordered_map<packet_id_type, wallet_packet_record> get_packets()const { return packets; }
 
          unordered_map<transaction_id_type, transaction_ledger_entry>   experimental_transactions;
 
@@ -138,6 +142,8 @@ namespace bts { namespace wallet {
 
          // Cache to lookup transactions
          unordered_map<transaction_id_type, transaction_id_type>        id_to_transaction_record_index;
+       
+         unordered_map<packet_id_type, wallet_packet_record>            packets;
 
          void remove_item( int32_t index );
 

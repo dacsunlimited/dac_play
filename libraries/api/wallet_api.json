@@ -1497,6 +1497,15 @@
          "is_const" : true
       },
       {
+          "method_name" : "wallet_list_packets",
+          "description" : "Lists all packet entries",
+          "return_type" : "wallet_packet_record_array",
+          "parameters"  : [],
+          "prerequisites" : ["wallet_open"],
+          "aliases" : [ "packets" ],
+          "is_const" : true
+      },
+      {
          "method_name" : "wallet_get_account",
          "description" : "Get the specified account entry",
          "return_type" : "owallet_account_record",
