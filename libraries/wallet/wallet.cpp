@@ -4389,6 +4389,18 @@ namespace detail {
 
       return accounts;
    } FC_CAPTURE_AND_RETHROW() }
+    
+    vector<wallet_packet_record> wallet::list_packets() const
+    { try {
+        const auto& packs = my->_wallet_db.get_packets();
+        
+        vector<wallet_packet_record> packets;
+        packets.reserve( packs.size() );
+        for( const auto& item : packs )
+            packets.push_back( item.second );
+        
+        return packets;
+    } FC_CAPTURE_AND_RETHROW() }
 
    vector<wallet_transaction_record> wallet::get_pending_transactions()const
    {

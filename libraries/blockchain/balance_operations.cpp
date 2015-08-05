@@ -492,38 +492,50 @@ namespace bts { namespace blockchain {
         uint16_t MAX_UINT16_T = 65535;
         FC_ASSERT( total_space < MAX_UINT16_T );
         
-        // TODO: testing this, try convert 2 uint32_t to 1 uint64_t(share_type)
-        // selecting [count - 1] from [1 ...... random_space - 1]
-        // 0 -> v[0] + 1
-        // v[0] -> v[1] + 1
-        // ...
-        // v[count-2] + 1 -> total_space
-        // lucky_guys is possible from 0 .... random_space - 2
-        uint16_t k = count - 1;
-        uint16_t N = total_space - 1;
-        auto lucky_guys = bts::utilities::unranking(
-                                                    random_id._hash[0] % bts::utilities::cnr( N, k ), k, N);
-        red_packet_status first_status;
-        first_status.amount = asset( (lucky_guys[0] + 1 - 0) * BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT, amount.asset_id);
-        first_status.account_id = -1;
-        
-        record.claim_statuses.push_back( first_status );
-        
-        for ( uint16_t i = 0; i < (k - 1); i ++ )
+        if ( count > 1 )
         {
-            red_packet_status status;
-            status.amount = asset( (lucky_guys[i + 1] - lucky_guys[i]) * BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT, amount.asset_id);
-            status.account_id = -1;
-            record.claim_statuses.push_back( status );
+            // TODO: testing this, try convert 2 uint32_t to 1 uint64_t(share_type)
+            // selecting [count - 1] from [1 ...... random_space - 1]
+            // 0 -> v[0] + 1
+            // v[0] -> v[1] + 1
+            // ...
+            // v[count-2] + 1 -> total_space
+            // lucky_guys is possible from 0 .... random_space - 2
+            uint16_t k = count - 1;
+            uint16_t N = total_space - 1;
+            auto lucky_guys = bts::utilities::unranking(
+                                                        random_id._hash[0] % bts::utilities::cnr( N, k ), k, N);
+            red_packet_status first_status;
+            first_status.amount = asset( (lucky_guys[0] + 1 - 0) * BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT, amount.asset_id);
+            first_status.account_id = -1;
+            
+            record.claim_statuses.push_back( first_status );
+            
+            for ( uint16_t i = 0; i < (k - 1); i ++ )
+            {
+                red_packet_status status;
+                status.amount = asset( (lucky_guys[i + 1] - lucky_guys[i]) * BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT, amount.asset_id);
+                status.account_id = -1;
+                record.claim_statuses.push_back( status );
+            }
+            
+            red_packet_status last_status;
+            last_status.amount = asset( (total_space - ( lucky_guys[k-1] + 1)) * BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT, amount.asset_id );
+            last_status.account_id = -1;
+            
+            record.claim_statuses.push_back( last_status );
+        }
+        else  // count == 1
+        {
+            red_packet_status only_status;
+            only_status.amount = asset( total_space * BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT, amount.asset_id);
+            only_status.account_id = -1;
+            
+            record.claim_statuses.push_back( only_status );
         }
         
-        red_packet_status last_status;
-        last_status.amount = asset( (total_space - ( lucky_guys[k-1] + 1)) * BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT, amount.asset_id );
-        last_status.account_id = -1;
         
-        record.claim_statuses.push_back( last_status );
-        
-        FC_ASSERT( record.left_packet_amount() == used_packet_amount , "The record is ${record}, the ammount is ${a}", ("record", record)("l", lucky_guys) );
+        FC_ASSERT( record.left_packet_amount() == used_packet_amount , "The record is ${record}, the ammount is ${a}", ("record", record) );
         
         FC_ASSERT( !eval_state.pending_state()->get_packet_record( record.id ).valid() );
         
