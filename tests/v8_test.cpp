@@ -1,6 +1,9 @@
 #include "include/v8.h"
 #include "include/libplatform/libplatform.h"
 
+#include <iostream>
+#include <fstream>
+
 using namespace v8;
 
 Local<Value> parseJson(Isolate* isolate, Handle<Value> jsonString) {
@@ -16,15 +19,36 @@ Local<Value> parseJson(Isolate* isolate, Handle<Value> jsonString) {
     return handle_scope.Escape(JSON_parse->Call(JSON, 1, &jsonString));
 }
 
+class ArrayBufferAllocator : public v8::ArrayBuffer::Allocator {
+public:
+    virtual void* Allocate(size_t length) {
+        void* data = AllocateUninitialized(length);
+        return data == NULL ? data : memset(data, 0, length);
+    }
+    virtual void* AllocateUninitialized(size_t length) { return malloc(length); }
+    virtual void Free(void* data, size_t) { free(data); }
+};
+
 int main(int argc, char* argv[]) {
   // Initialize V8.
   V8::InitializeICU();
   Platform* platform = platform::CreateDefaultPlatform();
   V8::InitializePlatform(platform);
   V8::Initialize();
+    
+    ArrayBufferAllocator* _allocator = new ArrayBufferAllocator();
+    Isolate::CreateParams create_params;
+    create_params.array_buffer_allocator = _allocator;
+    
+    ResourceConstraints rc;
+    rc.set_max_old_space_size(40); //MB
+    rc.set_max_executable_size(40); //MB
+    static const int stack_breathing_room = 1024 * 1024;
+    //uint32_t* set_limit = ComputeStackLimit(stack_breathing_room);
+    rc.set_stack_limit(reinterpret_cast<uint32_t*>((char*)&rc - stack_breathing_room));
 
   // Create a new Isolate and make it the current one.
-  Isolate* isolate = Isolate::New();
+  Isolate* isolate = Isolate::New(create_params);
   {
     Isolate::Scope isolate_scope(isolate);
 
@@ -74,5 +98,6 @@ int main(int argc, char* argv[]) {
   V8::Dispose();
   V8::ShutdownPlatform();
   delete platform;
+  delete _allocator;
   return 0;
 }
