@@ -34,14 +34,14 @@ class BitSharesNode
       @command << " --connect-to=127.0.0.1:#{options[:p2p_port]}"
     end
     @command << " --disable-default-peers"
-    
+
     @url = "http://localhost:#{options[:http_port]}"
   end
 
   def log(s)
     if @logger then @logger.info s else puts s end
   end
-  
+
   def start(wait=false)
     log "starting node '#{@name}', http port: #{@options[:http_port]}, rpc port: #{@options[:rpc_port]}, p2p port: #{@options[:p2p_port]} \n#{@command}"
     log ""
@@ -60,7 +60,7 @@ class BitSharesNode
     end
 
     sleep 1.0
-    
+
     @rpc_instance = BitShares::API::Rpc.new(@options[:http_port], 'user', 'pass', ignore_errors: false, logger: @logger, instance_name: @name)
 
     return
@@ -75,7 +75,7 @@ class BitSharesNode
     rescue
     end
   end
-  
+
   def running
     @rpc_instance != nil
   end
@@ -152,7 +152,10 @@ class BitSharesNode
       break if command == 'exit' or command == 'quit'
       next if command.empty?
       res = @rpc_instance.request('execute_command_line', [command])
-      STDOUT.puts res.gsub('\n', "\n") if res and not res.empty?
+      begin
+        res = res.encode("UTF-16be", :invalid=>:replace, :replace=>"?").encode('UTF-8') unless res.valid_encoding?
+        STDOUT.puts res.gsub('\n', "\n") if res and not res.empty?
+      end
     end
     @rpc_instance.ignore_errors = ignore_errors
     @rpc_instance.echo_off = echo_off
