@@ -11,6 +11,9 @@
 
 #include <bts/game/v8_helper.hpp>
 
+#include <include/list.h>
+#include <include/service.h>
+
 #include <include/v8.h>
 #include <include/libplatform/libplatform.h>
 
