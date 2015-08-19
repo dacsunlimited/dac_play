@@ -5,6 +5,10 @@ add_library( bts_light_wallet
              ${HEADERS}
            )
 
+if(MSVC)
+  set_source_files_properties(light_wallet.cpp PROPERTIES COMPILE_FLAGS "/bigobj /Od")
+endif()
+
 target_link_libraries( bts_light_wallet fc bts_utilities bts_blockchain bts_rpc_stubs )
 target_include_directories( bts_light_wallet
                             PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_BINARY_DIR}/include" )
