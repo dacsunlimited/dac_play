@@ -18,4 +18,5 @@ ${CURL_INCLUDE_DIRS}
 # later, move upnp include into target_include_directories for upnp
 "${CMAKE_CURRENT_SOURCE_DIR}/../../vendor/miniupnp"
 "${CMAKE_CURRENT_SOURCE_DIR}/../../vendor/v8-fibjs/v8"
+"${CMAKE_CURRENT_SOURCE_DIR}/../../vendor/v8-fibjs/exlib"
 )

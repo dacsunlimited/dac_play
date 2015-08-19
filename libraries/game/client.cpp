@@ -53,6 +53,8 @@ namespace bts { namespace game {
           v8::Isolate* _isolate;
           
           ArrayBufferAllocator*  _allocator;
+          
+          exlib::Service*        _service;
          
          fc::path                _data_dir;
           
@@ -97,6 +99,7 @@ namespace bts { namespace game {
          void open(const fc::path& data_dir) {
             try {
                v8::V8::InitializeICU();
+               exlib::Service::init();
                 
                _platform = v8::platform::CreateDefaultPlatform();
                v8::V8::InitializePlatform(_platform);
@@ -113,6 +116,7 @@ namespace bts { namespace game {
                    params.constraints.set_stack_limit(reinterpret_cast<uint32_t*>((char*)&rc - 1024 * 512));
                    https://github.com/v8/v8/blob/master/test/cctest/test-api.cc#L18724
                     */
+                   _service = exlib::Service::current();
                    _allocator = new ArrayBufferAllocator();
                    Isolate::CreateParams create_params;
                    create_params.array_buffer_allocator = _allocator;
