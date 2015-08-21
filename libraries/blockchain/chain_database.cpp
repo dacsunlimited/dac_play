@@ -179,6 +179,8 @@ namespace bts { namespace blockchain {
           _rule_result_transactions_db.open( data_dir / "index/rule_result_transactions_db" );
           _operation_reward_transactions_db.open( data_dir / "index/operation_reward_transactions_db" );
           
+          _recent_operations_db.open( data_dir / "index/recent_operations_db" );
+          
           _game_id_to_record.open ( data_dir / "index/_game_id_to_record");
           _game_name_to_id.open( data_dir / "index/game_symbol_to_id" );
 
@@ -1563,6 +1565,8 @@ namespace bts { namespace blockchain {
                   my->_rule_result_transactions_db.set_write_through ( write_through );
                   my->_operation_reward_transactions_db.set_write_through( write_through );
                   my->_feed_index_to_record.set_write_through( write_through );
+                  
+                  my->_recent_operations_db.set_write_through( write_through );
 
                   my->_ask_db.set_write_through( write_through );
                   my->_bid_db.set_write_through( write_through );
@@ -1764,6 +1768,8 @@ namespace bts { namespace blockchain {
       my->_game_name_to_id.close();
       my->_rule_data_db.close();
       my->_rule_result_transactions_db.close();
+       
+      my->_recent_operations_db.close();
        
       my->_operation_reward_transactions_db.close();
 
@@ -2121,18 +2127,24 @@ namespace bts { namespace blockchain {
 
    vector<operation> chain_database::get_recent_operations(operation_type_enum t)const
    {
-      const auto& recent_op_queue = my->_recent_operations[t];
-      vector<operation> recent_ops(recent_op_queue.size());
-      std::copy(recent_op_queue.begin(), recent_op_queue.end(), recent_ops.begin());
-      return recent_ops;
+       
+      const auto& recent_op_vector = my->_recent_operations_db.fetch_optional( t );
+       if ( recent_op_vector.valid() ) {
+           return *recent_op_vector;
+       } else
+       {
+           return vector<operation>();
+       }
    }
 
    void chain_database::store_recent_operation(const operation& o)
    {
-      auto& recent_op_queue = my->_recent_operations[o.type];
-      recent_op_queue.push_back(o);
-      if( recent_op_queue.size() > MAX_RECENT_OPERATIONS )
-        recent_op_queue.pop_front();
+      auto recent_op_vector = get_recent_operations(o.type);
+       
+      recent_op_vector.push_back(o);
+      if( recent_op_vector.size() > MAX_RECENT_OPERATIONS )
+          recent_op_vector.erase( recent_op_vector.begin() );
+      my->_recent_operations_db.store( o.type, recent_op_vector );
    }
 
    otransaction_record chain_database::get_transaction( const transaction_id_type& trx_id, bool exact )const

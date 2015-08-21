@@ -173,7 +173,7 @@ namespace bts { namespace blockchain {
             bts::db::cached_level_map<uint32_t, std::vector<rule_result_transaction> >          _rule_result_transactions_db;
             bts::db::cached_level_map<uint32_t, std::vector<operation_reward_transaction> >     _operation_reward_transactions_db;
 
-            map<operation_type_enum, std::deque<operation>>                             _recent_operations;
+            bts::db::cached_level_map<uint8_t, std::vector<operation>>                   _recent_operations_db;
             
             mutable std::vector<std::string>                                            _debug_matching_error_log;
       };
