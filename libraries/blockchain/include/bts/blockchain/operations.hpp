@@ -167,6 +167,7 @@ FC_REFLECT_ENUM( bts::blockchain::operation_type_enum,
     )
 
 FC_REFLECT( bts::blockchain::operation, (type)(data) )
+FC_REFLECT_TYPENAME( std::vector<bts::blockchain::operation> )
 
 namespace fc
 {

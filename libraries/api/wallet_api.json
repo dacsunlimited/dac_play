@@ -717,8 +717,7 @@
           {
               "name" : "message",
               "type" : "string",
-              "description" : "a message to post",
-              "default_value" : ""
+              "description" : "a message to post"
           },
           {
               "name" : "password",
