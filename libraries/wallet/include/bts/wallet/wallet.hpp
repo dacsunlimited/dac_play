@@ -299,6 +299,7 @@ namespace bts { namespace wallet {
                                             const string& message,
                                             const string& password,
                                             uint32_t count,
+                                            share_type renpin,
                                             bool sign
                                             );
        

@@ -2897,6 +2897,7 @@ namespace detail {
                                                 const string& message,
                                                 const string& password,
                                                 uint32_t count,
+                                                share_type renpin,
                                                 bool sign
                                                 )
     {try {
@@ -2952,7 +2953,7 @@ namespace detail {
         fc::sha256 hash_effective_seed = fc::sha256::hash( effective_seed.c_str(), effective_seed.length() );
         auto key = fc::ecc::private_key::regenerate( hash_effective_seed );
         
-        trx.red_packet(random_id, asset_for_packet, from_account_rec->id, message, key.get_public_key(), count);
+        trx.red_packet(random_id, asset_for_packet, from_account_rec->id, message, key.get_public_key(), count, renpin);
         
         auto entry = ledger_entry();
         entry.from_account = sender_public_key;
