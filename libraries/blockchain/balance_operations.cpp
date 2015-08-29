@@ -496,7 +496,7 @@ namespace bts { namespace blockchain {
         {
             while ( total_space > (count + 1) * 10) {
                 total_space = total_space / 10;
-                packet_unit = BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT * 10;
+                packet_unit = packet_unit * 10;
             }
             
             fc::sha256 rand_seed = fc::sha256::hash( random_id );
