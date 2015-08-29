@@ -730,6 +730,12 @@
               "type" : "uint32_t",
               "description" : "the count of the red packets",
               "default_value" : 8
+          },
+          {
+              "name" : "renpin",
+              "type" : "int64_t",
+              "description" : "the requirement of claimer's renpin for this packet",
+              "default_value" : 0
           }
           ],
           "prerequisites" : ["wallet_unlocked"],
