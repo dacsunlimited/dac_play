@@ -371,12 +371,12 @@ wallet_transaction_record detail::client_impl::wallet_note(
     return record;
 }
     
-wallet_transaction_record detail::client_impl::wallet_create_red_packet(const std::string& amount_for_packet, const std::string& asset_symbol, const std::string& from_account_name, const std::string& message, const std::string& password, uint32_t count)
+wallet_transaction_record detail::client_impl::wallet_create_red_packet(const std::string& amount_for_packet, const std::string& asset_symbol, const std::string& from_account_name, const std::string& message, const std::string& password, uint32_t count, share_type renpin)
 {
     const asset amount = _chain_db->to_ugly_asset( amount_for_packet, asset_symbol );
     auto record = _wallet->create_red_packet( amount,
                                       from_account_name,
-                                      message, password, count, true );
+                                      message, password, count, renpin, true );
     _wallet->cache_transaction( record );
     network_broadcast_transaction( record.trx );
     return record;

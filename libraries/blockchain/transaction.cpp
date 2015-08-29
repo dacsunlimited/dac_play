@@ -71,7 +71,7 @@ namespace bts { namespace blockchain {
         operations.emplace_back( std::move( op ) );
     }
     
-    void transaction::red_packet( const packet_id_type& random_id, const asset& asset_for_packet, account_id_type from_account_id, const string& message, const public_key_type& pub_key, uint32_t count )
+    void transaction::red_packet( const packet_id_type& random_id, const asset& asset_for_packet, account_id_type from_account_id, const string& message, const public_key_type& pub_key, uint32_t count, share_type renpin )
     {
         red_packet_operation op;
         op.random_id = random_id;
@@ -80,6 +80,13 @@ namespace bts { namespace blockchain {
         op.message = message;
         op.claim_public_key = pub_key;
         op.count = count;
+        
+        if ( renpin >0 )
+        {
+            packet_rp_condition rp_condition;
+            rp_condition.rp = renpin;
+            op.claim_condition = packet_claim_condition( rp_condition );
+        }
         
         operations.emplace_back( std::move( op ) );
     }

@@ -483,10 +483,27 @@ namespace bts { namespace blockchain {
         record.message = message;
         record.claim_condition = claim_condition;
         
-        // using random id as the distribution for the packet allocation, remove dusty
-        uint32_t total_space = amount.amount / BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT;
+        share_type packet_unit = BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT;
         
-        asset used_packet_amount( total_space * BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT, amount.asset_id );
+        // using random id as the distribution for the packet allocation, remove dusty
+        uint32_t total_space = amount.amount / packet_unit;
+        
+        uint64_t rand = random_id._hash[0];
+#ifndef WIN32
+#warning [HARDFORK] Remove this check after PLS_V0_3_1_FORK_BLOCK_NUM has passed
+#endif
+        if ( eval_state.pending_state()->get_head_block_num() > PLS_V0_3_1_FORK_BLOCK_NUM )
+        {
+            while ( total_space > (count + 1) * 10) {
+                total_space = total_space / 10;
+                packet_unit = BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT * 10;
+            }
+            
+            fc::sha256 rand_seed = fc::sha256::hash( random_id );
+            rand = rand_seed._hash[0];
+        }
+        
+        asset used_packet_amount( total_space * packet_unit, amount.asset_id );
         eval_state.sub_balance( used_packet_amount );
         
         uint16_t MAX_UINT16_T = 65535;
@@ -504,9 +521,9 @@ namespace bts { namespace blockchain {
             uint16_t k = count - 1;
             uint16_t N = total_space - 1;
             auto lucky_guys = bts::utilities::unranking(
-                                                        random_id._hash[0] % bts::utilities::cnr( N, k ), k, N);
+                                                        rand % bts::utilities::cnr( N, k ), k, N);
             red_packet_status first_status;
-            first_status.amount = asset( (lucky_guys[0] + 1 - 0) * BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT, amount.asset_id);
+            first_status.amount = asset( (lucky_guys[0] + 1 - 0) * packet_unit, amount.asset_id);
             first_status.account_id = -1;
             
             record.claim_statuses.push_back( first_status );
@@ -514,13 +531,13 @@ namespace bts { namespace blockchain {
             for ( uint16_t i = 0; i < (k - 1); i ++ )
             {
                 red_packet_status status;
-                status.amount = asset( (lucky_guys[i + 1] - lucky_guys[i]) * BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT, amount.asset_id);
+                status.amount = asset( (lucky_guys[i + 1] - lucky_guys[i]) * packet_unit, amount.asset_id);
                 status.account_id = -1;
                 record.claim_statuses.push_back( status );
             }
             
             red_packet_status last_status;
-            last_status.amount = asset( (total_space - ( lucky_guys[k-1] + 1)) * BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT, amount.asset_id );
+            last_status.amount = asset( (total_space - ( lucky_guys[k-1] + 1)) * packet_unit, amount.asset_id );
             last_status.account_id = -1;
             
             record.claim_statuses.push_back( last_status );
@@ -528,7 +545,7 @@ namespace bts { namespace blockchain {
         else  // count == 1
         {
             red_packet_status only_status;
-            only_status.amount = asset( total_space * BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT, amount.asset_id);
+            only_status.amount = asset( total_space * packet_unit, amount.asset_id);
             only_status.account_id = -1;
             
             record.claim_statuses.push_back( only_status );
