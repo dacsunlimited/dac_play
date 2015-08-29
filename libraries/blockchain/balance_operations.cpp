@@ -498,7 +498,7 @@ namespace bts { namespace blockchain {
             auto lucky_guys = bts::utilities::unranking(
                                                         rand % bts::utilities::cnr( N, k ), k, N);
             red_packet_status first_status;
-            first_status.amount = asset( (lucky_guys[0] + 1 - 0) * BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT, amount.asset_id);
+            first_status.amount = asset( (lucky_guys[0] + 1 - 0) * packet_unit, amount.asset_id);
             first_status.account_id = -1;
             
             record.claim_statuses.push_back( first_status );
@@ -506,13 +506,13 @@ namespace bts { namespace blockchain {
             for ( uint16_t i = 0; i < (k - 1); i ++ )
             {
                 red_packet_status status;
-                status.amount = asset( (lucky_guys[i + 1] - lucky_guys[i]) * BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT, amount.asset_id);
+                status.amount = asset( (lucky_guys[i + 1] - lucky_guys[i]) * packet_unit, amount.asset_id);
                 status.account_id = -1;
                 record.claim_statuses.push_back( status );
             }
             
             red_packet_status last_status;
-            last_status.amount = asset( (total_space - ( lucky_guys[k-1] + 1)) * BTS_BLOCKCHAIN_MIN_RED_PACKET_UNIT, amount.asset_id );
+            last_status.amount = asset( (total_space - ( lucky_guys[k-1] + 1)) * packet_unit, amount.asset_id );
             last_status.account_id = -1;
             
             record.claim_statuses.push_back( last_status );
