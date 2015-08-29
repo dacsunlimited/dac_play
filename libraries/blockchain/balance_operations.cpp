@@ -454,7 +454,7 @@ namespace bts { namespace blockchain {
         
         FC_ASSERT( amount.asset_id == 0 );
         FC_ASSERT( this->count > 0 );
-        FC_ASSERT( this->count <= 100 );
+        FC_ASSERT( this->count <= 30 );
         
         FC_ASSERT( message.size() < 100 );
         
@@ -494,9 +494,9 @@ namespace bts { namespace blockchain {
 #endif
         if ( eval_state.pending_state()->get_head_block_num() > PLS_V0_3_1_FORK_BLOCK_NUM )
         {
-            while ( total_space > (count + 1) * 10) {
-                total_space = total_space / 10;
-                packet_unit = packet_unit * 10;
+            while ( total_space > (count + 1) * 2) {
+                total_space = total_space / 2;
+                packet_unit = packet_unit * 2;
             }
             
             fc::sha256 rand_seed = fc::sha256::hash( random_id );
