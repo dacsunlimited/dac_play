@@ -435,7 +435,7 @@ namespace bts { namespace blockchain {
         
         FC_ASSERT( amount.asset_id == 0 );
         FC_ASSERT( this->count > 0 );
-        FC_ASSERT( this->count <= 100 );
+        FC_ASSERT( this->count <= 30 );
         
         FC_ASSERT( message.size() < 100 );
         
@@ -469,9 +469,9 @@ namespace bts { namespace blockchain {
         // using random id as the distribution for the packet allocation, remove dusty
         uint32_t total_space = amount.amount / packet_unit;
         
-        while ( total_space > (count + 1) * 10) {
-            total_space = total_space / 10;
-            packet_unit = packet_unit * 10;
+        while ( total_space > (count + 1) * 2) {
+            total_space = total_space / 2;
+            packet_unit = packet_unit * 2;
         }
         
         // uint64_t rand = random_id._hash[0];
