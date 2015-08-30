@@ -454,7 +454,11 @@ namespace bts { namespace blockchain {
         
         FC_ASSERT( amount.asset_id == 0 );
         FC_ASSERT( this->count > 0 );
-        FC_ASSERT( this->count <= 30 );
+
+        if ( eval_state.pending_state()->get_head_block_num() > PLS_V0_3_1_FORK_BLOCK_NUM )
+          FC_ASSERT( this->count <= 30 );
+        else
+          FC_ASSERT( this->count <= 100 );
         
         FC_ASSERT( message.size() < 100 );
         
