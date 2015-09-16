@@ -588,7 +588,7 @@ namespace bts { namespace game {
                        {
                            FC_ASSERT( s.is_object() );
                            auto supply_change = s.as<asset>();
-                           auto game_base_asset_record = blockchain->get_asset_record( supply_change.asset_id );
+                           auto game_base_asset_record = pending_state->get_asset_record( supply_change.asset_id );
                            FC_ASSERT( game_base_asset_record.valid() );
                            FC_ASSERT( game_base_asset_record->is_game_issued() );
                            FC_ASSERT( game_base_asset_record->issuer.issuer_id == game_id, "Updating the game asset must get the permission, with the condition that the issuer is this game." );
