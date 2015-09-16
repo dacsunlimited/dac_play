@@ -458,7 +458,7 @@ namespace bts { namespace blockchain {
                reported_delta += record->current_supply;
 
            if( reported_delta != actual_delta )
-               FC_CAPTURE_AND_THROW( unexpected_supply_change, (id)(actual_delta)(reported_delta) );
+               FC_CAPTURE_AND_THROW( unexpected_supply_change, (id)(actual_delta)(reported_delta)(*record) );
        }
    }
 
