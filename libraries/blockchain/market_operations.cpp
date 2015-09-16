@@ -172,6 +172,8 @@ namespace bts { namespace blockchain {
        asset_to_buy->current_supply += this->amount.amount;
        // TODO: Dice, do we need to update the asset 0's current supply, no. Because it is just become the collateral of chips.
        
+       asset_to_buy->last_update = eval_state.pending_state()->now();
+       ilog( "Storing asset: ${a}", ("a",*asset_to_buy) );
        eval_state.pending_state()->store_asset_record( *asset_to_buy );
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
