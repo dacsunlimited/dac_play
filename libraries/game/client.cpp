@@ -104,6 +104,7 @@ namespace bts { namespace game {
                _platform = v8::platform::CreateDefaultPlatform();
                v8::V8::InitializePlatform(_platform);
                v8::V8::Initialize();
+                
                
                _isolate = v8::Isolate::GetCurrent();
                if ( _isolate == NULL )
@@ -127,6 +128,8 @@ namespace bts { namespace game {
                    static const int stack_breathing_room = 1024 * 1024;
 //uint32_t* set_limit = ComputeStackLimit(stack_breathing_room);
                    rc.set_stack_limit(reinterpret_cast<uint32_t*>((char*)&rc - stack_breathing_room));
+                   
+                   create_params.constraints = rc;
                    
                    _isolate = v8::Isolate::New(create_params);
                    

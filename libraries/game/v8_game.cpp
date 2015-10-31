@@ -19,7 +19,7 @@ namespace bts { namespace game {
          std::string                        _game_name;
          Isolate*                           _isolate;
          v8::Persistent<Context>            _context;
-         //v8::Persistent<Script>            _execute_script;
+         v8::Persistent<Script>            _execute_script;
          
          v8_game_engine_impl(v8_game_engine* self, bts::game::client* client)
          : self(self), _client(client)
@@ -30,7 +30,7 @@ namespace bts { namespace game {
          ~v8_game_engine_impl(){
              
             _context.Reset();
-            //_execute_script.Reset();
+            _execute_script.Reset();
 
          }
          
@@ -240,9 +240,31 @@ namespace bts { namespace game {
       
        auto isolate = my->GetIsolate();
        v8::Locker locker(isolate);
+       
+       // crash when using game_play #162
+       // https://github.com/bitsuperlab/cpp-play/issues/162#issuecomment-14764010
+       //
+       // below is a temp fix for #162
+       // play() is in a new fiber,which has its own stack, though it's in a same thread as execute()
+       // so we need to adjust the stacklimit to make V8 believe that there is no stackoverfow happens
+       //
+       // basically, we should set a non-default stack limit separately for each thread, and i think this
+       // also apply to fibers.
+       //
+       // final solution should be adjust the stacklimit on fiber_switch(), which need more research.
+       //
+       // https://codereview.chromium.org/572243002/diff/1/Source/bindings/core/v8/V8Initializer.cpp
+       
+       uint32_t here;
+       static const int kWorkerMaxStackSize = 500 * 1024;
+       isolate->SetStackLimit(reinterpret_cast<uintptr_t>(&here - kWorkerMaxStackSize / sizeof(uint32_t*)));
+
        Isolate::Scope isolate_scope(my->GetIsolate());
        v8::HandleScope handle_scope( isolate );
+       
        v8::Local<v8::Context> context = v8::Local<v8::Context>::New(isolate, my->_context);
+       
+       
        // Entering the context
        Context::Scope context_scope(context);
        

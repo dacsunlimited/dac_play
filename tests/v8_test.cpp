@@ -48,6 +48,8 @@ int main(int argc, char* argv[]) {
     //uint32_t* set_limit = ComputeStackLimit(stack_breathing_room);
     rc.set_stack_limit(reinterpret_cast<uint32_t*>((char*)&rc - stack_breathing_room));
 
+    create_params.constraints = rc;
+    
   // Create a new Isolate and make it the current one.
   Isolate* isolate = Isolate::New(create_params);
   {
