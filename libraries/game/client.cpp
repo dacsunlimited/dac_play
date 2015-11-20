@@ -298,4 +298,11 @@ namespace bts { namespace game {
    {
       
    }
+    
+    void* client::get_isolate(/*const std::string& game_name*/)
+    {
+        return my->_isolate;
+    }
+    
+    
 } } // bts:game

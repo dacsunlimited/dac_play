@@ -15,7 +15,6 @@ namespace bts { namespace game {
    using namespace bts::blockchain;
    using namespace bts::wallet;
    
-   class client;
    namespace detail { class v8_game_engine_impl; }
     
     struct play_code
