@@ -43,6 +43,9 @@ namespace bts { namespace game {
        
        void execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state );
       
+       
+       void* get_isolate(/*const std::string& game_name*/);
+       
        static client& get_current();
        
       // TODO: store the script to related game id

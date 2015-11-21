@@ -38,7 +38,10 @@ namespace bts { namespace game {
          {
             // Refer http://v8.googlecode.com/svn/trunk/samples/process.cc
             // Deprecated: fc::path script_path( _client->get_data_dir() / (_game_name + ".js") );
-            _isolate = v8::Isolate::GetCurrent();
+            
+            //_isolate = v8::Isolate::GetCurrent();
+            _isolate = (Isolate*)_client->get_isolate();
+             
             v8::Locker locker(_isolate);
             Isolate::Scope isolate_scope(_isolate);
             HandleScope handle_scope(_isolate);
@@ -255,9 +258,9 @@ namespace bts { namespace game {
        //
        // https://codereview.chromium.org/572243002/diff/1/Source/bindings/core/v8/V8Initializer.cpp
        
-       uint32_t here;
-       static const int kWorkerMaxStackSize = 500 * 1024;
-       isolate->SetStackLimit(reinterpret_cast<uintptr_t>(&here - kWorkerMaxStackSize / sizeof(uint32_t*)));
+//       uint32_t here;
+//       static const int kWorkerMaxStackSize = 500 * 1024;
+//       isolate->SetStackLimit(reinterpret_cast<uintptr_t>(&here - kWorkerMaxStackSize / sizeof(uint32_t*)));
 
        Isolate::Scope isolate_scope(my->GetIsolate());
        v8::HandleScope handle_scope( isolate );

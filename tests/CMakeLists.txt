@@ -100,7 +100,7 @@ add_executable( util_cnr_test util_cnr_test.cpp)
 target_link_libraries( util_cnr_test bts_utilities fc )
 
 add_executable( v8_test v8_test.cpp)
-target_link_libraries( v8_test exlib v8 )
+target_link_libraries( v8_test exlib v8 fc)
 
 target_include_directories( v8_test 
 PUBLIC
