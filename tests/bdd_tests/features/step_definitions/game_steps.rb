@@ -10,6 +10,13 @@ Given(/^I created a game called (\w+)$/) do |name|
   actor.node.exec 'game_create', name, account, 'https://raw.githubusercontent.com/dacsunlimited/dacplay-game-samples/master/dice/dice.js', '000', 'The game of dice', ""
 end
 
+Given(/^I updated a game called (\w+)$/) do |name|
+  actor = @current_actor
+  account = @current_actor.account
+  actor.node.exec 'game_update', account, name, 'https://raw.githubusercontent.com/dacsunlimited/dacplay-game-samples/master/dice/dice.js', '000', 'The game of dice', ""
+end
+
+
 When(/^I buy for (\d+) (\w+) chip/) do |amount, symbol|
   @current_actor.node.exec 'game_buy_chips', @current_actor.account, amount, symbol
 end
