@@ -48,9 +48,9 @@ namespace bts { namespace game {
             
             std::string str_to_hash(v8_helper::ToCString(String::Utf8Value(args[0]->ToString(args.GetIsolate()))));
             
-            wlog("The input string for hash is ${s}", ("s", str_to_hash) );
+            //wlog("The input string for hash is ${s}", ("s", str_to_hash) );
             auto hash = fc::ripemd160::hash( str_to_hash );
-            wlog("The result string for hash is ${s}", ("s", hash) );
+            //wlog("The result string for hash is ${s}", ("s", hash) );
             
             //args.GetReturnValue().Set( v8_helper::cpp_to_json( args.GetIsolate(), hash ) );
             args.GetReturnValue().Set( String::NewFromUtf8(args.GetIsolate(), hash.str().c_str() ) );

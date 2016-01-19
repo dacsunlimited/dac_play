@@ -49,19 +49,19 @@ namespace bts { namespace game {
             v8::Handle<v8::Context> context = v8_helper::CreateShellContext(_isolate);
             if (context.IsEmpty()) {
                 String::Utf8Value error(try_catch.Exception());
-                wlog("Error creating context in game ${name}, error is ${e}", ("name", _game_name)("e", *error));
+                // wlog("Error creating context in game ${name}, error is ${e}", ("name", _game_name)("e", *error));
                 FC_CAPTURE_AND_THROW(failed_game_engine_init);
             }
             _context.Reset(_isolate, context);
             
             Context::Scope context_scope(context);
             
-            ilog("The game is ${s}", ("s", _game_name ));
+            //ilog("The game is ${s}", ("s", _game_name ));
              
              auto ogame_rec = _client->get_chain_database()->get_game_record( _game_name );
              FC_ASSERT( ogame_rec.valid() );
              
-             wlog("testing.........3");
+             //wlog("testing.........3");
             
             //v8::Handle<v8::String> source = v8_helper::ReadFile( _isolate, script_path.to_native_ansi_path().c_str() );
              v8::Handle<v8::String> source = v8::String::NewFromUtf8( GetIsolate(), ogame_rec->script_code.c_str() );
@@ -75,7 +75,7 @@ namespace bts { namespace game {
              
             String::Utf8Value utf8_source(source);
             Handle<Script> script = Script::Compile(source);
-             wlog("testing.........4");
+            //wlog("testing.........4");
             if ( script.IsEmpty() )
             {
                 // The TryCatch above is still in effect and will have caught the error.
@@ -84,13 +84,13 @@ namespace bts { namespace game {
             {
                 // Run the script to get the result.
                 Handle<Value> result = script->Run();
-                wlog("testing.........5");
+                //wlog("testing.........5");
                 if ( result.IsEmpty() )
                 {
                     FC_CAPTURE_AND_THROW(failed_run_script, (v8_helper::ReportException(GetIsolate(), &try_catch)));
                 } else
                 {
-                    wlog("The result of the running of script is ${s}", ( "s",  v8_helper::ToCString(String::Utf8Value(result)) ));
+                    //wlog("The result of the running of script is ${s}", ( "s",  v8_helper::ToCString(String::Utf8Value(result)) ));
                 }
             }
          }
@@ -137,7 +137,7 @@ namespace bts { namespace game {
            
            Local<Value> result = evaluate_func->Call(context->Global(), 3, argv);
        
-           wlog("Start evaluating the game.. with var ${v}", ("v", var));
+           //wlog("Start evaluating the game.. with var ${v}", ("v", var));
            
            if ( result.IsEmpty() )
            {
@@ -145,7 +145,7 @@ namespace bts { namespace game {
            } else
            {
                auto result_obj = v8_helper::json_to_cpp<variant>( isolate, result );
-               wlog("The result of the running of script is ${s}", ( "s",  result_obj ));
+               //wlog("The result of the running of script is ${s}", ( "s",  result_obj ));
                
                FC_ASSERT( result_obj.is_object() );
                FC_ASSERT( result_obj.get_object().contains( "to_balances" ) );
@@ -289,7 +289,7 @@ namespace bts { namespace game {
            auto _input = var; // TODO: convert/parse it to a v8 javascript object
            argv[2] = v8_helper::cpp_to_json(isolate, _input);
            
-           wlog("Start game play script.. with var ${v}", ("v", var));
+           // wlog("Start game play script.. with var ${v}", ("v", var));
            Local<Value> result = play_func->Call(context->Global(), 3, argv);
            
            if ( result.IsEmpty() )
@@ -298,7 +298,7 @@ namespace bts { namespace game {
            } else
            {
                auto v = v8_helper::json_to_cpp<variant>(isolate, result);
-               wlog("The result of the running of script is ${s}", ( "s",  v ));
+               // wlog("The result of the running of script is ${s}", ( "s",  v ));
                FC_ASSERT( v.is_array(), "The script result should be array!");
                
                while ( v.is_array() )
@@ -423,7 +423,7 @@ namespace bts { namespace game {
            } else
            {
                auto v = v8_helper::json_to_cpp<variant>(isolate, result);
-               wlog("The result of the running of script is ${s}", ( "s", v ));
+               // wlog("The result of the running of script is ${s}", ( "s", v ));
                
                FC_ASSERT( v.is_object() && v.get_object().contains("wallet_trx_record") && v.get_object().contains( "has_deposit" ));
                
@@ -479,7 +479,7 @@ namespace bts { namespace game {
            } else
            {
                variant v = v8_helper::json_to_cpp<variant>(isolate, result);
-               wlog("The result of the running of script is ${s}", ( "s",  v) );
+               //wlog("The result of the running of script is ${s}", ( "s",  v) );
                return v.as_bool();
            }
        }
@@ -515,7 +515,7 @@ namespace bts { namespace game {
                argv[2] = v8_chainstate::New(my->GetIsolate(), pending_state);
                
                // Run the script to get the result.
-               wlog("Run the script to get the result...");
+               // wlog("Run the script to get the result...");
                Local<Value> result = execute_func->Call(context->Global(), 3, argv);
                
                if ( result.IsEmpty() )
@@ -528,10 +528,10 @@ namespace bts { namespace game {
                     // TOOD: return the result
                    //}
                    auto v = v8_helper::json_to_cpp<variant>(my->GetIsolate(), result);
-                   wlog("The result of the running of script is ${s}", ( "s",  v ));
+                   // wlog("The result of the running of script is ${s}", ( "s",  v ));
                    if ( v.is_numeric() && v.as_int64() == 0 )
                    {
-                       wlog("Nothing is done...");
+                       // wlog("Nothing is done...");
                    } else
                    {
                        FC_ASSERT( v.is_object() );
@@ -626,12 +626,12 @@ namespace bts { namespace game {
                    }
                }
            }
-           wlog("End running the script in game engine...");
+           // wlog("End running the script in game engine...");
            
        }
        catch( const fc::exception& e )
        {
-           wlog( "error executing game contract  ${game_id}\n ${e}", ("game_id", game_id)("e",e.to_detail_string()) );
+           // wlog( "error executing game contract  ${game_id}\n ${e}", ("game_id", game_id)("e",e.to_detail_string()) );
            
            ogame_status game_stat = pending_state->get_game_status( game_id );
            if( !game_stat.valid() ) game_stat = game_status( game_id );
