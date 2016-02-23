@@ -427,7 +427,7 @@ namespace bts { namespace game {
             if ( key.valid() )
             {
                 // return the value
-                args.GetReturnValue().Set( v8_helper::cpp_to_json(args.GetIsolate(), key) );
+                args.GetReturnValue().Set( v8_helper::cpp_to_json(args.GetIsolate(), *key) );
             } else
             {
                 args.GetReturnValue().Set( v8::Null(args.GetIsolate() ) );
