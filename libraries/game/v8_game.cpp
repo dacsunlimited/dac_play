@@ -19,7 +19,6 @@ namespace bts { namespace game {
          std::string                        _game_name;
          Isolate*                           _isolate;
          v8::Persistent<Context>            _context;
-         v8::Persistent<Script>            _execute_script;
          
          v8_game_engine_impl(v8_game_engine* self, bts::game::client* client)
          : self(self), _client(client)
@@ -28,10 +27,7 @@ namespace bts { namespace game {
          }
          
          ~v8_game_engine_impl(){
-             
             _context.Reset();
-            _execute_script.Reset();
-
          }
          
          void init()
@@ -57,13 +53,10 @@ namespace bts { namespace game {
             Context::Scope context_scope(context);
             
             //ilog("The game is ${s}", ("s", _game_name ));
-             
-             auto ogame_rec = _client->get_chain_database()->get_game_record( _game_name );
+            
+             auto ogame_rec = _client->get_chain_database()->get_pending_state()->get_game_record( _game_name );
              FC_ASSERT( ogame_rec.valid() );
              
-             //wlog("testing.........3");
-            
-            //v8::Handle<v8::String> source = v8_helper::ReadFile( _isolate, script_path.to_native_ansi_path().c_str() );
              v8::Handle<v8::String> source = v8::String::NewFromUtf8( GetIsolate(), ogame_rec->script_code.c_str() );
              
              if (source.IsEmpty()) {
@@ -75,7 +68,7 @@ namespace bts { namespace game {
              
             String::Utf8Value utf8_source(source);
             Handle<Script> script = Script::Compile(source);
-            //wlog("testing.........4");
+            
             if ( script.IsEmpty() )
             {
                 // The TryCatch above is still in effect and will have caught the error.
@@ -84,13 +77,14 @@ namespace bts { namespace game {
             {
                 // Run the script to get the result.
                 Handle<Value> result = script->Run();
-                //wlog("testing.........5");
+
                 if ( result.IsEmpty() )
                 {
                     FC_CAPTURE_AND_THROW(failed_run_script, (v8_helper::ReportException(GetIsolate(), &try_catch)));
                 } else
                 {
-                    //wlog("The result of the running of script is ${s}", ( "s",  v8_helper::ToCString(String::Utf8Value(result)) ));
+                    wlog("Successfull to init the game engine.");
+                    wlog("Script init result is ${s}", ( "s",  v8_helper::ToCString(String::Utf8Value(result)) ));
                 }
             }
          }

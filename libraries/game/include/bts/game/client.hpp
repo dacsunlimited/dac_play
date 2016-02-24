@@ -29,8 +29,6 @@ namespace bts { namespace game {
        
       void     open(const fc::path& data_dir);
       
-      bool     scan_create_game( const create_game_operation& op );
-      
       void     close();
       
       fc::path get_data_dir()const;
@@ -39,7 +37,7 @@ namespace bts { namespace game {
        
        v8_game_engine_ptr get_v8_engine(const std::string& game_name);
        
-       v8_game_engine_ptr reset_v8_engine(const std::string& game_name);
+       v8_game_engine_ptr reinstall_game_engine(const std::string& game_name);
        
        void execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state );
       

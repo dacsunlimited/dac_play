@@ -444,14 +444,13 @@ wallet_transaction_record wallet_impl::scan_transaction(
                 store_record |= scan_buy_chips( op.as<buy_chips_operation>(), *transaction_record, total_fee );
                 break;
             case create_game_op_type:
-                // TODO
-                store_record |= _game_client->scan_create_game( op.as<create_game_operation>() );
+                store_record |= scan_create_game( op.as<create_game_operation>(), *transaction_record, total_fee );
                 break;
             case game_play_op_type:
                 store_record |= scan_game_play( op.as<game_play_operation>(), *transaction_record );
                 break;
             case game_update_op_type:
-                // TODO:
+                store_record |= scan_game_update( op.as<game_update_operation>(), *transaction_record, total_fee );
                 break;
             default:
                 break;
@@ -1899,6 +1898,45 @@ bool wallet_impl::scan_buy_chips( const buy_chips_operation& op, wallet_transact
    }
    return false;
 } FC_CAPTURE_AND_RETHROW( (op) ) }
+
+bool wallet_impl::scan_create_game( const create_game_operation& op, wallet_transaction_record& trx_rec, asset& total_fee )
+{ try {
+    //_game_client->install_game_engine( op );
+    
+    auto oaccount = _blockchain->get_account_record(op.owner_account_id);
+    if ( oaccount.valid() )
+    {
+        auto okey_rec = _wallet_db.lookup_key( oaccount->owner_key );
+        if( okey_rec.valid() && okey_rec->has_private_key() )
+        {
+            return true;
+        }
+    }
+    
+    return false;
+} FC_CAPTURE_AND_RETHROW( (op) )}
+
+bool wallet_impl::scan_game_update( const game_update_operation& op, wallet_transaction_record& trx_rec, asset& total_fee )
+{ try {
+    //_game_client->reinstall_game_engine( op );
+    
+    auto ogame = _blockchain->get_game_record(op.game_id);
+    
+    if ( ogame.valid() )
+    {
+        auto oaccount = _blockchain->get_account_record(ogame->owner_account_id);
+        if ( oaccount.valid() )
+        {
+            auto okey_rec = _wallet_db.lookup_key( oaccount->owner_key );
+            if( okey_rec.valid() && okey_rec->has_private_key() )
+            {
+                return true;
+            }
+        }
+    }
+    
+    return false;
+} FC_CAPTURE_AND_RETHROW( (op) )}
 
 account_balance_summary_type wallet::compute_historic_balance( const string &account_name,
                                                                   uint32_t block_num )const

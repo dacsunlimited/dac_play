@@ -86,11 +86,11 @@ namespace bts { namespace game {
         // bts::game::client::get_current().game_claimed_script( script_code, current_game_record->name );
         
         try {
-            bts::game::client::get_current().reset_v8_engine( current_game_record->name );
+            bts::game::client::get_current().reinstall_game_engine( current_game_record->name );
         }
         catch (const game_engine_not_found& e)
         {
-            wlog("game engine note found, failed to init for unknown reason during evaluate operation");
+            wlog("game engine not found, failed to init for unknown reason during evaluate operation");
         }
         
     } FC_CAPTURE_AND_RETHROW( (*this) ) }

@@ -165,7 +165,7 @@ namespace bts { namespace game {
             }
          }
           
-          void   register_game_engine(const std::string& game_name, v8_game_engine_ptr engine_ptr )
+          void   install_game_engine(const std::string& game_name, v8_game_engine_ptr engine_ptr )
           {
               FC_ASSERT( _engines.find( game_name ) == _engines.end(),
                         "Game Name already Registered ${name}", ("name", game_name) );
@@ -176,7 +176,7 @@ namespace bts { namespace game {
               }
           }
           
-          void init_game_engine_if_not_exist(const std::string& game_name)
+          void install_game_engine_if_not(const std::string& game_name)
           {
               auto itr = _engines.find( game_name );
               
@@ -184,7 +184,7 @@ namespace bts { namespace game {
               {
                   try
                   {
-                      register_game_engine(game_name, std::make_shared< v8_game_engine > (game_name, self));
+                      install_game_engine(game_name, std::make_shared< v8_game_engine > (game_name, self));
                   } catch ( const fc::exception& e )
                   {
                       wlog("game engine register failed: ${x}", ("x",e.to_detail_string()));
@@ -237,15 +237,6 @@ namespace bts { namespace game {
        current = this;
    };
    
-   bool client::scan_create_game( const create_game_operation& op )
-   {
-      // Scan the create game operation
-       
-      // my->init_game_engine_if_not_exist( op.name );
-      
-      return false;
-   }
-   
    fc::path client::get_data_dir()const
    {
       return my->_data_dir;
@@ -272,7 +263,7 @@ namespace bts { namespace game {
     
     v8_game_engine_ptr client::get_v8_engine(const std::string& game_name)
     {
-        my->init_game_engine_if_not_exist(game_name);
+        my->install_game_engine_if_not(game_name);
         
         auto itr = my->_engines.find( game_name );
         if( itr == my->_engines.end() )
@@ -280,7 +271,7 @@ namespace bts { namespace game {
         return itr->second;
     }
     
-    v8_game_engine_ptr client::reset_v8_engine(const std::string& game_name)
+    v8_game_engine_ptr client::reinstall_game_engine(const std::string& game_name)
     {
         auto itr = my->_engines.find( game_name );
         if( itr != my->_engines.end() )

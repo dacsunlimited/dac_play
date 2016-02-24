@@ -133,6 +133,10 @@ class wallet_impl : public chain_observer
       bool scan_game_play( const bts::game::game_play_operation& op, wallet_transaction_record& trx_rec );
    
       bool scan_buy_chips( const buy_chips_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
+    
+      bool scan_create_game( const bts::game::create_game_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
+    
+      bool scan_game_update( const bts::game::game_update_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
 
       bool scan_burn( const burn_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
     
