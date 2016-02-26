@@ -54,7 +54,7 @@ namespace bts { namespace game {
             
             //ilog("The game is ${s}", ("s", _game_name ));
             
-             auto ogame_rec = _client->get_chain_database()->get_pending_state()->get_game_record( _game_name );
+             auto ogame_rec = _client->get_chain_database()->get_game_record( _game_name );
              FC_ASSERT( ogame_rec.valid() );
              
              v8::Handle<v8::String> source = v8::String::NewFromUtf8( GetIsolate(), ogame_rec->script_code.c_str() );

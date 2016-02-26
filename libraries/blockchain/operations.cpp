@@ -5,7 +5,6 @@
 #include <bts/blockchain/feed_operations.hpp>
 #include <bts/blockchain/market_operations.hpp>
 #include <bts/blockchain/operation_factory.hpp>
-#include <bts/blockchain/game_executors.hpp>
 #include <bts/blockchain/operations.hpp>
 #include <bts/blockchain/slate_operations.hpp>
 
@@ -107,12 +106,6 @@ namespace bts { namespace blockchain {
         FC_ASSERT( converter_itr != _converters.end() );
         converter_itr->second->to_variant( in, output );
     } FC_CAPTURE_AND_RETHROW() }
-   
-    game_executors& game_executors::instance()
-    {
-       static std::unique_ptr<game_executors> inst( new game_executors() );
-       return *inst;
-    }
 
     void operation_factory::from_variant( const fc::variant& in, bts::blockchain::operation& output )
     { try {

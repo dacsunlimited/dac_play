@@ -82,17 +82,6 @@ namespace bts { namespace game {
         
         eval_state.pending_state()->store_game_record( *current_game_record );
         
-        // only for debuging (download the script)
-        // bts::game::client::get_current().game_claimed_script( script_code, current_game_record->name );
-        
-        try {
-            bts::game::client::get_current().reinstall_game_engine( current_game_record->name );
-        }
-        catch (const game_engine_not_found& e)
-        {
-            wlog("game engine not found, failed to init for unknown reason during evaluate operation");
-        }
-        
     } FC_CAPTURE_AND_RETHROW( (*this) ) }
 
     /**

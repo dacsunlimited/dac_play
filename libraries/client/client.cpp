@@ -1330,6 +1330,8 @@ void client::open( const path& data_dir, const fc::optional<fc::path>& genesis_f
    
     my->_game_client = std::make_shared<bts::game::client>( my->_chain_db );
     my->_game_client->open( data_dir / "game_client" );
+    
+    my->_chain_db->set_game_interface(my->_game_client.get());
 
     my->_wallet = std::make_shared<bts::wallet::wallet>( my->_chain_db, my->_game_client, my->_config.wallet_enabled );
     my->_wallet->set_data_directory( data_dir / "wallets" );

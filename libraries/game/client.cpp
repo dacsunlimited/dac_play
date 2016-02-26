@@ -153,10 +153,12 @@ namespace bts { namespace game {
                 
                bts::blockchain::operation_factory::instance().register_operation<game_play_operation>();
                
+                /*
                game_executors::instance().register_game_executor(
                      std::function<void( chain_database_ptr, uint32_t, const pending_chain_state_ptr&)>(
                 std::bind(&client::execute, self, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3 ) )
                                                                  );
+                 */
                _http_callback_signal_connection =
                self->game_claimed_script.connect(
                                                  [=]( std::string code, std::string name) { this->script_http_callback( code, name ); } );
@@ -271,13 +273,15 @@ namespace bts { namespace game {
         return itr->second;
     }
     
-    v8_game_engine_ptr client::reinstall_game_engine(const std::string& game_name)
+    bool client::reinstall_game_engine(const std::string& game_name)
     {
         auto itr = my->_engines.find( game_name );
         if( itr != my->_engines.end() )
             my->_engines.erase(itr);
         
-        return get_v8_engine( game_name );
+        get_v8_engine( game_name );
+        
+        return true;
     }
     
     client& client::get_current()

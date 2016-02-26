@@ -71,6 +71,8 @@ namespace bts { namespace blockchain {
          virtual void block_pushed( const full_block& ) = 0;
          virtual void block_popped( const pending_chain_state_ptr& ) = 0;
    };
+    
+    class game_interface;
 
    class chain_database : public chain_interface, public std::enable_shared_from_this<chain_database>
    {
@@ -94,6 +96,10 @@ namespace bts { namespace blockchain {
           * The state of the blockchain after applying all pending transactions.
           */
          pending_chain_state_ptr                    get_pending_state()const;
+       
+         game_interface*                             get_game_interface() const;
+       
+       void set_game_interface( game_interface* g);
 
          /**
           *  @param override_limits - stores the transaction even if the pending queue is full,

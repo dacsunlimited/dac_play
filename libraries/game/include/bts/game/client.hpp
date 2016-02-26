@@ -7,7 +7,7 @@
 #include <bts/blockchain/exceptions.hpp>
 #include <bts/blockchain/transaction_evaluation_state.hpp>
 #include <bts/blockchain/chain_interface.hpp>
-#include <bts/blockchain/game_executors.hpp>
+#include <bts/blockchain/game_interface.hpp>
 
 #include <map>
 
@@ -21,7 +21,7 @@ namespace bts { namespace game {
    struct create_game_operation;
    namespace detail { class client_impl; }
     
-   class client
+   class client : public game_interface
    {
    public:
       client(chain_database_ptr chain);
@@ -37,7 +37,7 @@ namespace bts { namespace game {
        
        v8_game_engine_ptr get_v8_engine(const std::string& game_name);
        
-       v8_game_engine_ptr reinstall_game_engine(const std::string& game_name);
+       bool reinstall_game_engine(const std::string& game_name);
        
        void execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state );
       

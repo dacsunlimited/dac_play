@@ -4,7 +4,6 @@
 #include <bts/game/rule_record.hpp>
 #include <bts/blockchain/transaction_evaluation_state.hpp>
 #include <bts/blockchain/chain_interface.hpp>
-#include <bts/blockchain/game_executors.hpp>
 
 #include <bts/wallet/wallet.hpp>
 #include <bts/wallet/wallet_records.hpp>

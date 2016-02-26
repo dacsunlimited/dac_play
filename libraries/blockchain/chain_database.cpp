@@ -8,8 +8,8 @@
 #include <bts/blockchain/genesis_state.hpp>
 #include <bts/blockchain/genesis_json.hpp>
 #include <bts/blockchain/market_engine.hpp>
+#include <bts/blockchain/game_interface.hpp>
 #include <bts/blockchain/time.hpp>
-#include <bts/blockchain/game_executors.hpp>
 #include <bts/utilities/combinatorics.hpp>
 
 #include <fc/io/fstream.hpp>
@@ -1305,8 +1305,13 @@ namespace bts { namespace blockchain {
             update_random_seed( block_data.previous_secret, pending_state, block_record );
              
             pay_operation_rewards( block_data.block_num, block_data.timestamp, pending_state );
-
-            game_executors::instance().execute( self->shared_from_this(), block_data.block_num, pending_state);
+             
+             game_interface* g_interface = self->get_game_interface();
+             
+             if ( g_interface != nullptr )
+             {
+                 g_interface->execute( self->shared_from_this(), block_data.block_num, pending_state);
+             }
 
 #ifdef BTS_TEST_NETWORK
             pending_state->check_supplies();
@@ -2911,6 +2916,16 @@ namespace bts { namespace blockchain {
    {
       return my->_pending_trx_state;
    }
+    
+   game_interface*         chain_database::get_game_interface() const
+    {
+        return my->_game_interface;
+    }
+    
+    void chain_database::set_game_interface( game_interface* g)
+    {
+        my->_game_interface = g;
+    }
 
    void chain_database::store_market_history_record(const market_history_key& key, const market_history_record& record)
    {
@@ -3723,6 +3738,20 @@ namespace bts { namespace blockchain {
    void chain_database::game_insert_into_name_map( const string& symbol, const game_id_type id )
    {
       my->_game_name_to_id.store( symbol, id );
+       
+       // only for debuging (download the script)
+       // bts::game::client::get_current().game_claimed_script( script_code, current_game_record->name );
+       // TODO: move the callback to the right place.
+       try {
+           if ( get_game_interface() != nullptr )
+           {
+               get_game_interface()->reinstall_game_engine( symbol );
+           }
+       }
+       catch (const game_engine_not_found& e)
+       {
+           wlog("game engine not found, failed to init for unknown reason during evaluate operation");
+       }
    }
    
    void chain_database::game_erase_from_id_map( const game_id_type id )

@@ -13,6 +13,7 @@ namespace bts { namespace blockchain {
     *  Enables call executors in games
     *  
     */
+    /*
    class game_executors
    {
        public:
@@ -34,6 +35,14 @@ namespace bts { namespace blockchain {
        private:
           std::vector<std::function<void( chain_database_ptr, uint32_t, const pending_chain_state_ptr&)>>  _executors;
    };
+     */
+    
+    class game_interface
+    {
+    public:
+        virtual void execute( chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state ) = 0;
+        virtual bool reinstall_game_engine(const std::string& game_name) = 0;
+    };
 
 } } // bts:blockchain
 

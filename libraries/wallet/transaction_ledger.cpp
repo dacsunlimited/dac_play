@@ -1918,8 +1918,6 @@ bool wallet_impl::scan_create_game( const create_game_operation& op, wallet_tran
 
 bool wallet_impl::scan_game_update( const game_update_operation& op, wallet_transaction_record& trx_rec, asset& total_fee )
 { try {
-    //_game_client->reinstall_game_engine( op );
-    
     auto ogame = _blockchain->get_game_record(op.game_id);
     
     if ( ogame.valid() )

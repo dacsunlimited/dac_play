@@ -100,6 +100,8 @@ namespace bts { namespace blockchain {
 
             chain_database*                                                             self = nullptr;
             unordered_set<chain_observer*>                                              _observers;
+          
+            game_interface* _game_interface;
 
             /* Transaction propagation */
             fc::future<void>                                                            _revalidate_pending;
