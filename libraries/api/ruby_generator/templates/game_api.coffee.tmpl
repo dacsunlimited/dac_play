@@ -5,7 +5,7 @@ class GameAPI
   constructor: (@q, @log, @rpc) ->
     #@log.info "---- Network API Constructor ----"
 
-<% network_api['methods'].each do |m| %>
+<% game_api['methods'].each do |m| %>
   # <%= m['description'] %>
   # parameters: <%= js_params_doc(m, 2) %>
   # return_type: `<%= m['return_type'] %>`
