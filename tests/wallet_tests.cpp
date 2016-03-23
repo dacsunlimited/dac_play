@@ -598,16 +598,31 @@ boost::unit_test::test_suite* init_unit_test_suite( int argc, char* argv[] )
     if ( fc::is_directory( *directory_itr ) && (directory_itr->filename().string()[0] != '_') )
     {
       fc::path test_dir(regression_tests_dir / *directory_itr);
+        
+# if BOOST_VERSION >= 105900
       boost::unit_test::test_unit* test_without_network =
+        boost::unit_test::make_test_case(boost::function<void ()>(boost::bind(&run_regression_test,
+                                                                                   regression_tests_dir / directory_itr->filename(),
+                                                                                   false)),
+                                                                       directory_itr->filename().string(), __FILE__, __LINE__);
+      boost::unit_test::test_unit* test_with_network =
+        boost::unit_test::make_test_case(boost::function<void ()>(boost::bind(&run_regression_test,
+                                                                                   regression_tests_dir / directory_itr->filename(),
+                                                                                   true)),
+                                                                       directory_itr->filename().string(), __FILE__, __LINE__);
+# else
+        boost::unit_test::test_unit* test_without_network =
         boost::unit_test::make_test_case(boost::unit_test::callback0<>(boost::bind(&run_regression_test,
                                                                                    regression_tests_dir / directory_itr->filename(),
                                                                                    false)),
-                                                                       directory_itr->filename().string());
-      boost::unit_test::test_unit* test_with_network =
+                                         directory_itr->filename().string());
+        boost::unit_test::test_unit* test_with_network =
         boost::unit_test::make_test_case(boost::unit_test::callback0<>(boost::bind(&run_regression_test,
                                                                                    regression_tests_dir / directory_itr->filename(),
                                                                                    true)),
-                                                                       directory_itr->filename().string());
+                                         directory_itr->filename().string());
+# endif
+        
       regression_tests_without_network->add(test_without_network);
       regression_tests_with_network->add(test_with_network);
     }
