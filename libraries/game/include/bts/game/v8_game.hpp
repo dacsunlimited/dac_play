@@ -35,6 +35,8 @@ namespace bts { namespace game {
        v8_game_engine(std::string game_name, bts::game::client* client);
       
       ~v8_game_engine(){};
+       
+      bool global( game_id_type game_id, vector<asset_record> game_assets);
       
       void evaluate( transaction_evaluation_state& eval_state, game_id_type game_id, const variant& var);
       

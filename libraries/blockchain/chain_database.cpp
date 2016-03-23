@@ -2537,6 +2537,19 @@ namespace bts { namespace blockchain {
         }
         return records;
     } FC_CAPTURE_AND_RETHROW( (first)(limit) ) }
+    
+    vector<asset_record> chain_database::get_assets_by_issuer( uint8_t issuer_type,
+                                                                            issuer_id_type issuer_id )const
+    { try {
+        vector<asset_record> records;
+        for( auto iter = my->_asset_id_to_record.unordered_begin(); iter != my->_asset_id_to_record.unordered_end(); ++iter )
+        {
+            const oasset_record& record = iter->second;
+            if( record->issuer.type == issuer_type && record->issuer.issuer_id == issuer_id )
+                records.push_back( *record );
+        }
+        return records;
+    } FC_CAPTURE_AND_RETHROW( (issuer_type)(issuer_id) ) }
 
     string chain_database::export_fork_graph( uint32_t start_block, uint32_t end_block, const fc::path& filename )const
     {

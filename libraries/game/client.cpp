@@ -251,10 +251,15 @@ namespace bts { namespace game {
         
         for ( const auto& g : games)
         {
-            auto v8_game_engine = get_v8_engine( g.name );
-            
-            wlog("Start execute the game ${g}", ("g", g.name));
-            v8_game_engine->execute( g.id, blockchain, block_num, pending_state );
+            try {
+                auto v8_game_engine = get_v8_engine( g.name );
+                wlog("Start execute the game ${g}", ("g", g.name));
+                v8_game_engine->execute( g.id, blockchain, block_num, pending_state );
+            }
+            catch (const game_engine_not_found& e)
+            {
+                wlog("game engine note found, failed to init for unknown reason during chain execution");
+            }
         }
     } FC_CAPTURE_AND_RETHROW( (block_num) ) }
     

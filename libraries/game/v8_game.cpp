@@ -97,7 +97,54 @@ namespace bts { namespace game {
    {
       my->_game_name = game_name;
       my->init();
-     
+       
+      auto ogame_rec = my->_client->get_chain_database()->get_game_record( game_name );
+      FC_ASSERT( ogame_rec.valid() );
+       
+      auto game_assets = my->_client->get_chain_database()->get_assets_by_issuer( asset_record::game_issuer_id, ogame_rec->id);
+       
+      global(ogame_rec->id, game_assets);
+   }
+    
+   bool v8_game_engine::global( game_id_type game_id, vector<asset_record> game_assets)
+   {
+       auto isolate = my->GetIsolate();
+       v8::Locker locker( isolate );
+       Isolate::Scope isolate_scope(my->GetIsolate());
+       v8::HandleScope handle_scope( isolate );
+       v8::Local<v8::Context> context = v8::Local<v8::Context>::New(my->GetIsolate(), my->_context);
+       
+       // Entering the context
+       Context::Scope context_scope(context);
+       
+       v8::TryCatch try_catch(my->GetIsolate());
+       
+       Local<Function> evaluate_func;
+       Local<Value>  argv[2] ;
+       
+       auto play = context->Global()->Get( String::NewFromUtf8( my->GetIsolate(), "PLAY") );
+       
+       auto evaluate = play->ToObject()->Get( String::NewFromUtf8( my->GetIsolate(), "global") );
+       
+       if(!evaluate->IsFunction()) {
+           FC_CAPTURE_AND_THROW( failed_compile_script );
+       } else {
+           evaluate_func = Handle<Function>::Cast(evaluate);
+           argv[0] = v8_helper::cpp_to_json(isolate, game_id);
+           argv[1] = v8_helper::cpp_to_json( isolate, game_assets );
+           
+           Local<Value> result = evaluate_func->Call(context->Global(), 2, argv);
+           
+           if ( result.IsEmpty() )
+           {
+               FC_CAPTURE_AND_THROW(failed_run_script, (v8_helper::ReportException(my->GetIsolate(), &try_catch)));
+           } else
+           {
+               variant v = v8_helper::json_to_cpp<variant>(isolate, result);
+               //wlog("The result of the running of script is ${s}", ( "s",  v) );
+               return v.as_bool();
+           }
+       }
    }
     
    void v8_game_engine::evaluate( transaction_evaluation_state& eval_state, game_id_type game_id, const variant& var)

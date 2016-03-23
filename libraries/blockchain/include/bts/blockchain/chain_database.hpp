@@ -180,6 +180,9 @@ namespace bts { namespace blockchain {
 
          vector<asset_record>                               get_assets( const string& first_symbol,
                                                                         uint32_t limit )const;
+       
+         vector<asset_record>                               get_assets_by_issuer( uint8_t issuer_type,
+                                                                     issuer_id_type issuer_id )const;
 
          std::vector<slot_record> get_delegate_slot_records( const account_id_type delegate_id, uint32_t limit )const;
 
