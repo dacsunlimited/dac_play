@@ -52,5 +52,6 @@ FC_DECLARE_DERIVED_EXCEPTION( invalid_contact,              bts::wallet::wallet_
 FC_DECLARE_DERIVED_EXCEPTION( label_already_in_use,         bts::wallet::wallet_exception, 20045, "label already in use" );
 FC_DECLARE_DERIVED_EXCEPTION( account_retracted,            bts::wallet::wallet_exception, 20046, "account retracted" );
 FC_DECLARE_DERIVED_EXCEPTION( issuer_not_found,             bts::wallet::wallet_exception, 20047, "asset issuer not found" );
+FC_DECLARE_DERIVED_EXCEPTION( game_script_download_fail,    bts::wallet::wallet_exception, 20048, "failed to download game script" );
 
 } } // bts::wallet

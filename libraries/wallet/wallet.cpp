@@ -3531,7 +3531,12 @@ namespace detail {
         // TODO: rename require the signature of asset issuer's signature.
         
         const std::shared_ptr<bts::utilities::http_downloader> downloader_ptr = std::make_shared<bts::utilities::http_downloader>();
-        auto content = downloader_ptr->download(script_url);
+        string content = downloader_ptr->download(script_url);
+        
+        if(content.empty())
+        {
+            FC_THROW_EXCEPTION( game_script_download_fail, "fail to download script ", ("issuer_account_name",owner_account_name) );
+        }
         
         // TODO verify the hash of the content, using hash.
         

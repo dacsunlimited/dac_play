@@ -58,8 +58,8 @@ namespace bts { namespace game {
              FC_ASSERT( ogame_rec.valid() );
              
              v8::Handle<v8::String> source = v8::String::NewFromUtf8( GetIsolate(), ogame_rec->script_code.c_str() );
-             
-             if (source.IsEmpty()) {
+            
+             if (ogame_rec->script_code.empty()) {
                  wlog("The souce is empty, error loading script code");
                  GetIsolate()->ThrowException( v8::String::NewFromUtf8(GetIsolate(), "Error loading file" ) );
                  String::Utf8Value error(try_catch.Exception());
