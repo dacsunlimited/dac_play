@@ -115,7 +115,8 @@ namespace bts { namespace blockchain {
         
         bool is_null()const { return !last_error.valid(); }
         
-        game_id_type            game_id;
+        game_id_type             game_id;
+        uint32_t                 block_number;
         optional<fc::exception>  last_error;
     };
     typedef optional<game_status> ogame_status;
@@ -141,4 +142,4 @@ FC_REFLECT_TYPENAME( std::vector<bts::blockchain::game_result_transaction> )
 FC_REFLECT( bts::blockchain::game_result_transaction,
            (game_id)(data)
            )
-FC_REFLECT( bts::blockchain::game_status, (game_id)(last_error) )
+FC_REFLECT( bts::blockchain::game_status, (game_id)(block_number)(last_error) )

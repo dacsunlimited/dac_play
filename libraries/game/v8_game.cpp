@@ -676,6 +676,7 @@ namespace bts { namespace game {
            
            ogame_status game_stat = pending_state->get_game_status( game_id );
            if( !game_stat.valid() ) game_stat = game_status( game_id );
+           game_stat->block_number = block_num;
            game_stat->last_error = e;
            pending_state->store_game_status( *game_stat );
        }
