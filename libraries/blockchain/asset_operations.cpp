@@ -72,6 +72,9 @@ void create_asset_operation::evaluate( transaction_evaluation_state& eval_state 
         if ( !issuer_game_record.valid() )
             FC_CAPTURE_AND_THROW(unknown_game_id, (issuer_id) );
         
+        // workaround: to triger reinstall_game_engine in storing game record
+        eval_state.pending_state()->store_game_record(*issuer_game_record);
+        
         authority_account_record = eval_state.pending_state()->get_account_record( issuer_game_record->owner_account_id );
         
         if( !authority_account_record.valid() )
