@@ -3712,6 +3712,25 @@ namespace bts { namespace blockchain {
    void chain_database::asset_insert_into_id_map( const asset_id_type id, const asset_record& record )
    {
        my->_asset_id_to_record.store( id, record );
+       
+       if ( record.is_game_issued() )
+       {
+           auto ogame = get_game_record( record.issuer.issuer_id );
+           if ( ogame.valid() )
+           {
+               // TODO: move the callback to the right place.
+               try {
+                   if ( get_game_interface() != nullptr )
+                   {
+                       get_game_interface()->reinstall_game_engine( ogame->name );
+                   }
+               }
+               catch (const game_engine_not_found& e)
+               {
+                   wlog("game engine not found, failed to init for unknown reason during evaluate operation");
+               }
+           }
+       }
    }
 
    void chain_database::asset_insert_into_symbol_map( const string& symbol, const asset_id_type id )
