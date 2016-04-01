@@ -582,17 +582,26 @@ namespace bts { namespace game {
                        auto diff_supply = v.get_object()["diff_supply"];
                    
                        FC_ASSERT( execute_results.is_array() );
-                       vector<game_result_transaction> game_result_transactions;
-                       game_result_transactions.resize( execute_results.get_array().size() );
-                       for ( auto result : execute_results.get_array() )
+
+                       if (execute_results.get_array().size())
                        {
-                           game_result_transaction g_trx;
-                           g_trx.game_id = game_id;
-                           g_trx.data = result;
-                           game_result_transactions.push_back( std::move( g_trx ) );
+                           vector<game_result_transaction> game_result_transactions;
+
+                           game_result_transactions.reserve(execute_results.get_array().size());
+                           for (auto result : execute_results.get_array())
+                           {
+                               game_result_transaction g_trx;
+                               g_trx.game_id = game_id;
+                               g_trx.data = result;
+                               game_result_transactions.push_back(std::move(g_trx));
+                           }
+
+                           // execute() could be re-enterred for mutiple games execution in one block
+                           // so here we need to append the game transactions instend of re-set
+                           pending_state->game_result_transactions.insert(pending_state->game_result_transactions.end(),
+                               game_result_transactions.begin(), game_result_transactions.end());
                        }
-                   
-                       pending_state->set_game_result_transactions( std::move( game_result_transactions ) );
+
                    
                        FC_ASSERT( game_datas.is_array() );
                        for ( auto d : game_datas.get_array() ) {
