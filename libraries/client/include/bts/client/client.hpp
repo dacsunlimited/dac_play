@@ -8,6 +8,8 @@
 #include <bts/rpc_stubs/common_api_client.hpp>
 #include <bts/wallet/wallet.hpp>
 
+#include <bts/game/client.hpp>
+
 #include <fc/log/logger_config.hpp>
 #include <fc/thread/thread.hpp>
 
@@ -27,6 +29,7 @@ namespace bts { namespace client {
 
     using namespace bts::blockchain;
     using namespace bts::wallet;
+    using bts::game::game_client_ptr;
     using bts::mail::mail_client_ptr;
     using bts::mail::mail_server_ptr;
 

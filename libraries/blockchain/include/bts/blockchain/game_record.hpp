@@ -24,7 +24,7 @@ namespace bts { namespace blockchain {
         std::string         description;
         fc::variant         public_data;
         account_id_type     owner_account_id;
-        rule_id_type        rule_id;
+        std::string         script_code;
         fc::time_point_sec  registration_date;
         fc::time_point_sec  last_update;
         
@@ -52,59 +52,74 @@ namespace bts { namespace blockchain {
       virtual void game_erase_from_name_map( const string& ) = 0;
    };
     
-    struct rule_data_record
+    struct game_data_index
     {
-        rule_data_record():type(0){}
+        game_id_type        game_id;
+        data_id_type        data_id;
         
-        template<typename RecordType>
-        rule_data_record( const RecordType& rec )
-        :type( int(RecordType::type) ),data(rec)
-        { }
+        friend bool operator < ( const game_data_index& a, const game_data_index& b )
+        {
+            return std::tie( a.game_id, a.data_id ) < std::tie( b.game_id, b.data_id );
+        }
         
-        template<typename RecordType>
-        RecordType as()const;
+        friend bool operator == ( const game_data_index& a, const game_data_index& b )
+        {
+            return std::tie( a.game_id, a.data_id ) == std::tie( b.game_id, b.data_id );
+        }
+    };
+    
+    struct game_data_record
+    {
+        game_data_record():game_id(0){}
         
-        // TODO: Figure out what following index used for
-        int32_t get_rule_data_index()const
+        data_id_type get_game_data_index()const
         { try {
             FC_ASSERT( data.is_object() );
             FC_ASSERT( data.get_object().contains( "index" ) );
-            return data.get_object()["index"].as<int32_t>();
+            return data.get_object()["index"].as<data_id_type>();
         } FC_RETHROW_EXCEPTIONS( warn, "" ) }
         
         bool is_null()const
         {
-            return type == 0;
+            return game_id == 0;
         }
         
-        rule_data_record make_null()const
+        game_data_record make_null()const
         {
-            rule_data_record cpy(*this);
-            cpy.type = 0;
+            game_data_record cpy(*this);
+            cpy.game_id = 0;
             return cpy;
         }
         
-        uint8_t                                          type;
+        game_id_type                                     game_id;
         fc::variant                                      data;
     };
     
-    struct rule_result_transaction
+    struct game_result_transaction
     {
-        rule_result_transaction():type(0){}
+        game_result_transaction():game_id(0){}
         
-        template<typename RecordType>
-        rule_result_transaction( const RecordType& rec )
-        :type( int(RecordType::type) ),data(rec)
-        { }
-        
-        template<typename RecordType>
-        RecordType as()const;
-        
-        uint8_t                                          type;
+        game_id_type                                     game_id;
         fc::variant                                      data;
     };
     
-    typedef fc::optional<rule_data_record> orule_data_record;
+    typedef fc::optional<game_data_record> ogame_data_record;
+    
+    struct game_status
+    {
+        game_status(){} // Null case
+        game_status( game_id_type id )
+        :game_id(id)
+        {
+        }
+        
+        bool is_null()const { return !last_error.valid(); }
+        
+        game_id_type             game_id;
+        uint32_t                 block_number;
+        optional<fc::exception>  last_error;
+    };
+    typedef optional<game_status> ogame_status;
     
 } } // bts::blockchain
 
@@ -114,36 +129,17 @@ FC_REFLECT( bts::blockchain::game_record,
            (description)
            (public_data)
            (owner_account_id)
-           (rule_id)
+           (script_code)
            (registration_date)
            (last_update)
            )
-
-FC_REFLECT( bts::blockchain::rule_data_record,
-           (type)
+FC_REFLECT( bts::blockchain::game_data_index, (game_id)(data_id) )
+FC_REFLECT( bts::blockchain::game_data_record,
+           (game_id)
            (data)
            )
-FC_REFLECT_TYPENAME( std::vector<bts::blockchain::rule_result_transaction> )
-FC_REFLECT( bts::blockchain::rule_result_transaction,
-           (type)(data)
+FC_REFLECT_TYPENAME( std::vector<bts::blockchain::game_result_transaction> )
+FC_REFLECT( bts::blockchain::game_result_transaction,
+           (game_id)(data)
            )
-
-namespace bts { namespace blockchain {
-    template<typename RecordType>
-    RecordType rule_data_record::as()const
-    {
-        FC_ASSERT( type == RecordType::type, "",
-                  ("type",type));
-        
-        return data.as<RecordType>();
-    }
-    
-    template<typename RecordType>
-    RecordType rule_result_transaction::as()const
-    {
-        FC_ASSERT( type == RecordType::type, "",
-                  ("type",type));
-        
-        return data.as<RecordType>();
-    }
-} }
+FC_REFLECT( bts::blockchain::game_status, (game_id)(block_number)(last_error) )

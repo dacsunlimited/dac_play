@@ -68,6 +68,16 @@
         "contained_type" : "account_record"
       },
       {
+          "type_name" : "game_data_record",
+          "cpp_return_type" : "bts::blockchain::game_data_record",
+          "cpp_include_file" : "bts/blockchain/types.hpp"
+      },
+      {
+          "type_name" : "game_data_record_array",
+          "container_type" : "array",
+          "contained_type" : "game_data_record"
+      },
+      {
         "type_name" : "optional_account_record",
         "cpp_return_type" : "fc::optional<bts::blockchain::account_record>",
         "cpp_include_file" : "bts/blockchain/types.hpp"
@@ -482,6 +492,11 @@
         "cpp_include_file" : "bts/blockchain/asset_record.hpp"
       },
       {
+          "type_name" : "optional_game_record",
+          "cpp_return_type" : "fc::optional<bts::blockchain::game_record>",
+          "cpp_include_file" : "bts/blockchain/game_record.hpp"
+      },
+      {
         "type_name" : "asset_id_type",
         "cpp_return_type" : "bts::blockchain::asset_id_type",
         "cpp_include_file" : "bts/blockchain/types.hpp"
@@ -729,6 +744,24 @@
         "type_name" : "market_status_array",
         "container_type": "array",
         "contained_type": "market_status"
+      },
+      {
+          "type_name" : "game_status",
+          "cpp_return_type" : "bts::blockchain::game_status"
+      },
+      {
+          "type_name" : "game_status_array",
+          "container_type": "array",
+          "contained_type": "game_status"
+      },
+      {
+          "type_name" : "game_result_transaction",
+          "cpp_return_type" : "bts::blockchain::game_result_transaction"
+      },
+      {
+          "type_name" : "game_result_transaction_array",
+          "container_type": "array",
+          "contained_type": "game_result_transaction"
       },
       {
         "type_name" : "vote_strategy",

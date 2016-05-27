@@ -8,8 +8,8 @@
 #include <bts/blockchain/genesis_state.hpp>
 #include <bts/blockchain/genesis_json.hpp>
 #include <bts/blockchain/market_engine.hpp>
+#include <bts/blockchain/game_interface.hpp>
 #include <bts/blockchain/time.hpp>
-#include <bts/blockchain/game_executors.hpp>
 #include <bts/utilities/combinatorics.hpp>
 
 #include <fc/io/fstream.hpp>
@@ -161,6 +161,9 @@ namespace bts { namespace blockchain {
           
           _note_index_to_record.open( data_dir / "index/note_index_to_record" );
           
+          _game_data_db.open( data_dir / "index/game_data_db" );
+          _game_result_transactions_db.open( data_dir / "game_result_transactions_db" );
+
           _packet_id_to_record.open( data_dir / "index/packet_id_to_record");
           
           _operation_reward_id_to_record.open( data_dir / "index/operation_reward_id_to_record" );
@@ -177,14 +180,13 @@ namespace bts { namespace blockchain {
           _market_status_db.open( data_dir / "index/market_status_db" );
           _market_history_db.open( data_dir / "index/market_history_db" );
           
-          _rule_data_db.open( data_dir / "index/_rule_data_db");
-          _rule_result_transactions_db.open( data_dir / "index/rule_result_transactions_db" );
           _operation_reward_transactions_db.open( data_dir / "index/operation_reward_transactions_db" );
           
           _recent_operations_db.open( data_dir / "index/recent_operations_db" );
           
           _game_id_to_record.open ( data_dir / "index/_game_id_to_record");
           _game_name_to_id.open( data_dir / "index/game_symbol_to_id" );
+          _game_status_db.open ( data_dir/ "index/game_status_db" );
 
           _slot_index_to_record.open( data_dir / "index/slot_index_to_record" );
           _slot_timestamp_to_delegate.open( data_dir / "index/slot_timestamp_to_delegate" );
@@ -1314,8 +1316,13 @@ namespace bts { namespace blockchain {
             update_random_seed( block_data.previous_secret, pending_state, block_record );
              
             pay_operation_rewards( block_data.block_num, block_data.timestamp, pending_state );
-
-            game_executors::instance().execute( self->shared_from_this(), block_data.block_num, pending_state);
+             
+             game_interface* g_interface = self->get_game_interface();
+             
+             if ( g_interface != nullptr )
+             {
+                 g_interface->execute( self->shared_from_this(), block_data.block_num, pending_state);
+             }
 
 #ifdef BTS_TEST_NETWORK
             pending_state->check_supplies();
@@ -1570,8 +1577,10 @@ namespace bts { namespace blockchain {
                   my->_ad_index_to_record.set_write_through( write_through );
                   my->_note_index_to_record.set_write_through( write_through );
 
-                  my->_rule_data_db.set_write_through( write_through );
-                  my->_rule_result_transactions_db.set_write_through ( write_through );
+                  my->_game_data_db.set_write_through( write_through );
+                  my->_game_result_transactions_db.set_write_through ( write_through );
+                  my->_game_status_db.set_write_through( write_through );
+                  
                   my->_operation_reward_transactions_db.set_write_through( write_through );
                   my->_feed_index_to_record.set_write_through( write_through );
                   
@@ -1775,11 +1784,11 @@ namespace bts { namespace blockchain {
 
       my->_game_id_to_record.close();
       my->_game_name_to_id.close();
-      my->_rule_data_db.close();
-      my->_rule_result_transactions_db.close();
-       
+      my->_game_data_db.close();
+      my->_game_result_transactions_db.close();
+      my->_game_status_db.close();
+      
       my->_recent_operations_db.close();
-       
       my->_operation_reward_transactions_db.close();
 
    } FC_CAPTURE_AND_RETHROW() }
@@ -2115,22 +2124,28 @@ namespace bts { namespace blockchain {
        return arec->id;
    } FC_CAPTURE_AND_RETHROW( (symbol) ) }
     
-   orule_data_record chain_database::get_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id )const
+   ogame_data_record chain_database::get_game_data_record( const game_id_type& game_id, const data_id_type& data_id )const
    {
-       return my->_rule_data_db.fetch_optional( std::make_pair(rule_id, data_id) );
+       game_data_index index;
+       index.game_id = game_id;
+       index.data_id = data_id;
+       return my->_game_data_db.fetch_optional( index );
    }
 
-   void chain_database::store_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id, const rule_data_record& r )
+   void chain_database::store_game_data_record( const game_id_type& game_id, const data_id_type& data_id, const game_data_record& r )
    {
+       game_data_index index;
+       index.game_id = game_id;
+       index.data_id = data_id;
        try {
-           ilog( "rule record: ${r}", ("r",r) );
+           ilog( "game data record: ${r}", ("r",r) );
            if( r.is_null() )
            {
-               my->_rule_data_db.remove( std::make_pair(rule_id, data_id) );
+               my->_game_data_db.remove( index );
            }
            else
            {
-               my->_rule_data_db.store( std::make_pair(rule_id, data_id), r );
+               my->_game_data_db.store( index, r );
            }
    } FC_RETHROW_EXCEPTIONS( warn, "", ("record", r) ) }
 
@@ -2542,6 +2557,19 @@ namespace bts { namespace blockchain {
         }
         return records;
     } FC_CAPTURE_AND_RETHROW( (first)(limit) ) }
+    
+    vector<asset_record> chain_database::get_assets_by_issuer( uint8_t issuer_type,
+                                                                            issuer_id_type issuer_id )const
+    { try {
+        vector<asset_record> records;
+        for( auto iter = my->_asset_id_to_record.unordered_begin(); iter != my->_asset_id_to_record.unordered_end(); ++iter )
+        {
+            const oasset_record& record = iter->second;
+            if( record->issuer.type == issuer_type && record->issuer.issuer_id == issuer_id )
+                records.push_back( *record );
+        }
+        return records;
+    } FC_CAPTURE_AND_RETHROW( (issuer_type)(issuer_id) ) }
 
     string chain_database::export_fork_graph( uint32_t start_block, uint32_t end_block, const fc::path& filename )const
     {
@@ -2921,6 +2949,16 @@ namespace bts { namespace blockchain {
    {
       return my->_pending_trx_state;
    }
+    
+   game_interface*         chain_database::get_game_interface() const
+    {
+        return my->_game_interface;
+    }
+    
+    void chain_database::set_game_interface( game_interface* g)
+    {
+        my->_game_interface = g;
+    }
 
    void chain_database::store_market_history_record(const market_history_key& key, const market_history_record& record)
    {
@@ -2942,6 +2980,14 @@ namespace bts { namespace blockchain {
            pairs.push_back( iter.key() );
        return pairs;
    }
+    
+    vector<game_status> chain_database::list_game_statuses()const
+    {
+        vector<game_status> statuses;
+        for( auto iter = my->_game_status_db.begin(); iter.valid(); ++iter )
+            statuses.push_back( iter.value() );
+        return statuses;
+    }
 
    omarket_status chain_database::get_market_status( const asset_id_type quote_id, const asset_id_type base_id )const
    {
@@ -2959,6 +3005,23 @@ namespace bts { namespace blockchain {
          my->_market_status_db.store( std::make_pair( s.quote_id, s.base_id ), s );
       }
    }
+    
+    ogame_status chain_database::get_game_status( const game_id_type game_id )const
+    {
+        return my->_game_status_db.fetch_optional( game_id );
+    }
+    
+    void chain_database::store_game_status( const game_status& s )
+    {
+        if( s.is_null() )
+        {
+            my->_game_status_db.remove( s.game_id );
+        }
+        else
+        {
+            my->_game_status_db.store( s.game_id, s );
+        }
+    }
 
    market_history_points chain_database::get_market_price_history( const asset_id_type quote_id,
                                                                    const asset_id_type base_id,
@@ -3021,23 +3084,23 @@ namespace bts { namespace blockchain {
       }
    }
 
-   void chain_database::set_rule_result_transactions( vector<rule_result_transaction> trxs )
+   void chain_database::set_game_result_transactions( vector<game_result_transaction> trxs )
    {
         if( trxs.size() == 0 )
         {
-            my->_rule_result_transactions_db.remove( get_head_block_num()+1 );
+            my->_game_result_transactions_db.remove( get_head_block_num()+1 );
         }
         else
         {
-            my->_rule_result_transactions_db.store( get_head_block_num()+1, trxs );
+            my->_game_result_transactions_db.store( get_head_block_num()+1, trxs );
         }
    }
     
-    vector<rule_result_transaction> chain_database::get_rule_result_transactions( uint32_t block_num  )const
+    vector<game_result_transaction> chain_database::get_game_result_transactions( uint32_t block_num  )const
     {
-        auto tmp = my->_rule_result_transactions_db.fetch_optional(block_num);
+        auto tmp = my->_game_result_transactions_db.fetch_optional(block_num);
         if( tmp ) return *tmp;
-        return vector<rule_result_transaction>();
+        return vector<game_result_transaction>();
     }
     
     void chain_database::set_operation_reward_transactions( vector<operation_reward_transaction> trxs )
@@ -3528,6 +3591,25 @@ namespace bts { namespace blockchain {
         return final_results;
     } FC_CAPTURE_AND_RETHROW( (account_name)(limit) ) }
 
+    vector<game_data_record> chain_database::fetch_game_data_records( const string& game_name, uint32_t limit )const
+    { try {
+        vector<game_data_record> results;
+        const auto opt_game_record = get_game_record( game_name );
+        FC_ASSERT( opt_game_record.valid() );
+        
+        auto itr = my->_game_data_db.lower_bound( {opt_game_record->id} );
+        while( itr.valid() && itr.key().game_id == opt_game_record->id )
+        {
+            results.push_back( itr.value() );
+            ++itr;
+            
+            if( results.size() >= limit ) break;
+        }
+        
+        return results;
+    } FC_CAPTURE_AND_RETHROW( (game_name) ) }
+
+
    vector<transaction_record> chain_database::fetch_address_transactions( const address& addr )
    { try {
       vector<transaction_record> results;
@@ -3689,6 +3771,20 @@ namespace bts { namespace blockchain {
    void chain_database::game_insert_into_name_map( const string& symbol, const game_id_type id )
    {
       my->_game_name_to_id.store( symbol, id );
+       
+       // only for debuging (download the script)
+       // bts::game::client::get_current().game_claimed_script( script_code, current_game_record->name );
+       // TODO: move the callback to the right place.
+       try {
+           if ( get_game_interface() != nullptr )
+           {
+               get_game_interface()->reinstall_game_engine( symbol );
+           }
+       }
+       catch (const game_engine_not_found& e)
+       {
+           wlog("game engine not found, failed to init for unknown reason during evaluate operation");
+       }
    }
    
    void chain_database::game_erase_from_id_map( const game_id_type id )

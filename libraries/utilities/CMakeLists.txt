@@ -7,9 +7,14 @@ if(NOT BITSHARES_GIT_REVISION_DESCRIPTION)
     set(BITSHARES_GIT_REVISION_DESCRIPTION "unknown")
 endif(NOT BITSHARES_GIT_REVISION_DESCRIPTION)
 
+IF( WIN32 )
+  add_definitions(-DCURL_STATICLIB) # force statick link
+ENDIF(WIN32)
+
+
 file(GLOB headers "include/bts/utilities/*.hpp")
 
-set(sources key_conversion.cpp string_escape.cpp
+set(sources http_downloader.cpp key_conversion.cpp string_escape.cpp
             words.cpp combinatorics.cpp
             ${headers})
 
@@ -19,7 +24,7 @@ list(APPEND sources "${CMAKE_CURRENT_BINARY_DIR}/git_revision.cpp")
 add_library( bts_utilities
              ${sources}
              ${HEADERS} )
-target_link_libraries( bts_utilities fc )
+target_link_libraries( bts_utilities fc ${CURL_LIBRARY})
 target_include_directories( bts_utilities
                             PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" ${CURL_INCLUDE_DIRS})
 if (USE_PCH)

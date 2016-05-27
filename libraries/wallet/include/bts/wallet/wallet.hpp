@@ -6,6 +6,7 @@
 #include <bts/mail/message.hpp>
 #include <bts/wallet/pretty.hpp>
 #include <bts/wallet/transaction_builder.hpp>
+#include <bts/game/client.hpp>
 
 #include <fc/signals.hpp>
 
@@ -38,7 +39,7 @@ namespace bts { namespace wallet {
    class wallet : public std::enable_shared_from_this< wallet >
    {
       public:
-         wallet( chain_database_ptr chain, bool enabled = true );
+         wallet( chain_database_ptr chain, bts::game::game_client_ptr game_client, bool enabled = true );
          virtual ~wallet();
 
          void initialize_transaction_creator( transaction_creation_state& c, const string& account_name );
@@ -508,9 +509,19 @@ namespace bts { namespace wallet {
                                                      const string& game_name,
                                                      const string& description,
                                                      const variant& data,
-                                                     const string& owner_account_name,
-                                                     uint32_t rule_id,
-                                                     bool sign );
+                                                     const string& issuer_account_name,
+                                                     const string& script_url,
+                                                     const string& script_hash,
+                                                       bool sign );
+       
+         wallet_transaction_record update_game(
+                                             const string& paying_account,
+                                             const string& game_name,
+                                             const string& description,
+                                             const variant& data,
+                                             const string& script_url,
+                                             const string& script_hash,
+                                             bool sign );
        
          wallet_transaction_record play_game( const string& symbol,
                                            const variant& params,

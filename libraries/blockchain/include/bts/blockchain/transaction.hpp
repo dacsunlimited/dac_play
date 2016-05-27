@@ -75,13 +75,7 @@ namespace bts { namespace blockchain {
                          const share_type initial_collateral);
       
       void buy_chips( const asset& quantity,
-                     const address& owner );
-      
-      void create_game( const std::string& name,
-                       const std::string& description,
-                       const fc::variant& data,
-                       account_id_type owner_id,
-                       uint32_t rule_id );
+                const address& owner );
 
       void burn( const asset& quantity,
                  account_id_type for_or_against,

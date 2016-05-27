@@ -265,6 +265,9 @@ public:
    chain_database_ptr                                      _chain_db = nullptr;
    unordered_map<transaction_id_type, signed_transaction>  _pending_trxs;
    wallet_ptr                                              _wallet = nullptr;
+   
+   std::shared_ptr<bts::game::client>                      _game_client = nullptr;
+   
    std::shared_ptr<bts::mail::server>                      _mail_server = nullptr;
    std::shared_ptr<bts::mail::client>                      _mail_client = nullptr;
    fc::time_point                                          _last_sync_status_message_time;

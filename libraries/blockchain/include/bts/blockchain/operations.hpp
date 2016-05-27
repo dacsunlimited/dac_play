@@ -68,12 +68,15 @@ enum operation_type_enum
     
     ad_op_type                          = 39,
     note_op_type                        = 40,
+
     red_packet_op_type                  = 41,
     claim_packet_op_type                = 42,
-    game_op_type                  = 45,
-    buy_chips_type                = 46,
+
+    buy_chips_type                      = 46,
    
-    create_game_operation_type    = 47
+    create_game_op_type                 = 47,
+    game_update_op_type                 = 48,
+    game_play_op_type                   = 49
 };
 
 /**
@@ -161,9 +164,10 @@ FC_REFLECT_ENUM( bts::blockchain::operation_type_enum,
         (note_op_type)
         (red_packet_op_type)
         (claim_packet_op_type)
-        (game_op_type)
         (buy_chips_type)
-        (create_game_operation_type)
+        (create_game_op_type)
+        (game_update_op_type)
+        (game_play_op_type)
     )
 
 FC_REFLECT( bts::blockchain::operation, (type)(data) )

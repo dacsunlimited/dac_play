@@ -58,7 +58,6 @@ add_library( bts_blockchain
              asset_operations.cpp
              feed_operations.cpp
              market_operations.cpp
-             meta_game_operations.cpp
              data_operations.cpp
 
              time.cpp

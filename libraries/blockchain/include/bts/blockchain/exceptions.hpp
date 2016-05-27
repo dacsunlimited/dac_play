@@ -109,6 +109,12 @@ FC_DECLARE_DERIVED_EXCEPTION( game_id_in_use,                    bts::blockchain
                                  "game id in use" );
 FC_DECLARE_DERIVED_EXCEPTION( unknown_game_id,                   bts::blockchain::evaluation_error, 100006, "unknown game id" );
 FC_DECLARE_DERIVED_EXCEPTION( unknown_game,                      bts::blockchain::evaluation_error, 100007, "unknown game" );
+
 FC_DECLARE_DERIVED_EXCEPTION( unsupported_note_type,             bts::blockchain::evaluation_error, 100008, "unsupported note type" );
+FC_DECLARE_DERIVED_EXCEPTION( failed_game_engine_init,           bts::blockchain::evaluation_error, 100009, "failed to init game engine" );
+FC_DECLARE_DERIVED_EXCEPTION( game_engine_not_found,             bts::blockchain::evaluation_error, 100010, "can not find game engine" );
+FC_DECLARE_DERIVED_EXCEPTION( failed_loading_source_file,        bts::blockchain::evaluation_error, 100011, "failed to compile script" );
+FC_DECLARE_DERIVED_EXCEPTION( failed_compile_script,             bts::blockchain::evaluation_error, 100012, "failed to compile script" );
+FC_DECLARE_DERIVED_EXCEPTION( failed_run_script,                 bts::blockchain::evaluation_error, 100013, "failed to run script" );
 
 } } // bts::blockchain

@@ -2,9 +2,9 @@ When(/^(\w+) creates? asset ([A-Z]+)( \(max shares: ([\d,]+)\))?$/) do |name, as
   actor = get_actor(name)
   if specified
       max_shares.gsub!(',','')
-      actor.node.exec 'wallet_asset_create', asset, asset.downcase + '_iou', actor.account, asset.downcase + '_iou_description', max_shares.to_i, 1000, '', false
+      actor.node.exec 'wallet_uia_create', asset, asset.downcase + '_iou', actor.account, asset.downcase + '_iou_description', max_shares.to_i, 1000, '', false
   else
-      actor.node.exec 'wallet_asset_create', asset, asset.downcase + '_iou', actor.account, asset.downcase + '_iou_description', 999999999999, 1000, '', false
+      actor.node.exec 'wallet_uia_create', asset, asset.downcase + '_iou', actor.account, asset.downcase + '_iou_description', 999999999999, 1000, '', false
   end
 end
 
@@ -12,13 +12,13 @@ When(/^(\w+) issues? ([\d,]+) ([A-Z]+) to (\w+)$/) do |name, amount, symbol, to_
   actor = get_actor(name)
   amount.gsub!(',','')
   to = get_actor(to_name)
-  actor.node.exec 'wallet_asset_issue', amount, symbol, to.account, 'minted shares'
+  actor.node.exec 'wallet_uia_issue', amount, symbol, to.account, 'minted shares'
 end
 
 When(/^(\w+) issues? ([\d,]+) ([A-Z]+) to account: (\w+)$/) do |name, amount, symbol, to_name|
   actor = get_actor(name)
   amount.gsub!(',','')
-  actor.node.exec 'wallet_asset_issue', amount, symbol, to_name, 'minted shares'
+  actor.node.exec 'wallet_uia_issue', amount, symbol, to_name, 'minted shares'
 end
 
 When(/^(\w+) issues? ([\d,]+) ([A-Z]+) satoshis each to: (\[.*\])$/) do |name, amount, symbol, addresses|
@@ -30,7 +30,7 @@ When(/^(\w+) issues? ([\d,]+) ([A-Z]+) satoshis each to: (\[.*\])$/) do |name, a
       addr_map << [@addresses[name], amount]
       #addr_map[@addresses[name]] = amount
   end
-  actor.node.exec 'wallet_asset_issue_to_addresses', symbol, addr_map
+  actor.node.exec 'wallet_uia_issue_to_addresses', symbol, addr_map
 end
 
 

@@ -8,6 +8,7 @@
 #include <bts/blockchain/feed_operations.hpp>
 #include <bts/blockchain/market_operations.hpp>
 #include <bts/game/game_operations.hpp>
+#include <bts/game/client.hpp>
 
 namespace bts { namespace wallet { namespace detail {
 
@@ -18,6 +19,7 @@ class wallet_impl : public chain_observer
       bool                                             _is_enabled = true;
       wallet_db                                        _wallet_db;
       chain_database_ptr                               _blockchain = nullptr;
+      bts::game::game_client_ptr                       _game_client = nullptr;
       path                                             _data_directory;
       path                                             _current_wallet_path;
       fc::sha512                                       _wallet_password;
@@ -128,9 +130,13 @@ class wallet_impl : public chain_observer
       bool scan_bid( const bid_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
       bool scan_ask( const ask_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
 
-      bool scan_game( const bts::game::game_operation& op, wallet_transaction_record& trx_rec );
+      bool scan_game_play( const bts::game::game_play_operation& op, wallet_transaction_record& trx_rec );
    
       bool scan_buy_chips( const buy_chips_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
+    
+      bool scan_create_game( const bts::game::create_game_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
+    
+      bool scan_game_update( const bts::game::game_update_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
 
       bool scan_burn( const burn_operation& op, wallet_transaction_record& trx_rec, asset& total_fee );
     

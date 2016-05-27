@@ -4,7 +4,7 @@ Feature: Create Dice game, buy game chip and play game DICE
   I want to buy some game chip and play game DICE
   So that I might win or lose
 
-  Background: Create an asset and a game binding to that asset
+  Background: Create an game and a asset accessible to that game
     Given I'm Alice
     And I received 5200000 XTS from angel
 	 And I wait for one block
@@ -23,9 +23,9 @@ Feature: Create Dice game, buy game chip and play game DICE
     And I print DICE balance
     Then Bob should have 10 DICE
     And I should have 499 XTS minus 1*fee
-    When I play game DICE using 10 DICE providing with 2 odds and 1 guess
+    When I play game dice using 10 DICE providing with 2 odds and 1 guess
     And I wait for one block
     Then Bob should have 0 DICE
-    When I wait for 9 block
-    #Then I should win 20 DICE or lose
+    When I wait for 10 block
+    Then I should win 20 DICE or lose
 	 Then I should have 20 or 0 DICE

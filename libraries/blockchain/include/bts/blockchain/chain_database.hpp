@@ -71,6 +71,8 @@ namespace bts { namespace blockchain {
          virtual void block_pushed( const full_block& ) = 0;
          virtual void block_popped( const pending_chain_state_ptr& ) = 0;
    };
+    
+    class game_interface;
 
    class chain_database : public chain_interface, public std::enable_shared_from_this<chain_database>
    {
@@ -94,6 +96,10 @@ namespace bts { namespace blockchain {
           * The state of the blockchain after applying all pending transactions.
           */
          pending_chain_state_ptr                    get_pending_state()const;
+       
+         game_interface*                             get_game_interface() const;
+       
+       void set_game_interface( game_interface* g);
 
          /**
           *  @param override_limits - stores the transaction even if the pending queue is full,
@@ -159,6 +165,8 @@ namespace bts { namespace blockchain {
          vector<ad_record>           fetch_ad_records( const string& account_name, const uint32_t limit )const;
        
          vector<note_record>         fetch_note_records( const string& account_name, const uint32_t limit )const;
+       
+         vector<game_data_record>    fetch_game_data_records( const string& game_name, uint32_t limit )const;
 
          unordered_map<balance_id_type, balance_record>     get_balances( const balance_id_type& first,
                                                                           uint32_t limit )const;
@@ -172,6 +180,9 @@ namespace bts { namespace blockchain {
 
          vector<asset_record>                               get_assets( const string& first_symbol,
                                                                         uint32_t limit )const;
+       
+         vector<asset_record>                               get_assets_by_issuer( uint8_t issuer_type,
+                                                                     issuer_id_type issuer_id )const;
 
          std::vector<slot_record> get_delegate_slot_records( const account_id_type delegate_id, uint32_t limit )const;
 
@@ -227,9 +238,9 @@ namespace bts { namespace blockchain {
          void                               scan_balances( const function<void( const balance_record& )> callback )const;
          void                               scan_transactions( const function<void( const transaction_record& )> callback )const;
 
-         virtual orule_data_record          get_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id )const override;
+         virtual ogame_data_record          get_game_data_record( const game_id_type& game_id, const data_id_type& data_id )const override;
        
-         virtual void                       store_rule_data_record(const rule_id_type& rule_id, const data_id_type& data_id, const rule_data_record& r )override;
+         virtual void                       store_game_data_record(const game_id_type& game_id, const data_id_type& data_id, const game_data_record& r )override;
 
          bool                               is_valid_asset_symbol( const string& asset_symbol )const;
        
@@ -249,6 +260,10 @@ namespace bts { namespace blockchain {
 
          virtual omarket_status             get_market_status( const asset_id_type quote_id, const asset_id_type base_id )const override;
          virtual void                       store_market_status( const market_status& s ) override;
+       
+         virtual ogame_status               get_game_status( const game_id_type game_id )const override;
+         virtual void                       store_game_status( const game_status& s ) override;
+       
          virtual void                       store_market_history_record( const market_history_key &key, const market_history_record &record ) override;
          virtual omarket_history_record     get_market_history_record( const market_history_key &key )const override;
          market_history_points              get_market_price_history( const asset_id_type quote_id,
@@ -259,12 +274,16 @@ namespace bts { namespace blockchain {
 
          virtual void                       set_market_transactions( vector<market_transaction> trxs )override;
          vector<market_transaction>         get_market_transactions( uint32_t block_num  )const;
-         virtual void                       set_rule_result_transactions( vector<rule_result_transaction> trxs );
-         vector<rule_result_transaction>    get_rule_result_transactions( uint32_t block_num  )const;
+       
+         virtual void                       set_game_result_transactions( vector<game_result_transaction> trxs );
+         vector<game_result_transaction>    get_game_result_transactions( uint32_t block_num  )const;
+       
          virtual void                       set_operation_reward_transactions( vector<operation_reward_transaction> trxs )override;
          vector<operation_reward_transaction>         get_operation_reward_transactions( uint32_t block_num  )const;
 
          vector<pair<asset_id_type, asset_id_type>> get_market_pairs()const;
+       
+         vector<game_status> list_game_statuses()const;
 
          vector<order_history_record>       market_order_history(asset_id_type quote,
                                                                   asset_id_type base,
