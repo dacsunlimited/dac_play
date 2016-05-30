@@ -101,12 +101,6 @@ namespace bts { namespace blockchain {
         return *inst;
     } FC_CAPTURE_AND_RETHROW() }
 
-    game_executors& game_executors::instance()
-    {
-       static std::unique_ptr<game_executors> inst( new game_executors() );
-       return *inst;
-    }
-
     void operation_factory::to_variant( const bts::blockchain::operation& in, fc::variant& output )
     { try {
         auto converter_itr = _converters.find( in.type.value );

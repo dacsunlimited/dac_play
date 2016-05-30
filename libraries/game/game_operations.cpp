@@ -3,12 +3,18 @@
 #include <bts/blockchain/exceptions.hpp>
 #include <bts/game/client.hpp>
 #include <bts/game/v8_game.hpp>
+#include <bts/blockchain/fork_blocks.hpp>
 
 namespace bts { namespace game {
     using namespace bts::blockchain;
     
     void create_game_operation::evaluate( transaction_evaluation_state& eval_state ) const
     { try {
+        #ifndef WIN32
+        #warning [HARDFORK] Remove this check after PDV_V0_3_0_FORK_BLOCK_NUM has passed
+        #endif
+        FC_ASSERT( eval_state.pending_state()->get_head_block_num() >= PDV_V0_3_0_FORK_BLOCK_NUM );
+        
         ogame_record current_game_record = eval_state.pending_state()->get_game_record( this->name );
         if( current_game_record.valid() )
             FC_CAPTURE_AND_THROW( game_name_in_use, (name) );
@@ -60,6 +66,11 @@ namespace bts { namespace game {
     
     void game_update_operation::evaluate( transaction_evaluation_state& eval_state ) const
     { try {
+        #ifndef WIN32
+        #warning [HARDFORK] Remove this check after PDV_V0_3_0_FORK_BLOCK_NUM has passed
+        #endif
+        FC_ASSERT( eval_state.pending_state()->get_head_block_num() >= PDV_V0_3_0_FORK_BLOCK_NUM );
+        
         ogame_record current_game_record = eval_state.pending_state()->get_game_record( this->game_id );
         
         if( ! current_game_record.valid() )
@@ -90,6 +101,12 @@ namespace bts { namespace game {
      */
     void game_play_operation::evaluate( transaction_evaluation_state& eval_state ) const
     { try {
+        #ifndef WIN32
+        #warning [HARDFORK] Remove this check after PDV_V0_3_0_FORK_BLOCK_NUM has passed
+        #endif
+        
+        FC_ASSERT( eval_state.pending_state()->get_head_block_num() >= PDV_V0_3_0_FORK_BLOCK_NUM );
+        
         // TODO: shoud provide with game_input
         auto ogame = eval_state.pending_state()->get_game_record( input.game_id );
         
