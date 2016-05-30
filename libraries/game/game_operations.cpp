@@ -11,9 +11,9 @@ namespace bts { namespace game {
     void create_game_operation::evaluate( transaction_evaluation_state& eval_state ) const
     { try {
         #ifndef WIN32
-        #warning [HARDFORK] Remove this check after PDV_V0_3_0_FORK_BLOCK_NUM has passed
+        #warning [HARDFORK] Remove this check after PLS_V0_4_0_FORK_BLOCK_NUM has passed
         #endif
-        FC_ASSERT( eval_state.pending_state()->get_head_block_num() >= PDV_V0_3_0_FORK_BLOCK_NUM );
+        FC_ASSERT( eval_state.pending_state()->get_head_block_num() >= PLS_V0_4_0_FORK_BLOCK_NUM );
         
         ogame_record current_game_record = eval_state.pending_state()->get_game_record( this->name );
         if( current_game_record.valid() )
@@ -73,9 +73,9 @@ namespace bts { namespace game {
     void game_update_operation::evaluate( transaction_evaluation_state& eval_state ) const
     { try {
         #ifndef WIN32
-        #warning [HARDFORK] Remove this check after PDV_V0_3_0_FORK_BLOCK_NUM has passed
+        #warning [HARDFORK] Remove this check after PLS_V0_4_0_FORK_BLOCK_NUM has passed
         #endif
-        FC_ASSERT( eval_state.pending_state()->get_head_block_num() >= PDV_V0_3_0_FORK_BLOCK_NUM );
+        FC_ASSERT( eval_state.pending_state()->get_head_block_num() >= PLS_V0_4_0_FORK_BLOCK_NUM );
         
         ogame_record current_game_record = eval_state.pending_state()->get_game_record( this->game_id );
         
@@ -108,10 +108,10 @@ namespace bts { namespace game {
     void game_play_operation::evaluate( transaction_evaluation_state& eval_state ) const
     { try {
         #ifndef WIN32
-        #warning [HARDFORK] Remove this check after PDV_V0_3_0_FORK_BLOCK_NUM has passed
+        #warning [HARDFORK] Remove this check after PLS_V0_4_0_FORK_BLOCK_NUM has passed
         #endif
         
-        FC_ASSERT( eval_state.pending_state()->get_head_block_num() >= PDV_V0_3_0_FORK_BLOCK_NUM );
+        FC_ASSERT( eval_state.pending_state()->get_head_block_num() >= PLS_V0_4_0_FORK_BLOCK_NUM );
         
         // TODO: shoud provide with game_input
         auto ogame = eval_state.pending_state()->get_game_record( input.game_id );

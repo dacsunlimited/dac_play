@@ -1325,9 +1325,9 @@ namespace bts { namespace blockchain {
             
             
             #ifndef WIN32
-            #warning [HARDFORK] Remove this check after PDV_V0_3_0_FORK_BLOCK_NUM has passed
+            #warning [HARDFORK] Remove this check after PLS_V0_4_0_FORK_BLOCK_NUM has passed
             #endif
-            if (block_data.block_num >= PDV_V0_3_0_FORK_BLOCK_NUM )
+            if (block_data.block_num >= PLS_V0_4_0_FORK_BLOCK_NUM )
             {
                 game_interface* g_interface = self->get_game_interface();
                 
