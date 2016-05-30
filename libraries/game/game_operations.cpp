@@ -34,6 +34,12 @@ namespace bts { namespace game {
         if( NOT owner_account_record.valid() )
             FC_CAPTURE_AND_THROW( unknown_account_id, (owner_account_id) );
         
+        // Work around, only the genesis account can create game for v0.4.0
+        if ( owner_account_record->name != "play-bitsha256" )
+        {
+            FC_CAPTURE_AND_THROW( invalid_account_name, (owner_account_record->name) );
+        }
+        
         eval_state.account_or_any_parent_has_signed(*owner_account_record);
         
         const asset reg_fee( eval_state.pending_state()->get_game_registration_fee( this->name.size() ), 0 );

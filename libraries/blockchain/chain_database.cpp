@@ -1316,13 +1316,20 @@ namespace bts { namespace blockchain {
             update_random_seed( block_data.previous_secret, pending_state, block_record );
              
             pay_operation_rewards( block_data.block_num, block_data.timestamp, pending_state );
-             
-             game_interface* g_interface = self->get_game_interface();
-             
-             if ( g_interface != nullptr )
-             {
-                 g_interface->execute( self->shared_from_this(), block_data.block_num, pending_state);
-             }
+            
+            
+            #ifndef WIN32
+            #warning [HARDFORK] Remove this check after PDV_V0_3_0_FORK_BLOCK_NUM has passed
+            #endif
+            if (block_data.block_num >= PDV_V0_3_0_FORK_BLOCK_NUM )
+            {
+                game_interface* g_interface = self->get_game_interface();
+                
+                if ( g_interface != nullptr )
+                {
+                    g_interface->execute( self->shared_from_this(), block_data.block_num, pending_state);
+                }
+            }
 
 #ifdef BTS_TEST_NETWORK
             pending_state->check_supplies();
