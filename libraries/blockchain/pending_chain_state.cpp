@@ -57,6 +57,8 @@ namespace bts { namespace blockchain {
 
       // This has to go before shorts and feeds because side effects
       for( const auto& item : market_statuses ) prev_state->store_market_status( item.second );
+       
+      for( const auto& item : game_statuses )   prev_state->store_game_status( item.second );
 
       for( const auto& item : bids )            prev_state->store_bid_record( item.first, item.second );
       for( const auto& item : asks )            prev_state->store_ask_record( item.first, item.second );
@@ -71,8 +73,8 @@ namespace bts { namespace blockchain {
 
       prev_state->set_dirty_markets(_dirty_markets);
 
-      for ( const auto& item : rules )          prev_state->store_rule_data_record(item.first.first, item.first.second, item.second);
-      prev_state->set_rule_result_transactions( rule_result_transactions );
+      for ( const auto& item : game_datas )          prev_state->store_game_data_record(item.first.first, item.first.second, item.second);
+      prev_state->set_game_result_transactions( game_result_transactions );
    }
 
    otransaction_record pending_chain_state::get_transaction( const transaction_id_type& trx_id, bool exact )const
@@ -133,16 +135,26 @@ namespace bts { namespace blockchain {
             undo_state->store_market_status( market_status() );
          }
       }
+       
+       for( const auto& item : game_statuses )
+       {
+           auto prev_value = prev_state->get_game_status( item.first );
+           if( prev_value ) undo_state->store_game_status( *prev_value );
+           else
+           {
+               undo_state->store_game_status( game_status(item.first) );
+           }
+       }
 
       const auto dirty_markets = prev_state->get_dirty_markets();
       undo_state->set_dirty_markets( dirty_markets );
 
       /* NOTE: Recent operations are currently not rewound on undo */
 
-      for ( const auto& item : rules ) {
-          auto prev_value = prev_state->get_rule_data_record(item.first.first, item.first.second);
-          if (prev_value) undo_state->store_rule_data_record(item.first.first, item.first.second, *prev_value);
-          else undo_state->store_rule_data_record(item.first.first, item.first.second, item.second.make_null() );
+      for ( const auto& item : game_datas ) {
+          auto prev_value = prev_state->get_game_data_record(item.first.first, item.first.second);
+          if (prev_value) undo_state->store_game_data_record(item.first.first, item.first.second, *prev_value);
+          else undo_state->store_game_data_record(item.first.first, item.first.second, item.second.make_null() );
       }
    }
 
@@ -158,20 +170,20 @@ namespace bts { namespace blockchain {
       return v;
    }
 
-   orule_data_record pending_chain_state::get_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id )const
+   ogame_data_record pending_chain_state::get_game_data_record( const game_id_type& game_id, const data_id_type& data_id )const
    {
        chain_interface_ptr prev_state = _prev_state.lock();
-       auto itr = rules.find( std::make_pair(rule_id, data_id) );
-       if( itr != rules.end() )
+       auto itr = game_datas.find( std::make_pair(game_id, data_id) );
+       if( itr != game_datas.end() )
            return itr->second;
        else if( prev_state )
-           return prev_state->get_rule_data_record( rule_id, data_id );
-       return orule_data_record();
+           return prev_state->get_game_data_record( game_id, data_id );
+       return ogame_data_record();
    }
 
-   void pending_chain_state::store_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id, const rule_data_record& r )
+   void pending_chain_state::store_game_data_record( const game_id_type& game_id, const data_id_type& data_id, const game_data_record& r )
    {
-       rules[std::make_pair(rule_id, data_id)] = r;
+       game_datas[std::make_pair(game_id, data_id)] = r;
    }
 
    oorder_record pending_chain_state::get_bid_record( const market_index_key& key )const
@@ -242,9 +254,9 @@ namespace bts { namespace blockchain {
       market_transactions = std::move(trxs);
    }
     
-   void pending_chain_state::set_rule_result_transactions( vector<rule_result_transaction> trxs )
+   void pending_chain_state::set_game_result_transactions( vector<game_result_transaction> trxs )
    {
-      rule_result_transactions = std::move(trxs);
+      game_result_transactions = std::move(trxs);
    }
 
     void pending_chain_state::set_operation_reward_transactions( vector<operation_reward_transaction> trxs )
@@ -265,6 +277,20 @@ namespace bts { namespace blockchain {
    {
       market_statuses[std::make_pair(s.quote_id,s.base_id)] = s;
    }
+    
+    ogame_status pending_chain_state::get_game_status( const game_id_type game_id )const
+    {
+        auto itr = game_statuses.find( game_id );
+        if( itr != game_statuses.end() )
+            return itr->second;
+        chain_interface_ptr prev_state = _prev_state.lock();
+        return prev_state->get_game_status(game_id);
+    }
+    
+    void pending_chain_state::store_game_status( const game_status& s )
+    {
+        game_statuses[s.game_id] = s;
+    }
 
    void pending_chain_state::check_supplies()const
    {
@@ -432,7 +458,7 @@ namespace bts { namespace blockchain {
                reported_delta += record->current_supply;
 
            if( reported_delta != actual_delta )
-               FC_CAPTURE_AND_THROW( unexpected_supply_change, (id)(actual_delta)(reported_delta) );
+               FC_CAPTURE_AND_THROW( unexpected_supply_change, (id)(actual_delta)(reported_delta)(*record) );
        }
    }
 

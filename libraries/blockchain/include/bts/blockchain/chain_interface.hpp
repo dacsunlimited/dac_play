@@ -83,13 +83,19 @@ namespace bts { namespace blockchain {
 
          fc::ripemd160                      get_current_random_seed()const;
 
-         virtual void                       store_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id, const rule_data_record& r )               = 0;
+         virtual void                       store_game_data_record( const game_id_type& game_id, const data_id_type& data_id, const game_data_record& r )               = 0;
 
          virtual omarket_status             get_market_status( const asset_id_type quote_id,
                                                                const asset_id_type base_id )const          = 0;
+       
+       
          virtual void                       store_market_status( const market_status& s )                   = 0;
+       
+         virtual ogame_status               get_game_status( const game_id_type game_id )const          = 0;
+       
+         virtual void                       store_game_status( const game_status& s )                   = 0;
 
-         virtual orule_data_record          get_rule_data_record( const rule_id_type& rule_id, const data_id_type& data_id )const    = 0;
+         virtual ogame_data_record          get_game_data_record( const game_id_type& game_id, const data_id_type& data_id )const    = 0;
 
          virtual omarket_order              get_lowest_ask_record( const asset_id_type quote_id,
                                                                    const asset_id_type base_id )           = 0;
@@ -129,7 +135,7 @@ namespace bts { namespace blockchain {
          void set_dirty_markets( const std::set<std::pair<asset_id_type, asset_id_type>>& );
          std::set<std::pair<asset_id_type, asset_id_type>> get_dirty_markets()const;
 
-         virtual void                       set_rule_result_transactions( vector<rule_result_transaction> trxs ) = 0;
+         virtual void                       set_game_result_transactions( vector<game_result_transaction> trxs ) = 0;
          virtual void                       set_market_transactions( vector<market_transaction> trxs )      = 0;
          virtual void                       set_operation_reward_transactions( vector<operation_reward_transaction> trxs )      = 0;
 

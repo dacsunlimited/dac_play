@@ -234,6 +234,22 @@ oasset_record detail::client_impl::blockchain_get_asset( const string& asset )co
    }
    return oasset_record();
 }
+    
+    ogame_record detail::client_impl::blockchain_get_game( const string& game_name )const
+    {
+        try
+        {
+            ASSERT_TASK_NOT_PREEMPTED(); // make sure no cancel gets swallowed by catch(...)
+            if( !std::all_of( game_name.begin(), game_name.end(), ::isdigit ) )
+                return _chain_db->get_game_record( game_name );
+            else
+                return _chain_db->get_game_record( std::stoi( game_name ) );
+        }
+        catch( ... )
+        {
+        }
+        return ogame_record();
+    }
 
 //TODO: Refactor: most of these next two functions are identical. Should extract a function.
 vector<feed_entry> detail::client_impl::blockchain_get_feeds_for_asset( const string& asset )const

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <bts/blockchain/types.hpp>
+
 #include <fc/io/enum_type.hpp>
 #include <fc/io/raw.hpp>
 #include <fc/reflect/reflect.hpp>
@@ -12,57 +14,43 @@
  */
 #define NOT !
 
-#define null_rule_type  0
-#define dice_rule_type  1
+#define null_game_id  0
 
 namespace bts { namespace game {
+    using namespace bts::blockchain;
     
     /**
      *  A poly-morphic operator that modifies the blockchain database
      *  is some manner.
      */
-    struct rule
+    struct game_input
     {
-        rule():type(null_rule_type){}
+        game_input():game_id(null_game_id){}
         
-        rule( const rule& o )
-        :type(o.type),data(o.data){}
+        game_input( const game_input& o )
+        :game_id(o.game_id),data(o.data){}
         
-        rule( rule&& o )
-        :type(o.type),data(std::move(o.data)){}
+        game_input( game_input&& o )
+        :game_id(o.game_id),data(std::move(o.data)){}
         
-        template<typename RuleType>
-        rule( const RuleType& t )
-        {
-            type = RuleType::type;
-            data = fc::raw::pack( t );
-        }
-        
-        template<typename RuleType>
-        RuleType as()const
-        {
-            FC_ASSERT( type == RuleType::type, "", ("type",type)("RuleType",RuleType::type) );
-            return fc::raw::unpack<RuleType>(data);
-        }
-        
-        rule& operator=( const rule& o )
+        game_input& operator=( const game_input& o )
         {
             if( this == &o ) return *this;
-            type = o.type;
+            game_id = o.game_id;
             data = o.data;
             return *this;
         }
         
-        rule& operator=( rule&& o )
+        game_input& operator=( game_input&& o )
         {
             if( this == &o ) return *this;
-            type = o.type;
+            game_id = o.game_id;
             data = std::move(o.data);
             return *this;
         }
         
-        uint8_t type;
-        std::vector<char> data;
+        game_id_type game_id;
+        fc::variant  data;
     };
     
     template<uint8_t RuleType>
@@ -84,14 +72,12 @@ namespace bts { namespace game {
     
 } } // bts::game
 
-FC_REFLECT( bts::game::rule, (type)(data) )
+FC_REFLECT( bts::game::game_input, (game_id)(data) )
 
 /**
  *  Implement generic reflection for wallet record types
  */
 namespace fc {
-    void to_variant( const bts::game::rule& var,  variant& vo );
-    void from_variant( const variant& var,  bts::game::rule& vo );
     
     template<typename T, uint8_t N>
     struct get_typename< bts::game::rule_record<T,N> >

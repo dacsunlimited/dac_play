@@ -6,8 +6,7 @@
 #include <bts/wallet/wallet_impl.hpp>
 
 #include <bts/blockchain/time.hpp>
-
-#include <bts/game/rule_factory.hpp>
+#include <bts/game/v8_game.hpp>
 
 #include <sstream>
 
@@ -282,12 +281,19 @@ void wallet_impl::scan_block( uint32_t block_num )
         }
     }
     
-    const vector<rule_result_transaction>& rule_result_trxs = _blockchain->get_rule_result_transactions( block_num );
-    for( uint32_t i = 0; i < rule_result_trxs.size(); ++i )
+    const vector<game_result_transaction>& game_result_trxs = _blockchain->get_game_result_transactions( block_num );
+    for( uint32_t i = 0; i < game_result_trxs.size(); ++i )
     {
         try
         {
-            rule_factory::instance().scan_result( rule_result_trxs[i], block_num, block_header.timestamp, i, self->shared_from_this());
+            auto ogame = _blockchain->get_game_record( game_result_trxs[i].game_id );
+            if ( ogame.valid() )
+            {
+                bool has_result = _game_client->get_v8_engine( ogame->name )->scan_result( game_result_trxs[i], block_num, block_header.timestamp, i, self->shared_from_this());
+                
+                if ( has_result )
+                    _dirty_balances = true;
+            }
         }
         catch( ... )
         {
@@ -434,11 +440,17 @@ wallet_transaction_record wallet_impl::scan_transaction(
                 store_record |= scan_claim_packet( op.as<claim_packet_operation>(), *transaction_record, total_fee );
                 break;
             }
-            case game_op_type:
-                store_record |= scan_game( op.as<game_operation>(), *transaction_record );
-                break;
             case buy_chips_type:
-              store_record |= scan_buy_chips( op.as<buy_chips_operation>(), *transaction_record, total_fee );
+                store_record |= scan_buy_chips( op.as<buy_chips_operation>(), *transaction_record, total_fee );
+                break;
+            case create_game_op_type:
+                store_record |= scan_create_game( op.as<create_game_operation>(), *transaction_record, total_fee );
+                break;
+            case game_play_op_type:
+                store_record |= scan_game_play( op.as<game_play_operation>(), *transaction_record );
+                break;
+            case game_update_op_type:
+                store_record |= scan_game_update( op.as<game_update_operation>(), *transaction_record, total_fee );
                 break;
             default:
                 break;
@@ -1876,9 +1888,16 @@ wallet_transaction_record wallet::get_transaction( const string& transaction_id_
     FC_THROW_EXCEPTION( transaction_not_found, "Transaction not found!", ("transaction_id_prefix",transaction_id_prefix) );
 }
 
-bool wallet_impl::scan_game( const game_operation& op, wallet_transaction_record& trx_rec )
+bool wallet_impl::scan_game_play( const game_play_operation& op, wallet_transaction_record& trx_rec )
 {
-    return bts::game::rule_factory::instance().scan(op.rule, trx_rec, self->shared_from_this() );
+    auto ogame = _blockchain->get_game_record( op.input.game_id );
+    
+    if ( ogame.valid() )
+    {
+        return _game_client->get_v8_engine( ogame->name )->scan_ledger( _blockchain, self->shared_from_this(), trx_rec, op.input.data );
+    }
+    
+    return false;
 }
 
 bool wallet_impl::scan_buy_chips( const buy_chips_operation& op, wallet_transaction_record& trx_rec, asset& total_fee )
@@ -1914,6 +1933,43 @@ bool wallet_impl::scan_buy_chips( const buy_chips_operation& op, wallet_transact
    }
    return false;
 } FC_CAPTURE_AND_RETHROW( (op) ) }
+
+bool wallet_impl::scan_create_game( const create_game_operation& op, wallet_transaction_record& trx_rec, asset& total_fee )
+{ try {
+    //_game_client->install_game_engine( op );
+    
+    auto oaccount = _blockchain->get_account_record(op.owner_account_id);
+    if ( oaccount.valid() )
+    {
+        auto okey_rec = _wallet_db.lookup_key( oaccount->owner_key );
+        if( okey_rec.valid() && okey_rec->has_private_key() )
+        {
+            return true;
+        }
+    }
+    
+    return false;
+} FC_CAPTURE_AND_RETHROW( (op) )}
+
+bool wallet_impl::scan_game_update( const game_update_operation& op, wallet_transaction_record& trx_rec, asset& total_fee )
+{ try {
+    auto ogame = _blockchain->get_game_record(op.game_id);
+    
+    if ( ogame.valid() )
+    {
+        auto oaccount = _blockchain->get_account_record(ogame->owner_account_id);
+        if ( oaccount.valid() )
+        {
+            auto okey_rec = _wallet_db.lookup_key( oaccount->owner_key );
+            if( okey_rec.valid() && okey_rec->has_private_key() )
+            {
+                return true;
+            }
+        }
+    }
+    
+    return false;
+} FC_CAPTURE_AND_RETHROW( (op) )}
 
 account_balance_summary_type wallet::compute_historic_balance( const string &account_name,
                                                                   uint32_t block_num )const

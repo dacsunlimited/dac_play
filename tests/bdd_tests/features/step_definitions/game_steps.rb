@@ -7,14 +7,21 @@ end
 Given(/^I created a game called (\w+)$/) do |name|
   actor = @current_actor
   account = @current_actor.account
-  actor.node.exec 'game_create', name, account, 1, name, ""
+  actor.node.exec 'game_create', name, account, 'https://raw.githubusercontent.com/dacsunlimited/dacplay-game-samples/master/dice/dice.js', '000', 'The game of dice', ""
 end
+
+Given(/^I updated a game called (\w+)$/) do |name|
+  actor = @current_actor
+  account = @current_actor.account
+  actor.node.exec 'game_update', account, name, 'https://raw.githubusercontent.com/dacsunlimited/dacplay-game-samples/master/dice/dice.js', '000', 'The game of dice', ""
+end
+
 
 When(/^I buy for (\d+) (\w+) chip/) do |amount, symbol|
   @current_actor.node.exec 'game_buy_chips', @current_actor.account, amount, symbol
 end
 
-When(/^I play game (\w+) using (\d+) (\w+) providing with (\d+) odds and (\d+) guess/) do |game_symbol, amount, symbol, odds, guess|
+When(/^I play game (\w+) using (\d+) (\w+) providing with (\d+) odds and (\d+) guess/) do |game_name, amount, symbol, odds, guess|
   actor = @current_actor
   account = @current_actor.account
   params = {}
@@ -25,7 +32,7 @@ When(/^I play game (\w+) using (\d+) (\w+) providing with (\d+) odds and (\d+) g
   
   # https://github.com/BitShares/bitshares/issues/1110
   
-  actor.node.exec 'game_play', game_symbol, params
+  actor.node.exec 'game_play', game_name, params
 end
 
 Then /^I should win (\d+) (\w+) or lose/ do |amount, symbol|

@@ -1327,8 +1327,13 @@ void client::open( const path& data_dir, const fc::optional<fc::path>& genesis_f
        fc::remove_all( data_dir / "chain" );
        my->_chain_db->open( data_dir / "chain", genesis_file_path, my->_config.statistics_enabled, replay_status_callback );
     }
+   
+    my->_game_client = std::make_shared<bts::game::client>( my->_chain_db );
+    my->_game_client->open( data_dir / "game_client" );
+    
+    my->_chain_db->set_game_interface(my->_game_client.get());
 
-    my->_wallet = std::make_shared<bts::wallet::wallet>( my->_chain_db, my->_config.wallet_enabled );
+    my->_wallet = std::make_shared<bts::wallet::wallet>( my->_chain_db, my->_game_client, my->_config.wallet_enabled );
     my->_wallet->set_data_directory( data_dir / "wallets" );
 
     if( my->_config.mail_server_enabled )
@@ -1349,6 +1354,7 @@ void client::open( const path& data_dir, const fc::optional<fc::path>& genesis_f
     my->_p2p_node->set_node_delegate( my.get() );
 
     my->start_rebroadcast_pending_loop();
+    
 } FC_CAPTURE_AND_RETHROW( (data_dir) ) }
 
 client::~client()

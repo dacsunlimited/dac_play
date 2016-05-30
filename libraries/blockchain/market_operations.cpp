@@ -2,6 +2,7 @@
 #include <bts/blockchain/market_engine.hpp>
 #include <bts/blockchain/market_operations.hpp>
 #include <bts/blockchain/pending_chain_state.hpp>
+#include <bts/blockchain/fork_blocks.hpp>
 
 #include <fc/real128.hpp>
 
@@ -134,6 +135,11 @@ namespace bts { namespace blockchain {
    
    void buy_chips_operation::evaluate( transaction_evaluation_state& eval_state ) const
    { try {
+        #ifndef WIN32
+        #warning [HARDFORK] Remove this check after PDV_V0_3_0_FORK_BLOCK_NUM has passed
+        #endif
+       FC_ASSERT( eval_state.pending_state()->get_head_block_num() >= PDV_V0_3_0_FORK_BLOCK_NUM );
+       
        if ( this->amount.amount == 0) {
            FC_CAPTURE_AND_THROW( zero_amount );
        }
@@ -172,6 +178,7 @@ namespace bts { namespace blockchain {
        asset_to_buy->current_supply += this->amount.amount;
        // TODO: Dice, do we need to update the asset 0's current supply, no. Because it is just become the collateral of chips.
        
+       asset_to_buy->last_update = eval_state.pending_state()->now();
        eval_state.pending_state()->store_asset_record( *asset_to_buy );
    } FC_CAPTURE_AND_RETHROW( (*this) ) }
 

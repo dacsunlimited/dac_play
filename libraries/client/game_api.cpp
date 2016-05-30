@@ -12,23 +12,63 @@ wallet_transaction_record client_impl::game_buy_chips(
     return record;
 }
 
-wallet_transaction_record client_impl::game_create(
-                                                                  const std::string& game_name,
-                                                                  const std::string& owner_name,
-                                                                  uint32_t rule_id,
+wallet_transaction_record client_impl::game_create( const std::string& game_name,
+                                                                  const std::string& issuer_name,
+                                                                  const std::string& script_url,
+                                                                  const std::string& script_hash,
                                                                   const std::string& description,
                                                                   const fc::variant& public_data /* = fc::json::from_string("null").as<fc::variant>() */ )
 {
-   auto record = _wallet->create_game( game_name, description, public_data, owner_name, rule_id, true );
+   auto record = _wallet->create_game( game_name, description, public_data, issuer_name,
+                                            script_url, script_hash, true );
    _wallet->cache_transaction( record );
    network_broadcast_transaction( record.trx );
    return record;
 }
 
-wallet_transaction_record client_impl::game_play(const std::string& asset_symbol, const fc::variant& param )
+wallet_transaction_record client_impl::game_update(const string& paying_account, const std::string& game_name, const std::string& script_url, const std::string& script_hash, const std::string& description, const fc::variant& public_data )
 {
-    auto record = _wallet->play_game(asset_symbol, param, true);
+    auto record = _wallet->update_game( paying_account, game_name, description, public_data,
+                                       script_url, script_hash, true );
+    _wallet->cache_transaction( record );
+    network_broadcast_transaction( record.trx );
+    return record;
+}
+
+wallet_transaction_record client_impl::game_play(const std::string& game_name, const fc::variant& param )
+{
+    auto record = _wallet->play_game(game_name, param, true);
     _wallet->cache_transaction(record);
     network_broadcast_transaction(record.trx);
     return record;
+}
+
+vector<game_data_record> client_impl::game_list_datas( const string& game_name, uint32_t limit )const
+{ try {
+    FC_ASSERT( limit > 0 );
+    return _chain_db->fetch_game_data_records( game_name, limit );
+} FC_CAPTURE_AND_RETHROW( (game_name)(limit) ) }
+
+bts::blockchain::game_status client_impl::game_status(const std::string& game_name) const
+{
+    auto game_rec = _chain_db->get_game_record( game_name );
+    
+    FC_ASSERT( game_rec.valid() );
+    
+    auto s = _chain_db->get_game_status( game_rec->id );
+    
+    FC_ASSERT( s, "The ${n} game has not yet been initialized.", ("n", game_name));
+    
+    return *s;
+}
+
+
+std::vector<bts::blockchain::game_status> client_impl::game_list_status() const
+{
+    return _chain_db->list_game_statuses();
+}
+
+std::vector<bts::blockchain::game_result_transaction> client_impl::game_list_result_transactions(uint32_t block_number) const
+{
+    return _chain_db->get_game_result_transactions( block_number );
 }

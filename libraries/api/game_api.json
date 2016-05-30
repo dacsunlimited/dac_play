@@ -41,9 +41,53 @@
               "description" : "the name of the owner of the game"
           },
           {
-              "name" : "rule_id",
-              "type" : "uint32_t",
-              "description" : "the id of the rule binding to this game"
+              "name" : "script_url",
+              "type" : "string",
+              "description" : "the url of the rule script for this game"
+          },
+          {
+             "name" : "script_hash",
+             "type" : "string",
+             "description" : "the hash of the rule script"
+          },
+          {
+              "name" : "description",
+              "type" : "string",
+              "description" : "a description of the asset"
+          },
+          {
+              "name" : "public_data",
+              "type" : "json_variant",
+              "description" : "arbitrary data attached to the asset",
+              "default_value" : null
+          }
+          ],
+          "prerequisites" : ["wallet_unlocked"]
+      },
+      {
+          "method_name" : "game_update",
+          "description" : "Update a exist game",
+          "return_type" : "transaction_record",
+          "parameters"  : [
+          {
+              "name" : "paying_account",
+              "type" : "string",
+              "description" : "the name of the paying account"
+          },
+          {
+              "name" : "game_name",
+              "type" : "string",
+              "description" : "the name of the game"
+          },
+          {
+              "name" : "script_url",
+              "type" : "string",
+              "description" : "the url of the rule script for this game"
+          },
+          {
+              "name" : "script_hash",
+              "type" : "string",
+              "description" : "the hash of the rule script"
           },
           {
               "name" : "description",
@@ -65,9 +109,9 @@
           "return_type" : "transaction_record",
           "parameters"  : [
           {
-              "name" : "asset_symbol",
-              "type" : "asset_symbol",
-              "description" : "the asset of the game asset"
+              "name" : "game_name",
+              "type" : "string",
+              "description" : "the name of the game"
           },
           {   "name" : "param",
               "type" : "json_variant",
@@ -75,5 +119,67 @@
           }
           ],
           "prerequisites" : ["wallet_unlocked"]
+      },
+      {
+          "method_name": "game_list_datas",
+          "description": "Returns stored game datas starting with a given game name upto a the limit provided",
+          "return_type": "game_data_record_array",
+          "cached"   : true,
+          "parameters" : [
+          {
+              "name" : "game_name",
+              "type" : "account_name",
+              "description" : "the game name to include",
+              "default_value" : ""
+          },
+          {
+              "name" : "limit",
+              "type" : "uint32_t",
+              "description" : "the maximum number of items to list",
+              "default_value" : 20
+          }
+          ],
+          "is_const" : true,
+          "prerequisites" : ["no_prerequisites"]
+      },
+      {
+          "method_name": "game_status",
+          "description": "Returns the status of a particular game, including any trading errors.",
+          "cached"      : true,
+          "return_type": "game_status",
+          "parameters" : [
+          {
+              "name" : "game_name",
+              "type" : "account_name",
+              "description" : "the game name to include",
+              "default_value" : ""
+          }
+          ],
+          "is_const" : true,
+          "prerequisites" : ["no_prerequisites"]
+      },
+      {
+          "method_name": "game_list_status",
+          "description": "Returns a list of active game statuses",
+          "cached"      : true,
+          "return_type": "game_status_array",
+          "parameters" : [],
+          "is_const" : true,
+          "prerequisites" : ["no_prerequisites"]
+      },
+      {
+          "method_name": "game_list_result_transactions",
+          "description": "Returns a list of game result transactions executed on a given block.",
+          "cached"      : true,
+          "return_type": "game_result_transaction_array",
+          "parameters" : [
+          {
+              "name" : "block_number",
+              "type" : "uint32_t",
+              "description" : "Block to get game result transaction operations for."
+          }
+          ],
+          "is_const" : true,
+          "prerequisites" : ["no_prerequisites"]
       }
 ] }

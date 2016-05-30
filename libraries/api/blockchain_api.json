@@ -514,6 +514,22 @@
         "aliases" : ["get_asset"]
       },
       {
+          "method_name": "blockchain_get_game",
+          "description": "Retrieves the record for the given game name or ID",
+          "cached"   : true,
+          "return_type": "optional_game_record",
+          "parameters" : [
+          {
+              "name" : "game_name",
+              "type" : "string",
+              "description" : "game name or ID to retrieve"
+          }
+          ],
+          "is_const" : true,
+          "prerequisites" : ["no_prerequisites"],
+          "aliases" : ["get_game"]
+      },
+      {
         "method_name": "blockchain_get_feeds_for_asset",
         "description": "Retrieves all current feeds for the given asset",
         "cached"   : true,
