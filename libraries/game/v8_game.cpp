@@ -60,7 +60,7 @@ namespace bts { namespace game {
              v8::Handle<v8::String> source = v8::String::NewFromUtf8( GetIsolate(), ogame_rec->script_code.c_str() );
             
              if (ogame_rec->script_code.empty()) {
-                 wlog("The souce is empty, error loading script code");
+                 //wlog("The souce is empty, error loading script code");
                  GetIsolate()->ThrowException( v8::String::NewFromUtf8(GetIsolate(), "Error loading file" ) );
                  String::Utf8Value error(try_catch.Exception());
                  FC_CAPTURE_AND_THROW(failed_loading_source_file, (_game_name)(*error));
@@ -531,7 +531,7 @@ namespace bts { namespace game {
    void v8_game_engine::execute( game_id_type game_id, chain_database_ptr blockchain, uint32_t block_num, const pending_chain_state_ptr& pending_state )
    {
        try {
-           wlog("Start execute in game engine...");
+           //wlog("Start execute in game engine...");
            v8::Locker locker(my->GetIsolate());
            Isolate::Scope isolate_scope(my->GetIsolate());
            v8::HandleScope handle_scope(my->GetIsolate());

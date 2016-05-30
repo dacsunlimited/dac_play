@@ -228,14 +228,14 @@ namespace bts { namespace game {
         void* ptr = wrap->Value();
         //get member variable value
         
-        wlog( "The block number is ${d}", ("d", args[0]->Uint32Value()) );
+        //wlog( "The block number is ${d}", ("d", args[0]->Uint32Value()) );
         
         auto block_digest = static_cast<v8_blockchain*>(ptr)->_blockchain->get_block_digest(args[0]->Uint32Value());
         //return the value
         
         // args.GetReturnValue().Set( v8::Null( args.GetIsolate() ) );
         
-        wlog( "The block digest is ${d}", ("d", block_digest) );
+        //wlog( "The block digest is ${d}", ("d", block_digest) );
         
         auto v = variant(block_digest);
         
@@ -250,7 +250,7 @@ namespace bts { namespace game {
         
         auto result = v8_helper::cpp_to_json(args.GetIsolate(), v );
         
-        wlog( "get the result after cpp to json" );
+        //wlog( "get the result after cpp to json" );
         
         args.GetReturnValue().Set( result );
     }
@@ -448,9 +448,9 @@ namespace bts { namespace game {
         
         Local<String> v8_string = v8_helper::toJson( args.GetIsolate(), args[0] );
         std::string str = *v8::String::Utf8Value(v8_string);
-        wlog( "Starting store transaction ${v}", ("v", str) );
+        //wlog( "Starting store transaction ${v}", ("v", str) );
         auto trx_data = v8_helper::json_to_cpp<transaction_info>(args.GetIsolate(), args[0] );
-        wlog("The transaction data is ${x}", ("x", trx_data));
+        //wlog("The transaction data is ${x}", ("x", trx_data));
         
         static_cast<v8_wallet*>(ptr)->_wallet->store_transaction( trx_data );
     }
@@ -547,12 +547,12 @@ namespace bts { namespace game {
         
         try {
             string account_name = v8_helper::ToCString( String::Utf8Value( args[0]->ToString() ) );
-            wlog("the account name is ${n}", ("n", account_name) );
+            //wlog("the account name is ${n}", ("n", account_name) );
             auto account_record = static_cast<v8_chainstate*>(ptr)->_chain_state->get_account_record( account_name );
             
             if ( account_record.valid() )
             {
-                wlog("the account record is ${a}", ("a", *account_record) );
+                //wlog("the account record is ${a}", ("a", *account_record) );
                 Local<Value> res = v8_helper::cpp_to_json(args.GetIsolate(), *account_record );
                 
                 if ( res->IsObject() )
@@ -566,7 +566,7 @@ namespace bts { namespace game {
             }
         } catch ( const fc::exception& e )
         {
-            wlog("Failed to Get_Account_Record_By_Name: ${e}", ("e", e.to_detail_string()));
+            //wlog("Failed to Get_Account_Record_By_Name: ${e}", ("e", e.to_detail_string()));
             args.GetReturnValue().Set( v8::Null( args.GetIsolate() ) );
             
         }
@@ -586,12 +586,12 @@ namespace bts { namespace game {
         int32_t game_id = wrapper_game_id->Int32Value();
         int32_t data_id = wrapper_data_id->Int32Value();
         
-        wlog("Starting Get_Game_Data_Record with game_id:${g} and data_id:${d}", ("g", game_id)("d", data_id));
+        //wlog("Starting Get_Game_Data_Record with game_id:${g} and data_id:${d}", ("g", game_id)("d", data_id));
         auto game_data_record = static_cast<v8_blockchain*>(ptr)->_blockchain->get_game_data_record(game_id, data_id );
         
         if ( game_data_record.valid() )
         {
-            wlog("game_data_record:${d}", ("d", *game_data_record));
+            //wlog("game_data_record:${d}", ("d", *game_data_record));
             Local<Value> res = v8_helper::cpp_to_json(args.GetIsolate(), *game_data_record );
             args.GetReturnValue().Set( handle_scope.Escape( res ) );
         } else {
@@ -614,7 +614,7 @@ namespace bts { namespace game {
    
    void v8_chainstate::Store_Asset_Record(const v8::FunctionCallbackInfo<Value>& args)
    {
-       EscapableHandleScope handle_scope(args.GetIsolate());
+      EscapableHandleScope handle_scope(args.GetIsolate());
       Local<Object> self = args.Holder();
       Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
       void* ptr = wrap->Value();

@@ -337,6 +337,6 @@ namespace bts { namespace game {
    
    // Extracts a C string from a V8 Utf8Value.
    const char* v8_helper::ToCString(const v8::String::Utf8Value& value) {
-      return *value ? *value : "<string conversion failed>";
+      return *value ? *value : "<v8_helper::ToCString string conversion failed>";
    }
 }}
