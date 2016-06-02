@@ -123,8 +123,9 @@ namespace bts { namespace game {
                    create_params.array_buffer_allocator = _allocator;
                    
                    ResourceConstraints rc;
-                   rc.set_max_old_space_size(40); //MB
-                   rc.set_max_executable_size(40); //MB
+                   rc.set_max_semi_space_size(40);
+                   rc.set_max_old_space_size(60); //MB
+                   rc.set_max_executable_size(60); //MB
                    static const int stack_breathing_room = 1024 * 1024;
 //uint32_t* set_limit = ComputeStackLimit(stack_breathing_room);
                    rc.set_stack_limit(reinterpret_cast<uint32_t*>((char*)&rc - stack_breathing_room));

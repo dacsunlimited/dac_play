@@ -62,7 +62,7 @@ namespace bts { namespace game {
     public:
         v8_blockchain(chain_database_ptr blockchain, int block_num):_blockchain(blockchain), _block_num(block_num){}
         
-        static Local<Object> New(v8::Isolate* isolate, chain_database_ptr blockchain, uint32_t block_num);
+        static Local<Object> New(v8::Isolate* isolate, v8_blockchain* local_v8_blockchain);
         
         static void Get_Block_Number(Local<String> property, const v8::PropertyCallbackInfo<v8::Value>& info);
         
@@ -97,7 +97,7 @@ namespace bts { namespace game {
     public:
         v8_wallet(wallet_ptr wallet):_wallet(wallet){}
         
-        static Local<Object> New(v8::Isolate* isolate, wallet_ptr wallet);
+        static Local<Object> New(v8::Isolate* isolate, v8_wallet* local_v8_wallet);
         
         static void Get_Transaction_Fee(const v8::FunctionCallbackInfo<Value>& args);
         
@@ -120,7 +120,7 @@ namespace bts { namespace game {
         
         chain_interface_ptr _chain_state;
         
-        static Local<Object> New(v8::Isolate* isolate, const pending_chain_state_ptr& pending_state);
+        static Local<Object> New(v8::Isolate* isolate, v8_chainstate* v8_pendingstate);
         
         static void Get_Blance_Record(const v8::FunctionCallbackInfo<Value>& args);
         
@@ -148,7 +148,7 @@ namespace bts { namespace game {
         
         transaction_evaluation_state* _eval_state;
         
-        static Local<Object> New(v8::Isolate* isolate, transaction_evaluation_state* eval_state);
+        static Local<Object> New(v8::Isolate* isolate, v8_evalstate* local_v8_evalstate);
         
         /**
          * @brief Method for v8_evalstate

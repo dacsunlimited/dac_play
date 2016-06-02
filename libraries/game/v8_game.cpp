@@ -170,9 +170,13 @@ namespace bts { namespace game {
        if(!evaluate->IsFunction()) {
            FC_CAPTURE_AND_THROW( failed_compile_script );
        } else {
+           v8_chainstate v8_pendingstate(eval_state.pending_state()->shared_from_this());
+           
+           v8_evalstate local_v8_evalstate(&eval_state);
+           
            evaluate_func = Handle<Function>::Cast(evaluate);
-           argv[0] = v8_evalstate::New( isolate, &eval_state );
-           argv[1] = v8_chainstate::New( isolate, eval_state.pending_state()->shared_from_this() );
+           argv[0] = v8_evalstate::New( isolate, &local_v8_evalstate );
+           argv[1] = v8_chainstate::New( isolate, &v8_pendingstate );
            auto _input = var; // TODO: convert/parse it to a v8 javascript object
            argv[2] = v8_helper::cpp_to_json(isolate, _input);
            
@@ -325,8 +329,12 @@ namespace bts { namespace game {
            FC_CAPTURE_AND_THROW( failed_compile_script );
        } else {
            play_func = Handle<Function>::Cast(play_f);
-           argv[0] = v8_blockchain::New(isolate, blockchain, blockchain->get_head_block_num());
-           argv[1] = v8_wallet::New(isolate, w);
+           v8_blockchain local_v8_blockchain(blockchain, blockchain->get_head_block_num());
+           
+           v8_wallet local_v8_wallet(w);
+           
+           argv[0] = v8_blockchain::New(isolate, &local_v8_blockchain);
+           argv[1] = v8_wallet::New(isolate, &local_v8_wallet);
            auto _input = var; // TODO: convert/parse it to a v8 javascript object
            argv[2] = v8_helper::cpp_to_json(isolate, _input);
            
@@ -449,9 +457,12 @@ namespace bts { namespace game {
            FC_CAPTURE_AND_THROW( failed_compile_script );
        } else {
            scan_ledger_func = Handle<Function>::Cast(scan_ledger);
-           argv[0] = v8_blockchain::New(my->GetIsolate(), blockchain, blockchain->get_head_block_num());
+           v8_blockchain local_v8_blockchain(blockchain, blockchain->get_head_block_num());
+           v8_wallet local_v8_wallet(w);
+           
+           argv[0] = v8_blockchain::New(my->GetIsolate(), &local_v8_blockchain);
            argv[1] = v8_helper::cpp_to_json(isolate, trx_rec);
-           argv[2] = v8_wallet::New(isolate, w);
+           argv[2] = v8_wallet::New(isolate, &local_v8_wallet);
            auto _input = var; // TODO: convert/parse it to a v8 javascript object
            argv[3] = v8_helper::cpp_to_json(isolate, _input);
            
@@ -505,12 +516,14 @@ namespace bts { namespace game {
        if(!scan_result->IsFunction()) {
            FC_CAPTURE_AND_THROW( failed_compile_script );
        } else {
+           v8_wallet local_v8_wallet(w);
+           
            scan_result_func = Handle<Function>::Cast(scan_result);
            argv[0] = v8_helper::cpp_to_json(isolate, rtrx);
            argv[1] = Integer::New(my->GetIsolate(), block_num);
            argv[2] = String::NewFromUtf8(my->GetIsolate(), fc::variant(block_time).as_string().c_str() );
            argv[3] = Integer::New(my->GetIsolate(), trx_index);
-           argv[4] = v8_wallet::New(isolate, w);
+           argv[4] = v8_wallet::New(isolate, &local_v8_wallet);
            
            Local<Value> result = scan_result_func->Call(context->Global(), 5, argv);
            
@@ -551,9 +564,12 @@ namespace bts { namespace game {
            } else {
                execute_func = Handle<Function>::Cast(execute);
                
-               argv[0] = v8_blockchain::New(my->GetIsolate(), blockchain, block_num);
+               v8_blockchain local_v8_blockchain(blockchain, block_num);
+               v8_chainstate v8_pendingstate(pending_state);
+               
+               argv[0] = v8_blockchain::New(my->GetIsolate(), &local_v8_blockchain);
                argv[1] = Integer::New(my->GetIsolate(), block_num);
-               argv[2] = v8_chainstate::New(my->GetIsolate(), pending_state);
+               argv[2] = v8_chainstate::New(my->GetIsolate(), &v8_pendingstate);
                
                // Run the script to get the result.
                // wlog("Run the script to get the result...");
