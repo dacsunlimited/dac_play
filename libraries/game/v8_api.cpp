@@ -177,11 +177,10 @@ namespace bts { namespace game {
       args.GetReturnValue().Set( External::New(args.GetIsolate(), &addr) );
    }
    
-   Local<Object> v8_blockchain::New(v8::Isolate* isolate, chain_database_ptr blockchain, uint32_t block_num)
+   Local<Object> v8_blockchain::New(v8::Isolate* isolate, v8_blockchain* local_v8_blockchain)
    {
       EscapableHandleScope handle_scope(isolate);
-      // FIXME TODO: Delete this.
-      v8_blockchain* local_v8_blockchain = new v8_blockchain(blockchain, block_num);
+
       //get class template
       Handle<FunctionTemplate> templ = Local<FunctionTemplate>::New(isolate, v8_api::blockchain_templ);
       Handle<Function> blockchain_ctor = templ->GetFunction();
@@ -378,11 +377,10 @@ namespace bts { namespace game {
         }
     }
     
-    Local<Object> v8_wallet::New(v8::Isolate* isolate, wallet_ptr wallet)
+    Local<Object> v8_wallet::New(v8::Isolate* isolate, v8_wallet* local_v8_wallet)
     {
         EscapableHandleScope handle_scope(isolate);
-        // FIXME TODO: Delete this.
-        v8_wallet* local_v8_wallet = new v8_wallet(wallet);
+        
         //get class template
         Handle<FunctionTemplate> templ = Local<FunctionTemplate>::New(isolate, v8_api::wallet_templ);
         Handle<Function> wallet_ctor = templ->GetFunction();
@@ -455,12 +453,12 @@ namespace bts { namespace game {
         static_cast<v8_wallet*>(ptr)->_wallet->store_transaction( trx_data );
     }
    
-   Local<Object> v8_chainstate::New(v8::Isolate* isolate, const pending_chain_state_ptr& pending_state)
+   Local<Object> v8_chainstate::New(v8::Isolate* isolate, v8_chainstate* v8_pendingstate)
    {
        
       EscapableHandleScope handle_scope(isolate);
       
-      v8_chainstate* v8_pendingstate = new v8_chainstate(pending_state);
+      
       
       Handle<FunctionTemplate> templ = Local<FunctionTemplate>::New(isolate, v8_api::pendingstate_templ);
       
@@ -646,11 +644,9 @@ namespace bts { namespace game {
        static_cast<v8_chainstate*>(ptr)->_chain_state->store_game_data_record(wrapper_type->Int32Value(), wrapper_id->Int32Value(), v8_helper::json_to_cpp<game_data_record>(args.GetIsolate(), wrap_game_data ) );
    }
    
-   Local<Object> v8_evalstate::New(v8::Isolate* isolate, transaction_evaluation_state* eval_state_ptr)
+   Local<Object> v8_evalstate::New(v8::Isolate* isolate, v8_evalstate* local_v8_evalstate)
    {
       EscapableHandleScope handle_scope(isolate);
-      
-      v8_evalstate* local_v8_evalstate = new v8_evalstate(eval_state_ptr);
       
       Handle<FunctionTemplate> templ = Local<FunctionTemplate>::New(isolate, v8_api::eval_state_templ);
       Handle<Function> evalstate_ctor = templ->GetFunction();
