@@ -666,6 +666,11 @@
           "contained_type" : "uint32_t"
       },
       {
+          "type_name" : "uint16_t_array",
+          "container_type" : "array",
+          "contained_type" : "uint16_t"
+      },
+      {
           "type_name" : "string_array",
           "container_type" : "array",
           "contained_type" : "string"

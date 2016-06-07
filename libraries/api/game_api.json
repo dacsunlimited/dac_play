@@ -181,5 +181,65 @@
           ],
           "is_const" : true,
           "prerequisites" : ["no_prerequisites"]
+      },
+      {
+          "method_name": "game_util_cnr",
+          "description": "Calculate the C(N,r) of space N in uint16_t(0-65535) and r in uint16_t(0-65535)",
+          "cached"      : true,
+          "return_type": "uint64_t",
+          "parameters" : [
+          {
+              "name" : "N",
+              "type" : "uint16_t",
+              "description" : "The N number in C(N, r)"
+          },
+          {
+              "name" : "r",
+              "type" : "uint16_t",
+              "description" : "The r number in C(N, r)"
+          }
+          ],
+          "is_const" : true,
+          "prerequisites" : ["no_prerequisites"]
+      },
+      {
+          "method_name": "game_util_ranking",
+          "description": "Mapping an array of uint16_t(0-65535) to ralated combination nature number",
+          "cached"      : true,
+          "return_type": "uint64_t",
+          "parameters" : [
+          {
+              "name" : "combination",
+              "type" : "uint16_t_array",
+              "description" : "The combination nature number mapped by the combination array"
+          }
+          ],
+          "is_const" : true,
+          "prerequisites" : ["no_prerequisites"]
+      },
+      {
+          "method_name": "game_util_unranking",
+          "description": "Mapping an array of uint16_t(0-65535) to ralated combination nature number",
+          "cached"      : true,
+          "return_type": "uint16_t_array",
+          "parameters" : [
+          {
+              "name" : "number",
+              "type" : "uint64_t",
+              "description" : "The nature number to be mapped by the combination array, should be less than C(N,k)"
+          },
+          {
+              "name" : "k",
+              "type" : "uint16_t",
+              "description" : "The k number in C(N, k)"
+          },
+          {
+              "name" : "N",
+              "type" : "uint16_t",
+              "description" : "The N number in C(N, k)"
+          }
+          ],
+          "is_const" : true,
+          "prerequisites" : ["no_prerequisites"]
       }
 ] }
