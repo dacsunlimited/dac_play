@@ -36,7 +36,7 @@ For using linux binary, we need to install some libs manually.
 
 Install packages
 
-   sudo apt-get install libdb++-dev libdb-dev libtcmalloc-minimal4
+   sudo apt-get install libdb++-dev libdb-dev libtcmalloc-minimal4 libcurl4-openssl-dev
 
 Create link for TCMalloc library file
 
