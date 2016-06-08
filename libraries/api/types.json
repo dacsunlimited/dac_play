@@ -486,6 +486,17 @@
         "container_type" : "array",
         "contained_type" : "asset_record"
       },
+
+      {
+        "type_name" : "game_record",
+        "cpp_return_type" : "bts::blockchain::game_record",
+        "cpp_include_file" : "bts/blockchain/game_record.hpp"
+      },
+      {
+        "type_name" : "game_record_array",
+        "container_type" : "array",
+        "contained_type" : "game_record"
+      },
       {
         "type_name" : "optional_asset_record",
         "cpp_return_type" : "fc::optional<bts::blockchain::asset_record>",

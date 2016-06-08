@@ -537,6 +537,12 @@ vector<asset_record> detail::client_impl::blockchain_list_assets( const string& 
    return _chain_db->get_assets( first, limit );
 }
 
+vector<game_record> detail::client_impl::blockchain_list_games(const string& first, uint32_t limit)const
+{
+    FC_ASSERT(limit > 0);
+    return _chain_db->get_games(first, limit);
+}
+
 map<string, string> detail::client_impl::blockchain_list_feed_prices()const
 {
     map<string, string> feed_prices;
