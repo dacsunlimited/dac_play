@@ -322,26 +322,12 @@ namespace bts { namespace blockchain {
         FC_ASSERT( amount.asset_id == 0 );
         
         
-#ifndef WIN32
-#warning [HARDFORK] Remove this check after PDV_V0_1_4_FORK_BLOCK_NUM has passed
-#endif
         share_type required_fee = 0;
-        if( eval_state.pending_state()->get_head_block_num() >= PDV_V0_1_4_FORK_BLOCK_NUM )
-        {
-            // 1 PLS for each 400 byte
-            const size_t message_kb = (message.size() / 400) + 1;
-            required_fee = message_kb * BTS_BLOCKCHAIN_MIN_AD_FEE;
-            FC_ASSERT( amount.amount >= required_fee, "Message of size ${s} KiB requires at least ${a} satoshis to be pay!",
-                      ("s",message_kb)("a",required_fee) );
-        }
-        else
-        {
-            // 4 PLS for each 1024 byte
-            const size_t message_kb = (message.size() / 1024) + 1;
-            required_fee = message_kb * BTS_BLOCKCHAIN_MIN_AD_FEE * 5;
-            FC_ASSERT( amount.amount >= required_fee, "Message of size ${s} KiB requires at least ${a} satoshis to be pay!",
-                      ("s",message_kb)("a",required_fee) );
-        }
+        // 1 PLS for each 400 byte
+        const size_t message_kb = (message.size() / 400) + 1;
+        required_fee = message_kb * BTS_BLOCKCHAIN_MIN_AD_FEE;
+        FC_ASSERT( amount.amount >= required_fee, "Message of size ${s} KiB requires at least ${a} satoshis to be pay!",
+                  ("s",message_kb)("a",required_fee) );
         
         
         // half of the note fees goto collected fees(delegate pay), other go to ad owner
@@ -395,10 +381,6 @@ namespace bts { namespace blockchain {
     
     void note_operation::evaluate( transaction_evaluation_state& eval_state )const
     { try {
-#ifndef WIN32
-#warning [HARDFORK] Remove this check after PDV_V0_1_0_FORK_BLOCK_NUM has passed
-#endif
-        FC_ASSERT( eval_state.pending_state()->get_head_block_num() >= PDV_V0_1_0_FORK_BLOCK_NUM );
         if( this->amount.amount <= 0 )
             FC_CAPTURE_AND_THROW( negative_deposit, (amount) );
         
@@ -492,19 +474,14 @@ namespace bts { namespace blockchain {
         uint32_t total_space = amount.amount / packet_unit;
         
         uint64_t rand = random_id._hash[0];
-#ifndef WIN32
-#warning [HARDFORK] Remove this check after PDV_V0_2_0_FORK_BLOCK_NUM has passed
-#endif
-        if ( eval_state.pending_state()->get_head_block_num() > PDV_V0_2_0_FORK_BLOCK_NUM )
-        {
-            while ( total_space > (count + 1) * 2) {
-                total_space = total_space / 2;
-                packet_unit = packet_unit * 2;
-            }
-            
-            fc::sha256 rand_seed = fc::sha256::hash( random_id );
-            rand = rand_seed._hash[0];
+        
+        while ( total_space > (count + 1) * 2) {
+            total_space = total_space / 2;
+            packet_unit = packet_unit * 2;
         }
+        
+        fc::sha256 rand_seed = fc::sha256::hash( random_id );
+        rand = rand_seed._hash[0];
         
         asset used_packet_amount( total_space * packet_unit, amount.asset_id );
         eval_state.sub_balance( used_packet_amount );

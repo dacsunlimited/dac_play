@@ -1125,13 +1125,7 @@ namespace bts { namespace blockchain {
                        auto note_record = pending_state->get_note_record( i );
                        operation_reward_transaction reward_trx;
                        reward_trx.op_type = note_op_type;
-                       if ( block_num > PDV_V0_1_2_FORK_BLOCK_NUM )
-                       {
-                           reward_trx.reward = asset(collected_fees * 6 / 100, 0);
-                       } else
-                       {
-                           reward_trx.reward = asset(collected_fees * 8 / 100, 0);
-                       }
+                       reward_trx.reward = asset(collected_fees * 6 / 100, 0);
                        
                        reward_trx.reward_owner = address( note_record->signer_key() );
                        reward_trx.info = "Third reward from transaction: " + fc::json::to_string(i.transaction_id);
@@ -1318,18 +1312,12 @@ namespace bts { namespace blockchain {
             pay_operation_rewards( block_data.block_num, block_data.timestamp, pending_state );
             
             
-            #ifndef WIN32
-            #warning [HARDFORK] Remove this check after PDV_V0_3_0_FORK_BLOCK_NUM has passed
-            #endif
-            if (block_data.block_num >= PDV_V0_3_0_FORK_BLOCK_NUM )
-            {
-                game_interface* g_interface = self->get_game_interface();
-                
-                if ( g_interface != nullptr )
-                {
-                    g_interface->execute( self->shared_from_this(), block_data.block_num, pending_state);
-                }
-            }
+             game_interface* g_interface = self->get_game_interface();
+             
+             if ( g_interface != nullptr )
+             {
+                 g_interface->execute( self->shared_from_this(), block_data.block_num, pending_state);
+             }
 
 #ifdef BTS_TEST_NETWORK
             pending_state->check_supplies();
