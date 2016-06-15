@@ -815,6 +815,53 @@ string pretty_asset_list( const vector<asset_record>& asset_records, cptr client
     return out.str();
 }
 
+
+string pretty_game_list(const vector<game_record>& game_records, cptr client)
+{
+    if (game_records.empty())
+        return "No assets found.\n";
+    FC_ASSERT(client != nullptr);
+
+    std::stringstream out;
+    out << std::left;
+
+    out << std::setw(6) << "ID";
+
+    out << std::setw(16) << "NAME";
+    out << std::setw(32) << "DESCRIPTION";
+
+    out << std::setw(32) << "Owner";
+    out << std::setw(24) << "RegisterTime";
+    out << std::setw(24) << "LastUpdate";
+
+    out << "\n";
+
+    out << pretty_line(150);
+    out << "\n";
+
+    for (const auto& game_record : game_records)
+    {
+        const auto game_id = game_record.id;
+        out << std::setw(6) << game_id;
+
+        out << std::setw(16) << pretty_shorten(game_record.name, 15);
+        out << std::setw(32) << pretty_shorten(game_record.description, 31);
+
+        const auto account_record = client->get_chain()->get_account_record(game_record.owner_account_id);
+        if (account_record.valid())
+            out << std::setw(32) << pretty_shorten(account_record->name, 31);
+        else
+            out << std::setw(32) << "";
+
+        out << std::setw(24) << pretty_timestamp(game_record.registration_date);
+        out << std::setw(24) << pretty_timestamp(game_record.last_update);
+
+        out << "\n";
+    }
+
+    return out.str();
+}
+
 string pretty_account( const oaccount_record& record, cptr client )
 {
     if( !record.valid() ) return "No account found.\n";

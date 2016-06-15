@@ -1,4 +1,5 @@
 #include <bts/client/client_impl.hpp>
+#include <bts/utilities/combinatorics.hpp>
 
 using namespace bts::client;
 using namespace bts::client::detail;
@@ -71,4 +72,20 @@ std::vector<bts::blockchain::game_status> client_impl::game_list_status() const
 std::vector<bts::blockchain::game_result_transaction> client_impl::game_list_result_transactions(uint32_t block_number) const
 {
     return _chain_db->get_game_result_transactions( block_number );
+}
+
+uint64_t client_impl::game_util_cnr(uint16_t N, uint16_t r) const
+{
+    return bts::utilities::cnr(N, r);
+}
+
+uint64_t client_impl::game_util_ranking(const std::vector<uint16_t>& combination) const
+{
+    return bts::utilities::ranking(combination);
+}
+
+std::vector<uint16_t> client_impl::game_util_unranking(uint64_t number, uint16_t k, uint16_t N) const
+{
+    FC_ASSERT( number < bts::utilities::cnr(N, k) );
+    return bts::utilities::unranking(number, k, N);
 }

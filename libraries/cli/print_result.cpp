@@ -226,6 +226,11 @@ namespace bts { namespace cli {
       out << pretty_asset_list(result.as<vector<asset_record>>(), client);
     };
 
+    _command_to_function["blockchain_list_games"] = [](std::ostream& out, const fc::variants& arguments, const fc::variant& result, cptr client)
+    {
+        out << pretty_game_list(result.as<vector<game_record>>(), client);
+    };
+
     _command_to_function["blockchain_get_account"] = [](std::ostream& out, const fc::variants& arguments, const fc::variant& result, cptr client )
     {
       out << pretty_account(result.as<oaccount_record>(), client);

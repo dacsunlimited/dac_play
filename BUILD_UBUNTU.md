@@ -32,3 +32,13 @@ The wallet can be installed as a local application capable of handling xts: URLs
 	sudo cp programs/qt_wallet/images/qtapp80.png /usr/local/share/icons/BitShares.png
 	sudo mkdir -p /usr/local/share/applications/
 	sudo cp programs/qt_wallet/PLAY.desktop /usr/local/share/applications/
+
+For using linux binary, we need to install some libs manually.
+
+Install packages
+
+   sudo apt-get install libdb++-dev libdb-dev libtcmalloc-minimal4 libcurl4-openssl-dev
+
+Create link for TCMalloc library file
+
+   sudo ln -s /usr/lib/libtcmalloc_minimal.so.4 /usr/lib/libtcmalloc.so

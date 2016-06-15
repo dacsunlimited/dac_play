@@ -41,6 +41,8 @@ string pretty_experimental_transaction_list( const set<pretty_transaction_experi
 
 string pretty_asset_list( const vector<asset_record>& asset_records, cptr client );
 
+string pretty_game_list(const vector<game_record>& game_records, cptr client);
+
 string pretty_account( const oaccount_record& record, cptr client );
 
 string pretty_balances( const account_balance_summary_type& balances, cptr client );

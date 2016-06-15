@@ -58,11 +58,11 @@ namespace bts { namespace blockchain {
         bts::blockchain::operation_factory::instance().register_operation<update_account_operation>();
         bts::blockchain::operation_factory::instance().register_operation<withdraw_pay_operation>();
 
-//        bts::blockchain::operation_factory::instance().register_operation<create_asset_operation>();
-//        bts::blockchain::operation_factory::instance().register_operation<issue_asset_operation>();
-//        bts::blockchain::operation_factory::instance().register_operation<asset_update_properties_operation>();
-//        bts::blockchain::operation_factory::instance().register_operation<asset_update_permissions_operation>();
-//        bts::blockchain::operation_factory::instance().register_operation<asset_update_whitelist_operation>();
+        bts::blockchain::operation_factory::instance().register_operation<create_asset_operation>();
+        bts::blockchain::operation_factory::instance().register_operation<issue_asset_operation>();
+        bts::blockchain::operation_factory::instance().register_operation<asset_update_properties_operation>();
+        bts::blockchain::operation_factory::instance().register_operation<asset_update_permissions_operation>();
+        bts::blockchain::operation_factory::instance().register_operation<asset_update_whitelist_operation>();
 
 //        bts::blockchain::operation_factory::instance().register_operation<bid_operation>();
 //        bts::blockchain::operation_factory::instance().register_operation<ask_operation>();
@@ -87,10 +87,9 @@ namespace bts { namespace blockchain {
         bts::blockchain::operation_factory::instance().register_operation<update_balance_vote_operation>();
 //        bts::blockchain::operation_factory::instance().register_operation<limit_fee_operation>();
 
-//        bts::blockchain::operation_factory::instance().register_operation<data_operation>();
+        bts::blockchain::operation_factory::instance().register_operation<data_operation>();
        
         bts::blockchain::operation_factory::instance().register_operation<buy_chips_operation>();
-//        bts::blockchain::operation_factory::instance().register_operation<create_game_operation>();
 
         return true;
     }();
