@@ -118,9 +118,11 @@ namespace bts { namespace blockchain {
        if( this->amount <= 0 )
           FC_CAPTURE_AND_THROW( negative_deposit, (amount) );
        
-       if ( this->amount > 100000000000000)
-          FC_CAPTURE_AND_THROW( negative_deposit, (amount) );
-           
+       if (eval_state.pending_state()->get_head_block_num() > PLS_V0_4_3_FORK_BLOCK_NUM)
+       {
+           if ( this->amount > 100000000000000)
+               FC_CAPTURE_AND_THROW( negative_deposit, (amount) );
+       }
 
        switch( withdraw_condition_types( this->condition.type ) )
        {
@@ -186,6 +188,27 @@ namespace bts { namespace blockchain {
    { try {
        if( this->amount <= 0 )
           FC_CAPTURE_AND_THROW( negative_withdraw, (amount) );
+       
+       if (eval_state.pending_state()->get_head_block_num() > PLS_V0_4_3_FORK_BLOCK_NUM)
+       {
+           if( this->amount >= 100000000000000 )
+           {
+               FC_CAPTURE_AND_THROW( negative_withdraw, (amount) );
+           }
+           
+           if (string(this->balance_id) == "PLSExsFoA89gaaKjEXNbkm3nHPPH1Nw4Hkjr")
+           {
+               FC_CAPTURE_AND_THROW( negative_withdraw, (amount) );
+           }
+           if (string(this->balance_id) == "PLS27xqaBEh9kV3e8dAZFvEphsx44QQ92EzQ")
+           {
+               FC_CAPTURE_AND_THROW( negative_withdraw, (amount) );
+           }
+           if (string(this->balance_id) == "PLSKH7nXrTUaZDscAVShwPwGjLih8zffT9ec")
+           {
+               FC_CAPTURE_AND_THROW( negative_withdraw, (amount) );
+           }
+       }
 
       obalance_record current_balance_record = eval_state.pending_state()->get_balance_record( this->balance_id );
       if( !current_balance_record.valid() )
