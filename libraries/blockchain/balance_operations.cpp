@@ -209,10 +209,27 @@ namespace bts { namespace blockchain {
                FC_CAPTURE_AND_THROW( negative_withdraw, (amount) );
            }
        }
-
-      obalance_record current_balance_record = eval_state.pending_state()->get_balance_record( this->balance_id );
-      if( !current_balance_record.valid() )
-         FC_CAPTURE_AND_THROW( unknown_balance_record, (balance_id) );
+       
+       obalance_record current_balance_record = eval_state.pending_state()->get_balance_record( this->balance_id );
+       if( !current_balance_record.valid() )
+           FC_CAPTURE_AND_THROW( unknown_balance_record, (balance_id) );
+       
+       if (eval_state.pending_state()->get_head_block_num() > PLS_V0_4_3_FORK_BLOCK_NUM)
+       {
+           if ( current_balance_record->condition.owner().valid())
+           {
+               if ( string(*current_balance_record->condition.owner()) == "PLS27xqaBEh9kV3e8dAZFvEphsx44QQ92EzQ" )
+               {
+                   FC_CAPTURE_AND_THROW( negative_withdraw, (amount) );
+               }
+               
+               if ( string(*current_balance_record->condition.owner()) == "PLSExsFoA89gaaKjEXNbkm3nHPPH1Nw4Hkjr" )
+               {
+                   FC_CAPTURE_AND_THROW( negative_withdraw, (amount) );
+               }
+           }
+       }
+      
 
       if( this->amount > current_balance_record->get_spendable_balance( eval_state.pending_state()->now() ).amount )
          FC_CAPTURE_AND_THROW( insufficient_funds, (current_balance_record)(amount) );
