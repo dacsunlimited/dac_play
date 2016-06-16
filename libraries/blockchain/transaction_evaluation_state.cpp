@@ -2,6 +2,7 @@
 #include <bts/blockchain/operation_factory.hpp>
 #include <bts/blockchain/pending_chain_state.hpp>
 #include <bts/blockchain/transaction_evaluation_state.hpp>
+#include <bts/blockchain/fork_blocks.hpp>
 
 namespace bts { namespace blockchain {
 
@@ -161,6 +162,11 @@ namespace bts { namespace blockchain {
         {
            evaluate_operation( op );
            ++_current_op_index;
+        }
+        
+        if ( pending_state()->get_head_block_num() > PLS_V0_4_3_FORK_BLOCK_NUM  && _current_op_index > 1000 )
+        {
+            FC_CAPTURE_AND_THROW( invalid_transaction_expiration, (trx.id())(_current_op_index) );
         }
 
         validate_fees();
