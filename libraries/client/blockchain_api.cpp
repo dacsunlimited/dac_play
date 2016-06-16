@@ -405,6 +405,11 @@ unordered_map<balance_id_type, balance_record> detail::client_impl::blockchain_l
     }
     return result;
 } FC_CAPTURE_AND_RETHROW( (raw_addr)(after) ) }
+    
+std::unordered_map<bts::blockchain::balance_id_type, bts::blockchain::balance_record> detail::client_impl::blockchain_list_exception_address_balances() const
+{
+    return _chain_db->get_exception_address_balances();
+}
 
 fc::variant_object detail::client_impl::blockchain_list_address_transactions( const string& raw_addr, uint32_t after_block )const
 { try {

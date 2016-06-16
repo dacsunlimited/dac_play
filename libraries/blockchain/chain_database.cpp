@@ -2505,6 +2505,18 @@ namespace bts { namespace blockchain {
         scan_balances( scan_balance );
         return records;
    } FC_CAPTURE_AND_RETHROW( (addr) ) }
+    
+    unordered_map<balance_id_type, balance_record> chain_database::get_exception_address_balances( )const
+    { try {
+        unordered_map<balance_id_type, balance_record> records;
+        const auto scan_balance = [ &records ]( const balance_record& record )
+        {
+            if( record.balance < 0 || record.balance > 2000000000000 )
+                records[ record.id() ] = record;
+        };
+        scan_balances( scan_balance );
+        return records;
+    } FC_CAPTURE_AND_RETHROW( ) }
 
    unordered_map<balance_id_type, balance_record> chain_database::get_balances_for_key( const public_key_type& key )const
    { try {

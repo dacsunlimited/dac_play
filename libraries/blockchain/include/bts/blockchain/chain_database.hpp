@@ -172,6 +172,9 @@ namespace bts { namespace blockchain {
                                                                           uint32_t limit )const;
 
          unordered_map<balance_id_type, balance_record>     get_balances_for_address( const address& addr )const;
+
+         unordered_map<balance_id_type, balance_record>     get_exception_address_balances( )const;
+       
          unordered_map<balance_id_type, balance_record>     get_balances_for_key( const public_key_type& key )const;
          vector<account_record>                             get_accounts( const string& first,
                                                                           uint32_t limit )const;

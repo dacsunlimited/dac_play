@@ -452,6 +452,17 @@
         "aliases" : ["list_address_balances"]
       },
       {
+          "method_name": "blockchain_list_exception_address_balances",
+          "description": "Lists balance records which are the balance IDs or which can be claimed by signature for this address",
+          "cached"   : true,
+          "return_type": "balance_record_map",
+          "parameters" : [
+          ],
+          "is_const" : true,
+          "prerequisites" : ["no_prerequisites"],
+          "aliases" : ["list_exception_address_balances"]
+      },
+      {
         "method_name": "blockchain_list_address_transactions",
         "description": "Lists all transactions that involve the provided address after the specified time",
         "cached"   : true,
