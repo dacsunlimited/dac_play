@@ -117,6 +117,10 @@ namespace bts { namespace blockchain {
    { try {
        if( this->amount <= 0 )
           FC_CAPTURE_AND_THROW( negative_deposit, (amount) );
+       
+       if ( this->amount > 100000000000000)
+          FC_CAPTURE_AND_THROW( negative_deposit, (amount) );
+           
 
        switch( withdraw_condition_types( this->condition.type ) )
        {
