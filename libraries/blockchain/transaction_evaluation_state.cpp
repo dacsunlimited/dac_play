@@ -234,22 +234,31 @@ namespace bts { namespace blockchain {
 
    void transaction_evaluation_state::sub_balance( const asset& amount )
    { try {
-      // avoid overflow attack
-      FC_ASSERT( amount.amount < INT64_MAX / 2 );
-      FC_ASSERT( amount.amount > INT64_MIN / 2 );
-      FC_ASSERT( fees_paid[ amount.asset_id ] < INT64_MAX / 2 );
-      FC_ASSERT( fees_paid[ amount.asset_id ] > INT64_MIN / 2 );
+      
+      if (pending_state()->get_head_block_num() > PLS_V0_4_3_FORK_BLOCK_NUM)
+      {
+          // avoid overflow attack
+          FC_ASSERT( amount.amount < INT64_MAX / 2 );
+          FC_ASSERT( amount.amount > INT64_MIN / 2 );
+          FC_ASSERT( fees_paid[ amount.asset_id ] < INT64_MAX / 2 );
+          FC_ASSERT( fees_paid[ amount.asset_id ] > INT64_MIN / 2 );
+      }
+      
       fees_paid[ amount.asset_id ] -= amount.amount;
       op_deltas[ _current_op_index ][ amount.asset_id ] += amount.amount;
    } FC_CAPTURE_AND_RETHROW( (amount) ) }
 
    void transaction_evaluation_state::add_balance( const asset& amount )
    { try {
-      // avoid overflow attack
-      FC_ASSERT( amount.amount < INT64_MAX / 2 );
-      FC_ASSERT( amount.amount > INT64_MIN / 2 );
-      FC_ASSERT( fees_paid[ amount.asset_id ] < INT64_MAX / 2 );
-      FC_ASSERT( fees_paid[ amount.asset_id ] > INT64_MIN / 2 );
+      if (pending_state()->get_head_block_num() > PLS_V0_4_3_FORK_BLOCK_NUM)
+      {
+          // avoid overflow attack
+          FC_ASSERT( amount.amount < INT64_MAX / 2 );
+          FC_ASSERT( amount.amount > INT64_MIN / 2 );
+          FC_ASSERT( fees_paid[ amount.asset_id ] < INT64_MAX / 2 );
+          FC_ASSERT( fees_paid[ amount.asset_id ] > INT64_MIN / 2 );
+      }
+      
       fees_paid[ amount.asset_id ] += amount.amount;
       op_deltas[ _current_op_index ][ amount.asset_id ] -= amount.amount;
    } FC_CAPTURE_AND_RETHROW( (amount) ) }
