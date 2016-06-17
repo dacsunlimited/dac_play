@@ -551,9 +551,6 @@ namespace bts { namespace blockchain {
             rand = rand_seed._hash[0];
         }
         
-        fc::sha256 rand_seed = fc::sha256::hash( random_id );
-        rand = rand_seed._hash[0];
-        
         asset used_packet_amount( total_space * packet_unit, amount.asset_id );
         eval_state.sub_balance( used_packet_amount );
         
