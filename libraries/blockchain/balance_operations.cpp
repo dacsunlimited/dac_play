@@ -6,7 +6,7 @@
 #include <bts/utilities/combinatorics.hpp>
 
 #include <fc/crypto/aes.hpp>
-
+1
 namespace bts { namespace blockchain {
     
     const note_type public_note::type       = public_type;
@@ -120,7 +120,7 @@ namespace bts { namespace blockchain {
        
        if (eval_state.pending_state()->get_head_block_num() > PLS_V0_4_3_FORK_BLOCK_NUM)
        {
-           if ( this->amount > 100000000000000)
+           if ( this->amount > 100000000000000LL)
                FC_CAPTURE_AND_THROW( negative_deposit, (amount) );
        }
 
