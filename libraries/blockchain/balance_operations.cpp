@@ -6,7 +6,7 @@
 #include <bts/utilities/combinatorics.hpp>
 
 #include <fc/crypto/aes.hpp>
-1
+
 namespace bts { namespace blockchain {
     
     const note_type public_note::type       = public_type;
