@@ -3453,10 +3453,10 @@ namespace bts { namespace blockchain {
 
                accumulate_vesting_balance( *owner, unvested_balance, record.condition.as<withdraw_vesting>() );
            }
-           else
-           {
-               FC_ASSERT( record.condition.type == withdraw_signature_type );
-           }
+//           else
+//           {
+//               FC_ASSERT( record.condition.type == withdraw_signature_type );
+//           }
 
            accumulate_balance( *owner, balance );
        };
