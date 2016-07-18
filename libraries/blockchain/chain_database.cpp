@@ -3722,18 +3722,18 @@ namespace bts { namespace blockchain {
            };
 
            string name = original_name;
-           if( keys.timestamp >= june8 )
-           {
-               if( keys.timestamp >= june18 )
-               {
-                   if( whitelist.count( name ) == 0 )
-                       name = prefix_name( name );
-               }
-               else if( !is_cheap_name( name ) )
-               {
-                   name = prefix_name( name );
-               }
-           }
+//           if( keys.timestamp >= june8 )
+//           {
+//               if( keys.timestamp >= june18 )
+//               {
+//                   if( whitelist.count( name ) == 0 )
+//                       name = prefix_name( name );
+//               }
+//               else if( !is_cheap_name( name ) )
+//               {
+//                   name = prefix_name( name );
+//               }
+//           }
 
            genesis_state_type::initial_account_type account;
            account.name = name;
