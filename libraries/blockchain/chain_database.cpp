@@ -3514,15 +3514,6 @@ namespace bts { namespace blockchain {
            ++snapshot.summary.num_canceled_bids;
        }
 
-       for( auto iter = my->_short_db.begin(); iter.valid(); ++iter )
-       {
-           const market_index_key& index = iter.key();
-           const order_record& sh = iter.value();
-           accumulate_balance( index.owner, asset( sh.balance ) );
-
-           ++snapshot.summary.num_canceled_shorts;
-       }
-
        const auto scan_asset = [ & ]( const asset_record& record )
        {
            // CORE fees go back into reserve fund
@@ -3537,9 +3528,13 @@ namespace bts { namespace blockchain {
            }
            else if( record.is_user_issued() )
            {
-               const auto account_record = get_account_record( record.issuer_id );
+               const auto account_record = get_account_record(record.issuer.issuer_id );
                FC_ASSERT( account_record.valid() );
                snapshot_asset.owner = account_record->name;
+           }
+           else if( record.is_game_issued() )
+           {
+               snapshot_asset.owner = "game";
            }
 
            snapshot_asset.description = record.description;
@@ -3549,19 +3544,6 @@ namespace bts { namespace blockchain {
            snapshot_asset.collected_fees = std::max( record.collected_fees, share_type( 0 ) );
        };
        scan_unordered_assets( scan_asset );
-
-       for( auto iter = my->_collateral_db.begin(); iter.valid(); ++iter )
-       {
-           const market_index_key& index = iter.key();
-           const collateral_record& collateral = iter.value();
-
-           const auto asset_record = get_asset_record( index.order_price.quote_asset_id );
-           FC_ASSERT( asset_record.valid() );
-
-           auto& snapshot_asset = snapshot.assets[ asset_record->symbol ];
-           snapshot_asset.debts[ index.owner ].collateral += collateral.collateral_balance;
-           snapshot_asset.debts[ index.owner ].debt += collateral.payoff_balance;
-       }
 
        // Rectify supply/debt differences
        for( auto& item : snapshot.assets )
