@@ -1322,6 +1322,18 @@ vector<public_key_summary> client_impl::wallet_account_list_public_keys( const s
     }
     return summaries;
 }
+    
+vector<address> client_impl::wallet_account_list_addresses( const string& account_name )
+{
+    vector<address> summaries;
+    vector<public_key_type> keys = _wallet->get_public_keys_in_account( account_name );
+    summaries.reserve( keys.size() );
+    for( const auto& key : keys )
+    {
+        summaries.push_back(address( key ) );
+    }
+    return summaries;
+}
 
 vector<bts::wallet::escrow_summary> client_impl::wallet_escrow_summary( const string& account_name ) const
 { try {

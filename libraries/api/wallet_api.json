@@ -2038,6 +2038,21 @@
          "aliases": ["public_keys"]
       },
       {
+          "method_name" : "wallet_account_list_addresses",
+          "description" : "Lists all addresses in this account",
+          "cached"      : true,
+          "return_type" : "address_list",
+          "parameters"  : [
+          {
+              "name" : "account_name",
+              "type" : "account_name",
+              "description" : "the account for which addresses should be listed"
+          }
+          ],
+          "prerequisites" : ["wallet_open"],
+          "aliases": ["public_addres"]
+      },
+      {
          "method_name"  : "wallet_delegate_withdraw_pay",
          "description"  : "Used to transfer some of the delegate's pay from their balance",
          "return_type"  : "transaction_record",
