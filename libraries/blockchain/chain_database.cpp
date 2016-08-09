@@ -3487,12 +3487,6 @@ namespace bts { namespace blockchain {
                if( record.registration_date > get_genesis_timestamp() || record.delegate_info->blocks_produced > 0 )
                    snapshot_account.signing_key = record.signing_key();
 
-               // Worker
-               if( record.delegate_info->pay_rate > 3 )
-               {
-                   snapshot_account.daily_pay = BTS_BLOCKCHAIN_BLOCKS_PER_DAY * BTS_MAX_DELEGATE_PAY_PER_BLOCK * record.delegate_info->pay_rate
-                                                / BTS_BLOCKCHAIN_NUM_DELEGATES / 100;
-               }
            }
        };
        scan_unordered_accounts( scan_account );
