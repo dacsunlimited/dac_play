@@ -63,6 +63,9 @@ struct snapshot_asset
 
     share_type  max_supply = 0;
     share_type  collected_fees = 0;
+    
+    share_type              current_supply = 0;
+    share_type              current_collateral = 0;
 
     map<address, snapshot_debt> debts;
 };

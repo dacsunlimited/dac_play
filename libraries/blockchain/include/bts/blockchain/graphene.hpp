@@ -42,6 +42,9 @@ struct genesis_state_type {
 
       share_type max_supply;
       share_type accumulated_fees;
+       
+       share_type              current_supply;
+       share_type              current_collateral;
 
       bool is_bitasset = false;
       vector<initial_collateral_position> collateral_records;
@@ -96,8 +99,7 @@ FC_REFLECT( bts::blockchain::immutable_chain_parameters,
 
 FC_REFLECT(bts::blockchain::genesis_state_type::initial_account_type, (name)(owner_key)(active_key)(is_lifetime_member))
 
-FC_REFLECT(bts::blockchain::genesis_state_type::initial_asset_type,
-           (symbol)(issuer_name)(description)(precision)(max_supply)(accumulated_fees)(is_bitasset)(collateral_records))
+FC_REFLECT(bts::blockchain::genesis_state_type::initial_asset_type, (symbol)(issuer_name)(description)(precision)(max_supply)(accumulated_fees)(current_supply)(current_collateral)(is_bitasset)(collateral_records))
 
 FC_REFLECT(bts::blockchain::genesis_state_type::initial_asset_type::initial_collateral_position,
            (owner)(collateral)(debt))

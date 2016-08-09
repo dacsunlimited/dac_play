@@ -3536,6 +3536,9 @@ namespace bts { namespace blockchain {
            snapshot_asset.precision = record.precision;
 
            snapshot_asset.max_supply = record.max_supply;
+           snapshot_asset.current_supply = record.current_supply;
+           snapshot_asset.current_collateral = record.current_collateral;
+           
            snapshot_asset.collected_fees = std::max( record.collected_fees, share_type( 0 ) );
        };
        scan_unordered_assets( scan_asset );
@@ -3811,7 +3814,10 @@ namespace bts { namespace blockchain {
 
            asset.max_supply = snapshot_asset.max_supply;
            asset.accumulated_fees = snapshot_asset.collected_fees;
-
+           
+           asset.current_supply = snapshot_asset.current_supply;
+           asset.current_collateral = snapshot_asset.current_collateral;
+           
            asset.is_bitasset = snapshot_asset.owner == string( "witness-account" );
 
            for( const auto& debt_item : snapshot_asset.debts )
