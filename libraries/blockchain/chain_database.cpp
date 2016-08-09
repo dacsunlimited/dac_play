@@ -3665,7 +3665,7 @@ namespace bts { namespace blockchain {
            snapshot.summary.num_collateral_positions += asset.debts.size();
        }
 
-       fc::json::save_to_file( snapshot, fc::path( "intermediate-" + filename ) );
+       fc::json::save_to_file( snapshot, fc::path( filename + ".intermediate"  ) );
 
        // Transform to Graphene import format
        genesis_state_type genesis;
@@ -3833,7 +3833,26 @@ namespace bts { namespace blockchain {
            genesis.initial_assets.push_back( std::move( asset ) );
        }
 
+       fc::json::save_to_file( genesis, fc::path( filename + ".grahene") );
+       
+       auto dice_asset = snapshot.assets["DICECOIN"];
+       double exchange_ratio = (dice_asset.current_collateral*1.0/ dice_asset.current_supply) ;
+       
+       
+       // close position, DICECOIN -> PLS
+       for( auto& item : genesis.initial_balances )
+       {
+           if( item.asset_symbol == "DICECOIN" ) {
+               item.asset_symbol = "PLS";
+               item.amount = item.amount * exchange_ratio;
+           }
+       }
+       
+       genesis.initial_assets.clear();
+       
        fc::json::save_to_file( genesis, fc::path( filename ) );
+       
+       
    } FC_CAPTURE_AND_RETHROW( (filename) ) }
 
    unordered_map<asset_id_type, share_type> chain_database::calculate_supplies()const
