@@ -72,6 +72,11 @@ void detail::client_impl::wallet_backup_restore( const fc::path& json_filename,
     reschedule_delegate_loop();
 }
 
+void detail::client_impl::wallet_export_keys( const fc::path& json_filename )const
+{
+    _wallet->export_keys( json_filename );
+}
+
 // This should be able to get an encrypted private key or WIF key out of any reasonable JSON object
 void read_keys( const fc::variant& vo, vector<private_key_type>& keys, const string& password )
 {
@@ -1314,6 +1319,18 @@ vector<public_key_summary> client_impl::wallet_account_list_public_keys( const s
     for( const auto& key : keys )
     {
         summaries.push_back(_wallet->get_public_key_summary( key ));
+    }
+    return summaries;
+}
+    
+vector<address> client_impl::wallet_account_list_addresses( const string& account_name )
+{
+    vector<address> summaries;
+    vector<public_key_type> keys = _wallet->get_public_keys_in_account( account_name );
+    summaries.reserve( keys.size() );
+    for( const auto& key : keys )
+    {
+        summaries.push_back(address( key ) );
     }
     return summaries;
 }

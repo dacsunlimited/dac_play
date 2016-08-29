@@ -9,6 +9,7 @@
 #include <bts/blockchain/genesis_json.hpp>
 #include <bts/blockchain/market_engine.hpp>
 #include <bts/blockchain/game_interface.hpp>
+#include <bts/blockchain/snapshot_state.hpp>
 #include <bts/blockchain/time.hpp>
 #include <bts/blockchain/fork_blocks.hpp>
 #include <bts/utilities/combinatorics.hpp>
@@ -3390,6 +3391,470 @@ namespace bts { namespace blockchain {
        fc::json::save_to_file( snapshot, filename );
    } FC_CAPTURE_AND_RETHROW( (filename) ) }
 
+   void chain_database::graphene_snapshot( const string& filename, const set<string>& whitelist )const
+   { try {
+       snapshot_state snapshot;
+       snapshot.head_block = get_head_block();
+       snapshot.max_core_supply = calculate_max_core_supply( BTS_MAX_DELEGATE_PAY_PER_BLOCK );
+
+       const auto accumulate_balance = [ & ]( const address& owner, const asset balance )
+       {
+           if( balance.amount == 0 )
+               return;
+
+           auto& snapshot_balance = snapshot.balances[ owner ];
+
+           const auto asset_record = get_asset_record( balance.asset_id );
+           FC_ASSERT( asset_record.valid() );
+           snapshot_balance.assets[ asset_record->symbol ] += balance.amount;
+       };
+
+       const auto accumulate_vesting_balance = [ & ]( const address& owner, const share_type balance, const withdraw_vesting& contract )
+       {
+           if( balance == 0 )
+               return;
+
+           auto& snapshot_balance = snapshot.balances[ owner ];
+           if( !snapshot_balance.vesting.valid() )
+           {
+               snapshot_balance.vesting = snapshot_vesting_balance();
+               snapshot_balance.vesting->start_time = contract.start_time;
+               snapshot_balance.vesting->duration_seconds = contract.duration;
+           }
+
+           auto& snapshot_vesting_balance = *snapshot_balance.vesting;
+           FC_ASSERT( snapshot_vesting_balance.start_time == contract.start_time );
+           FC_ASSERT( snapshot_vesting_balance.duration_seconds == contract.duration );
+
+           snapshot_vesting_balance.original_balance += contract.original_balance;
+           snapshot_vesting_balance.current_balance += balance;
+       };
+
+       const auto scan_balance = [ & ]( const balance_record& record )
+       {
+           if( record.balance == 0 )
+               return;
+
+           const auto owner = record.owner();
+           if( !owner.valid() )
+           {
+               // TODO: Dump pretty-print of record for escrow/multisig paybacks
+               return;
+           }
+
+           const asset balance = record.get_spendable_balance( now() );
+           share_type unvested_balance = 0;
+           if( balance.amount != record.balance )
+           {
+               FC_ASSERT( record.condition.type == withdraw_vesting_type );
+               FC_ASSERT( record.balance > balance.amount );
+               FC_ASSERT( balance.asset_id == asset_id_type( 0 ) );
+               unvested_balance += record.balance - balance.amount;
+
+               accumulate_vesting_balance( *owner, unvested_balance, record.condition.as<withdraw_vesting>() );
+           }
+//           else
+//           {
+//               FC_ASSERT( record.condition.type == withdraw_signature_type );
+//           }
+
+           accumulate_balance( *owner, balance );
+       };
+       scan_balances( scan_balance );
+
+       const auto scan_account = [ & ]( const account_record& record )
+       {
+           share_type pay_balance = 0;
+           if( record.is_delegate() )
+               pay_balance += record.delegate_info->pay_balance;
+
+           accumulate_balance( record.owner_address(), asset( pay_balance ) );
+
+           if( record.is_retracted() )
+               return;
+
+           if( record.registration_date <= get_genesis_timestamp() && record.name.find( "init" ) == 0 )
+               return;
+
+           auto& snapshot_account = snapshot.accounts[ record.name ];
+           snapshot_account.timestamp = record.registration_date;
+           snapshot_account.owner_key = record.owner_key;
+           snapshot_account.active_key = record.active_key();
+
+           if( record.is_delegate() )
+           {
+               // Witness
+               if( record.registration_date > get_genesis_timestamp() || record.delegate_info->blocks_produced > 0 )
+                   snapshot_account.signing_key = record.signing_key();
+
+           }
+       };
+       scan_unordered_accounts( scan_account );
+
+       for( auto iter = my->_ask_db.begin(); iter.valid(); ++iter )
+       {
+           const market_index_key& index = iter.key();
+           const order_record& ask = iter.value();
+           accumulate_balance( index.owner, asset( ask.balance, index.order_price.base_asset_id ) );
+
+           ++snapshot.summary.num_canceled_asks;
+       }
+
+       for( auto iter = my->_bid_db.begin(); iter.valid(); ++iter )
+       {
+           const market_index_key& index = iter.key();
+           const order_record& bid = iter.value();
+           accumulate_balance( index.owner, asset( bid.balance, index.order_price.quote_asset_id ) );
+
+           ++snapshot.summary.num_canceled_bids;
+       }
+
+       const auto scan_asset = [ & ]( const asset_record& record )
+       {
+           // CORE fees go back into reserve fund
+           if( record.id == 0 )
+               return;
+
+           auto& snapshot_asset = snapshot.assets[ record.symbol ];
+
+           if( record.is_market_issued() )
+           {
+               snapshot_asset.owner = "witness-account";
+           }
+           else if( record.is_user_issued() )
+           {
+               const auto account_record = get_account_record(record.issuer.issuer_id );
+               FC_ASSERT( account_record.valid() );
+               snapshot_asset.owner = account_record->name;
+           }
+           else if( record.is_game_issued() )
+           {
+               snapshot_asset.owner = "game";
+           }
+
+           snapshot_asset.description = record.description;
+           snapshot_asset.precision = record.precision;
+
+           snapshot_asset.max_supply = record.max_supply;
+           snapshot_asset.current_supply = record.current_supply;
+           snapshot_asset.current_collateral = record.current_collateral;
+           
+           snapshot_asset.collected_fees = std::max( record.collected_fees, share_type( 0 ) );
+       };
+       scan_unordered_assets( scan_asset );
+
+       for( auto& item : snapshot.assets )
+       {
+           const auto& symbol = item.first;
+           auto& asset = item.second;
+           if( asset.owner != "witness-account" )
+               continue;
+
+           FC_ASSERT( asset.collected_fees >= 0 );
+           share_type total_supply = asset.collected_fees;
+           share_type total_debt = 0;
+
+           for( const auto& item : snapshot.balances )
+           {
+               const auto& balance = item.second;
+               if( balance.assets.count( symbol ) > 0 )
+                   total_supply += balance.assets.at( symbol );
+           }
+
+           for( const auto& item : asset.debts )
+           {
+               total_debt += item.second.debt;
+           }
+
+           if( total_supply != total_debt )
+           {
+               FC_ASSERT( total_supply > total_debt );
+
+               vector<pair<address, snapshot_debt>> debt_list;
+               for( const auto& item: asset.debts )
+                   debt_list.push_back( std::make_pair( item.first, item.second ) );
+
+               const auto sorter = []( const pair<address, snapshot_debt>& a, const pair<address, snapshot_debt>& b ) -> bool
+               {
+                   return a.second.debt < b.second.debt;
+               };
+               std::sort( debt_list.begin(), debt_list.end(), sorter );
+               std::reverse( debt_list.begin(), debt_list.end() );
+
+               const auto multiplier = double( total_supply - total_debt ) / total_supply + 1;
+
+               share_type new_total_debt = 0;
+               for( auto& item : debt_list )
+               {
+                   const auto new_debt = item.second.debt * multiplier;
+                   item.second.debt = new_debt;
+                   new_total_debt += new_debt;
+               }
+
+               while( !debt_list.empty() )
+               {
+                   if( new_total_debt >= total_supply )
+                       break;
+
+                   for( auto& item : debt_list )
+                   {
+                       if( new_total_debt >= total_supply )
+                           break;
+
+                       ++item.second.debt;
+                       ++new_total_debt;
+                   }
+               }
+
+               for( auto& item : debt_list )
+                   asset.debts[ item.first ] = item.second;
+
+               total_supply = asset.collected_fees;
+               total_debt = 0;
+
+               for( const auto& item : snapshot.balances )
+               {
+                   const auto& balance = item.second;
+                   if( balance.assets.count( symbol ) > 0 )
+                       total_supply += balance.assets.at( symbol );
+               }
+
+               for( const auto& item : asset.debts )
+               {
+                   total_debt += item.second.debt;
+               }
+
+               FC_ASSERT( total_supply == total_debt );
+           }
+       }
+
+       // Tally summary statistics
+
+       snapshot.summary.num_balance_owners = snapshot.balances.size();
+       for( const auto& item : snapshot.balances )
+       {
+           const auto& balance = item.second;
+
+           snapshot.summary.num_asset_balances += balance.assets.size();
+
+           if( balance.vesting.valid() )
+               ++snapshot.summary.num_vesting_balances;
+       }
+
+       snapshot.summary.num_account_names = snapshot.accounts.size();
+       for( const auto& item : snapshot.accounts )
+       {
+           const auto& account = item.second;
+
+           if( account.signing_key.valid() )
+               ++snapshot.summary.num_witnesses;
+
+           if( account.daily_pay.valid() )
+               ++snapshot.summary.num_workers;
+       }
+
+       for( const auto& item : snapshot.assets )
+       {
+           const auto& asset = item.second;
+
+           if( asset.owner == "witness-account" )
+               ++snapshot.summary.num_mias;
+           else
+               ++snapshot.summary.num_uias;
+
+           snapshot.summary.num_collateral_positions += asset.debts.size();
+       }
+
+       fc::json::save_to_file( snapshot, fc::path( filename + ".intermediate"  ) );
+
+       // Transform to Graphene import format
+       genesis_state_type genesis;
+
+       genesis.initial_timestamp = snapshot.head_block.timestamp;
+       genesis.max_core_supply = snapshot.max_core_supply;
+
+       const auto is_cheap_name = []( const string& n ) -> bool
+       {
+           bool v = false;
+           for( auto c : n )
+           {
+              if( c >= '0' && c <= '9' ) return true;
+              if( c == '.' || c == '-' || c == '/' ) return true;
+              switch( c )
+              {
+                 case 'a':
+                 case 'e':
+                 case 'i':
+                 case 'o':
+                 case 'u':
+                 case 'y':
+                    v = true;
+              }
+           }
+           if( !v )
+              return true;
+           return false;
+       };
+
+       static const auto june8 = time_point_sec( 1433736000 );
+       static const auto june18 = time_point_sec( 1434600000 );
+
+       // Accounts, witnesses, and workers
+       // TODO: Don't forget name modifications and blacklists
+       for( const auto& item : snapshot.accounts )
+       {
+           const string& original_name = item.first;
+           const snapshot_account& keys = item.second;
+
+           const auto prefix_name = [ & ]( const string& name ) -> string
+           {
+               string prefixed_name = "bts-" + name;
+               int count = 0;
+               while( snapshot.accounts.count( prefixed_name ) > 0 )
+               {
+                   prefixed_name = "bts" + std::to_string( count ) + "-" + name;
+                   ++count;
+               }
+               return prefixed_name;
+           };
+
+           string name = original_name;
+//           if( keys.timestamp >= june8 )
+//           {
+//               if( keys.timestamp >= june18 )
+//               {
+//                   if( whitelist.count( name ) == 0 )
+//                       name = prefix_name( name );
+//               }
+//               else if( !is_cheap_name( name ) )
+//               {
+//                   name = prefix_name( name );
+//               }
+//           }
+
+           genesis_state_type::initial_account_type account;
+           account.name = name;
+           account.owner_key = keys.owner_key;
+           account.active_key = keys.active_key;
+           account.is_lifetime_member = keys.signing_key.valid() || keys.daily_pay.valid();
+
+           genesis.initial_accounts.push_back( std::move( account ) );
+
+           // Witness
+           if( keys.signing_key.valid() )
+           {
+               genesis_state_type::initial_witness_type witness;
+               witness.owner_name = name;
+               witness.block_signing_key = *keys.signing_key;
+
+               genesis.initial_witness_candidates.push_back( std::move( witness ) );
+           }
+
+           // Worker
+           if( keys.daily_pay.valid() )
+           {
+               genesis_state_type::initial_worker_type worker;
+               worker.owner_name = name;
+               worker.daily_pay = *keys.daily_pay;
+
+               genesis.initial_worker_candidates.push_back( std::move( worker ) );
+           }
+       }
+
+       // Balances and vesting balances
+       for( const auto& item : snapshot.balances )
+       {
+           const address& owner = item.first;
+           const snapshot_balance& balances = item.second;
+
+           // Balances
+           for( const auto& asset_item : balances.assets )
+           {
+               genesis_state_type::initial_balance_type balance{ owner, asset_item.first, asset_item.second };
+               genesis.initial_balances.push_back( std::move( balance ) );
+           }
+
+           // Vesting balances
+           if( balances.vesting.valid() )
+           {
+               const snapshot_vesting_balance& vesting = *balances.vesting;
+
+               genesis_state_type::initial_vesting_balance_type vesting_balance;
+               vesting_balance.owner = owner;
+               vesting_balance.asset_symbol = BTS_BLOCKCHAIN_SYMBOL;
+               vesting_balance.amount = vesting.current_balance;
+               vesting_balance.begin_timestamp = vesting.start_time;
+               vesting_balance.vesting_duration_seconds = vesting.duration_seconds;
+               vesting_balance.begin_balance = vesting.original_balance;
+
+               genesis.initial_vesting_balances.push_back( std::move( vesting_balance ) );
+           }
+       }
+
+       const auto convert_precision = [ & ]( uint64_t original_precision ) -> uint8_t
+       {
+           uint8_t converted_precision = 0;
+           for( ; original_precision > 1; original_precision /= 10 )
+               ++converted_precision;
+
+           return converted_precision;
+       };
+
+       for( const auto& item : snapshot.assets )
+       {
+           const string& symbol = item.first;
+           const auto& snapshot_asset = item.second;
+
+           genesis_state_type::initial_asset_type asset;
+           asset.symbol = symbol;
+           asset.issuer_name = snapshot_asset.owner;
+
+           asset.description = snapshot_asset.description;
+           asset.precision = convert_precision( snapshot_asset.precision );
+
+           asset.max_supply = snapshot_asset.max_supply;
+           asset.accumulated_fees = snapshot_asset.collected_fees;
+           
+           asset.current_supply = snapshot_asset.current_supply;
+           asset.current_collateral = snapshot_asset.current_collateral;
+           
+           asset.is_bitasset = snapshot_asset.owner == string( "witness-account" );
+
+           for( const auto& debt_item : snapshot_asset.debts )
+           {
+               genesis_state_type::initial_asset_type::initial_collateral_position position;
+               position.owner = debt_item.first;
+               position.collateral = debt_item.second.collateral;
+               position.debt = debt_item.second.debt;
+
+               asset.collateral_records.push_back( std::move( position ) );
+           }
+
+           genesis.initial_assets.push_back( std::move( asset ) );
+       }
+
+       fc::json::save_to_file( genesis, fc::path( filename + ".grahene") );
+       
+       auto dice_asset = snapshot.assets["DICECOIN"];
+       double exchange_ratio = (dice_asset.current_collateral*1.0/ dice_asset.current_supply) ;
+       
+       
+       // close position, DICECOIN -> PLS
+       for( auto& item : genesis.initial_balances )
+       {
+           if( item.asset_symbol == "DICECOIN" ) {
+               item.asset_symbol = "PLS";
+               item.amount = item.amount * exchange_ratio;
+           }
+       }
+       
+       genesis.initial_assets.clear();
+       
+       fc::json::save_to_file( genesis, fc::path( filename ) );
+       
+       
+   } FC_CAPTURE_AND_RETHROW( (filename) ) }
+
    unordered_map<asset_id_type, share_type> chain_database::calculate_supplies()const
    { try {
        unordered_map<asset_id_type, share_type> totals;
@@ -3444,6 +3909,29 @@ namespace bts { namespace blockchain {
 
        return totals;
    } FC_CAPTURE_AND_RETHROW() }
+
+   share_type chain_database::calculate_max_core_supply( share_type pay_per_block )const
+   { try {
+       share_type max_supply = calculate_supplies().at( 0 );
+
+//       static const time_point_sec start_timestamp = get_genesis_timestamp();
+//       static const uint32_t seconds_per_period = fc::days( 4 * 365 ).to_seconds(); // Ignore leap years, leap seconds, etc.
+//
+//       time_point_sec interval_start = this->now();
+//       time_point_sec interval_end = start_timestamp + seconds_per_period;
+//
+//       for( ; pay_per_block > 0; pay_per_block /= 2 )
+//       {
+//           const uint32_t interval_duration = (interval_end - interval_start).to_seconds();
+//
+//           max_supply += interval_duration * pay_per_block / BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC;
+//
+//           interval_start = interval_end;
+//           interval_end += seconds_per_period;
+//       }
+
+       return max_supply;
+   } FC_CAPTURE_AND_RETHROW( (pay_per_block) ) }
 
    asset chain_database::unclaimed_genesis()
    { try {

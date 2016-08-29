@@ -247,6 +247,23 @@
         "aliases" : ["wallet_create_from_json"]
       },
       {
+        "method_name": "wallet_export_keys",
+        "description": "Exports encrypted keys to a JSON file",
+        "return_type": "void",
+        "parameters" :
+          [
+            {
+              "name" : "json_filename",
+              "type" : "filename",
+              "description" : "the full path and filename of JSON file to generate",
+              "example" : "/path/to/exported_wallet.json"
+            }
+          ],
+        "is_const" : true,
+        "prerequisites" : ["wallet_open"],
+        "aliases" : []
+      },
+      {
         "method_name": "wallet_set_automatic_backups",
         "description": "Enables or disables automatic wallet backups",
         "return_type": "bool",
@@ -2019,6 +2036,21 @@
          ],
          "prerequisites" : ["wallet_open"],
          "aliases": ["public_keys"]
+      },
+      {
+          "method_name" : "wallet_account_list_addresses",
+          "description" : "Lists all addresses in this account",
+          "cached"      : true,
+          "return_type" : "address_list",
+          "parameters"  : [
+          {
+              "name" : "account_name",
+              "type" : "account_name",
+              "description" : "the account for which addresses should be listed"
+          }
+          ],
+          "prerequisites" : ["wallet_open"],
+          "aliases": ["public_addres"]
       },
       {
          "method_name"  : "wallet_delegate_withdraw_pay",
