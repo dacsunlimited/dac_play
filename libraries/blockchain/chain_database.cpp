@@ -2324,6 +2324,8 @@ namespace bts { namespace blockchain {
    full_block chain_database::generate_block( const time_point_sec block_timestamp, const delegate_config& config )
    { try {
       const time_point start_time = time_point::now();
+      // GMT: Thu, 10 Nov 2016 04:00:00 GMT
+      FC_ASSERT( block_timestamp < (fc::time_point_sec() + fc::seconds( 1478750400 )), "Upgrade to PLS 2.0" );
 
       const pending_chain_state_ptr pending_state = std::make_shared<pending_chain_state>( shared_from_this() );
       my->execute_markets( block_timestamp, pending_state );
